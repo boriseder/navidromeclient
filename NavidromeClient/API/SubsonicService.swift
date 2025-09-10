@@ -81,7 +81,7 @@ class SubsonicService: ObservableObject {
         do {
             let (data, response) = try await session.data(from: url)
             guard let httpResponse = response as? HTTPURLResponse else { throw SubsonicError.unknown }
-            
+
             switch httpResponse.statusCode {
             case 200:
                 do {

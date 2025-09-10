@@ -14,7 +14,7 @@
 		A1D5531C2E5E746B00317006 /* Exceptions for "NavidromeClient" folder in "NavidromeClient" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				App/Info.plist,
+				Info.plist,
 				Presentation/VIewModels/ZZZPlayerViewModel.swift,
 			);
 			target = A1D552D92E5E6BDB00317006 /* NavidromeClient */;

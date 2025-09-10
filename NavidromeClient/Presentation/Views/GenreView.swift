@@ -53,11 +53,37 @@ struct GenreView: View {
     // MARK: - Loading View
     private var loadingView: some View {
         VStack(spacing: 24) {
-            ProgressView("Loading Genres...")
-                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                .font(.headline)
+            // Animated loading circles
+            HStack(spacing: 8) {
+                ForEach(0..<3) { index in
+                    Circle()
+                        .fill(Color(.systemIndigo))
+                        .frame(width: 12, height: 12)
+                        .scaleEffect(navidromeVM.isLoading ? 1.0 : 0.5)
+                        .animation(
+                            .easeInOut(duration: 0.6)
+                            .repeatForever()
+                            .delay(Double(index) * 0.2),
+                            value: navidromeVM.isLoading
+                        )
+                }
+            }
+            
+            Text("Loading Genres...")
+                .font(.headline.weight(.medium))
+                .foregroundStyle(.primary)
+            
+            Text("Discovering your music library")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(32)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(.white.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(radius: 20, y: 10)
     }
 
     // MARK: - Empty State
