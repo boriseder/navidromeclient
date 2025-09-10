@@ -17,14 +17,7 @@ struct HomeScreenView: View {
         NavigationView {
             ZStack {
                DynamicMusicBackground()
-                // Dynamic background based on currently playing
-           /*     MusicBackgroundView(
-                    artist: nil,
-                    genre: nil,
-                    album: nil
-                )
-                .environmentObject(navidromeVM)
-            */
+
                 ScrollView {
                     LazyVStack(spacing: 32) {
                         // Welcome Header
@@ -34,7 +27,7 @@ struct HomeScreenView: View {
                         // Recent Albums
                         if !homeVM.recentAlbums.isEmpty {
                             AlbumSection(
-                                title: "Kürzlich gespielt",
+                                title: "Recently played",
                                 albums: homeVM.recentAlbums,
                                 icon: "clock.fill",
                                 accentColor: .orange
@@ -44,7 +37,7 @@ struct HomeScreenView: View {
                         // Newest Albums
                         if !homeVM.newestAlbums.isEmpty {
                             AlbumSection(
-                                title: "Neu hinzugefügt",
+                                title: "Newly added",
                                 albums: homeVM.newestAlbums,
                                 icon: "sparkles",
                                 accentColor: .green
@@ -54,7 +47,7 @@ struct HomeScreenView: View {
                         // Most Played Albums
                         if !homeVM.frequentAlbums.isEmpty {
                             AlbumSection(
-                                title: "Oft gespielt",
+                                title: "Often played",
                                 albums: homeVM.frequentAlbums,
                                 icon: "chart.bar.fill",
                                 accentColor: .purple
@@ -64,7 +57,7 @@ struct HomeScreenView: View {
                         // Random Albums
                         if !homeVM.randomAlbums.isEmpty {
                             AlbumSection(
-                                title: "Zufällige Entdeckungen",
+                                title: "Explore",
                                 albums: homeVM.randomAlbums,
                                 icon: "dice.fill",
                                 accentColor: .blue,
@@ -77,7 +70,7 @@ struct HomeScreenView: View {
                         
                         // Loading state
                         if homeVM.isLoading {
-                            LoadingSection()
+                            loadingView()
                         }
                         
                         // Error state
@@ -86,7 +79,7 @@ struct HomeScreenView: View {
                         }
                         
                         // Bottom padding for mini player
-                        Color.clear.frame(height: 100)
+                        Color.clear.frame(height: 90)
                     }
                     .padding(.top, 10)
                 }
@@ -94,7 +87,7 @@ struct HomeScreenView: View {
                     await homeVM.loadHomeScreenData()
                 }
             }
-            .navigationTitle("Musik")
+            .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
             .task {
                 homeVM.configure(with: navidromeVM)
@@ -122,7 +115,7 @@ struct HomeWelcomeHeader: View {
                         .fontWeight(.medium)
                         .foregroundColor(.black.opacity(0.8))
                     
-                    Text("Entdecke deine Musik")
+                    Text("Enjoy your music")
                         .font(.subheadline)
                         .foregroundColor(.black.opacity(0.6))
                 }
@@ -141,10 +134,10 @@ struct HomeWelcomeHeader: View {
     private func greetingText() -> String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
-        case 5..<12: return "Guten Morgen"
-        case 12..<17: return "Guten Tag"
-        case 17..<22: return "Guten Abend"
-        default: return "Gute Nacht"
+        case 5..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        case 17..<22: return "Good evening"
+        default: return "Good night"
         }
     }
     
@@ -276,21 +269,6 @@ struct AlbumCard: View {
     }
 }
 
-// MARK: - Loading Section
-struct LoadingSection: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.2)
-                .tint(.black.opacity(0.6))
-            
-            Text("Lade Musikbibliothek...")
-                .font(.subheadline)
-                .foregroundColor(.black.opacity(0.6))
-        }
-        .frame(height: 100)
-    }
-}
 
 // MARK: - Error Section
 struct ErrorSection: View {
@@ -312,13 +290,4 @@ struct ErrorSection: View {
         .cornerRadius(12)
         .padding(.horizontal, 20)
     }
-}
-
-// MARK: - Preview
-#Preview {
-    NavigationView {
-        HomeScreenView()
-    }
-    .environmentObject(NavidromeViewModel())
-    .environmentObject(PlayerViewModel())
 }

@@ -16,7 +16,7 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // Überprüfe beim Start, ob Konfiguration vorhanden ist
+            // check on start whether config is available
             if !appConfig.isConfigured {
                 showingSettings = true
             }
@@ -26,15 +26,7 @@ struct ContentView: View {
                 SettingsView()
                     .navigationTitle("Setup")
                     .navigationBarTitleDisplayMode(.inline)
-                   /*
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") {
-                                    showingSettings = false
-                                }
-                        }
-                    */
-                    }
+                }
             }
         }
     }
@@ -98,6 +90,7 @@ struct MainTabView: View {
                 }
             }
             .tabItem { Label("Explore", systemImage: "music.note.house") }
+            
             ZStack {
                 ArtistsView()
                 VStack {
@@ -108,6 +101,7 @@ struct MainTabView: View {
                 }
             }
             .tabItem { Label("Artists", systemImage: "person.2.fill") }
+  
             ZStack {
             GenreView()
             VStack {
@@ -118,6 +112,7 @@ struct MainTabView: View {
                 }
             }
             .tabItem { Label("Genre", systemImage: "music.note.list") }
+
             ZStack {
                 SearchView()
                 VStack {

@@ -22,9 +22,9 @@ struct DynamicMusicBackground: View {
     @State private var animationPhase = 0.0
     
     let colors = [
-        Color.purple.opacity(0.3),
+        Color.purple.opacity(0.5),
         Color.blue.opacity(0.4),
-        Color.cyan.opacity(0.3),
+        Color.cyan.opacity(0.6),
         Color.mint.opacity(0.4),
         Color.teal.opacity(0.3),
         Color.indigo.opacity(0.4)

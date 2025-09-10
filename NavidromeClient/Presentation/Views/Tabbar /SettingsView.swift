@@ -16,8 +16,8 @@ struct SettingsView: View {
             List {
                 // MARK: - Ersteinrichtung
                 if !appConfig.isConfigured {
-                    Section("Navidrome-Server") {
-                        NavigationLink("Server einrichten") {
+                    Section("Navidrome") {
+                        NavigationLink("Edit server") {
                             ServerEditView()
                                 .environmentObject(navidromeVM)
                                 .environmentObject(appConfig)
@@ -30,7 +30,7 @@ struct SettingsView: View {
                 // MARK: - Generelle Einstellungen
                 if appConfig.isConfigured {
                     // Server Section
-                    Section("Navidrome-Server") {
+                    Section("Navidrome") {
                         if let creds = AppConfig.shared.getCredentials() {
                             let portPart = creds.baseURL.port.map { ":\($0)" } ?? ""
 
@@ -52,7 +52,7 @@ struct SettingsView: View {
                             }
 
                         }
-                        NavigationLink("Server bearbeiten") {
+                        NavigationLink("Edit server") {
                             ServerEditView()
                                 .environmentObject(navidromeVM)
                                 .environmentObject(appConfig)
@@ -63,7 +63,7 @@ struct SettingsView: View {
                         Button(role: .destructive) {
                             logout()
                         } label: {
-                            Label("Abmelden", systemImage: "power")
+                            Label("Logout", systemImage: "power")
                         }
                     }
                     .task {
@@ -72,7 +72,7 @@ struct SettingsView: View {
                     // Caches Section
                     Section("Caches") {
                         HStack {
-                            Text("Download Speicher")
+                            Text("Download cache")
                             Spacer()
                             Text(downloadManager.totalDownloadSize())
                                 .foregroundStyle(.secondary)
@@ -81,36 +81,22 @@ struct SettingsView: View {
                         Button(role: .destructive) {
                             downloadManager.deleteAllDownloads()
                         } label: {
-                            Label("Alle Downloads löschen", systemImage: "trash")
+                            Label("Delete all downloads", systemImage: "trash")
                         }
                     }
 
-                    // Dummy Section: Benachrichtigungen
-                    Section("Benachrichtigungen") {
-                        Toggle("Push-Benachrichtigungen aktiv", isOn: .constant(true))
-                        Toggle("Newsletter abonnieren", isOn: .constant(false))
-                    }
-
-                    // Dummy Section: Design
-                    Section("Design") {
-                        Picker("App-Theme", selection: .constant("Hell")) {
-                            Text("Hell").tag("Hell")
-                            Text("Dunkel").tag("Dunkel")
-                        }
-                        .pickerStyle(.segmented)
-                    }
                     // MARK: - Server-Infos Section (Fußnote)
-                    Section("Server-Infos") {
+                    Section("Server info") {
 
                             HStack {
-                                Text("Server-Typ:")
+                                Text("Type:")
                                 Spacer()
                                 Text(navidromeVM.serverType ?? "-")
                                     .foregroundStyle(.secondary)
                             }
 
                             HStack {
-                                Text("Server-Version:")
+                                Text("Navidrome-Version:")
                                 Spacer()
                                 Text(navidromeVM.serverVersion ?? "-")
                                     .foregroundStyle(.secondary)
@@ -127,7 +113,7 @@ struct SettingsView: View {
                                 Text("OpenSubsonic:")
                                 Spacer()
                                 if let open = navidromeVM.openSubsonic {
-                                    Text(open ? "Ja" : "Nein")
+                                    Text(open ? "Yes" : "No")
                                         .foregroundStyle(.secondary)
                                 } else {
                                     Text("-")
@@ -141,18 +127,8 @@ struct SettingsView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle(appConfig.isConfigured ? "Einstellungen" : "Ersteinrichtung")
+            .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial setup")
             .navigationBarTitleDisplayMode(.inline)
-            .alert("Erfolg", isPresented: $showingSaveSuccess) {
-                Button("OK") {}
-            } message: {
-                Text("Konfiguration gespeichert!")
-            }
-            .alert("Fehler", isPresented: $showingError) {
-                Button("OK") {}
-            } message: {
-                Text(errorMessage)
-            }
         }
     }
 

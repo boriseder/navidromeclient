@@ -20,37 +20,24 @@ struct ArtistDetailView: View {
     
     var body: some View {
         ZStack {
-            MusicBackgroundView(
-                artist: artist,
-                genre: nil,
-                album: nil
-            )
-                .environmentObject(navidromeVM)
-            contentView
+            DynamicMusicBackground()
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    headerView
+                        .padding(.top, 8)
+                    
+                    albumsSection
+                        .padding(.top, 16)
+                }
+            }
+            .scrollIndicators(.hidden)
         }
-        
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadContent(context: context, navidromeVM: navidromeVM)
         }
         .accountToolbar()
     }
        
-    // MARK: - Content
-    private var contentView: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                headerView
-                    .padding(.top, 8)
-                
-                albumsSection
-                    .padding(.top, 16)
-            }
-        }
-        .scrollIndicators(.hidden)
-    }
-    
     // MARK: - Header
     private var headerView: some View {
         HStack(spacing: 20) {
@@ -59,12 +46,12 @@ struct ArtistDetailView: View {
             Spacer()
         }
         .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal, 20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 8)
                 .stroke(.white.opacity(0.3), lineWidth: 1)
         )
-        .padding(.horizontal, 20)
     }
     
     private var artistAvatar: some View {
@@ -77,7 +64,7 @@ struct ArtistDetailView: View {
                     .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(Color(red: 0.8, green: 0.8, blue: 0.8))
+                    .fill(.black.opacity(0.1))
                     .frame(width: 80, height: 80)
                     .overlay(
                         Image(systemName: "music.mic")
@@ -97,8 +84,10 @@ struct ArtistDetailView: View {
                 .lineLimit(2)
             
             if !viewModel.albums.isEmpty {
-                albumCountBadge
-                shuffleButton
+                HStack {
+                    albumCountBadge
+                    shuffleButton
+                }
             }
         }
     }
@@ -114,17 +103,19 @@ struct ArtistDetailView: View {
     
     private var shuffleButton: some View {
         Button(action: {
-            // playerVM.shufflePlay(albums: viewModel.albums)
+            // TODO: implement shuffle play
+            //playerVM.shufflePlay(albums: viewModel.albums)
         }) {
-            Label("Shuffle All", systemImage: "shuffle")
+            Label("", systemImage: "shuffle")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.vertical, 3)
                 .background(
-                    Capsule().fill(viewModel.dominantColors.first ?? .blue)
+                    Capsule().fill(Color.orange)
                 )
-                .shadow(color: viewModel.dominantColors.first?.opacity(0.3) ?? .clear, radius: 4)
+                .shadow(color: Color.black.opacity(0.2),radius: 3)
+            
         }
     }
     
@@ -132,35 +123,19 @@ struct ArtistDetailView: View {
     private var albumsSection: some View {
         VStack(spacing: 24) {
             if viewModel.isLoading {
-                loadingView
+                loadingView()
             } else {
                 albumsGrid
             }
         }
         .padding(.bottom, 120)
     }
-    
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.2)
-                .tint(viewModel.dominantColors.first)
-            Text("Loading albums...")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(height: 120)
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 20)
-    }
-    
+        
     private var albumsGrid: some View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 2)
-
+        
         return LazyVGrid(columns: columns, spacing: 20) {
-            ForEach(viewModel.albums.indices, id: \.self) { index in
-                let album = viewModel.albums[index]
+            ForEach(viewModel.albums, id: \.id) { album in
                 NavigationLink {
                     AlbumDetailView(album: album)
                         .environmentObject(navidromeVM)
@@ -168,8 +143,7 @@ struct ArtistDetailView: View {
                 } label: {
                     AlbumGridCard(
                         album: album,
-                        cover: viewModel.albumCovers[album.id],
-                        dominantColors: viewModel.dominantColors
+                        cover: viewModel.albumCovers[album.id]
                     )
                     .task {
                         await viewModel.loadAlbumCover(for: album, navidromeVM: navidromeVM)
@@ -187,7 +161,6 @@ class ArtistDetailViewModel {
     var albums: [Album] = []
     var albumCovers: [String: UIImage] = [:]
     var artistImage: UIImage?
-    var dominantColors: [Color] = [.green, .red]
     var isLoading = false
     
     func title(for context: ArtistDetailContext) -> String {
@@ -248,7 +221,6 @@ class ArtistDetailViewModel {
 struct AlbumGridCard: View {
     let album: Album
     let cover: UIImage?
-    let dominantColors: [Color]
 
     @State private var isPressed = false
     
@@ -262,12 +234,6 @@ struct AlbumGridCard: View {
         .background(cardBackground)
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(.spring(duration: 0.2, bounce: 0.3), value: isPressed)
-        .onLongPressGesture(
-            minimumDuration: 0.1,
-            maximumDistance: 50,
-            perform: hapticFeedback,
-            onPressingChanged: { isPressed = $0 }
-        )
     }
     
     private var albumCover: some View {
@@ -287,7 +253,7 @@ struct AlbumGridCard: View {
                 .stroke(.white.opacity(0.1), lineWidth: 1)
         )
         .shadow(
-            color: dominantColors.first?.opacity(0.2) ?? .black.opacity(0.1),
+            color: Color.red.opacity(0.2),
             radius: isPressed ? 8 : 12,
             x: 0, y: isPressed ? 4 : 8
         )
@@ -295,21 +261,15 @@ struct AlbumGridCard: View {
     
     private var placeholderCover: some View {
         Rectangle()
-            .fill(
-                LinearGradient(
-                    colors: dominantColors.map { $0.opacity(0.3) } + [Color.gray.opacity(0.1)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .fill(Color.gray.opacity(0.1))
             .overlay(
                 ZStack {
                     Circle()
-                        .stroke(dominantColors.first?.opacity(0.2) ?? .gray.opacity(0.2), lineWidth: 2)
+                        .stroke(Color.orange.opacity(0.2), lineWidth: 2)
                         .frame(width: 60, height: 60)
                     Image(systemName: "opticaldisc")
                         .font(.system(size: 28, weight: .light))
-                        .foregroundStyle(dominantColors.first?.opacity(0.7) ?? .secondary)
+                        .foregroundStyle(.green.opacity(0.7))
                 }
             )
     }
@@ -363,22 +323,8 @@ struct AlbumGridCard: View {
     
     private var cardBackground: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(.regularMaterial)
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(
-                    LinearGradient(
-                        colors: [.white.opacity(0.3), .clear, dominantColors.first?.opacity(0.2) ?? .clear],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
         }
-    }
-    
-    private func hapticFeedback() {
-        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-        impactFeedback.impactOccurred()
     }
 }
