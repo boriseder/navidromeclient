@@ -61,40 +61,56 @@ class HomeScreenViewModel: ObservableObject {
         return await navidromeVM.loadCoverArt(for: albumId, size: size)
     }
     
-    // MARK: - Private Methods
     private func loadRecentAlbums(service: SubsonicService) async {
         do {
             recentAlbums = try await service.getRecentAlbums(size: 10)
+            print("✅ Loaded \(recentAlbums.count) recent albums")
         } catch {
-            print("Failed to load recent albums: \(error)")
-            errorMessage = "Fehler beim Laden der kürzlich gespielten Alben"
+            print("⚠️ Failed to load recent albums: \(error)")
+            recentAlbums = [] // Fallback zu leerem Array
+            // Nur bei kritischen Fehlern Error Message setzen
+            if case SubsonicError.unauthorized = error {
+                errorMessage = "Anmeldung fehlgeschlagen"
+            }
         }
     }
-    
+
     private func loadNewestAlbums(service: SubsonicService) async {
         do {
             newestAlbums = try await service.getNewestAlbums(size: 10)
+            print("✅ Loaded \(newestAlbums.count) newest albums")
         } catch {
-            print("Failed to load newest albums: \(error)")
-            errorMessage = "Fehler beim Laden der neuen Alben"
+            print("⚠️ Failed to load newest albums: \(error)")
+            newestAlbums = []
+            if case SubsonicError.unauthorized = error {
+                errorMessage = "Anmeldung fehlgeschlagen"
+            }
         }
     }
-    
+
     private func loadFrequentAlbums(service: SubsonicService) async {
         do {
             frequentAlbums = try await service.getFrequentAlbums(size: 10)
+            print("✅ Loaded \(frequentAlbums.count) frequent albums")
         } catch {
-            print("Failed to load frequent albums: \(error)")
-            errorMessage = "Fehler beim Laden der oft gespielten Alben"
+            print("⚠️ Failed to load frequent albums: \(error)")
+            frequentAlbums = []
+            if case SubsonicError.unauthorized = error {
+                errorMessage = "Anmeldung fehlgeschlagen"
+            }
         }
     }
-    
+
     private func loadRandomAlbums(service: SubsonicService) async {
         do {
             randomAlbums = try await service.getRandomAlbums(size: 10)
+            print("✅ Loaded \(randomAlbums.count) random albums")
         } catch {
-            print("Failed to load random albums: \(error)")
-            errorMessage = "Fehler beim Laden der zufälligen Alben"
+            print("⚠️ Failed to load random albums: \(error)")
+            randomAlbums = []
+            if case SubsonicError.unauthorized = error {
+                errorMessage = "Anmeldung fehlgeschlagen"
+            }
         }
     }
 }

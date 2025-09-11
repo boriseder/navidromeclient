@@ -69,10 +69,10 @@ struct SettingsView: View {
                     .task {
                         await navidromeVM.testConnection()
                     }
-                    // Caches Section
-                    Section("Caches") {
+                    // Downloads Section
+                    Section("Download") {
                         HStack {
-                            Text("Download cache")
+                            Text("Downloades music")
                             Spacer()
                             Text(downloadManager.totalDownloadSize())
                                 .foregroundStyle(.secondary)
@@ -121,6 +121,31 @@ struct SettingsView: View {
                                 }
                             }
                     }
+                    
+                    // MARK: - Cache Management Section
+                    Section("Cache Management") {
+                        NavigationLink("Cache Settings") {
+                            CacheSettingsView()
+                                .environmentObject(downloadManager)
+                                .environmentObject(navidromeVM)
+                        }
+                        
+                        // Quick Cache Stats
+                        HStack {
+                            Text("Cover Art Cache")
+                            Spacer()
+                            Text(getCoverCacheSize())
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        HStack {
+                            Text("Download Cache")
+                            Spacer()
+                            Text(downloadManager.totalDownloadSize())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
                     .task {
                         await navidromeVM.testConnection()
                     }
@@ -141,4 +166,10 @@ struct SettingsView: View {
         playerVM.updateService(defaultService)
         dismiss()
     }
+    
+    private func getCoverCacheSize() -> String {
+        let stats = PersistentImageCache.shared.getCacheStats()
+        return stats.diskSizeFormatted
+    }
+
 }

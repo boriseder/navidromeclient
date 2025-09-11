@@ -1,34 +1,5 @@
-//
-//  SubsonicError.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 04.09.25.
-//
-
-
 import Foundation
 import UIKit
-
-@MainActor
-enum SubsonicError: Error, LocalizedError {
-    case badURL
-    case network(underlying: Error)
-    case server(statusCode: Int)
-    case decoding(underlying: Error)
-    case unauthorized
-    case unknown
-
-    var errorDescription: String? {
-        switch self {
-        case .badURL: return "Ungültige URL."
-        case .network(let err): return "Netzwerkfehler: \(err.localizedDescription)"
-        case .server(let code): return "Server antwortete mit Status \(code)."
-        case .decoding(let err): return "Fehler beim Verarbeiten der Daten: \(err.localizedDescription)"
-        case .unauthorized: return "Benutzername oder Passwort ist falsch."
-        case .unknown: return "Unbekannter Fehler."
-        }
-    }
-}
 
 @MainActor
 class SubsonicService: ObservableObject {
@@ -36,7 +7,6 @@ class SubsonicService: ObservableObject {
     private let username: String
     private let password: String
     private let session: URLSession
-    private let imageCache = NSCache<NSString, UIImage>()
     
     init(baseURL: URL, username: String, password: String) {
         self.baseURL = baseURL
@@ -73,21 +43,24 @@ class SubsonicService: ObservableObject {
         return components.url
     }
     
-    // MARK: - Generic Fetch
+    // MARK: - Generic Fetch mit intelligenter Fehlerbehandlung
     func fetchData<T: Decodable>(endpoint: String, params: [String: String] = [:], type: T.Type) async throws -> T {
         guard let url = buildURL(endpoint: endpoint, params: params) else {
             throw SubsonicError.badURL
         }
+        
         do {
             let (data, response) = try await session.data(from: url)
-            guard let httpResponse = response as? HTTPURLResponse else { throw SubsonicError.unknown }
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw SubsonicError.unknown
+            }
 
             switch httpResponse.statusCode {
             case 200:
                 do {
                     return try JSONDecoder().decode(T.self, from: data)
-                } catch {
-                    throw SubsonicError.decoding(underlying: error)
+                } catch let decodingError {
+                    throw handleDecodingError(decodingError, endpoint: endpoint)
                 }
             case 401:
                 throw SubsonicError.unauthorized
@@ -95,10 +68,33 @@ class SubsonicService: ObservableObject {
                 throw SubsonicError.server(statusCode: httpResponse.statusCode)
             }
         } catch {
-            throw SubsonicError.network(underlying: error)
+            if error is SubsonicError {
+                throw error
+            } else {
+                throw SubsonicError.network(underlying: error)
+            }
         }
     }
-    // MARK: StreamURL
+    
+    // MARK: - Fetch mit Fallback für leere Responses
+    func fetchDataWithFallback<T: Decodable>(
+        endpoint: String,
+        params: [String: String] = [:],
+        type: T.Type,
+        fallback: T
+    ) async throws -> T {
+        do {
+            return try await fetchData(endpoint: endpoint, params: params, type: type)
+        } catch {
+            if let subsonicError = error as? SubsonicError, subsonicError.isEmptyResponse {
+                print("🔄 Using fallback for empty response: \(endpoint)")
+                return fallback
+            }
+            throw error
+        }
+    }
+    
+    // MARK: - StreamURL
     func streamURL(for songId: String) -> URL? {
         buildURL(endpoint: "stream", params: ["id": songId])
     }
@@ -113,7 +109,6 @@ class SubsonicService: ObservableObject {
         }
     }
             
-    /// Ping mit allen Serverinfos
     func pingWithInfo() async throws -> PingInfo {
         guard let url = URL(string: "\(baseURL)/rest/ping.view?u=\(username)&p=\(password)&f=json") else {
             throw URLError(.badURL)
@@ -124,12 +119,17 @@ class SubsonicService: ObservableObject {
         return decoded.subsonicResponse
     }
     
-    // MARK: - CoverArt Cache Helper
-    func cacheImage(_ image: UIImage, key: String) {
-        imageCache.setObject(image, forKey: key as NSString)
-    }
-    
-    func cachedImage(for key: String) -> UIImage? {
-        imageCache.object(forKey: key as NSString)
+    // MARK: - Private Helper
+    private func handleDecodingError(_ error: Error, endpoint: String) -> SubsonicError {
+        if case DecodingError.keyNotFound(let key, _) = error {
+            // Bekannte "leere Response" Szenarien
+            let emptyResponseKeys = ["album", "artist", "song", "genre"]
+            if emptyResponseKeys.contains(key.stringValue) {
+                print("⚠️ Server returned empty response for key '\(key.stringValue)' in endpoint: \(endpoint)")
+                return SubsonicError.emptyResponse(endpoint: endpoint)
+            }
+        }
+        
+        return SubsonicError.decoding(underlying: error)
     }
 }

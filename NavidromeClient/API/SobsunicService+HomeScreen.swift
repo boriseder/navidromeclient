@@ -1,10 +1,3 @@
-//
-//  SubsonicService+Albums.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 04.09.25.
-//
-
 import Foundation
 
 @MainActor
@@ -17,26 +10,27 @@ extension SubsonicService {
         case byGenre = "byGenre"
     }
     
-/*    func getAlbumsByGenre(genre: String) async throws -> [Album] {
-        guard !genre.isEmpty else { return [] }
-        let decoded: SubsonicResponse<AlbumListContainer> =
-            try await fetchData(endpoint: "getAlbumList2",
-                                params: ["type": "byGenre", "genre": genre],
-                                type: SubsonicResponse<AlbumListContainer>.self)
-        return decoded.subsonicResponse.albumList2.album
-    }
- */
     func getAlbumList(type: AlbumListType, size: Int = 20, offset: Int = 0) async throws -> [Album] {
-        var params = ["type": type.rawValue, "size": "\(size)", "offset": "\(offset)"]
+        let params = ["type": type.rawValue, "size": "\(size)", "offset": "\(offset)"]
         
-        let decoded: SubsonicResponse<AlbumListContainer> =
-            try await fetchData(endpoint: "getAlbumList2",
-                                params: params,
-                                type: SubsonicResponse<AlbumListContainer>.self)
-        return decoded.subsonicResponse.albumList2.album
+        // Explizite Typen für bessere Klarheit
+        let emptyAlbumList = AlbumList(album: [])
+        let emptyContainer = AlbumListContainer(albumList2: emptyAlbumList)
+        let fallbackResponse = SubsonicResponse<AlbumListContainer>(subsonicResponse: emptyContainer)
+        
+        let decoded: SubsonicResponse<AlbumListContainer> = try await fetchDataWithFallback(
+            endpoint: "getAlbumList2",
+            params: params,
+            type: SubsonicResponse<AlbumListContainer>.self,
+            fallback: fallbackResponse
+        )
+        
+        let albums = decoded.subsonicResponse.albumList2.album
+        print("✅ Loaded \(albums.count) \(type.rawValue) albums")
+        return albums
     }
     
-    // Convenience methods for specific types
+    // Convenience methods für spezifische Typen
     func getRecentAlbums(size: Int = 20) async throws -> [Album] {
         return try await getAlbumList(type: .recent, size: size)
     }
@@ -53,3 +47,5 @@ extension SubsonicService {
         return try await getAlbumList(type: .random, size: size)
     }
 }
+
+// MARK: - Keine Extensions mehr nötig, da wir direkte Error-Behandlung verwenden
