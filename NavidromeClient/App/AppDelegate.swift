@@ -5,10 +5,10 @@
 //  Created by Boris Eder on 11.09.25.
 //
 
-
 import UIKit
 import AVFoundation
 import MediaPlayer
+import BackgroundTasks
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     
@@ -17,19 +17,29 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Initialize Audio Session Manager früh
         _ = AudioSessionManager.shared
         
-        // Configure background app refresh
-        application.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
+        // Configure background tasks (iOS 13+)
+        registerBackgroundTasks()
         
         print("✅ App launched with audio session configured")
         return true
     }
     
-    // MARK: - Background App Refresh
+    // MARK: - Background Tasks (iOS 13+)
     
-    func application(_ application: UIApplication, performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    private func registerBackgroundTasks() {
+        BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.navidrome.client.refresh", using: nil) { task in
+            self.handleAppRefresh(task: task as! BGAppRefreshTask)
+        }
+    }
+    
+    private func handleAppRefresh(task: BGAppRefreshTask) {
+        task.expirationHandler = {
+            task.setTaskCompleted(success: false)
+        }
+        
         // Hier könntest du z.B. Playlists aktualisieren
-        print("📱 Background fetch triggered")
-        completionHandler(.noData)
+        print("📱 Background refresh triggered")
+        task.setTaskCompleted(success: true)
     }
     
     // MARK: - App Lifecycle for Audio
@@ -42,6 +52,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     func applicationDidEnterBackground(_ application: UIApplication) {
         // App geht in Hintergrund - Audio sollte weiterlaufen
         print("📱 App entered background - audio should continue")
+        
+        // Schedule background refresh
+        scheduleAppRefresh()
     }
     
     func applicationWillEnterForeground(_ application: UIApplication) {
@@ -74,5 +87,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         
         // Clear now playing info
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    }
+    
+    private func scheduleAppRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.navidrome.client.refresh")
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // 15 minutes
+        
+        try? BGTaskScheduler.shared.submit(request)
     }
 }

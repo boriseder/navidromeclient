@@ -13,6 +13,11 @@
 		<string>audio</string>
 		<string>background-processing</string>
 	</array>
+	<!-- Background Tasks -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.navidrome.client.refresh</string>
+	</array>
 	<!-- Audio Session Category -->
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>

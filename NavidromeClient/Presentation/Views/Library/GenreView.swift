@@ -6,6 +6,7 @@ struct GenreView: View {
     @EnvironmentObject var appConfig: AppConfig
 
     @State private var searchText = ""
+    @State private var hasLoadedOnce = false
 
     var body: some View {
         NavigationStack {
@@ -22,8 +23,28 @@ struct GenreView: View {
             .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $searchText, placement: .automatic, prompt: "Search genres...")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        Task {
+                            await navidromeVM.loadGenres()
+                            hasLoadedOnce = true
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(navidromeVM.isLoading)
+                }
+            }
             .task {
+                if !hasLoadedOnce {
+                    await navidromeVM.loadGenres()
+                    hasLoadedOnce = true
+                }
+            }
+            .refreshable {
                 await navidromeVM.loadGenres()
+                hasLoadedOnce = true
             }
             .navigationDestination(for: Genre.self) { genre in
                 ArtistDetailView(context: .genre(genre))
@@ -44,12 +65,9 @@ struct GenreView: View {
         }
     }
 
-    // MARK: - Main Content
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-
-                // Genres Grid
                 ForEach(filteredGenres, id: \.id) { genre in
                     NavigationLink(value: genre) {
                         GenreCard(genre: genre)

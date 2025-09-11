@@ -32,8 +32,9 @@ class NavidromeViewModel: ObservableObject {
     private let downloadManager: DownloadManager
 
     // MARK: - Init with Dependency Injection
-    init(downloadManager: DownloadManager = .shared) {
-        self.downloadManager = downloadManager
+    init(downloadManager: DownloadManager? = nil) {
+        // Verwende provided DownloadManager oder shared instance
+        self.downloadManager = downloadManager ?? DownloadManager.shared
         loadSavedCredentials()
     }
 
@@ -218,11 +219,6 @@ class NavidromeViewModel: ObservableObject {
         }
     }
 
-    func downloadAlbum(songs: [Song], albumId: String, playerVM: PlayerViewModel) async {
-        guard let service else { return }
-        await downloadManager.downloadAlbum(songs: songs, albumId: albumId, service: service)
-    }
-    
     // MARK: - Reset
     func reset() {
         service = nil
@@ -238,5 +234,92 @@ class NavidromeViewModel: ObservableObject {
         password = ""
         connectionStatus = false
         errorMessage = nil
+    }
+    
+    // MARK: - NEW: Album-specific methods
+    func loadAllAlbums(sortBy: SubsonicService.AlbumSortType = .alphabetical) async {
+        guard let service else {
+            print("❌ Service nicht verfügbar")
+            return
+        }
+        
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            albums = try await service.getAllAlbums(sortBy: sortBy)
+            
+            // Cache Album-Metadaten für Offline-Verfügbarkeit
+            AlbumMetadataCache.shared.cacheAlbums(albums)
+            
+        } catch {
+            if let subsonicError = error as? SubsonicError, subsonicError.isOfflineError {
+                // Bei Offline-Fehler: Versuche gecachte Alben zu laden
+                let offlineAlbums = OfflineManager.shared.offlineAlbums
+                if !offlineAlbums.isEmpty {
+                    albums = offlineAlbums
+                    print("📦 Loaded \(albums.count) albums from offline cache")
+                } else {
+                    errorMessage = "Keine Alben im Offline-Cache verfügbar"
+                }
+            } else {
+                errorMessage = "Failed to load albums: \(error.localizedDescription)"
+                print("Failed to load albums: \(error)")
+            }
+        }
+    }
+    
+    // Enhanced Artists loading mit Offline-Support
+    func loadArtistsWithOfflineSupport() async {
+        guard NetworkMonitor.shared.isConnected else {
+            // Offline: Zeige nur Artists von heruntergeladenen Alben
+            let downloadedAlbums = downloadManager.downloadedAlbums
+            let albumIds = Set(downloadedAlbums.map { $0.albumId })
+            let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
+            
+            // Extrahiere unique Artists
+            let uniqueArtists = Set(cachedAlbums.map { $0.artist })
+            let offlineArtists = uniqueArtists.compactMap { artistName in
+                // Erstelle minimale Artist-Objekte für Offline-Nutzung
+                Artist(
+                    id: artistName.replacingOccurrences(of: " ", with: "_"),
+                    name: artistName,
+                    coverArt: nil,
+                    albumCount: cachedAlbums.filter { $0.artist == artistName }.count,
+                    artistImageUrl: nil
+                )
+            }
+            
+            artists = offlineArtists.sorted { $0.name < $1.name }
+            return
+        }
+        
+        // Online: Standard-Verhalten
+        await loadArtists()
+    }
+    
+    // Enhanced Genres loading mit Offline-Support
+    func loadGenresWithOfflineSupport() async {
+        guard NetworkMonitor.shared.isConnected else {
+            // Offline: Extrahiere Genres von heruntergeladenen Alben
+            let downloadedAlbums = downloadManager.downloadedAlbums
+            let albumIds = Set(downloadedAlbums.map { $0.albumId })
+            let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
+            
+            let genreGroups = Dictionary(grouping: cachedAlbums) { $0.genre ?? "Unknown" }
+            let offlineGenres = genreGroups.map { genreName, albums in
+                Genre(
+                    value: genreName,
+                    songCount: albums.reduce(0) { $0 + ($1.songCount ?? 0) },
+                    albumCount: albums.count
+                )
+            }
+            
+            genres = offlineGenres.sorted { $0.value < $1.value }
+            return
+        }
+        
+        // Online: Standard-Verhalten
+        await loadGenres()
     }
 }

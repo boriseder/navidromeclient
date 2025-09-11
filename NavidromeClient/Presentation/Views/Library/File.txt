@@ -1,0 +1,2 @@
+.navigationTitle("")  // Entferne den Album-Namen aus der Nav Bar
+.navigationBarTitleDisplayMode(.inline)

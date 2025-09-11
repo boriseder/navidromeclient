@@ -5,7 +5,6 @@
 //  Created by Boris Eder on 11.09.25.
 //
 
-
 import Foundation
 import AVFoundation
 import MediaPlayer
@@ -216,8 +215,8 @@ class AudioSessionManager: NSObject, ObservableObject {
         
         // Check for headphones
         isHeadphonesConnected = route.outputs.contains { output in
-            output.portType == .headphones || 
-            output.portType == .bluetoothA2DP || 
+            output.portType == .headphones ||
+            output.portType == .bluetoothA2DP ||
             output.portType == .bluetoothHFP ||
             output.portType == .bluetoothLE
         }
@@ -302,7 +301,8 @@ class AudioSessionManager: NSObject, ObservableObject {
             print("⚙️ Route configuration changed")
             
         @unknown default:
-            print("⚠️ Unknown route change reason")
+            print("⚠️ Unknown route change reason: \(reason.rawValue)")
+                    
         }
     }
     
@@ -325,7 +325,7 @@ class AudioSessionManager: NSObject, ObservableObject {
         case .end:
             print("🔊 Other apps stopped requesting volume reduction")
         @unknown default:
-            break
+            print("⚠️ Unknown silence hint type: \(type.rawValue)")
         }
     }
     

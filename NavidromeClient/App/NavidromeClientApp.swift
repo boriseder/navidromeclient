@@ -10,6 +10,10 @@ struct NavidromeClientApp: App {
     @StateObject private var downloadManager = DownloadManager.shared
     @StateObject private var playerVM: PlayerViewModel
     @StateObject private var audioSessionManager = AudioSessionManager.shared
+    
+    // Network & Offline Management
+    @StateObject private var networkMonitor = NetworkMonitor.shared
+    @StateObject private var offlineManager = OfflineManager.shared
    
     init() {
         // Initialize PlayerViewModel with dependencies
@@ -34,15 +38,16 @@ struct NavidromeClientApp: App {
                 .environmentObject(downloadManager)
                 .environmentObject(appConfig)
                 .environmentObject(audioSessionManager)
+                .environmentObject(networkMonitor)  // NEU
+                .environmentObject(offlineManager)  // NEU
                 .onAppear {
                     setupServices()
+                    setupNetworkMonitoring()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                    // Refresh audio session when app becomes active
                     handleAppBecameActive()
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-                    // Prepare for background
                     handleAppWillResignActive()
                 }
         }
@@ -60,6 +65,11 @@ struct NavidromeClientApp: App {
         }
     }
     
+    private func setupNetworkMonitoring() {
+        // Network Monitor ist bereits als Singleton aktiv
+        print("🌐 Network monitoring active")
+    }
+    
     private func handleAppBecameActive() {
         print("📱 App became active - refreshing audio session")
         // AudioSessionManager wird automatisch reaktiviert
@@ -72,4 +82,6 @@ struct NavidromeClientApp: App {
             print("🎵 Music is playing - should continue in background")
         }
     }
+    
+
 }

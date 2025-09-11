@@ -5,18 +5,22 @@ struct ContentView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     
+    @StateObject private var networkMonitor = NetworkMonitor.shared
+    @StateObject private var offlineManager = OfflineManager.shared
+    
     @State private var showingSettings = false
     
     var body: some View {
         Group {
             if appConfig.isConfigured {
                 MainTabView()
+                    .environmentObject(networkMonitor)
+                    .environmentObject(offlineManager)
             } else {
                 WelcomeView()
             }
         }
         .onAppear {
-            // check on start whether config is available
             if !appConfig.isConfigured {
                 showingSettings = true
             }
@@ -26,11 +30,24 @@ struct ContentView: View {
                 SettingsView()
                     .navigationTitle("Setup")
                     .navigationBarTitleDisplayMode(.inline)
-                }
             }
         }
+        .onChange(of: networkMonitor.isConnected) { _, isConnected in
+            handleNetworkChange(isConnected)
+        }
     }
-
+    
+    private func handleNetworkChange(_ isConnected: Bool) {
+        if !isConnected {
+            // Automatisch zu Offline-Modus wechseln wenn Verbindung verloren
+            print("📵 Network lost - switching to offline mode")
+            offlineManager.switchToOfflineMode()
+        } else {
+            print("📶 Network restored")
+            // Benutzer entscheidet selbst ob zurück zu Online-Modus
+        }
+    }
+}
 
 struct WelcomeView: View {
     @EnvironmentObject var appConfig: AppConfig
@@ -67,71 +84,6 @@ struct WelcomeView: View {
                     .navigationTitle("Server Setup")
                     .navigationBarTitleDisplayMode(.inline)
             }
-        }
-    }
-}
-
-struct MainTabView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var appConfig: AppConfig
-
-    @State private var navPath: [AnyHashable] = []
-
-    var body: some View {
-        TabView {
-            ZStack {
-                HomeScreenView()
-                VStack {
-                    Spacer()
-                    MiniPlayerView()
-                        .environmentObject(playerVM)
-                        .frame(height: 90)
-                }
-            }
-            .tabItem { Label("Explore", systemImage: "music.note.house") }
-            
-            ZStack {
-                ArtistsView()
-                VStack {
-                    Spacer()
-                    MiniPlayerView()
-                        .environmentObject(playerVM)
-                        .frame(height: 90)
-                }
-            }
-            .tabItem { Label("Artists", systemImage: "person.2.fill") }
-  
-            ZStack {
-            GenreView()
-            VStack {
-                Spacer()
-                MiniPlayerView()
-                    .environmentObject(playerVM)
-                    .frame(height: 90)
-                }
-            }
-            .tabItem { Label("Genre", systemImage: "music.note.list") }
-
-            ZStack {
-                SearchView()
-                VStack {
-                    Spacer()
-                    MiniPlayerView()
-                        .environmentObject(playerVM)
-                        .frame(height: 90)
-                }
-            }
-            .tabItem { Label("Suche", systemImage: "magnifyingglass") }
-        }
-        .onAppear {
-            // TabBar transparent + ultra thin material
-            let appearance = UITabBarAppearance()
-            appearance.configureWithTransparentBackground()
-            appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterial)
-
-            UITabBar.appearance().standardAppearance = appearance
-            UITabBar.appearance().scrollEdgeAppearance = appearance
         }
     }
 }

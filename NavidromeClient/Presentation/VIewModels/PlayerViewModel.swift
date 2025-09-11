@@ -40,9 +40,9 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     // MARK: - Init
     
-    init(service: SubsonicService? = nil, downloadManager: DownloadManager = .shared) {
+    init(service: SubsonicService? = nil, downloadManager: DownloadManager? = nil) {
         self.service = service
-        self.downloadManager = downloadManager
+        self.downloadManager = downloadManager ?? DownloadManager.shared
         super.init()
         
         setupNotifications()
@@ -345,6 +345,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     // MARK: - Time Observer
     
+    /*
     private func setupTimeObserver() {
         guard let player = player else { return }
         
@@ -367,11 +368,36 @@ class PlayerViewModel: NSObject, ObservableObject {
             }
         }
     }
-    
+    */
     private func updateProgress() {
         playbackProgress = duration > 0 ? currentTime / duration : 0
     }
     
+    private func setupTimeObserver() {
+        guard let player = player else { return }
+        
+        timeObserver = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
+            queue: .main
+        ) { [weak self] time in
+            Task { @MainActor in
+                guard let self = self else { return }
+                let newTime = time.seconds
+                
+                if abs(newTime - self.lastUpdateTime) > 0.1 {
+                    self.lastUpdateTime = newTime
+                    self.currentTime = newTime
+                    self.updateProgress()
+                    
+                    // Update Now Playing Info every few seconds to keep it current
+                    if Int(newTime) % 5 == 0 {
+                        self.updateNowPlayingInfo()
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Cleanup
     
     private func cleanupPlayer() {
@@ -470,4 +496,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     func deleteAlbum(albumId: String) {
         downloadManager.deleteAlbum(albumId: albumId)
     }
+    
+
 }
+

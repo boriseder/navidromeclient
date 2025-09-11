@@ -42,12 +42,13 @@ class HomeScreenViewModel: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         
-        async let recentTask = loadRecentAlbums(service: service)
-        async let newestTask = loadNewestAlbums(service: service)
-        async let frequentTask = loadFrequentAlbums(service: service)
-        async let randomTask = loadRandomAlbums(service: service)
-        
-        _ = await (recentTask, newestTask, frequentTask, randomTask)
+        // Führe Tasks parallel aus
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.loadRecentAlbums(service: service) }
+            group.addTask { await self.loadNewestAlbums(service: service) }
+            group.addTask { await self.loadFrequentAlbums(service: service) }
+            group.addTask { await self.loadRandomAlbums(service: service) }
+        }
     }
     
     func refreshRandomAlbums() async {

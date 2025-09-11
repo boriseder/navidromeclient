@@ -1,11 +1,14 @@
 import SwiftUI
 
+import SwiftUI
+
 struct ArtistsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
     
     @State private var searchText = ""
+    @State private var hasLoadedOnce = false
     
     var body: some View {
         NavigationStack {
@@ -22,8 +25,28 @@ struct ArtistsView: View {
             .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $searchText, placement: .automatic, prompt: "Search artists...")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        Task {
+                            await navidromeVM.loadArtists()
+                            hasLoadedOnce = true
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .disabled(navidromeVM.isLoading)
+                }
+            }
             .task {
+                if !hasLoadedOnce {
+                    await navidromeVM.loadArtists()
+                    hasLoadedOnce = true
+                }
+            }
+            .refreshable {
                 await navidromeVM.loadArtists()
+                hasLoadedOnce = true
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(context: .artist(artist))
@@ -44,12 +67,9 @@ struct ArtistsView: View {
         }
     }
 
-    // MARK: - Main Content
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-
-                // Artists List
                 ForEach(Array(filteredArtists.enumerated()), id: \.element.id) { index, artist in
                     NavigationLink(value: artist) {
                         ArtistCard(artist: artist, index: index)
@@ -60,7 +80,7 @@ struct ArtistsView: View {
             .padding(.bottom, 90)
         }
     }
-    
+
     // MARK: - Helper Methods
     private func loadArtistsIfNeeded() async {
         // Nur laden, wenn konfiguriert und noch keine Artists geladen
@@ -95,12 +115,12 @@ struct ArtistCard: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 60, height: 60)
+                            .frame(width: 70, height: 70)
                             .clipShape(Circle())
                     } else if isLoadingImage {
                         Circle()
                             .fill(.regularMaterial)
-                            .frame(width: 60, height: 60)
+                            .frame(width: 70, height: 70)
                             .overlay(
                                 ProgressView()
                                     .scaleEffect(0.8)

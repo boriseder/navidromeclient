@@ -96,14 +96,12 @@ class DownloadManager: ObservableObject {
         }
     }
 
-    // MARK: - Download Logic (Album)
+    // MARK: - Download Logic (Album) - ENHANCED VERSION
     func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async {
         // Prüfen, ob schon ein Download läuft
-        await MainActor.run {
-            guard !isDownloading.contains(albumId) else { return }
-            isDownloading.insert(albumId)
-            downloadProgress[albumId] = 0
-        }
+        guard !isDownloading.contains(albumId) else { return }
+        isDownloading.insert(albumId)
+        downloadProgress[albumId] = 0
 
         let albumFolder = downloadsFolder.appendingPathComponent(albumId, isDirectory: true)
         if !FileManager.default.fileExists(atPath: albumFolder.path) {
@@ -123,37 +121,36 @@ class DownloadManager: ObservableObject {
                 try data.write(to: fileURL, options: .atomic)
 
                 // UI-Update am MainActor
-                await MainActor.run {
-                    songIds.append(song.id)
-                    downloadedSongs.insert(song.id)
-                    downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
-                }
+                songIds.append(song.id)
+                downloadedSongs.insert(song.id)
+                downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
             } catch {
                 print("Download error for \(song.title): \(error)")
             }
         }
 
-        await MainActor.run {
-            // Album speichern
-            let downloadedAlbum = DownloadedAlbum(albumId: albumId, songIds: songIds, folderPath: albumFolder.path)
-            if let idx = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
-                downloadedAlbums[idx] = downloadedAlbum
-            } else {
-                downloadedAlbums.append(downloadedAlbum)
-            }
-
-            saveDownloadedAlbums()
-            isDownloading.remove(albumId)
-            downloadProgress[albumId] = 1.0
+        // Album speichern
+        let downloadedAlbum = DownloadedAlbum(albumId: albumId, songIds: songIds, folderPath: albumFolder.path)
+        if let idx = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
+            downloadedAlbums[idx] = downloadedAlbum
+        } else {
+            downloadedAlbums.append(downloadedAlbum)
         }
+
+        saveDownloadedAlbums()
+        isDownloading.remove(albumId)
+        downloadProgress[albumId] = 1.0
+        
+        // Sende Notification nach erfolgreichem Download
+        NotificationCenter.default.post(name: .downloadCompleted, object: albumId)
 
         // Fortschritt nach kurzer Zeit ausblenden
         try? await Task.sleep(nanoseconds: 2_000_000_000)
-        await MainActor.run {
-            downloadProgress.removeValue(forKey: albumId)
-        }
+        downloadProgress.removeValue(forKey: albumId)
     }
+    
     func deleteAlbum(albumId: String) {
+        // Verwende explizites Task für async Operationen
         Task { @MainActor in
             guard let album = downloadedAlbums.first(where: { $0.albumId == albumId }) else { return }
 
@@ -172,7 +169,6 @@ class DownloadManager: ObservableObject {
         }
     }
     
-    
     func deleteAllDownloads() {
         let folder = downloadsFolder
         try? FileManager.default.removeItem(at: folder)
@@ -185,4 +181,10 @@ class DownloadManager: ObservableObject {
 
         saveDownloadedAlbums()
     }
+}
+
+// MARK: - Notification Names
+extension Notification.Name {
+    static let downloadCompleted = Notification.Name("downloadCompleted")
+    static let networkStatusChanged = Notification.Name("networkStatusChanged")
 }

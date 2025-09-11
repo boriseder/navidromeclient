@@ -126,33 +126,13 @@ struct ArtistDetailView: View {
             if viewModel.isLoading {
                 loadingView()
             } else {
-                albumsGrid
+                // GEÄNDERT: Verwende das neue AlbumGridView
+                AlbumGridView(albums: viewModel.albums)
+                    .environmentObject(navidromeVM)
+                    .environmentObject(playerVM)
             }
         }
         .padding(.bottom, 120)
-    }
-        
-    private var albumsGrid: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 2)
-        
-        return LazyVGrid(columns: columns, spacing: 20) {
-            ForEach(viewModel.albums, id: \.id) { album in
-                NavigationLink {
-                    AlbumDetailView(album: album)
-                        .environmentObject(navidromeVM)
-                        .environmentObject(playerVM)
-                } label: {
-                    AlbumGridCard(
-                        album: album,
-                        cover: viewModel.albumCovers[album.id]
-                    )
-                    .task {
-                        await viewModel.loadAlbumCover(for: album, navidromeVM: navidromeVM)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 20)
     }
     
     // MARK: - Shuffle Play Implementation
@@ -230,11 +210,11 @@ class ArtistDetailViewModel {
     func loadContent(context: ArtistDetailContext, navidromeVM: NavidromeViewModel) async {
         isLoading = true
         
-        async let albumsTask = loadAlbums(context: context, navidromeVM: navidromeVM)
-        async let imageTask = loadArtistImage(context: context, navidromeVM: navidromeVM)
-        
-        await albumsTask
-        await imageTask
+        // Führe Tasks parallel aus
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.loadAlbums(context: context, navidromeVM: navidromeVM) }
+            group.addTask { await self.loadArtistImage(context: context, navidromeVM: navidromeVM) }
+        }
         
         isLoading = false
     }
@@ -268,116 +248,6 @@ class ArtistDetailViewModel {
         let cover = await navidromeVM.loadCoverArt(for: album.id)
         await MainActor.run {
             self.albumCovers[album.id] = cover
-        }
-    }
-}
-
-// MARK: - Album Grid Card (Enhanced)
-struct AlbumGridCard: View {
-    let album: Album
-    let cover: UIImage?
-
-    @State private var isPressed = false
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            albumCover
-            albumInfo
-        }
-        .padding(16)
-        .frame(height: 240)
-        .background(cardBackground)
-        .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(duration: 0.2, bounce: 0.3), value: isPressed)
-    }
-    
-    private var albumCover: some View {
-        Group {
-            if let cover = cover {
-                Image(uiImage: cover)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                placeholderCover
-            }
-        }
-        .frame(height: 140)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.white.opacity(0.1), lineWidth: 1)
-        )
-        .shadow(
-            color: Color.red.opacity(0.2),
-            radius: isPressed ? 8 : 12,
-            x: 0, y: isPressed ? 4 : 8
-        )
-    }
-    
-    private var placeholderCover: some View {
-        Rectangle()
-            .fill(Color.gray.opacity(0.1))
-            .overlay(
-                ZStack {
-                    Circle()
-                        .stroke(Color.orange.opacity(0.2), lineWidth: 2)
-                        .frame(width: 60, height: 60)
-                    Image(systemName: "opticaldisc")
-                        .font(.system(size: 28, weight: .light))
-                        .foregroundStyle(.green.opacity(0.7))
-                }
-            )
-    }
-    
-    private var albumInfo: some View {
-        VStack(spacing: 4) {
-            Text(album.name)
-                .font(.headline.weight(.semibold))
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .foregroundColor(Color(white: 0.2))
-                .frame(height: 32)
-            
-            albumMetadata
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 52)
-    }
-    
-    private var albumMetadata: some View {
-        HStack(spacing: 6) {
-            if let year = album.year {
-                metadataItem(icon: "calendar", text: "\(year)")
-            }
-            
-            if let duration = album.duration {
-                metadataItem(icon: "clock", text: formatDuration(duration))
-            }
-        }
-        .frame(height: 16)
-    }
-    
-    private func formatDuration(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let remainingSeconds = seconds % 60
-        return String(format: "%d:%02d", minutes, remainingSeconds)
-    }
-
-    private func metadataItem(icon: String, text: String) -> some View {
-        HStack(spacing: 2) {
-            Image(systemName: icon)
-                .font(.system(size: 12))
-                .foregroundColor(Color(white: 0.2))
-            Text(text)
-                .font(.system(size: 12))
-                .foregroundColor(Color(white: 0.2))
-        }
-    }
-    
-    private var cardBackground: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.regularMaterial)
         }
     }
 }
