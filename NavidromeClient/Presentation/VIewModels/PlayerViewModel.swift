@@ -1,11 +1,11 @@
 import Foundation
 import SwiftUI
 import AVFoundation
-
+import MediaPlayer
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
-    // MARK: - Published
+    // MARK: - Published Properties
     @Published var isPlaying = false
     @Published var currentSong: Song?
     @Published var currentAlbumId: String?
@@ -17,12 +17,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var volume: Float = 0.7
     
-    @Published var downloadingAlbums: Set<String> = []
-    @Published var downloadProgress: [String: Double] = [:]  // AlbumID -> Fortschritt
-    @Published var downloadedAlbums: Set<String> = []
-    
-    
-    // MARK: - Playlist Management - Use PlaylistManager for consistency
+    // MARK: - Playlist Management
     @Published var playlistManager = PlaylistManager()
     
     typealias RepeatMode = PlaylistManager.RepeatMode
@@ -36,36 +31,166 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Dependencies
     var service: SubsonicService?
     let downloadManager: DownloadManager
+    private let audioSessionManager = AudioSessionManager.shared
     
-    // MARK: - Private
+    // MARK: - Private Properties
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var lastUpdateTime: Double = 0
+    
+    // MARK: - Init
     
     init(service: SubsonicService? = nil, downloadManager: DownloadManager = .shared) {
         self.service = service
         self.downloadManager = downloadManager
         super.init()
-        configureAudioSession()
+        
         setupNotifications()
+        configureAudioSession()
     }
     
     deinit {
-        Task { @MainActor in
-            cleanup()
+        // Cleanup synchronously in deinit - no @MainActor needed
+        if let observer = timeObserver {
+            player?.removeTimeObserver(observer)
+            timeObserver = nil
+        }
+        player?.pause()
+        player = nil
+        
+        NotificationCenter.default.removeObserver(self)
+        
+        // Clear now playing info on background queue
+        Task.detached {
+            await MainActor.run {
+                AudioSessionManager.shared.clearNowPlayingInfo()
+            }
         }
     }
     
-    // MARK: - Service
-    func updateService(_ newService: SubsonicService) { service = newService }
+    // MARK: - Setup
     
-    // MARK: - Playback
+    private func setupNotifications() {
+        let notificationCenter = NotificationCenter.default
+        
+        // Audio Interruptions
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAudioInterruptionBegan),
+            name: .audioInterruptionBegan,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAudioInterruptionEnded),
+            name: .audioInterruptionEnded,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAudioInterruptionEndedShouldResume),
+            name: .audioInterruptionEndedShouldResume,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleAudioDeviceDisconnected),
+            name: .audioDeviceDisconnected,
+            object: nil
+        )
+        
+        // Remote Commands
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemotePlayCommand),
+            name: .remotePlayCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemotePauseCommand),
+            name: .remotePauseCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemoteTogglePlayPauseCommand),
+            name: .remoteTogglePlayPauseCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemoteNextTrackCommand),
+            name: .remoteNextTrackCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemotePreviousTrackCommand),
+            name: .remotePreviousTrackCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemoteSeekCommand),
+            name: .remoteSeekCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemoteSkipForwardCommand),
+            name: .remoteSkipForwardCommand,
+            object: nil
+        )
+        
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(handleRemoteSkipBackwardCommand),
+            name: .remoteSkipBackwardCommand,
+            object: nil
+        )
+        
+        // Player finished
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(playerDidFinishPlaying),
+            name: .AVPlayerItemDidPlayToEndTime,
+            object: nil
+        )
+    }
+    
+    private func configureAudioSession() {
+        // AudioSessionManager handles the configuration
+        // We just make sure it's active
+        _ = audioSessionManager.isAudioSessionActive
+    }
+    
+    // MARK: - Service Management
+    
+    func updateService(_ newService: SubsonicService) {
+        self.service = newService
+    }
+    
+    // MARK: - Playback Methods
+    
     func play(song: Song) async {
         await setPlaylist([song], startIndex: 0, albumId: song.albumId)
     }
     
     func setPlaylist(_ songs: [Song], startIndex: Int = 0, albumId: String?) async {
-        guard !songs.isEmpty else { errorMessage = "Playlist ist leer"; return }
+        guard !songs.isEmpty else {
+            errorMessage = "Playlist ist leer"
+            return
+        }
         
         playlistManager.setPlaylist(songs, startIndex: startIndex)
         currentAlbumId = albumId
@@ -74,15 +199,20 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func playCurrent() async {
-        guard let song = playlistManager.currentSong else { stop(); return }
+        guard let song = playlistManager.currentSong else {
+            stop()
+            return
+        }
+        
         currentSong = song
         currentAlbumId = song.albumId
         duration = Double(song.duration ?? 0)
         currentTime = 0
         isLoading = true
         
-        cleanup()
+        cleanupPlayer()
         
+        // Try local file first
         if let localURL = downloadManager.getLocalFileURL(for: song.id) {
             await playFromURL(localURL)
         } else if let service = service, let url = service.streamURL(for: song.id) {
@@ -100,24 +230,45 @@ class PlayerViewModel: NSObject, ObservableObject {
         player?.play()
         isPlaying = true
         isLoading = false
+        
         setupTimeObserver()
+        updateNowPlayingInfo()
     }
     
     func togglePlayPause() {
         guard let player = player else { return }
-        if isPlaying { player.pause() } else { player.play() }
-        isPlaying.toggle()
+        
+        if isPlaying {
+            player.pause()
+            isPlaying = false
+        } else {
+            player.play()
+            isPlaying = true
+        }
+        
+        updateNowPlayingInfo()
     }
     
-    func pause() { player?.pause(); isPlaying = false }
-    func resume() { player?.play(); isPlaying = true }
+    func pause() {
+        player?.pause()
+        isPlaying = false
+        updateNowPlayingInfo()
+    }
+    
+    func resume() {
+        player?.play()
+        isPlaying = true
+        updateNowPlayingInfo()
+    }
+    
     func stop() {
-        cleanup()
+        cleanupPlayer()
         currentSong = nil
         currentTime = 0
         duration = 0
         playbackProgress = 0
         errorMessage = nil
+        audioSessionManager.clearNowPlayingInfo()
     }
     
     func seek(to time: TimeInterval) {
@@ -127,6 +278,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         player.seek(to: cmTime)
         currentTime = clampedTime
         updateProgress()
+        updateNowPlayingInfo()
     }
     
     func playNext() async {
@@ -139,7 +291,18 @@ class PlayerViewModel: NSObject, ObservableObject {
         await playCurrent()
     }
     
+    func skipForward(seconds: TimeInterval = 15) {
+        let newTime = currentTime + seconds
+        seek(to: newTime)
+    }
+    
+    func skipBackward(seconds: TimeInterval = 15) {
+        let newTime = currentTime - seconds
+        seek(to: newTime)
+    }
+    
     // MARK: - Playlist Controls
+    
     func toggleShuffle() {
         playlistManager.toggleShuffle()
     }
@@ -148,60 +311,163 @@ class PlayerViewModel: NSObject, ObservableObject {
         playlistManager.toggleRepeat()
     }
     
-    // MARK: - Helpers
-    private func configureAudioSession() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetooth])
-            try session.setActive(true)
-        } catch { print("Audio session error: \(error)") }
+    // MARK: - Volume Control
+    
+    func setVolume(_ volume: Float) {
+        self.volume = volume
+        player?.volume = volume
     }
     
-    private func setupNotifications() {
-        NotificationCenter.default.addObserver(self, selector: #selector(playerDidFinishPlaying),
-                                               name: .AVPlayerItemDidPlayToEndTime, object: nil)
+    // MARK: - Cover Art & Now Playing
+    
+    func loadCoverArt() async {
+        guard let albumId = currentAlbumId, let service = service else { return }
+        coverArt = await service.getCoverArt(for: albumId)
+        updateNowPlayingInfo()
+    }
+    
+    private func updateNowPlayingInfo() {
+        guard let song = currentSong else {
+            audioSessionManager.clearNowPlayingInfo()
+            return
+        }
+        
+        audioSessionManager.updateNowPlayingInfo(
+            title: song.title,
+            artist: song.artist ?? "Unknown Artist",
+            album: song.album,
+            artwork: coverArt,
+            duration: duration,
+            currentTime: currentTime,
+            playbackRate: isPlaying ? 1.0 : 0.0
+        )
+    }
+    
+    // MARK: - Time Observer
+    
+    private func setupTimeObserver() {
+        guard let player = player else { return }
+        
+        timeObserver = player.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
+            queue: .main
+        ) { [weak self] time in
+            guard let self = self else { return }
+            let newTime = time.seconds
+            
+            if abs(newTime - self.lastUpdateTime) > 0.1 {
+                self.lastUpdateTime = newTime
+                self.currentTime = newTime
+                self.updateProgress()
+                
+                // Update Now Playing Info every few seconds to keep it current
+                if Int(newTime) % 5 == 0 {
+                    self.updateNowPlayingInfo()
+                }
+            }
+        }
+    }
+    
+    private func updateProgress() {
+        playbackProgress = duration > 0 ? currentTime / duration : 0
+    }
+    
+    // MARK: - Cleanup
+    
+    private func cleanupPlayer() {
+        if let observer = timeObserver {
+            player?.removeTimeObserver(observer)
+            timeObserver = nil
+        }
+        player?.pause()
+        player = nil
+        isPlaying = false
+        isLoading = false
+    }
+    
+    // MARK: - Notification Handlers
+    
+    @objc private func handleAudioInterruptionBegan() {
+        pause()
+    }
+    
+    @objc private func handleAudioInterruptionEnded() {
+        // Don't auto-resume, user needs to manually resume
+    }
+    
+    @objc private func handleAudioInterruptionEndedShouldResume() {
+        // Auto-resume if system recommends it
+        if currentSong != nil {
+            resume()
+        }
+    }
+    
+    @objc private func handleAudioDeviceDisconnected() {
+        // Pause when headphones are removed
+        pause()
+    }
+    
+    @objc private func handleRemotePlayCommand() {
+        if currentSong != nil {
+            resume()
+        }
+    }
+    
+    @objc private func handleRemotePauseCommand() {
+        pause()
+    }
+    
+    @objc private func handleRemoteTogglePlayPauseCommand() {
+        togglePlayPause()
+    }
+    
+    @objc private func handleRemoteNextTrackCommand() {
+        Task { await playNext() }
+    }
+    
+    @objc private func handleRemotePreviousTrackCommand() {
+        Task { await playPrevious() }
+    }
+    
+    @objc private func handleRemoteSeekCommand(notification: Notification) {
+        if let time = notification.userInfo?["time"] as? TimeInterval {
+            seek(to: time)
+        }
+    }
+    
+    @objc private func handleRemoteSkipForwardCommand(notification: Notification) {
+        let interval = notification.userInfo?["interval"] as? TimeInterval ?? 15
+        skipForward(seconds: interval)
+    }
+    
+    @objc private func handleRemoteSkipBackwardCommand(notification: Notification) {
+        let interval = notification.userInfo?["interval"] as? TimeInterval ?? 15
+        skipBackward(seconds: interval)
     }
     
     @objc private func playerDidFinishPlaying(_ notification: Notification) {
         Task { await playNext() }
     }
     
-    private func cleanup() {
-        if let observer = timeObserver { player?.removeTimeObserver(observer); timeObserver = nil }
-        player?.pause(); player = nil; isPlaying = false; isLoading = false
+    // MARK: - Download Status Methods (unchanged)
+    
+    func isAlbumDownloaded(_ albumId: String) -> Bool {
+        downloadManager.isAlbumDownloaded(albumId)
     }
     
-    private func setupTimeObserver() {
-        guard let player = player else { return }
-        timeObserver = player.addPeriodicTimeObserver(forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
-                                                      queue: .main) { [weak self] time in
-            guard let self = self else { return }
-            let newTime = time.seconds
-            if abs(newTime - self.lastUpdateTime) > 0.1 {
-                self.lastUpdateTime = newTime
-                self.currentTime = newTime
-                self.updateProgress()
-            }
-        }
+    func isAlbumDownloading(_ albumId: String) -> Bool {
+        downloadManager.isAlbumDownloading(albumId)
     }
     
-    private func updateProgress() { playbackProgress = duration > 0 ? currentTime / duration : 0 }
-    
-    // MARK: - Cover Art
-    func loadCoverArt() async {
-        guard let albumId = currentAlbumId, let service = service else { return }
-        coverArt = await service.getCoverArt(for: albumId)
+    func isSongDownloaded(_ songId: String) -> Bool {
+        downloadManager.isSongDownloaded(songId)
     }
     
-    // MARK: - Volume
-    func setVolume(_ volume: Float) { self.volume = volume; player?.volume = volume }
+    func getDownloadProgress(albumId: String) -> Double {
+        downloadManager.downloadProgress[albumId] ?? 0.0
+    }
     
-    // MARK: - Download Status Methods
-    func isAlbumDownloaded(_ albumId: String) -> Bool { downloadManager.isAlbumDownloaded(albumId) }
-    func isAlbumDownloading(_ albumId: String) -> Bool { downloadManager.isAlbumDownloading(albumId) }
-    func isSongDownloaded(_ songId: String) -> Bool { downloadManager.isSongDownloaded(songId) }
-    func getDownloadProgress(albumId: String) -> Double { downloadManager.downloadProgress[albumId] ?? 0.0 }
-    func deleteAlbum(albumId: String) { downloadManager.deleteAlbum(albumId: albumId) }
-
+    func deleteAlbum(albumId: String) {
+        downloadManager.deleteAlbum(albumId: albumId)
+    }
 }
-

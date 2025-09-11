@@ -7,5 +7,21 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<!-- Background Audio Playback -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>background-processing</string>
+	</array>
+	<!-- Audio Session Category -->
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>audio-playback</string>
+	</array>
+	<!-- Lock Screen und Control Center -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>This app uses Bluetooth to stream audio to external devices.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>This app uses Bluetooth to stream audio to external devices.</string>
 </dict>
 </plist>
