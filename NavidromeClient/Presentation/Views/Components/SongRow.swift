@@ -5,37 +5,29 @@ struct SongRow: View {
     let index: Int
     let isPlaying: Bool
     let action: () -> Void
-    let onLongPressOrSwipe: () -> Void
+    let onMore: () -> Void
     
     @State private var showPlayIndicator = false
     
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             trackNumberView
             songInfoView
             Spacer()
             durationView
         }
-        .frame(maxWidth: UIScreen.main.bounds.width, alignment: .leading)
-        .padding(.horizontal, 0) // Padding außerhalb vermeiden
-        .padding(.vertical, 6)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
         .background(backgroundView)
-        .contentShape(Rectangle()) // gesamte Fläche tappable
-        .onTapGesture { action() }
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.5)
-                .onEnded { _ in onLongPressOrSwipe() }
-        )
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 20)
-                .onEnded { value in
-                    if value.translation.height > 50 {
-                        onLongPressOrSwipe()
-                    }
-                }
-        )
+        .overlay(separatorLine, alignment: .bottom)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeOut(duration: 0.1)) { action() }
+        }
+        .scaleEffect(isPlaying ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isPlaying)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.05), radius: 3, x: 0, y: 2)
+        .shadow(color: .black.opacity(isPlaying ? 0.08 : 0.03), radius: 3, x: 0, y: 2)
         .onAppear {
             if isPlaying {
                 withAnimation(.easeInOut(duration: 0.3).delay(0.1)) {
@@ -44,17 +36,33 @@ struct SongRow: View {
             }
         }
         .onChange(of: isPlaying) { _, newValue in
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showPlayIndicator = newValue
+            withAnimation(.easeInOut(duration: 0.3)) { showPlayIndicator = newValue }
+        }
+        .contextMenu {
+            Button("Add to playlist") {
+                // Dummy action, noch nicht implementiert
             }
+            Button("More Options") {
+                onMore()
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            Button {
+                onMore()
+            } label: {
+                Label("More", systemImage: "ellipsis")
+            }
+            .tint(.blue)
         }
     }
 
-    // MARK: - Track Number View
+    // MARK: - Track Number or Equalizer
+    // MARK: - Track Number or Equalizer
     private var trackNumberView: some View {
         ZStack {
             if isPlaying && showPlayIndicator {
                 EqualizerBars(isActive: showPlayIndicator)
+                    .transition(.opacity.combined(with: .scale))
             } else {
                 Text("\(index)")
                     .font(.caption2.weight(.medium))
@@ -66,46 +74,56 @@ struct SongRow: View {
                             .overlay(
                                 Circle().stroke(.white.opacity(0.5), lineWidth: 1)
                             )
+                            .scaleEffect(isPlaying ? 1.1 : 1.0)
                     )
+                    .transition(.opacity.combined(with: .scale))
             }
         }
-        .padding(.horizontal, 20)
+        .animation(.easeInOut(duration: 0.25), value: isPlaying)
     }
 
     // MARK: - Song Info
     private var songInfoView: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(song.title)
                 .font(.body.weight(isPlaying ? .semibold : .medium))
-                .foregroundStyle(isPlaying ? .black : .primary)
+                .foregroundStyle(isPlaying ? Color.blue : .primary)
                 .lineLimit(1)
-                .animation(.easeInOut(duration: 0.2), value: isPlaying)
+                .transition(.opacity.combined(with: .slide))
+                .animation(.easeInOut(duration: 0.25), value: isPlaying)
         }
     }
-
+    
     // MARK: - Duration
     private var durationView: some View {
-        HStack {
+        Group {
             if let duration = song.duration, duration > 0 {
                 Text(formatDuration(duration))
                     .font(.caption)
                     .foregroundStyle(.black)
                     .monospacedDigit()
+            } else {
+                EmptyView()
             }
         }
-        .padding(.horizontal, -50)
-
     }
 
     // MARK: - Background
     private var backgroundView: some View {
         RoundedRectangle(cornerRadius: 12)
-            .fill(isPlaying ? Color.blue.opacity(0.06) : Color.white.opacity(0.1))
+            .fill(isPlaying ? Color.blue.opacity(0.15) : Color.white.opacity(0.3))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isPlaying ? Color.blue.opacity(0.1) : Color.white.opacity(0.05), lineWidth: 1)
+                    .stroke(isPlaying ? Color.blue.opacity(0.1) : Color.white.opacity(0.1), lineWidth: 1)
             )
             .animation(.easeInOut(duration: 0.3), value: isPlaying)
+    }
+
+    // MARK: - Separator
+    private var separatorLine: some View {
+        Rectangle()
+            .frame(height: 0.5)
+            .foregroundColor(.gray.opacity(0.2))
     }
 
     // MARK: - Helper
@@ -115,40 +133,12 @@ struct SongRow: View {
         return String(format: "%d:%02d", minutes, remainingSeconds)
     }
 }
-// MARK: - Custom Button Styles
-struct ModernSongButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
 
-struct ScaleButtonStyle: ButtonStyle {
-    let scale: CGFloat
-    
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1.0)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Animation Extensions
-extension View {
-    func pulsingScale(isActive: Bool) -> some View {
-        self.scaleEffect(isActive ? 1.1 : 1.0)
-            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isActive)
-    }
-}
-
-// MARK: Equalizerbar-animation when song is playing
+// MARK: - Equalizerbar-animation when song is playing
 struct EqualizerBars: View {
     @State private var barScales: [CGFloat] = [0.3, 0.3, 0.3]
     let isActive: Bool
     
-    // Timer, der alle 0.3s feuert
     private let timer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
     
     var body: some View {
@@ -158,7 +148,7 @@ struct EqualizerBars: View {
                     .fill(.black)
                     .frame(width: 3, height: 12)
                     .scaleEffect(y: barScales[index], anchor: .bottom)
-                    .animation(.easeInOut(duration: 0.3), value: barScales[index])
+                    .animation(.interpolatingSpring(stiffness: 80, damping: 10), value: barScales[index])
             }
         }
         .frame(width: 28, height: 28)
@@ -169,14 +159,10 @@ struct EqualizerBars: View {
                     Circle().stroke(.white.opacity(0.5), lineWidth: 1)
                 )
         )
-        // Bei jedem Tick neuen Zufallswert erzeugen
         .onReceive(timer) { _ in
             if isActive {
-                barScales = (0..<barScales.count).map { _ in
-                    CGFloat.random(in: 0.2...1.0)
-                }
+                barScales = (0..<barScales.count).map { _ in CGFloat.random(in: 0.2...1.0) }
             } else {
-                // Wenn nicht aktiv, Balken klein halten
                 barScales = Array(repeating: 0.3, count: barScales.count)
             }
         }

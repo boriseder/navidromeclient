@@ -75,17 +75,63 @@ struct AlbumHeaderView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     
     var body: some View {
-        HStack {
+        VStack(spacing: 16) {
+            // Cover
             AlbumCoverView(cover: cover)
-            AlbumInfoAndButtonsView(
-                album: album,
-                songs: songs
-            )
+                .frame(width: 160, height: 160)
+                .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
+                .scaleEffect(playerVM.currentAlbumId == album.id ? 1.02 : 1.0)
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: playerVM.currentAlbumId)
+            
+            // Album Name
+            Text(album.name)
+                .font(.title2.weight(.bold))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .foregroundColor(.black)
+            
+            // Meta Info als Capsules
+            HStack(spacing: 10) {
+                if !songs.isEmpty {
+                    Text("\(songs.count) " + (songs.count == 1 ? "Song" : "Songs"))
+                        .padding(6)
+                        .background(Color.black.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+                if let duration = album.duration {
+                    Text(formatDuration(duration))
+                        .padding(6)
+                        .background(Color.black.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+                if let year = album.year {
+                    Text("\(year)")
+                        .padding(6)
+                        .background(Color.black.opacity(0.1))
+                        .clipShape(Capsule())                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            
+            // Buttons Row
+            HStack(spacing: 20) {
+                PlayButton(album: album, songs: songs)
+                    .buttonStyle(.borderedProminent)
+                ShuffleButton(album: album, songs: songs)
+                DownloadButton(album: album, songs: songs)
+            }
+            .padding(.top, 8)
         }
-        .padding(12)
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity)
+    }
+    
+    private func formatDuration(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let remaining = seconds % 60
+        return String(format: "%d:%02d", minutes, remaining)
     }
 }
-
 // MARK: - Album Cover
 struct AlbumCoverView: View {
     let cover: UIImage?
@@ -208,22 +254,20 @@ struct PlayButton: View {
         Button {
             Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
         } label: {
-            ZStack {
-                /*
-                Circle()
-                    .fill(LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: buttonSize, height: buttonSize)
-                 */
-                Image(systemName: "play.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: buttonSize * 0.6, height: buttonSize * 0.6)
-                    .foregroundColor(.purple)
-            }
+            Image(systemName: "play.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)   // Icon wirklich klein
+                .foregroundColor(.white)
+                .padding(10)                     // Circle nur leicht größer
+                .background(
+                    Circle()
+                        .fill(Color.blue.opacity(0.9))
+                )
         }
+        .contentShape(Circle())                  // ganze Circle Fläche tappbar
     }
 }
-
 struct ShuffleButton: View {
     let album: Album
     let songs: [Song]
@@ -300,35 +344,3 @@ struct DownloadButton: View {
 
 
 
-// MARK: - Album Songs List
-struct AlbumSongsListView: View {
-    let songs: [Song]
-    let album: Album
-    @Binding var miniPlayerVisible: Bool
-    
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    
-    var body: some View {
-        if songs.isEmpty {
-            loadingView()
-        } else {
-            VStack(spacing: 5) {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(
-                        song: song,
-                        index: index + 1,
-                        isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                        action: {
-                            Task { await playerVM.setPlaylist(songs, startIndex: index, albumId: album.id) }
-                        },
-                        onLongPressOrSwipe: {
-                            playerVM.stop()
-                            miniPlayerVisible = false
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
