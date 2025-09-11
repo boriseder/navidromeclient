@@ -103,8 +103,9 @@ struct ArtistDetailView: View {
     
     private var shuffleButton: some View {
         Button(action: {
-            // TODO: implement shuffle play
-            //playerVM.shufflePlay(albums: viewModel.albums)
+            Task {
+                await shufflePlayAllAlbums()
+            }
         }) {
             Label("", systemImage: "shuffle")
                 .font(.caption.weight(.medium))
@@ -114,9 +115,9 @@ struct ArtistDetailView: View {
                 .background(
                     Capsule().fill(Color.orange)
                 )
-                .shadow(color: Color.black.opacity(0.2),radius: 3)
-            
+                .shadow(color: Color.black.opacity(0.2), radius: 3)
         }
+        .disabled(viewModel.albums.isEmpty || viewModel.isLoading)
     }
     
     // MARK: - Albums Section
@@ -153,15 +154,70 @@ struct ArtistDetailView: View {
         }
         .padding(.horizontal, 20)
     }
+    
+    // MARK: - Shuffle Play Implementation
+    
+    @MainActor
+    private func shufflePlayAllAlbums() async {
+        guard !viewModel.albums.isEmpty else { return }
+        
+        // Show loading state
+        viewModel.isLoadingSongs = true
+        defer { viewModel.isLoadingSongs = false }
+        
+        var allSongs: [Song] = []
+        
+        // Load songs from all albums
+        for album in viewModel.albums {
+            do {
+                let songs = try await loadSongsForAlbum(album.id)
+                allSongs.append(contentsOf: songs)
+            } catch {
+                print("⚠️ Failed to load songs for album \(album.name): \(error)")
+                // Continue with other albums even if one fails
+            }
+        }
+        
+        guard !allSongs.isEmpty else {
+            print("❌ No songs found in any albums")
+            return
+        }
+        
+        // Shuffle the songs
+        let shuffledSongs = allSongs.shuffled()
+        
+        print("🎵 Starting shuffle play with \(shuffledSongs.count) songs")
+        
+        // Start playback with shuffled playlist
+        await playerVM.setPlaylist(
+            shuffledSongs,
+            startIndex: 0,
+            albumId: nil // Mixed albums, so no single album ID
+        )
+        
+        // Enable shuffle mode in player
+        if !playerVM.isShuffling {
+            playerVM.toggleShuffle()
+        }
+    }
+    
+    private func loadSongsForAlbum(_ albumId: String) async throws -> [Song] {
+        guard let service = navidromeVM.getService() else {
+            throw URLError(.networkConnectionLost)
+        }
+        
+        return try await service.getSongs(for: albumId)
+    }
 }
 
-// MARK: - ViewModel
+// MARK: - Enhanced ViewModel
 @Observable
 class ArtistDetailViewModel {
     var albums: [Album] = []
     var albumCovers: [String: UIImage] = [:]
     var artistImage: UIImage?
     var isLoading = false
+    var isLoadingSongs = false // New: for shuffle play loading
     
     func title(for context: ArtistDetailContext) -> String {
         switch context {
@@ -199,10 +255,9 @@ class ArtistDetailViewModel {
     private func loadArtistImage(context: ArtistDetailContext, navidromeVM: NavidromeViewModel) async {
         if case .artist(let artist) = context,
            let coverId = artist.coverArt {
-            let image = await navidromeVM.loadCoverArt(for: coverId) // <-- über VM
+            let image = await navidromeVM.loadCoverArt(for: coverId)
             await MainActor.run {
                 self.artistImage = image
-                // TODO: Extract dominant colors from image
             }
         }
     }
@@ -217,7 +272,7 @@ class ArtistDetailViewModel {
     }
 }
 
-// MARK: - Album Grid Card (Optimized)
+// MARK: - Album Grid Card (Enhanced)
 struct AlbumGridCard: View {
     let album: Album
     let cover: UIImage?
@@ -298,8 +353,6 @@ struct AlbumGridCard: View {
             if let duration = album.duration {
                 metadataItem(icon: "clock", text: formatDuration(duration))
             }
-
-            
         }
         .frame(height: 16)
     }
