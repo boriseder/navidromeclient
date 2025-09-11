@@ -8,6 +8,8 @@
 
 import SwiftUI
 
+let buttonSize: CGFloat = 32 // gemeinsame Größe für alle Buttons
+
 struct AlbumDetailView: View {
     let album: Album
     @State private var scrollOffset: CGFloat = 0
@@ -18,27 +20,18 @@ struct AlbumDetailView: View {
 
     @State private var loadedCover: UIImage?
     @State private var songs: [Song] = []
-    @State private var showDeleteAlert = false
     @State private var miniPlayerVisible = false
-    @State private var dominantColors: [Color] = [.yellow, .cyan]
 
     var body: some View {
         ZStack {
-
-            // Album-spezifisches Cover als Hintergrund
-           MusicBackgroundView(
-                artist: nil,
-                genre: nil,
-                album: album
-            )
-                .environmentObject(navidromeVM)
+            DynamicMusicBackground()
             ScrollView {
                 VStack(spacing: 32) {
                     AlbumHeaderView(
                         album: album,
                         cover: loadedCover,
-                        songs: songs,
-                        showDeleteAlert: $showDeleteAlert)
+                        songs: songs
+                    )
                     .environmentObject(playerVM)
                     .environmentObject(navidromeVM)
                     
@@ -49,24 +42,15 @@ struct AlbumDetailView: View {
                     )
                     .environmentObject(playerVM)
                     .environmentObject(navidromeVM)
-                    
+                
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, miniPlayerVisible ? 90 : 50)
-                
-            }
         }
+    }
         
         .navigationTitle(album.name)
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Album löschen", isPresented: $showDeleteAlert) {
-            Button("Abbrechen", role: .cancel) { }
-            Button("Löschen", role: .destructive) {
-                playerVM.deleteAlbum(albumId: album.id)
-            }
-        } message: {
-            Text("Möchten Sie das heruntergeladene Album '\(album.name)' wirklich vom Gerät löschen?")
-        }
         .task {
             await loadAlbumData()
         }
@@ -86,7 +70,6 @@ struct AlbumHeaderView: View {
     let album: Album
     let cover: UIImage?
     let songs: [Song]
-    @Binding var showDeleteAlert: Bool
     
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var navidromeVM: NavidromeViewModel
@@ -94,14 +77,16 @@ struct AlbumHeaderView: View {
     var body: some View {
         HStack {
             AlbumCoverView(cover: cover)
-            AlbumInfoAndButtonsView(album: album, songs: songs, showDeleteAlert: $showDeleteAlert)
-            }
+            AlbumInfoAndButtonsView(
+                album: album,
+                songs: songs
+            )
+        }
         .padding(12)
     }
 }
 
 // MARK: - Album Cover
-
 struct AlbumCoverView: View {
     let cover: UIImage?
     
@@ -127,11 +112,11 @@ struct AlbumCoverView: View {
         }
     }
 }
+
 // MARK: - Album Info + Buttons
 struct AlbumInfoAndButtonsView: View {
     let album: Album
     let songs: [Song]
-    @Binding var showDeleteAlert: Bool
     
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var navidromeVM: NavidromeViewModel
@@ -141,7 +126,8 @@ struct AlbumInfoAndButtonsView: View {
             AlbumTextInfoView(album: album, songs: songs)
             
             if !songs.isEmpty {
-                AlbumButtonsRowView(album: album, songs: songs, showDeleteAlert: $showDeleteAlert)
+                AlbumButtonsRowView(album: album, songs: songs
+                )
             }
         }
         .frame(maxWidth: 180)
@@ -157,7 +143,7 @@ struct AlbumTextInfoView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(album.name)
-                .font(.title2)
+                .font(.headline)
                 .fontWeight(.bold)
                 .lineLimit(2)
                 .foregroundColor(Color.black)
@@ -197,7 +183,6 @@ struct AlbumTextInfoView: View {
 struct AlbumButtonsRowView: View {
     let album: Album
     let songs: [Song]
-    @Binding var showDeleteAlert: Bool
     
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var navidromeVM: NavidromeViewModel
@@ -206,102 +191,114 @@ struct AlbumButtonsRowView: View {
         HStack(spacing: 12) {
             PlayButton(album: album, songs: songs)
             ShuffleButton(album: album, songs: songs)
-            DownloadButton(album: album, songs: songs, showDeleteAlert: $showDeleteAlert)
+            DownloadButton(album: album, songs: songs
+            )
             Spacer()
         }
         .padding(.top, 8)
     }
 }
 
-// MARK: - Play Button
 struct PlayButton: View {
     let album: Album
     let songs: [Song]
     @EnvironmentObject var playerVM: PlayerViewModel
-    
+
     var body: some View {
         Button {
             Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
         } label: {
-            Image(systemName: "play.fill")
-                .font(.title2)
-                .foregroundColor(.white)
-                .padding(12)
-                .background(LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing))
-                .clipShape(Circle())
+            ZStack {
+                /*
+                Circle()
+                    .fill(LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: buttonSize, height: buttonSize)
+                 */
+                Image(systemName: "play.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: buttonSize * 0.6, height: buttonSize * 0.6)
+                    .foregroundColor(.purple)
+            }
         }
     }
 }
 
-// MARK: - Shuffle Button
 struct ShuffleButton: View {
     let album: Album
     let songs: [Song]
     @EnvironmentObject var playerVM: PlayerViewModel
-    
+
     var body: some View {
         Button {
             Task { await playerVM.setPlaylist(songs.shuffled(), startIndex: 0, albumId: album.id) }
         } label: {
-            Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
-                .font(.title2)
-                .foregroundColor(.black.opacity(0.8))
+            ZStack {
+                /*
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .shadow(radius: 2)
+*/
+                Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: buttonSize * 0.6, height: buttonSize * 0.6)
+                    .foregroundColor(.black.opacity(0.8))
+            }
         }
     }
 }
 
-// MARK: - Download Button
 struct DownloadButton: View {
     let album: Album
     let songs: [Song]
-    @Binding var showDeleteAlert: Bool
-    
-    @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var navidromeVM: NavidromeViewModel
-    
+    @EnvironmentObject var playerVM: PlayerViewModel
+
+    var isDownloading: Bool { downloadManager.isAlbumDownloading(album.id) }
+    var isDownloaded: Bool { downloadManager.isAlbumDownloaded(album.id) }
+    var progress: Double { downloadManager.downloadProgress[album.id] ?? 0 }
+
     var body: some View {
         Button {
-            if playerVM.isAlbumDownloading(album.id) {
-                showDeleteAlert = true
-            } else if !playerVM.isAlbumDownloading(album.id) {
-                Task {
-                    await navidromeVM.downloadAlbum(
-                        songs: songs,
-                        albumId: album.id,
-                        playerVM: playerVM
-                    )
-                }
+            if isDownloading { return }
+            else if isDownloaded { downloadManager.deleteAlbum(albumId: album.id) }
+            else {
+                Task { await navidromeVM.downloadAlbum(songs: songs, albumId: album.id, playerVM: playerVM) }
             }
         } label: {
             ZStack {
-                if playerVM.isAlbumDownloading(album.id) {
+                /*
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: buttonSize, height: buttonSize)
+                    .shadow(radius: 2)
+*/
+                if isDownloading {
                     Circle()
-                        .stroke(Color.black.opacity(0.3), lineWidth: 2)
-                        .frame(width: 28, height: 28)
-                    Circle()
-                        .trim(from: 0, to: playerVM.getDownloadProgress(albumId: album.id))
-                        .stroke(Color.black.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                        .frame(width: 28, height: 28)
+                        .trim(from: 0, to: progress)
+                        .stroke(Color.black.opacity(0.8), lineWidth: 2)
                         .rotationEffect(.degrees(-90))
-                        .animation(.easeInOut(duration: 0.3), value: playerVM.getDownloadProgress(albumId: album.id))
-                    
-                    Image(systemName: "arrow.down")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.black.opacity(0.8))
-                } else if playerVM.isAlbumDownloaded(album.id) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(.black)
-                } else {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.title2)
-                        .foregroundStyle(.black.opacity(0.8))
+                        .frame(width: buttonSize, height: buttonSize)
+                        .animation(.easeInOut(duration: 0.3), value: progress)
                 }
+
+                Image(systemName: isDownloading ? "arrow.down" : (isDownloaded ? "checkmark.circle.fill" : "arrow.down.circle"))
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: buttonSize * 0.6, height: buttonSize * 0.6)
+                    .foregroundColor(.black.opacity(isDownloaded ? 1 : 0.8))
             }
         }
-        .disabled(playerVM.isAlbumDownloading(album.id))
+        .disabled(isDownloading)
     }
 }
+
+
+
+
 
 // MARK: - Album Songs List
 struct AlbumSongsListView: View {
@@ -314,8 +311,7 @@ struct AlbumSongsListView: View {
     
     var body: some View {
         if songs.isEmpty {
-            ProgressView("Loading songs...")
-                .frame(height: 100)
+            loadingView()
         } else {
             VStack(spacing: 5) {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
@@ -333,7 +329,6 @@ struct AlbumSongsListView: View {
                     )
                 }
             }
-
         }
     }
 }

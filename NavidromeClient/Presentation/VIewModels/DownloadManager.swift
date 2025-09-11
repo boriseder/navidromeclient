@@ -98,9 +98,12 @@ class DownloadManager: ObservableObject {
 
     // MARK: - Download Logic (Album)
     func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async {
-        guard !isDownloading.contains(albumId) else { return }
-        isDownloading.insert(albumId)
-        downloadProgress[albumId] = 0
+        // Prüfen, ob schon ein Download läuft
+        await MainActor.run {
+            guard !isDownloading.contains(albumId) else { return }
+            isDownloading.insert(albumId)
+            downloadProgress[albumId] = 0
+        }
 
         let albumFolder = downloadsFolder.appendingPathComponent(albumId, isDirectory: true)
         if !FileManager.default.fileExists(atPath: albumFolder.path) {
@@ -113,49 +116,63 @@ class DownloadManager: ObservableObject {
         for (index, song) in songs.enumerated() {
             guard let url = service.streamURL(for: song.id) else { continue }
             let fileURL = albumFolder.appendingPathComponent("\(song.id).mp3")
+
             do {
+                // Download läuft im Hintergrund
                 let (data, _) = try await URLSession.shared.data(from: url)
                 try data.write(to: fileURL, options: .atomic)
-                songIds.append(song.id)
-                downloadedSongs.insert(song.id)
-                downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
+
+                // UI-Update am MainActor
+                await MainActor.run {
+                    songIds.append(song.id)
+                    downloadedSongs.insert(song.id)
+                    downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
+                }
             } catch {
                 print("Download error for \(song.title): \(error)")
             }
         }
 
-        let downloadedAlbum = DownloadedAlbum(albumId: albumId, songIds: songIds, folderPath: albumFolder.path)
-        if let idx = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
-            downloadedAlbums[idx] = downloadedAlbum
-        } else {
-            downloadedAlbums.append(downloadedAlbum)
+        await MainActor.run {
+            // Album speichern
+            let downloadedAlbum = DownloadedAlbum(albumId: albumId, songIds: songIds, folderPath: albumFolder.path)
+            if let idx = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
+                downloadedAlbums[idx] = downloadedAlbum
+            } else {
+                downloadedAlbums.append(downloadedAlbum)
+            }
+
+            saveDownloadedAlbums()
+            isDownloading.remove(albumId)
+            downloadProgress[albumId] = 1.0
         }
 
-        saveDownloadedAlbums()
-        isDownloading.remove(albumId)
-        downloadProgress[albumId] = 1.0
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            self?.downloadProgress.removeValue(forKey: albumId)
+        // Fortschritt nach kurzer Zeit ausblenden
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        await MainActor.run {
+            downloadProgress.removeValue(forKey: albumId)
         }
     }
-
     func deleteAlbum(albumId: String) {
-        guard let album = downloadedAlbums.first(where: { $0.albumId == albumId }) else { return }
+        Task { @MainActor in
+            guard let album = downloadedAlbums.first(where: { $0.albumId == albumId }) else { return }
 
-        let albumFolder = URL(fileURLWithPath: album.folderPath)
-        try? FileManager.default.removeItem(at: albumFolder)
+            let albumFolder = URL(fileURLWithPath: album.folderPath)
+            try? FileManager.default.removeItem(at: albumFolder)
 
-        for songId in album.songIds {
-            downloadedSongs.remove(songId)
+            for songId in album.songIds {
+                downloadedSongs.remove(songId)
+            }
+
+            downloadedAlbums.removeAll { $0.albumId == albumId }
+            downloadProgress.removeValue(forKey: albumId)
+            isDownloading.remove(albumId)
+
+            saveDownloadedAlbums()
         }
-
-        downloadedAlbums.removeAll { $0.albumId == albumId }
-        downloadProgress.removeValue(forKey: albumId)
-        isDownloading.remove(albumId)
-
-        saveDownloadedAlbums()
     }
-
+    
+    
     func deleteAllDownloads() {
         let folder = downloadsFolder
         try? FileManager.default.removeItem(at: folder)

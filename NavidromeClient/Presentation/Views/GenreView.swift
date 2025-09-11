@@ -58,7 +58,6 @@ struct GenreView: View {
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 90)
-
         }
     }
 }
