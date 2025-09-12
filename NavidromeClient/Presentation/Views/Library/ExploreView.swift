@@ -73,8 +73,10 @@ struct ExploreView: View {
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: 32) {
-                WelcomeHeader()
-                    .padding(.horizontal, 20)
+                WelcomeHeader(
+                    username: AppConfig.shared.getCredentials()?.username ?? "User",
+                    nowPlaying: playerVM.currentSong
+                )
                 
                 if !exploreVM.recentAlbums.isEmpty {
                     AlbumSection(
@@ -187,48 +189,6 @@ struct ExploreView: View {
     }
 }
 
-// MARK: - Welcome Headers
-struct WelcomeHeader: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(greetingText())
-                        .font(.title2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.black.opacity(0.8))
-                    
-                    Text("Enjoy your music")
-                        .font(.subheadline)
-                        .foregroundColor(.black.opacity(0.6))
-                }
-                
-                Spacer()
-                
-                Text(currentTimeString())
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.black.opacity(0.5))
-            }
-        }
-    }
-    
-    private func greetingText() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12: return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<22: return "Good evening"
-        default: return "Good night"
-        }
-    }
-    
-    private func currentTimeString() -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: Date())
-    }
-}
 
 struct OfflineWelcomeHeader: View {
     let downloadedAlbums: Int

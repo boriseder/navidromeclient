@@ -21,7 +21,8 @@ struct AlbumSongsListView: View {
             loadingView()
         } else {
             VStack(spacing: 5) {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                ForEach(songs.indices, id: \.self) { index in
+                    let song = songs[index]
                     SongRow(
                         song: song,
                         index: index + 1,

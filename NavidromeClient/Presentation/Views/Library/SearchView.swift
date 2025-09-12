@@ -390,7 +390,8 @@ struct SearchResultsView: View {
                         }
                         
                     case .songs:
-                        ForEach(Array(navidromeVM.songs.enumerated()), id: \.element.id) { index, song in
+                        ForEach(navidromeVM.songs.indices, id: \.self) { index in
+                            let song = navidromeVM.songs[index]
                             SearchResultSongRow(
                                 song: song,
                                 index: index + 1,

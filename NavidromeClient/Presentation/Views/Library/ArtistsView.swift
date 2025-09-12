@@ -120,7 +120,8 @@ struct ArtistsView: View {
                     )
                 }
                 
-                ForEach(Array(filteredArtists.enumerated()), id: \.element.id) { index, artist in
+                ForEach(filteredArtists.indices, id: \.self) { index in
+                    let artist = filteredArtists[index]
                     NavigationLink(value: artist) {
                         ArtistCard(artist: artist, index: index)
                     }
