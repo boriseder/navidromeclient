@@ -113,7 +113,7 @@ struct SongRow: View {
         RoundedRectangle(cornerRadius: 12)
             .fill(isPlaying ? Color.blue.opacity(0.15) : Color.white.opacity(0.3))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 4)
                     .stroke(isPlaying ? Color.blue.opacity(0.1) : Color.white.opacity(0.1), lineWidth: 1)
             )
             .animation(.easeInOut(duration: 0.3), value: isPlaying)

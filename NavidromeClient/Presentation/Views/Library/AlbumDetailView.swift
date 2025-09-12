@@ -75,15 +75,15 @@ struct AlbumHeaderView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     
     var body: some View {
-        HStack(spacing: 50) {
+        HStack(spacing: 20) {
             // Cover Art
             AlbumCoverView(cover: cover)
-                .frame(width: 100, height: 100)
+                //.frame(width: 120, height: 120)
                 .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
                 .scaleEffect(playerVM.currentAlbumId == album.id ? 1.02 : 1.0)
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: playerVM.currentAlbumId)
-                .padding(.leading, 40)
-                .padding(.vertical, 20)
+                .padding(.leading, 15)
+              //  .padding(.vertical, 20)
             
             VStack(alignment: .leading, spacing: 8) {
                 // Album Name + Artist
@@ -115,9 +115,9 @@ struct AlbumHeaderView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 4)
                 .stroke(.white.opacity(0.2), lineWidth: 1)
         )
     }
@@ -182,13 +182,13 @@ struct AlbumCoverView: View {
                 Image(uiImage: cover)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 100, height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(width: 140, height: 140)
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
                     .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
             } else {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 3)
                     .fill(Color.gray.opacity(0.3))
-                    .frame(width: 100, height: 100)
+                    .frame(width: 140, height: 140)
                     .overlay(
                         Image(systemName: "record.circle.fill")
                             .font(.system(size: 30))

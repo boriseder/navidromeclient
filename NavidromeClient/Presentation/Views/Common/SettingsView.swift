@@ -85,6 +85,30 @@ struct SettingsView: View {
                         }
                     }
 
+                    // MARK: - Cache Management Section
+                    Section("Cache Management") {
+                        NavigationLink("Cache Settings") {
+                            CacheSettingsView()
+                                .environmentObject(downloadManager)
+                                .environmentObject(navidromeVM)
+                        }
+                        
+                        // Quick Cache Stats
+                        HStack {
+                            Text("Cover Art Cache")
+                            Spacer()
+                            Text(getCoverCacheSize())
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        HStack {
+                            Text("Download Cache")
+                            Spacer()
+                            Text(downloadManager.totalDownloadSize())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
                     // MARK: - Server-Infos Section (Fußnote)
                     Section("Server info") {
 
@@ -122,29 +146,6 @@ struct SettingsView: View {
                             }
                     }
                     
-                    // MARK: - Cache Management Section
-                    Section("Cache Management") {
-                        NavigationLink("Cache Settings") {
-                            CacheSettingsView()
-                                .environmentObject(downloadManager)
-                                .environmentObject(navidromeVM)
-                        }
-                        
-                        // Quick Cache Stats
-                        HStack {
-                            Text("Cover Art Cache")
-                            Spacer()
-                            Text(getCoverCacheSize())
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        HStack {
-                            Text("Download Cache")
-                            Spacer()
-                            Text(downloadManager.totalDownloadSize())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
 
                     .task {
                         await navidromeVM.testConnection()

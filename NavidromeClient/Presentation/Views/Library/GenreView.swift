@@ -97,19 +97,21 @@ struct GenreCard: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 Text(genre.value)
-                    .font(.headline.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.black.opacity(0.9))
                     .lineLimit(1)
-                HStack(spacing: 5) {
-                    Image(systemName: "record.circle.fill")
-                         .font(.caption)
-                         .foregroundColor(.secondary)
 
-                     
+                HStack(spacing: 5) {
+                    Image(systemName: "record.circle")
+                        .font(.caption)
+                        .foregroundColor(.black.opacity(0.6))
+
                     let count = genre.albumCount
                     Text("\(count) Album\(count != 1 ? "s" : "")")
-                    .font(.caption.weight(.medium))
-                    .foregroundColor(.secondary)
+                        .font(.caption)
+                        .foregroundColor(.black.opacity(0.6))
+                        .lineLimit(1)
 
                 }
                  

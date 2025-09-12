@@ -91,6 +91,20 @@ struct AlbumsView: View {
                                 }
                             }
                         }
+                        Divider()
+                        
+                        Button {
+                           // showOnlyDownloaded.toggle()
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.down.circle")
+                                Text("Downloaded Only")
+                            //    if showOnlyDownloaded {
+                                    Image(systemName: "checkmark")
+                            //    }
+                            }
+                        }
+
                     } label: {
                         Image(systemName: selectedSortType.icon)
                     }

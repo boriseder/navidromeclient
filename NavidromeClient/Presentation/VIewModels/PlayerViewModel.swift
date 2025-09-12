@@ -37,7 +37,8 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var lastUpdateTime: Double = 0
-    
+    private var playerItemEndObserver: NSObjectProtocol?   // <--- neu
+
     // MARK: - Init
     
     init(service: SubsonicService? = nil, downloadManager: DownloadManager? = nil) {
@@ -50,8 +51,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     deinit {
-        // Explizite Cleanup in deinit - OHNE @MainActor
-        // Observer cleanup synchron
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
             timeObserver = nil
@@ -61,11 +60,10 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         NotificationCenter.default.removeObserver(self)
         
-        // Clear now playing info on background queue
-        Task.detached {
-            await MainActor.run {
-                AudioSessionManager.shared.clearNowPlayingInfo()
-            }
+        // Kein detached Task mehr nötig, direkter Aufruf
+        // Safe: MainActor hop in Task
+        Task { @MainActor in
+            AudioSessionManager.shared.clearNowPlayingInfo()
         }
     }
 
@@ -232,9 +230,21 @@ class PlayerViewModel: NSObject, ObservableObject {
         isPlaying = true
         isLoading = false
         
+        // PlayerItem-spezifischen End-Observer registrieren
+        playerItemEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            Task { [weak self] in
+                await self?.playNext()
+            }
+        }
+        
         setupTimeObserver()
         updateNowPlayingInfo()
     }
+
     
     func togglePlayPause() {
         guard let player = player else { return }
@@ -401,16 +411,22 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Cleanup
     
     private func cleanupPlayer() {
-        // Observer IMMER entfernen, auch wenn player nil ist
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
             timeObserver = nil
         }
+        
+        if let token = playerItemEndObserver {
+            NotificationCenter.default.removeObserver(token)
+            playerItemEndObserver = nil
+        }
+        
         player?.pause()
         player = nil
         isPlaying = false
         isLoading = false
     }
+
 
     // MARK: - Notification Handlers
     
@@ -449,13 +465,17 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     @objc private func handleRemoteNextTrackCommand() {
-        Task { await playNext() }
+        Task { [weak self] in
+            await self?.playNext()
+        }
     }
-    
+
     @objc private func handleRemotePreviousTrackCommand() {
-        Task { await playPrevious() }
+        Task { [weak self] in
+            await self?.playPrevious()
+        }
     }
-    
+
     @objc private func handleRemoteSeekCommand(notification: Notification) {
         if let time = notification.userInfo?["time"] as? TimeInterval {
             seek(to: time)
@@ -473,9 +493,11 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     @objc private func playerDidFinishPlaying(_ notification: Notification) {
-        Task { await playNext() }
+        Task { [weak self] in
+            await self?.playNext()
+        }
     }
-    
+
     // MARK: - Download Status Methods (unchanged)
     
     func isAlbumDownloaded(_ albumId: String) -> Bool {

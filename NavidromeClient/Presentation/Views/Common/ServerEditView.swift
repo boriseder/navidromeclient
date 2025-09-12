@@ -28,7 +28,7 @@ struct ServerEditView: View {
                     .keyboardType(.numberPad)
 
                 TextField("Username", text: $navidromeVM.username)
-                    .textInputAutocapitalization(.never) // <- hier
+                    .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                 
                 SecureField("Password", text: $navidromeVM.password)
@@ -51,25 +51,7 @@ struct ServerEditView: View {
             Section {
                 Button("Save & Continue") {
                     Task {
-                        let success = await navidromeVM.saveCredentials()
-                        if success {
-                            showingSaveSuccess = true
-                            
-                            // Player-Service aktualisieren
-                            if let service = navidromeVM.getService() {
-                                playerVM.updateService(service)
-                            }
-
-                            // Bei Ersteinrichtung automatisch schließen
-                            if !appConfig.isConfigured {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                                    dismiss()
-                                }
-                            }
-                        } else {
-                            errorMessage = navidromeVM.errorMessage ?? "Fehler"
-                            showingError = true
-                        }
+                        await saveCredentialsAndClose()
                     }
                 }
                 .disabled(navidromeVM.isLoading || !navidromeVM.connectionStatus)
@@ -77,10 +59,46 @@ struct ServerEditView: View {
         }
         .navigationTitle(appConfig.isConfigured ? "Edit server" : "Initial setup")
         .onAppear {
-            // Test automatically when fields are filled
             if !navidromeVM.host.isEmpty {
                 Task { await navidromeVM.testConnection() }
             }
+        }
+        .alert("Success", isPresented: $showingSaveSuccess) {
+            Button("OK", role: .cancel) {
+                // Nichts extra nötig, Sheet wird schon geschlossen
+            }
+        } message: {
+            Text("Configuration saved successfully")
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
+    }
+
+    // MARK: - Save & Close
+    private func saveCredentialsAndClose() async {
+        let success = await navidromeVM.saveCredentials()
+        if success {
+            // Player-Service aktualisieren
+            if let service = navidromeVM.getService() {
+                playerVM.updateService(service)
+            }
+
+            // Sheet schließen auf MainActor
+            await MainActor.run {
+                dismiss()
+            }
+
+            // Ersteinrichtung markieren
+            if !appConfig.isConfigured {
+                appConfig.isConfigured = true
+                showingSaveSuccess = true
+            }
+        } else {
+            errorMessage = navidromeVM.errorMessage ?? "Fehler beim Speichern"
+            showingError = true
         }
     }
 }

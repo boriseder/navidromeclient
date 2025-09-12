@@ -151,20 +151,21 @@ struct ArtistCard: View {
             // Artist Info
             VStack(alignment: .leading, spacing: 6) {
                 Text(artist.name)
-                    .font(.headline.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.black.opacity(0.9))
                     .lineLimit(1)
 
                 HStack(spacing: 5) {
-                    Image(systemName: "record.circle.fill")
+                    Image(systemName: "record.circle")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.black.opacity(0.6))
 
-                    
                     if let count = artist.albumCount {
                         Text("\(count) Album\(count != 1 ? "s" : "")")
-                            .font(.caption.weight(.medium))
-                            .foregroundColor(.secondary)
+                            .font(.caption)
+                            .foregroundColor(.black.opacity(0.6))
+                            .lineLimit(1)
 
                     }
                 }
