@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CacheSettingsView: View {
+    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     
@@ -12,7 +13,6 @@ struct CacheSettingsView: View {
     
     var body: some View {
         List {
-            // MARK: - Cover Art Cache
             Section("Cover Art Cache") {
                 VStack(spacing: 12) {
                     CacheStatsRow(
@@ -33,7 +33,6 @@ struct CacheSettingsView: View {
                         icon: "chart.pie"
                     )
                     
-                    // Progress Bar
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Storage Usage")
@@ -58,7 +57,6 @@ struct CacheSettingsView: View {
                 }
             }
             
-            // MARK: - Download Cache
             Section("Download Cache") {
                 HStack {
                     Text("Downloaded Music")
@@ -74,7 +72,6 @@ struct CacheSettingsView: View {
                 }
             }
             
-            // MARK: - Advanced
             Section("Advanced") {
                 Button {
                     Task {
@@ -95,7 +92,6 @@ struct CacheSettingsView: View {
                 }
             }
             
-            // MARK: - Info
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Cache automatically manages storage and removes old images when space is needed.")
@@ -137,8 +133,6 @@ struct CacheSettingsView: View {
         }
     }
     
-    // MARK: - Helper Properties
-    
     private var progressColor: Color {
         switch cacheStats.usagePercentage {
         case 0..<60: return .green
@@ -146,8 +140,6 @@ struct CacheSettingsView: View {
         default: return .red
         }
     }
-    
-    // MARK: - Methods
     
     private func updateCacheStats() {
         cacheStats = PersistentImageCache.shared.getCacheStats()

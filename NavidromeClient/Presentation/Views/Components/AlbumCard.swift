@@ -4,17 +4,19 @@
 //
 //  Created by Boris Eder on 12.09.25.
 //
+
 import SwiftUI
 
 struct AlbumCard: View {
     let album: Album
     let accentColor: Color
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @State private var coverImage: UIImage?
+    
+    // REAKTIVER Cover Art Service
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Album Cover
+            // Album Cover - REAKTIV
             ZStack {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(LinearGradient(
@@ -24,27 +26,26 @@ struct AlbumCard: View {
                     ))
                     .frame(width: 140, height: 140)
                 
-                if let coverImage = coverImage {
+                // REAKTIV: Automatisches Update wenn Bild geladen
+                if let coverImage = coverArtService.coverImage(for: album, size: 200) {
                     Image(uiImage: coverImage)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 140, height: 140)
                         .clipShape(RoundedRectangle(cornerRadius: 3))
-                        /*.overlay(
-                            Image(systemName: "star.fill")
-                                .foregroundColor(.yellow)
-                                .padding(6),
-                            alignment: .topTrailing
-                        )
-                         */
                 } else {
                     Image(systemName: "music.note")
                         .font(.system(size: 32))
                         .foregroundColor(accentColor.opacity(0.7))
+                        .onAppear {
+                            // FIRE-AND-FORGET Request
+                            coverArtService.requestImage(for: album.id, size: 200)
+                        }
                 }
             }
             .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-            // Album Info
+            
+            // Album Info (unchanged)
             VStack(alignment: .leading, spacing: 2) {
                 Text(album.name)
                     .font(.subheadline)
@@ -68,9 +69,6 @@ struct AlbumCard: View {
                 }
             }
             .frame(width: 140, alignment: .leading)
-        }
-        .task {
-            coverImage = await navidromeVM.loadCoverArt(for: album.id, size: 200)
         }
     }
 }

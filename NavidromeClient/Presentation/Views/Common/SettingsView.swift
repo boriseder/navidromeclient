@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -14,22 +15,15 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                // MARK: - Ersteinrichtung
                 if !appConfig.isConfigured {
                     Section("Navidrome") {
                         NavigationLink("Edit server") {
                             ServerEditView()
-                                .environmentObject(navidromeVM)
-                                .environmentObject(appConfig)
-                                .environmentObject(playerVM)
-                                .environmentObject(downloadManager)
                         }
                     }
                 }
 
-                // MARK: - Generelle Einstellungen
                 if appConfig.isConfigured {
-                    // Server Section
                     Section("Navidrome") {
                         if let creds = AppConfig.shared.getCredentials() {
                             let portPart = creds.baseURL.port.map { ":\($0)" } ?? ""
@@ -50,14 +44,10 @@ struct SettingsView: View {
                                     .multilineTextAlignment(.trailing)
                                     .textCase(nil)
                             }
-
                         }
+                        
                         NavigationLink("Edit server") {
                             ServerEditView()
-                                .environmentObject(navidromeVM)
-                                .environmentObject(appConfig)
-                                .environmentObject(playerVM)
-                                .environmentObject(downloadManager)
                         }
 
                         Button(role: .destructive) {
@@ -69,7 +59,7 @@ struct SettingsView: View {
                     .task {
                         await navidromeVM.testConnection()
                     }
-                    // Downloads Section
+                    
                     Section("Download") {
                         HStack {
                             Text("Downloades music")
@@ -85,15 +75,11 @@ struct SettingsView: View {
                         }
                     }
 
-                    // MARK: - Cache Management Section
                     Section("Cache Management") {
                         NavigationLink("Cache Settings") {
                             CacheSettingsView()
-                                .environmentObject(downloadManager)
-                                .environmentObject(navidromeVM)
                         }
                         
-                        // Quick Cache Stats
                         HStack {
                             Text("Cover Art Cache")
                             Spacer()
@@ -109,44 +95,40 @@ struct SettingsView: View {
                         }
                     }
                     
-                    // MARK: - Server-Infos Section (Fußnote)
                     Section("Server info") {
+                        HStack {
+                            Text("Type:")
+                            Spacer()
+                            Text(navidromeVM.serverType ?? "-")
+                                .foregroundStyle(.secondary)
+                        }
 
-                            HStack {
-                                Text("Type:")
-                                Spacer()
-                                Text(navidromeVM.serverType ?? "-")
+                        HStack {
+                            Text("Navidrome-Version:")
+                            Spacer()
+                            Text(navidromeVM.serverVersion ?? "-")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack {
+                            Text("Subsonic-Version:")
+                            Spacer()
+                            Text(navidromeVM.subsonicVersion ?? "-")
+                                .foregroundStyle(.secondary)
+                        }
+
+                        HStack {
+                            Text("OpenSubsonic:")
+                            Spacer()
+                            if let open = navidromeVM.openSubsonic {
+                                Text(open ? "Yes" : "No")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("-")
                                     .foregroundStyle(.secondary)
                             }
-
-                            HStack {
-                                Text("Navidrome-Version:")
-                                Spacer()
-                                Text(navidromeVM.serverVersion ?? "-")
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            HStack {
-                                Text("Subsonic-Version:")
-                                Spacer()
-                                Text(navidromeVM.subsonicVersion ?? "-")
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            HStack {
-                                Text("OpenSubsonic:")
-                                Spacer()
-                                if let open = navidromeVM.openSubsonic {
-                                    Text(open ? "Yes" : "No")
-                                        .foregroundStyle(.secondary)
-                                } else {
-                                    Text("-")
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
+                        }
                     }
-                    
-
                     .task {
                         await navidromeVM.testConnection()
                     }
@@ -158,7 +140,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Logout
     private func logout() {
         appConfig.logout()
         navidromeVM.reset()
@@ -172,5 +153,4 @@ struct SettingsView: View {
         let stats = PersistentImageCache.shared.getCacheStats()
         return stats.diskSizeFormatted
     }
-
 }

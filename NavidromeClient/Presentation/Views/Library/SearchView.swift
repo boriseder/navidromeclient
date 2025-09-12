@@ -1,13 +1,14 @@
 import SwiftUI
 
 struct SearchView: View {
+    // ALLE zu @EnvironmentObject geändert - KEINE @StateObject für Singletons!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     
+    // NUR View-spezifischer State als @State/@StateObject
     @State private var query: String = ""
     @State private var selectedTab: SearchTab = .songs
-    
-    @StateObject private var debouncer = Debouncer()
+    @StateObject private var debouncer = Debouncer() // ✅ View-spezifisch, daher @StateObject
     
     enum SearchTab: String, CaseIterable {
         case artists = "Künstler"
@@ -23,7 +24,6 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - Computed Properties
     private var hasResults: Bool {
         !navidromeVM.artists.isEmpty || !navidromeVM.albums.isEmpty || !navidromeVM.songs.isEmpty
     }
@@ -39,7 +39,6 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                
                 VStack(spacing: 0) {
                     SearchHeaderView(
                         query: $query,
@@ -63,15 +62,13 @@ struct SearchView: View {
             }
             .navigationTitle("Suche")
             .navigationBarTitleDisplayMode(.large)
-            .accountToolbar()  // hier wird das Icon hinzugefügt
-
+            .accountToolbar()
         }
         .onChange(of: query) { _, newValue in
             handleQueryChange(newValue)
         }
     }
     
-    // MARK: - Private Methods
     private func performSearch() {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task {
@@ -409,4 +406,3 @@ struct SearchResultsView: View {
         }
     }
 }
-

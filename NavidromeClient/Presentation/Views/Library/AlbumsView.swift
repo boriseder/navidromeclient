@@ -4,30 +4,25 @@ struct AlbumsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
-    
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    @StateObject private var offlineManager = OfflineManager.shared
-    @StateObject private var metadataCache = AlbumMetadataCache.shared
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     @State private var searchText = ""
     @State private var selectedSortType: SubsonicService.AlbumSortType = .alphabetical
     @State private var isLoading = false
     @State private var hasLoadedOnce = false
 
-    // FIX: Enhanced computed property using canLoadOnlineContent
     private var displayedAlbums: [Album] {
         let albums: [Album]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            // Online: Zeige alle geladenen Alben
             albums = navidromeVM.albums
         } else {
-            // Offline: Zeige nur heruntergeladene Alben
             let downloadedAlbumIds = Set(DownloadManager.shared.downloadedAlbums.map { $0.albumId })
-            albums = metadataCache.getAlbums(ids: downloadedAlbumIds)
+            albums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
         }
         
-        // Filtere nach Suchtext
         if searchText.isEmpty {
             return albums
         } else {
@@ -38,12 +33,10 @@ struct AlbumsView: View {
         }
     }
     
-    // FIX: Enhanced availableSortTypes using canLoadOnlineContent
     private var availableSortTypes: [SubsonicService.AlbumSortType] {
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             return SubsonicService.AlbumSortType.allCases
         } else {
-            // Offline nur lokale Sortierungen
             return [.alphabetical, .alphabeticalByArtist]
         }
     }
@@ -61,7 +54,7 @@ struct AlbumsView: View {
                     } else if displayedAlbums.isEmpty {
                         Spacer()
                         AlbumsEmptyStateView(
-                            isOnline: networkMonitor.canLoadOnlineContent, // FIX: Use canLoadOnlineContent
+                            isOnline: networkMonitor.canLoadOnlineContent,
                             isOfflineMode: offlineManager.isOfflineMode
                         )
                         Spacer()
@@ -69,7 +62,7 @@ struct AlbumsView: View {
                         ScrollView {
                             LazyVStack(spacing: 0) {
                                 AlbumsStatusHeader(
-                                    isOnline: networkMonitor.canLoadOnlineContent, // FIX: Use canLoadOnlineContent
+                                    isOnline: networkMonitor.canLoadOnlineContent,
                                     isOfflineMode: offlineManager.isOfflineMode,
                                     albumCount: displayedAlbums.count,
                                     onOfflineToggle: { offlineManager.toggleOfflineMode() }
@@ -111,7 +104,7 @@ struct AlbumsView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(isLoading || networkMonitor.shouldForceOfflineMode) // FIX: Use shouldForceOfflineMode
+                    .disabled(isLoading || networkMonitor.shouldForceOfflineMode)
                 }
             }
             .task {
@@ -123,19 +116,24 @@ struct AlbumsView: View {
             .refreshable {
                 await loadAlbums()
             }
-            // FIX: Listen to server reachability changes
             .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
                 if canLoad && !offlineManager.isOfflineMode {
                     Task { await loadAlbums() }
                 } else if !canLoad {
-                    // Auto-switch to offline mode when server becomes unreachable
                     offlineManager.switchToOfflineMode()
                 }
             }
             .onChange(of: offlineManager.isOfflineMode) { _, _ in
                 // Trigger UI refresh when offline mode changes
             }
-            // FIX: Listen to server unreachable notifications
+            // FIX: Async preloading to avoid publishing during view updates
+            .task(id: displayedAlbums.count) {
+                // Only preload when album count changes, with delay
+                if !displayedAlbums.isEmpty {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
+                    coverArtService.preloadVisibleAlbums(displayedAlbums)
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
                 offlineManager.switchToOfflineMode()
             }
@@ -144,9 +142,7 @@ struct AlbumsView: View {
     }
     
     private func loadAlbums() async {
-        // FIX: Use enhanced method with auto-fallback
         guard networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode else {
-            // Load from offline cache immediately
             await navidromeVM.loadOfflineAlbums()
             return
         }
@@ -154,7 +150,6 @@ struct AlbumsView: View {
         isLoading = true
         defer { isLoading = false }
         
-        // This will now auto-fallback to offline if server is unreachable
         await navidromeVM.loadAllAlbums(sortBy: selectedSortType)
     }
 }

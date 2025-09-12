@@ -1,5 +1,5 @@
 import Foundation
-import SwiftUI
+//import SwiftUI
 
 @MainActor
 class DownloadManager: ObservableObject {

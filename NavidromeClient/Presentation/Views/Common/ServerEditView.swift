@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ServerEditView: View {
+    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -33,7 +34,7 @@ struct ServerEditView: View {
                 
                 SecureField("Password", text: $navidromeVM.password)
 
-                // Enhanced connection status display
+                // Connection status display
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Text("Connection:")
@@ -57,7 +58,6 @@ struct ServerEditView: View {
                         }
                     }
                     
-                    // Show error message if connection failed
                     if !navidromeVM.connectionStatus, let error = navidromeVM.errorMessage, !navidromeVM.isLoading {
                         Text(error)
                             .font(.caption)
@@ -66,7 +66,6 @@ struct ServerEditView: View {
                             .multilineTextAlignment(.leading)
                     }
                     
-                    // Show server info if connection successful
                     if navidromeVM.connectionStatus, let serverType = navidromeVM.serverType {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Server: \(serverType)")
@@ -98,7 +97,6 @@ struct ServerEditView: View {
                 .disabled(navidromeVM.isLoading || !navidromeVM.connectionStatus)
             }
             
-            // Enhanced info section
             if navidromeVM.connectionStatus {
                 Section("Connection Details") {
                     if let subsonicVersion = navidromeVM.subsonicVersion {
@@ -128,9 +126,7 @@ struct ServerEditView: View {
             }
         }
         .alert("Success", isPresented: $showingSaveSuccess) {
-            Button("OK", role: .cancel) {
-                // Nichts extra nötig, Sheet wird schon geschlossen
-            }
+            Button("OK", role: .cancel) {}
         } message: {
             Text("Configuration saved successfully")
         }
@@ -141,21 +137,17 @@ struct ServerEditView: View {
         }
     }
 
-    // MARK: - Save & Close
     private func saveCredentialsAndClose() async {
         let success = await navidromeVM.saveCredentials()
         if success {
-            // Player-Service aktualisieren
             if let service = navidromeVM.getService() {
                 playerVM.updateService(service)
             }
 
-            // Sheet schließen auf MainActor
             await MainActor.run {
                 dismiss()
             }
 
-            // Ersteinrichtung markieren
             if !appConfig.isConfigured {
                 appConfig.isConfigured = true
                 showingSaveSuccess = true

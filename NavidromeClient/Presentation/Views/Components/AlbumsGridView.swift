@@ -3,6 +3,8 @@ import SwiftUI
 // MARK: - Reusable Album Grid View
 struct AlbumGridView: View {
     let albums: [Album]
+    
+    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     
@@ -10,11 +12,10 @@ struct AlbumGridView: View {
         ScrollView {
             albumsGrid
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100) // Platz für Mini-Player
+                .padding(.bottom, 100)
         }
     }
     
-    // Das bestehende Grid aus ArtistDetailView - extrahiert für Wiederverwendung
     private var albumsGrid: some View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 2)
         
@@ -22,11 +23,9 @@ struct AlbumGridView: View {
             ForEach(albums, id: \.id) { album in
                 NavigationLink {
                     AlbumDetailView(album: album)
-                        .environmentObject(navidromeVM)
-                        .environmentObject(playerVM)
                 } label: {
                     AlbumCard(album: album, accentColor: .black)
-                    }
+                }
             }
         }
     }

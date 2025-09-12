@@ -2,21 +2,23 @@ import SwiftUI
 
 @main
 struct NavidromeClientApp: App {
-    // App Delegate für Background Audio
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
+    // Core Services (Singletons)
     @StateObject private var appConfig = AppConfig.shared
-    @StateObject private var navidromeVM = NavidromeViewModel()
     @StateObject private var downloadManager = DownloadManager.shared
-    @StateObject private var playerVM: PlayerViewModel
     @StateObject private var audioSessionManager = AudioSessionManager.shared
-    
-    // Network & Offline Management
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @StateObject private var offlineManager = OfflineManager.shared
-   
+    
+    // NEW: Cover Art Service
+    @StateObject private var coverArtService = ReactiveCoverArtService.shared
+    
+    // App-wide ViewModels
+    @StateObject private var navidromeVM = NavidromeViewModel()
+    @StateObject private var playerVM: PlayerViewModel
+    
     init() {
-        // Initialize PlayerViewModel with dependencies
         let service: SubsonicService?
         if let creds = AppConfig.shared.getCredentials() {
             service = SubsonicService(baseURL: creds.baseURL,
@@ -26,20 +28,20 @@ struct NavidromeClientApp: App {
             service = nil
         }
 
-        _downloadManager = StateObject(wrappedValue: DownloadManager.shared)
         _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
     }
     
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(appConfig)
                 .environmentObject(navidromeVM)
                 .environmentObject(playerVM)
                 .environmentObject(downloadManager)
-                .environmentObject(appConfig)
                 .environmentObject(audioSessionManager)
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
+                .environmentObject(coverArtService) // NEW
                 .onAppear {
                     setupServices()
                     setupNetworkMonitoring()
@@ -62,9 +64,10 @@ struct NavidromeClientApp: App {
             )
             navidromeVM.updateService(service)
             playerVM.updateService(service)
-            
-            // FIX: Critical - Set service in NetworkMonitor for server monitoring
             networkMonitor.setService(service)
+            
+            // NEW: Configure Cover Art Service
+            coverArtService.configure(service: service)
             
             print("✅ All services configured with credentials")
         } else {
@@ -73,10 +76,8 @@ struct NavidromeClientApp: App {
     }
     
     private func setupNetworkMonitoring() {
-        // Network Monitor ist bereits als Singleton aktiv
         print("🌐 Network monitoring active")
         
-        // FIX: Start immediate server check if service is available
         if networkMonitor.isConnected {
             Task {
                 await networkMonitor.checkServerConnection()
@@ -87,7 +88,6 @@ struct NavidromeClientApp: App {
     private func handleAppBecameActive() {
         print("📱 App became active - refreshing audio session and network status")
         
-        // FIX: Check server connection when app becomes active
         Task {
             await networkMonitor.checkServerConnection()
         }
@@ -95,7 +95,6 @@ struct NavidromeClientApp: App {
     
     private func handleAppWillResignActive() {
         print("📱 App will resign active - ensuring background audio")
-        // Stelle sicher, dass Audio im Hintergrund läuft
         if playerVM.isPlaying {
             print("🎵 Music is playing - should continue in background")
         }

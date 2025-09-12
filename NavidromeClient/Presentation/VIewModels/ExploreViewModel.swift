@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 @MainActor
-class HomeScreenViewModel: ObservableObject {
+class ExploreViewModel: ObservableObject {
     // MARK: - Published Properties
     @Published var recentAlbums: [Album] = []
     @Published var newestAlbums: [Album] = []

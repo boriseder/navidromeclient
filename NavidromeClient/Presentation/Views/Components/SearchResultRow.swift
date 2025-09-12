@@ -47,18 +47,49 @@ struct SearchResultArtistRow: View {
 // MARK: - Album Row with Cover Art (ArtistsView Style)
 struct SearchResultAlbumRow: View {
     let album: Album
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @State private var albumCovers: [String: UIImage] = [:]
-    @State private var isLoadingImage = false
+    
+    // REAKTIVER Cover Art Service
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         NavigationLink(destination: AlbumDetailView(album: album)) {
             HStack(spacing: 16) {
-                AlbumImageView(
-                    albumId: album.id,
-                    albumCovers: $albumCovers,
-                    isLoading: isLoadingImage
-                )
+                // REAKTIVES Album Cover
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 70, height: 70)
+                        .blur(radius: 3)
+                    
+                    Group {
+                        if let image = coverArtService.coverImage(for: album, size: 120) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        } else {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.orange, .pink.opacity(0.7)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 60, height: 60)
+                                .overlay(
+                                    Image(systemName: "record.circle.fill")
+                                        .font(.system(size: 24))
+                                        .foregroundStyle(.white.opacity(0.9))
+                                )
+                                .onAppear {
+                                    // FIRE-AND-FORGET Request
+                                    coverArtService.requestImage(for: album.id, size: 120)
+                                }
+                        }
+                    }
+                }
                 
                 AlbumInfoView(album: album)
                 
@@ -83,19 +114,62 @@ struct SearchResultSongRow: View {
     let isPlaying: Bool
     let action: () -> Void
     
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @State private var albumCovers: [String: UIImage] = [:]
-    @State private var isLoadingImage = false
+    // REAKTIVER Cover Art Service
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: 16) {
-                SongImageView(
-                    song: song,
-                    albumCovers: $albumCovers,
-                    isLoading: isLoadingImage,
-                    isPlaying: isPlaying
-                )
+                // REAKTIVES Song Cover
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(isPlaying ? 0.2 : 0.1))
+                        .frame(width: 60, height: 60)
+                        .blur(radius: 3)
+                    
+                    Group {
+                        if let albumId = song.albumId,
+                           let image = coverArtService.image(for: albumId, size: 100) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 50, height: 50)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    // Playing indicator overlay
+                                    isPlaying ?
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(.blue.opacity(0.3))
+                                        .overlay(
+                                            Image(systemName: "speaker.wave.2.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.blue)
+                                        ) : nil
+                                )
+                        } else {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.green, .blue.opacity(0.7)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 50, height: 50)
+                                .overlay(
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: 20))
+                                        .foregroundStyle(.white.opacity(0.9))
+                                )
+                                .onAppear {
+                                    // FIRE-AND-FORGET Request
+                                    if let albumId = song.albumId {
+                                        coverArtService.requestImage(for: albumId, size: 100)
+                                    }
+                                }
+                        }
+                    }
+                }
                 
                 SongInfoView(song: song, isPlaying: isPlaying)
                 

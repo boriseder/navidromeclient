@@ -11,37 +11,26 @@ struct ArtistCard: View {
     let artist: Artist
     let index: Int
     
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @State private var artistImage: UIImage?
-    @State private var isLoadingImage = false
-    @State private var isPressed = false
+    // REAKTIVER Cover Art Service
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         HStack(spacing: 16) {
-            // Artist Avatar with glow
+            // Artist Avatar - REAKTIV
             ZStack {
                 Circle()
                     .fill(.black.opacity(0.1))
                     .frame(width: 70, height: 70)
                     .blur(radius: 1)
                 
-                // Main avatar
                 Group {
-                    if let image = artistImage {
+                    // REAKTIV: Automatisches Update
+                    if let image = coverArtService.artistImage(for: artist, size: 120) {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
                             .frame(width: 70, height: 70)
                             .clipShape(Circle())
-                    } else if isLoadingImage {
-                        Circle()
-                            .fill(.regularMaterial)
-                            .frame(width: 70, height: 70)
-                            .overlay(
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .tint(.primary)
-                            )
                     } else {
                         Circle()
                             .fill(
@@ -56,15 +45,18 @@ struct ArtistCard: View {
                                 Image(systemName: "music.mic")
                                     .font(.system(size: 24))
                                     .foregroundStyle(.white.opacity(0.9))
-                                )
-                        }
+                            )
+                            .onAppear {
+                                // FIRE-AND-FORGET Request
+                                if let coverArt = artist.coverArt {
+                                    coverArtService.requestImage(for: coverArt, size: 120)
+                                }
+                            }
                     }
                 }
-                .task {
-                    await loadArtistImage()
-                }
+            }
 
-            // Artist Info
+            // Artist Info (unchanged)
             VStack(alignment: .leading, spacing: 6) {
                 Text(artist.name)
                     .font(.subheadline)
@@ -82,11 +74,12 @@ struct ArtistCard: View {
                             .font(.caption)
                             .foregroundColor(.black.opacity(0.6))
                             .lineLimit(1)
-
                     }
                 }
             }
+            
             Spacer()
+            
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
         }
@@ -96,16 +89,5 @@ struct ArtistCard: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(.regularMaterial)
         )
-    }
-    
-    // MARK: - Helper Methods
-    private func loadArtistImage() async {
-        guard let coverId = artist.coverArt, !isLoadingImage else { return }
-        isLoadingImage = true
-        
-        // This already goes through cache via NavidromeVM -> Service -> PersistentImageCache
-        artistImage = await navidromeVM.loadCoverArt(for: coverId)
-        
-        isLoadingImage = false
     }
 }

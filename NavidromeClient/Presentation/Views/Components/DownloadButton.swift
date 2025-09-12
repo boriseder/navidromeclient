@@ -6,22 +6,17 @@ struct DownloadButton: View {
     let navidromeVM: NavidromeViewModel
     let playerVM: PlayerViewModel
     
-    @ObservedObject var downloadManager: DownloadManager // Changed to @ObservedObject for live updates
+    // @ObservedObject ist korrekt, da von Parent übergeben
+    @ObservedObject var downloadManager: DownloadManager
     @State private var downloadState: DownloadState = .idle
     @State private var showingDeleteConfirmation = false
     
-    // MARK: - Button Size Constant
     private let buttonSize: CGFloat = 24
 
     enum DownloadState {
-        case idle           // Not downloaded, ready to download
-        case downloading    // Currently downloading
-        case downloaded     // Successfully downloaded
-        case error          // Download failed
-        case cancelling     // User cancelled, cleaning up
+        case idle, downloading, downloaded, error, cancelling
     }
 
-    // Computed properties for current state - these will now update live
     private var isDownloading: Bool { downloadManager.isAlbumDownloading(album.id) }
     private var isDownloaded: Bool { downloadManager.isAlbumDownloaded(album.id) }
     private var progress: Double { downloadManager.downloadProgress[album.id] ?? 0 }
@@ -58,7 +53,6 @@ struct DownloadButton: View {
             updateDownloadState()
         }
         .onChange(of: progress) { _, newValue in
-            // Live progress updates!
             print("📊 Progress changed for \(album.id): \(newValue)")
         }
         .onAppear {
@@ -72,24 +66,18 @@ struct DownloadButton: View {
             switch downloadState {
             case .idle:
                 idleButton
-                
             case .downloading:
                 downloadingButton
-                
             case .downloaded:
                 downloadedButton
-                
             case .error:
                 errorButton
-                
             case .cancelling:
                 cancellingButton
             }
         }
         .frame(width: buttonSize, height: buttonSize)
     }
-    
-    // MARK: - Button States
     
     private var idleButton: some View {
         Image(systemName: "arrow.down.circle")
@@ -99,18 +87,15 @@ struct DownloadButton: View {
     
     private var downloadingButton: some View {
         ZStack {
-            // Background circle
             Circle()
                 .stroke(.blue.opacity(0.3), lineWidth: 2)
             
-            // Progress circle - shows live progress
             Circle()
-                .trim(from: 0, to: max(0.05, progress)) // Minimum 5% to show something
+                .trim(from: 0, to: max(0.05, progress))
                 .stroke(.blue, lineWidth: 2)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.2), value: progress) // Faster animation
+                .animation(.easeInOut(duration: 0.2), value: progress)
             
-            // Always show percentage when downloading
             Text("\(Int(max(0.05, progress) * 100))%")
                 .font(.system(size: 8, weight: .semibold))
                 .foregroundColor(.blue)
@@ -140,21 +125,16 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: - Actions
-    
     private func handleButtonTap() {
         switch downloadState {
         case .idle, .error:
             startDownload()
-            
         case .downloading:
             cancelDownload()
-            
         case .downloaded:
             showingDeleteConfirmation = true
-            
         case .cancelling:
-            break // No action during cancelling
+            break
         }
     }
     
@@ -178,8 +158,6 @@ struct DownloadButton: View {
     private func cancelDownload() {
         downloadState = .cancelling
         
-        // TODO: Implement proper download cancellation in DownloadManager
-        // For now, just clean up the state
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             downloadState = .idle
         }
@@ -191,7 +169,6 @@ struct DownloadButton: View {
         } else if isDownloading {
             downloadState = .downloading
         } else if downloadState == .downloading {
-            // Was downloading but not anymore - could be error or success
             downloadState = isDownloaded ? .downloaded : .error
         } else if downloadState != .error {
             downloadState = .idle

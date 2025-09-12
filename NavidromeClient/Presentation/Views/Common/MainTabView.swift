@@ -1,12 +1,13 @@
 import SwiftUI
 
 struct MainTabView: View {
+    // ALLE als @EnvironmentObject - KEINE @StateObject mehr!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
-    
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    @StateObject private var offlineManager = OfflineManager.shared
+    @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
 
     private struct TabItem {
         let view: AnyView
@@ -41,7 +42,6 @@ struct MainTabView: View {
             VStack {
                 Spacer()
                 MiniPlayerView()
-                    .environmentObject(playerVM)
                     .frame(height: 90)
             }
         }
@@ -58,7 +58,7 @@ struct MainTabView: View {
                 Image(systemName: "wifi.slash").font(.caption)
                 Text("Offline Mode").font(.caption).fontWeight(.medium)
                 Spacer()
-                if DownloadManager.shared.downloadedAlbums.count > 0 {
+                if downloadManager.downloadedAlbums.count > 0 {
                     Button("Downloaded Music") { offlineManager.switchToOfflineMode() }
                         .font(.caption)
                         .foregroundStyle(.blue)

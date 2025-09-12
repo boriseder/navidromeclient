@@ -16,8 +16,8 @@ struct AlbumDetailView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService // NEW
 
-    @State private var loadedCover: UIImage?
     @State private var songs: [Song] = []
     @State private var miniPlayerVisible = false
 
@@ -28,27 +28,20 @@ struct AlbumDetailView: View {
                 VStack(spacing: 32) {
                     AlbumHeaderView(
                         album: album,
-                        cover: loadedCover,
+                        cover: coverArtService.coverImage(for: album, size: 400), // REAKTIV
                         songs: songs
                     )
-                    .environmentObject(playerVM)
-                    .environmentObject(navidromeVM)
-                    .environmentObject(downloadManager)
                     
                     AlbumSongsListView(
                         songs: songs,
                         album: album,
                         miniPlayerVisible: $miniPlayerVisible
                     )
-                    .environmentObject(playerVM)
-                    .environmentObject(navidromeVM)
-                
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, miniPlayerVisible ? 90 : 50)
+            }
         }
-    }
-        
         .navigationTitle(album.name)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -59,7 +52,10 @@ struct AlbumDetailView: View {
 
     @MainActor
     private func loadAlbumData() async {
-        loadedCover = await navidromeVM.loadCoverArt(for: album.id)
+        // REQUEST Cover Art (reaktiv)
+        coverArtService.requestImage(for: album.id, size: 400)
+        
+        // Load Songs
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }

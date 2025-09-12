@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct ContentView: View {
+    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
-    
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    @StateObject private var offlineManager = OfflineManager.shared
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
     
     @State private var showingSettings = false
     
@@ -14,8 +14,6 @@ struct ContentView: View {
         Group {
             if appConfig.isConfigured {
                 MainTabView()
-                    .environmentObject(networkMonitor)
-                    .environmentObject(offlineManager)
             } else {
                 WelcomeView {
                     showingSettings = true

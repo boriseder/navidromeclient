@@ -1,13 +1,15 @@
 import SwiftUI
 
 struct ArtistsView: View {
+    // ALLE zu @EnvironmentObject geändert - KEINE @StateObject für Singletons!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
+    @EnvironmentObject var downloadManager: DownloadManager
     
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    @StateObject private var offlineManager = OfflineManager.shared
-    
+    // NUR View-spezifischer State als @State
     @State private var searchText = ""
     @State private var hasLoadedOnce = false
     
@@ -57,10 +59,7 @@ struct ArtistsView: View {
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(context: .artist(artist))
-                    .environmentObject(navidromeVM)
-                    .environmentObject(playerVM)
             }
-            // Enhanced network monitoring
             .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
                 if !canLoad {
                     offlineManager.switchToOfflineMode()
@@ -79,14 +78,11 @@ struct ArtistsView: View {
         let artists: [Artist]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            // Online: Use loaded artists
             artists = navidromeVM.artists
         } else {
-            // Offline: Load from offline cache
             artists = getOfflineArtists()
         }
         
-        // Filter by search text
         if searchText.isEmpty {
             return artists.sorted(by: { $0.name < $1.name })
         } else {
@@ -97,11 +93,10 @@ struct ArtistsView: View {
     }
     
     private func getOfflineArtists() -> [Artist] {
-        let downloadedAlbums = DownloadManager.shared.downloadedAlbums
+        let downloadedAlbums = downloadManager.downloadedAlbums
         let albumIds = Set(downloadedAlbums.map { $0.albumId })
         let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
         
-        // Extract unique artists
         let uniqueArtists = Set(cachedAlbums.map { $0.artist })
         return uniqueArtists.compactMap { artistName in
             Artist(
@@ -117,7 +112,6 @@ struct ArtistsView: View {
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
-                // Status header
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
                     ArtistsStatusHeader(
                         isOnline: networkMonitor.canLoadOnlineContent,
@@ -137,12 +131,10 @@ struct ArtistsView: View {
         }
     }
 
-    // Enhanced loading method
     private func loadArtists() async {
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             await navidromeVM.loadArtistsWithOfflineSupport()
         }
-        // If offline, filteredArtists will automatically show cached data
     }
 }
 
@@ -237,4 +229,3 @@ struct ArtistsStatusHeader: View {
         .padding(.bottom, 8)
     }
 }
-

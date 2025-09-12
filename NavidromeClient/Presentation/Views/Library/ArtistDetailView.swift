@@ -8,10 +8,12 @@ enum ArtistDetailContext {
 struct ArtistDetailView: View {
     let context: ArtistDetailContext
     
+    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     
-    @State private var viewModel = ArtistDetailViewModel()
+    // NUR View-spezifisches ViewModel als @StateObject
+    @StateObject private var viewModel = ArtistDetailViewModel()
 
     private var artist: Artist? {
         if case .artist(let a) = context { return a }
@@ -126,10 +128,7 @@ struct ArtistDetailView: View {
             if viewModel.isLoading {
                 loadingView()
             } else {
-                // GEÄNDERT: Verwende das neue AlbumGridView
                 AlbumGridView(albums: viewModel.albums)
-                    .environmentObject(navidromeVM)
-                    .environmentObject(playerVM)
             }
         }
         .padding(.bottom, 120)
@@ -187,67 +186,5 @@ struct ArtistDetailView: View {
         }
         
         return try await service.getSongs(for: albumId)
-    }
-}
-
-// MARK: - Enhanced ViewModel
-@Observable
-class ArtistDetailViewModel {
-    var albums: [Album] = []
-    var albumCovers: [String: UIImage] = [:]
-    var artistImage: UIImage?
-    var isLoading = false
-    var isLoadingSongs = false // New: for shuffle play loading
-    
-    func title(for context: ArtistDetailContext) -> String {
-        switch context {
-        case .artist(let artist): return artist.name
-        case .genre(let genre): return genre.value
-        }
-    }
-    
-    @MainActor
-    func loadContent(context: ArtistDetailContext, navidromeVM: NavidromeViewModel) async {
-        isLoading = true
-        
-        // Führe Tasks parallel aus
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.loadAlbums(context: context, navidromeVM: navidromeVM) }
-            group.addTask { await self.loadArtistImage(context: context, navidromeVM: navidromeVM) }
-        }
-        
-        isLoading = false
-    }
-    
-    private func loadAlbums(context: ArtistDetailContext, navidromeVM: NavidromeViewModel) async {
-        do {
-            let loadedAlbums = try await navidromeVM.loadAlbums(context: context)
-            await MainActor.run {
-                self.albums = loadedAlbums
-            }
-        } catch {
-            await MainActor.run {
-                self.albums = []
-            }
-        }
-    }
-    
-    private func loadArtistImage(context: ArtistDetailContext, navidromeVM: NavidromeViewModel) async {
-        if case .artist(let artist) = context,
-           let coverId = artist.coverArt {
-            let image = await navidromeVM.loadCoverArt(for: coverId)
-            await MainActor.run {
-                self.artistImage = image
-            }
-        }
-    }
-    
-    func loadAlbumCover(for album: Album, navidromeVM: NavidromeViewModel) async {
-        guard albumCovers[album.id] == nil else { return }
-        
-        let cover = await navidromeVM.loadCoverArt(for: album.id)
-        await MainActor.run {
-            self.albumCovers[album.id] = cover
-        }
     }
 }

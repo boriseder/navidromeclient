@@ -426,3 +426,5 @@ class NavidromeViewModel: ObservableObject {
         print("📦 Loaded \(genres.count) genres from offline cache")
     }
 }
+
+
