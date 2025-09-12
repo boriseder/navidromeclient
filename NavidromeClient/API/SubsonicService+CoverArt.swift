@@ -10,7 +10,7 @@ extension SubsonicService {
             return cached
         }
         
-        // 2. Von Server laden
+        // 2. Von Server laden (ohne Request Deduplication in Extension)
         guard let url = buildURL(endpoint: "getCoverArt", params: ["id": coverId, "size": "\(size)"]) else {
             return nil
         }

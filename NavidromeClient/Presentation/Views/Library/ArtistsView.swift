@@ -185,7 +185,10 @@ struct ArtistCard: View {
     private func loadArtistImage() async {
         guard let coverId = artist.coverArt, !isLoadingImage else { return }
         isLoadingImage = true
+        
+        // This already goes through cache via NavidromeVM -> Service -> PersistentImageCache
         artistImage = await navidromeVM.loadCoverArt(for: coverId)
+        
         isLoadingImage = false
     }
 }

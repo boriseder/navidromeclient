@@ -29,9 +29,6 @@ struct AlbumGridView: View {
                         album: album,
                         cover: nil // Cover wird async geladen
                     )
-                    .task {
-                        // Async Cover Loading - wird in AlbumGridCard gehandhabt
-                    }
                 }
             }
         }
@@ -59,11 +56,16 @@ struct AlbumGridCard: View {
         .scaleEffect(isPressed ? 0.95 : 1.0)
         .animation(.spring(duration: 0.2, bounce: 0.3), value: isPressed)
         .task {
-            // Load cover if not provided
-            if cover == nil && loadedCover == nil {
-                loadedCover = await navidromeVM.loadCoverArt(for: album.id, size: 200)
-            }
+            await loadCoverIfNeeded()
         }
+    }
+    
+    private func loadCoverIfNeeded() async {
+        // Only load if not already loaded
+        guard cover == nil && loadedCover == nil else { return }
+        
+        // Use NavidromeVM - goes through PersistentImageCache properly
+        loadedCover = await navidromeVM.loadCoverArt(for: album.id, size: 200)
     }
     
     private var albumCover: some View {

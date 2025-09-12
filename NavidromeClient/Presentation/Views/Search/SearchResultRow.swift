@@ -36,10 +36,9 @@ struct SearchResultArtistRow: View {
     private func loadArtistImage() async {
         guard let coverId = artist.coverArt, !isLoadingImage else { return }
         isLoadingImage = true
-        guard let service = navidromeVM.getService() else { return }
- 
         
-        artistImage = await service.getCoverArt(for: coverId)
+        // Use NavidromeVM instead of direct service - ensures caching
+        artistImage = await navidromeVM.loadCoverArt(for: coverId)
         
         isLoadingImage = false
     }
@@ -237,6 +236,7 @@ struct AlbumImageView: View {
                         )
                         .task {
                             if albumCovers[albumId] == nil {
+                                // Use NavidromeVM instead of direct service - ensures caching
                                 if let loadedImage = await navidromeVM.loadCoverArt(for: albumId, size: 120) {
                                     albumCovers[albumId] = loadedImage
                                 }
@@ -354,6 +354,7 @@ struct SongImageView: View {
                         )
                         .task {
                             if let albumId = song.albumId, albumCovers[albumId] == nil {
+                                // Use NavidromeVM instead of direct service - ensures caching
                                 if let loadedImage = await navidromeVM.loadCoverArt(for: albumId, size: 100) {
                                     albumCovers[albumId] = loadedImage
                                 }

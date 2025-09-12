@@ -19,6 +19,9 @@ class AudioSessionManager: NSObject, ObservableObject {
     
     private let audioSession = AVAudioSession.sharedInstance()
     
+    // Track observers for proper cleanup - nonisolated for deinit access
+    private nonisolated(unsafe) var audioObservers: [NSObjectProtocol] = []
+    
     override init() {
         super.init()
         setupAudioSession()
@@ -28,7 +31,44 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
     
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        // Synchronous cleanup in deinit - no @MainActor
+        cleanupAllSync()
+    }
+    
+    // MARK: - Enhanced Cleanup
+    
+    private nonisolated func cleanupAllSync() {
+        // Remove NotificationCenter observers
+        for observer in audioObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        
+        // Disable Command Center
+        let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.playCommand.isEnabled = false
+        commandCenter.pauseCommand.isEnabled = false
+        commandCenter.togglePlayPauseCommand.isEnabled = false
+        commandCenter.nextTrackCommand.isEnabled = false
+        commandCenter.previousTrackCommand.isEnabled = false
+        commandCenter.changePlaybackPositionCommand.isEnabled = false
+        commandCenter.skipForwardCommand.isEnabled = false
+        commandCenter.skipBackwardCommand.isEnabled = false
+        
+        // Remove all targets
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        commandCenter.nextTrackCommand.removeTarget(nil)
+        commandCenter.previousTrackCommand.removeTarget(nil)
+        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        commandCenter.skipForwardCommand.removeTarget(nil)
+        commandCenter.skipBackwardCommand.removeTarget(nil)
+        
+        // Clear now playing
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        
+        // Deactivate audio session
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
     
     // MARK: - Audio Session Setup
@@ -59,45 +99,50 @@ class AudioSessionManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Notifications Setup
+    // MARK: - Enhanced Notifications Setup
     
     private func setupNotifications() {
         let notificationCenter = NotificationCenter.default
         
-        // Audio Session Interruptions (Anrufe, etc.)
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(handleInterruption),
-            name: AVAudioSession.interruptionNotification,
-            object: audioSession
-        )
+        // Store observer tokens for proper cleanup
+        let interruptionObserver = notificationCenter.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: audioSession,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruptionNotification(notification)
+        }
+        audioObservers.append(interruptionObserver)
         
-        // Audio Route Changes (Kopfhörer ein/aus)
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(handleRouteChange),
-            name: AVAudioSession.routeChangeNotification,
-            object: audioSession
-        )
+        let routeChangeObserver = notificationCenter.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: audioSession,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleRouteChangeNotification(notification)
+        }
+        audioObservers.append(routeChangeObserver)
         
-        // Media Services Reset
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(handleMediaServicesReset),
-            name: AVAudioSession.mediaServicesWereResetNotification,
-            object: audioSession
-        )
+        let mediaResetObserver = notificationCenter.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: audioSession,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleMediaServicesResetNotification()
+        }
+        audioObservers.append(mediaResetObserver)
         
-        // Silence Secondary Audio (andere Apps)
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(handleSilenceSecondaryAudio),
-            name: AVAudioSession.silenceSecondaryAudioHintNotification,
-            object: audioSession
-        )
+        let silenceObserver = notificationCenter.addObserver(
+            forName: AVAudioSession.silenceSecondaryAudioHintNotification,
+            object: audioSession,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleSilenceSecondaryAudioNotification(notification)
+        }
+        audioObservers.append(silenceObserver)
     }
     
-    // MARK: - Remote Command Center (Lock Screen + Control Center)
+    // MARK: - Enhanced Command Center Setup
     
     private func setupRemoteCommandCenter() {
         let commandCenter = MPRemoteCommandCenter.shared()
@@ -147,7 +192,7 @@ class AudioSessionManager: NSObject, ObservableObject {
             return .commandFailed
         }
         
-        // Skip Forward/Backward (optional)
+        // Skip Forward/Backward
         commandCenter.skipForwardCommand.isEnabled = true
         commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: 15)]
         commandCenter.skipForwardCommand.addTarget { [weak self] event in
@@ -226,7 +271,7 @@ class AudioSessionManager: NSObject, ObservableObject {
     
     // MARK: - Notification Handlers
     
-    @objc private func handleInterruption(notification: Notification) {
+    private func handleInterruptionNotification(_ notification: Notification) {
         guard let info = notification.userInfo,
               let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
@@ -258,7 +303,7 @@ class AudioSessionManager: NSObject, ObservableObject {
         }
     }
     
-    @objc private func handleRouteChange(notification: Notification) {
+    private func handleRouteChangeNotification(_ notification: Notification) {
         guard let info = notification.userInfo,
               let reasonValue = info[AVAudioSessionRouteChangeReasonKey] as? UInt,
               let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) else {
@@ -302,17 +347,16 @@ class AudioSessionManager: NSObject, ObservableObject {
             
         @unknown default:
             print("⚠️ Unknown route change reason: \(reason.rawValue)")
-                    
         }
     }
     
-    @objc private func handleMediaServicesReset() {
+    private func handleMediaServicesResetNotification() {
         print("🔄 Media services were reset - reconfiguring audio session")
         setupAudioSession()
         setupRemoteCommandCenter()
     }
     
-    @objc private func handleSilenceSecondaryAudio(notification: Notification) {
+    private func handleSilenceSecondaryAudioNotification(_ notification: Notification) {
         guard let info = notification.userInfo,
               let typeValue = info[AVAudioSessionSilenceSecondaryAudioHintTypeKey] as? UInt,
               let type = AVAudioSession.SilenceSecondaryAudioHintType(rawValue: typeValue) else {

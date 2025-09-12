@@ -50,7 +50,8 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     deinit {
-        // Cleanup synchronously in deinit - no @MainActor needed
+        // Explizite Cleanup in deinit - OHNE @MainActor
+        // Observer cleanup synchron
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
             timeObserver = nil
@@ -67,7 +68,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             }
         }
     }
-    
+
     // MARK: - Setup
     
     private func setupNotifications() {
@@ -380,19 +381,18 @@ class PlayerViewModel: NSObject, ObservableObject {
             forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main
         ) { [weak self] time in
-            Task { @MainActor in
-                guard let self = self else { return }
-                let newTime = time.seconds
+            // Kein Task mehr nötig - wir sind bereits auf Main Queue
+            guard let self = self else { return }
+            let newTime = time.seconds
+            
+            if abs(newTime - self.lastUpdateTime) > 0.1 {
+                self.lastUpdateTime = newTime
+                self.currentTime = newTime
+                self.updateProgress()
                 
-                if abs(newTime - self.lastUpdateTime) > 0.1 {
-                    self.lastUpdateTime = newTime
-                    self.currentTime = newTime
-                    self.updateProgress()
-                    
-                    // Update Now Playing Info every few seconds to keep it current
-                    if Int(newTime) % 5 == 0 {
-                        self.updateNowPlayingInfo()
-                    }
+                // Update Now Playing Info every few seconds to keep it current
+                if Int(newTime) % 5 == 0 {
+                    self.updateNowPlayingInfo()
                 }
             }
         }
@@ -401,6 +401,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Cleanup
     
     private func cleanupPlayer() {
+        // Observer IMMER entfernen, auch wenn player nil ist
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
             timeObserver = nil
@@ -410,7 +411,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         isPlaying = false
         isLoading = false
     }
-    
+
     // MARK: - Notification Handlers
     
     @objc private func handleAudioInterruptionBegan() {
