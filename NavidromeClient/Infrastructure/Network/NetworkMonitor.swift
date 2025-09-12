@@ -12,14 +12,14 @@ class NetworkMonitor: ObservableObject {
     @Published var isConnected = true
     @Published var connectionType: NetworkConnectionType = .unknown
     
-    // NEW: Server connection status
+    // Enhanced: Server connection status
     @Published var isServerReachable = true
     @Published var lastServerCheck: Date?
     
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
     
-    // NEW: Server ping management
+    // Enhanced: Server ping management
     private var serverCheckTimer: Timer?
     private var currentService: SubsonicService?
     
@@ -71,7 +71,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - NEW: Server Monitoring
+    // MARK: - FIX: Enhanced Server Monitoring
     
     func setService(_ service: SubsonicService?) {
         self.currentService = service
@@ -109,8 +109,8 @@ class NetworkMonitor: ObservableObject {
             if serverReachable {
                 print("🟢 Navidrome server is reachable again")
             } else {
-                print("🔴 Navidrome server is unreachable")
-                // Post notification for UI to react
+                print("🔴 Navidrome server is unreachable - switching to offline mode")
+                // FIX: Post notification for automatic offline switch
                 NotificationCenter.default.post(name: .serverUnreachable, object: nil)
             }
         }
@@ -122,7 +122,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - Computed Properties
+    // MARK: - FIX: Enhanced Computed Properties
     
     /// True if both internet AND server are reachable
     var canLoadOnlineContent: Bool {

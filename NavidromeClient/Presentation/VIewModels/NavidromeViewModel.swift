@@ -64,11 +64,11 @@ class NavidromeViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Verbindungstest mit aktuellen Eingaben
+    // MARK: - NEW: Enhanced Connection Test using Service
     func testConnection() async {
         guard let url = buildCurrentURL() else {
-            print("❌ Ungültige URL")
             connectionStatus = false
+            errorMessage = "Ungültige Server-URL"
             return
         }
 
@@ -76,26 +76,30 @@ class NavidromeViewModel: ObservableObject {
         defer { isLoading = false }
 
         let tempService = SubsonicService(baseURL: url, username: username, password: password)
-
-        do {
-            let response = try await tempService.pingWithInfo() // Methode im Service, die Ping-Response parsed
+        let result = await tempService.testConnection()
+        
+        switch result {
+        case .success(let connectionInfo):
             connectionStatus = true
+            errorMessage = nil
             
-            // Infos speichern
-            subsonicVersion = response.version
-            serverType = response.type
-            serverVersion = response.serverVersion
-            openSubsonic = response.openSubsonic
+            // Store server info
+            subsonicVersion = connectionInfo.version
+            serverType = connectionInfo.type
+            serverVersion = connectionInfo.serverVersion
+            openSubsonic = connectionInfo.openSubsonic
             
-            print("✅ Verbindung erfolgreich")
-        } catch {
+            print("✅ Connection test successful")
+            
+        case .failure(let connectionError):
             connectionStatus = false
-            errorMessage = "Verbindung fehlgeschlagen"
-            print("❌ Verbindung fehlgeschlagen: \(error)")
+            errorMessage = connectionError.userMessage
+            
+            print("❌ Connection test failed: \(connectionError)")
         }
     }
 
-    // MARK: - Speichern der Credentials
+    // MARK: - Enhanced Save Credentials using Service
     func saveCredentials() async -> Bool {
         guard let url = buildCurrentURL() else {
             errorMessage = "Ungültige URL"
@@ -107,22 +111,35 @@ class NavidromeViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
         
-        let success = await tempService.ping()
-        connectionStatus = success
+        let result = await tempService.testConnection()
         
-        guard success else {
-            errorMessage = "Verbindung mit den eingegebenen Daten fehlgeschlagen"
+        switch result {
+        case .success(let connectionInfo):
+            connectionStatus = true
+            errorMessage = nil
+            
+            // Store server info
+            subsonicVersion = connectionInfo.version
+            serverType = connectionInfo.type
+            serverVersion = connectionInfo.serverVersion
+            openSubsonic = connectionInfo.openSubsonic
+            
+            // Save credentials with AppConfig
+            AppConfig.shared.configure(baseURL: url, username: username, password: password)
+
+            // Service aktualisieren mit dem getesteten Service
+            self.service = tempService
+
+            print("✅ Credentials saved successfully")
+            return true
+            
+        case .failure(let connectionError):
+            connectionStatus = false
+            errorMessage = connectionError.userMessage
+            
+            print("❌ Save credentials failed: \(connectionError)")
             return false
         }
-
-        // Credentials speichern
-        AppConfig.shared.configure(baseURL: url, username: username, password: password)
-
-        // Service aktualisieren
-        self.service = tempService
-
-        print("✅ Credentials gespeichert und Service konfiguriert")
-        return true
     }
     
     // MARK: - Helper
@@ -236,7 +253,7 @@ class NavidromeViewModel: ObservableObject {
         errorMessage = nil
     }
     
-    // MARK: - NEW: Album-specific methods
+    // MARK: - Enhanced Album-specific methods with Auto-Fallback
     func loadAllAlbums(sortBy: SubsonicService.AlbumSortType = .alphabetical) async {
         guard let service else {
             print("❌ Service nicht verfügbar")
@@ -253,73 +270,159 @@ class NavidromeViewModel: ObservableObject {
             AlbumMetadataCache.shared.cacheAlbums(albums)
             
         } catch {
-            if let subsonicError = error as? SubsonicError, subsonicError.isOfflineError {
-                // Bei Offline-Fehler: Versuche gecachte Alben zu laden
-                let offlineAlbums = OfflineManager.shared.offlineAlbums
-                if !offlineAlbums.isEmpty {
-                    albums = offlineAlbums
-                    print("📦 Loaded \(albums.count) albums from offline cache")
-                } else {
-                    errorMessage = "Keine Alben im Offline-Cache verfügbar"
+            // Enhanced: Handle timeouts immediately
+            if let subsonicError = error as? SubsonicError {
+                switch subsonicError {
+                case .timeout(let endpoint):
+                    print("🕐 Timeout detected for \(endpoint) - switching to offline immediately")
+                    await handleImmediateOfflineSwitch()
+                    await loadOfflineAlbums()
+                    return
+                case .network(let underlying):
+                    if let urlError = underlying as? URLError, urlError.code == .timedOut {
+                        print("🕐 Network timeout - switching to offline immediately")
+                        await handleImmediateOfflineSwitch()
+                        await loadOfflineAlbums()
+                        return
+                    }
+                    fallthrough
+                default:
+                    if subsonicError.isOfflineError {
+                        print("🔄 Server unreachable - switching to offline mode")
+                        await handleOfflineFallback()
+                        await loadOfflineAlbums()
+                        return
+                    }
                 }
-            } else {
-                errorMessage = "Failed to load albums: \(error.localizedDescription)"
-                print("Failed to load albums: \(error)")
             }
+            
+            // Check NetworkMonitor state for additional context
+            if NetworkMonitor.shared.shouldForceOfflineMode {
+                print("🔄 Network issues detected - switching to offline mode")
+                await handleOfflineFallback()
+                await loadOfflineAlbums()
+                return
+            }
+            
+            errorMessage = "Failed to load albums: \(error.localizedDescription)"
+            print("Failed to load albums: \(error)")
         }
     }
     
     // Enhanced Artists loading mit Offline-Support
     func loadArtistsWithOfflineSupport() async {
-        guard NetworkMonitor.shared.isConnected else {
-            // Offline: Zeige nur Artists von heruntergeladenen Alben
-            let downloadedAlbums = downloadManager.downloadedAlbums
-            let albumIds = Set(downloadedAlbums.map { $0.albumId })
-            let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
-            
-            // Extrahiere unique Artists
-            let uniqueArtists = Set(cachedAlbums.map { $0.artist })
-            let offlineArtists = uniqueArtists.compactMap { artistName in
-                // Erstelle minimale Artist-Objekte für Offline-Nutzung
-                Artist(
-                    id: artistName.replacingOccurrences(of: " ", with: "_"),
-                    name: artistName,
-                    coverArt: nil,
-                    albumCount: cachedAlbums.filter { $0.artist == artistName }.count,
-                    artistImageUrl: nil
-                )
-            }
-            
-            artists = offlineArtists.sorted { $0.name < $1.name }
+        guard NetworkMonitor.shared.canLoadOnlineContent else {
+            print("🔄 Loading artists from offline cache")
+            await loadOfflineArtists()
             return
         }
         
-        // Online: Standard-Verhalten
-        await loadArtists()
+        do {
+            await loadArtists()
+        } catch {
+            if let subsonicError = error as? SubsonicError,
+               subsonicError.isOfflineError || subsonicError.isRecoverable {
+                print("🔄 Artists loading failed - switching to offline")
+                await handleImmediateOfflineSwitch()
+                await loadOfflineArtists()
+            } else {
+                errorMessage = "Failed to load artists: \(error.localizedDescription)"
+            }
+        }
     }
     
     // Enhanced Genres loading mit Offline-Support
     func loadGenresWithOfflineSupport() async {
-        guard NetworkMonitor.shared.isConnected else {
-            // Offline: Extrahiere Genres von heruntergeladenen Alben
-            let downloadedAlbums = downloadManager.downloadedAlbums
-            let albumIds = Set(downloadedAlbums.map { $0.albumId })
-            let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
-            
-            let genreGroups = Dictionary(grouping: cachedAlbums) { $0.genre ?? "Unknown" }
-            let offlineGenres = genreGroups.map { genreName, albums in
-                Genre(
-                    value: genreName,
-                    songCount: albums.reduce(0) { $0 + ($1.songCount ?? 0) },
-                    albumCount: albums.count
-                )
-            }
-            
-            genres = offlineGenres.sorted { $0.value < $1.value }
+        guard NetworkMonitor.shared.canLoadOnlineContent else {
+            print("🔄 Loading genres from offline cache")
+            await loadOfflineGenres()
             return
         }
         
-        // Online: Standard-Verhalten
-        await loadGenres()
+        do {
+            await loadGenres()
+        } catch {
+            if let subsonicError = error as? SubsonicError,
+               subsonicError.isOfflineError || subsonicError.isRecoverable {
+                print("🔄 Genres loading failed - switching to offline")
+                await handleImmediateOfflineSwitch()
+                await loadOfflineGenres()
+            } else {
+                errorMessage = "Failed to load genres: \(error.localizedDescription)"
+            }
+        }
+    }
+    
+    // MARK: - Offline Fallback Helpers
+    
+    // NEW: Immediate offline switch for timeouts (no waiting)
+    private func handleImmediateOfflineSwitch() async {
+        OfflineManager.shared.switchToOfflineMode()
+        
+        // Immediately update NetworkMonitor to reflect server unreachability
+        await NetworkMonitor.shared.checkServerConnection()
+        
+        // Clear error message since we're handling it gracefully
+        errorMessage = nil
+        
+        print("⚡ Immediate offline switch completed")
+    }
+    
+    // EXISTING: handleOfflineFallback for gradual switches
+    private func handleOfflineFallback() async {
+        OfflineManager.shared.switchToOfflineMode()
+        errorMessage = nil
+    }
+    
+    func loadOfflineAlbums() async {
+        // Bei Offline-Fehler: Versuche gecachte Alben zu laden
+        let offlineAlbums = OfflineManager.shared.offlineAlbums
+        if !offlineAlbums.isEmpty {
+            albums = offlineAlbums
+            print("📦 Loaded \(albums.count) albums from offline cache")
+        } else {
+            errorMessage = "No albums available offline"
+        }
+    }
+    
+    private func loadOfflineArtists() async {
+        // Offline: Zeige nur Artists von heruntergeladenen Alben
+        let downloadedAlbums = downloadManager.downloadedAlbums
+        let albumIds = Set(downloadedAlbums.map { $0.albumId })
+        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
+        
+        // Extrahiere unique Artists
+        let uniqueArtists = Set(cachedAlbums.map { $0.artist })
+        let offlineArtists = uniqueArtists.compactMap { artistName in
+            Artist(
+                id: artistName.replacingOccurrences(of: " ", with: "_"),
+                name: artistName,
+                coverArt: nil,
+                albumCount: cachedAlbums.filter { $0.artist == artistName }.count,
+                artistImageUrl: nil
+            )
+        }
+        
+        artists = offlineArtists.sorted { $0.name < $1.name }
+        print("📦 Loaded \(artists.count) artists from offline cache")
+    }
+    
+    private func loadOfflineGenres() async {
+        // Offline: Extrahiere Genres von heruntergeladenen Alben
+        let downloadedAlbums = downloadManager.downloadedAlbums
+        let albumIds = Set(downloadedAlbums.map { $0.albumId })
+        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
+        
+        let genreGroups = Dictionary(grouping: cachedAlbums) { $0.genre ?? "Unknown" }
+        let offlineGenres = genreGroups.map { genreName, albums in
+            Genre(
+                value: genreName,
+                songCount: albums.reduce(0) { $0 + ($1.songCount ?? 0) },
+                albumCount: albums.count
+            )
+        }
+        
+        genres = offlineGenres.sorted { $0.value < $1.value }
+        print("📦 Loaded \(genres.count) genres from offline cache")
     }
 }

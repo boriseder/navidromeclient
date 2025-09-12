@@ -33,19 +33,60 @@ struct ServerEditView: View {
                 
                 SecureField("Password", text: $navidromeVM.password)
 
-                HStack {
-                    Text("Connection:")
-                    Spacer()
-                    Image(systemName: navidromeVM.connectionStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
-                    Text(navidromeVM.connectionStatus ? "Success" : "Error")
-                        .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
+                // Enhanced connection status display
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Connection:")
+                        Spacer()
+                        
+                        if navidromeVM.isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .frame(width: 20, height: 20)
+                        } else {
+                            Image(systemName: navidromeVM.connectionStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
+                        }
+                        
+                        if navidromeVM.isLoading {
+                            Text("Testing...")
+                                .foregroundColor(.blue)
+                        } else {
+                            Text(navidromeVM.connectionStatus ? "Success" : "Error")
+                                .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
+                        }
+                    }
+                    
+                    // Show error message if connection failed
+                    if !navidromeVM.connectionStatus, let error = navidromeVM.errorMessage, !navidromeVM.isLoading {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.top, 4)
+                            .multilineTextAlignment(.leading)
+                    }
+                    
+                    // Show server info if connection successful
+                    if navidromeVM.connectionStatus, let serverType = navidromeVM.serverType {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Server: \(serverType)")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                            
+                            if let version = navidromeVM.serverVersion {
+                                Text("Version: \(version)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
                 }
 
                 Button("Test connection") {
                     Task { await navidromeVM.testConnection() }
                 }
-                .disabled(navidromeVM.isLoading)
+                .disabled(navidromeVM.isLoading || navidromeVM.host.isEmpty || navidromeVM.username.isEmpty || navidromeVM.password.isEmpty)
             }
 
             Section {
@@ -56,10 +97,33 @@ struct ServerEditView: View {
                 }
                 .disabled(navidromeVM.isLoading || !navidromeVM.connectionStatus)
             }
+            
+            // Enhanced info section
+            if navidromeVM.connectionStatus {
+                Section("Connection Details") {
+                    if let subsonicVersion = navidromeVM.subsonicVersion {
+                        HStack {
+                            Text("Subsonic API:")
+                            Spacer()
+                            Text(subsonicVersion)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    if let openSubsonic = navidromeVM.openSubsonic {
+                        HStack {
+                            Text("OpenSubsonic:")
+                            Spacer()
+                            Text(openSubsonic ? "Yes" : "No")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(appConfig.isConfigured ? "Edit server" : "Initial setup")
         .onAppear {
-            if !navidromeVM.host.isEmpty {
+            if !navidromeVM.host.isEmpty && !navidromeVM.username.isEmpty && !navidromeVM.password.isEmpty {
                 Task { await navidromeVM.testConnection() }
             }
         }

@@ -32,9 +32,9 @@ extension SubsonicService {
         
         // Prüfe Netzwerkverbindung
         guard NetworkMonitor.shared.isConnected else {
-            throw SubsonicError.offline
+            throw SubsonicError.network(underlying: URLError(.notConnectedToInternet))
         }
-        
+
         let decoded: SubsonicResponse<AlbumListContainer> = try await fetchData(
             endpoint: "getAlbumList2",
             params: params,
@@ -83,21 +83,3 @@ extension SubsonicService {
     }
 }
 
-// Enhanced SubsonicError
-extension SubsonicError {
-    static let offline = SubsonicError.network(underlying: URLError(.notConnectedToInternet))
-    
-    var isOfflineError: Bool {
-        switch self {
-        case .network(let error):
-            if let urlError = error as? URLError {
-                return urlError.code == .notConnectedToInternet ||
-                       urlError.code == .timedOut ||
-                       urlError.code == .cannotConnectToHost
-            }
-            return false
-        default:
-            return false
-        }
-    }
-}

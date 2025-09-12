@@ -12,13 +12,13 @@ struct AlbumsView: View {
     @State private var searchText = ""
     @State private var selectedSortType: SubsonicService.AlbumSortType = .alphabetical
     @State private var isLoading = false
-    @State private var hasLoadedOnce = false  // <- Diese Zeile hinzufügen
+    @State private var hasLoadedOnce = false
 
-    // Computed property für die anzuzeigenden Alben
+    // FIX: Enhanced computed property using canLoadOnlineContent
     private var displayedAlbums: [Album] {
         let albums: [Album]
         
-        if networkMonitor.isConnected && !offlineManager.isOfflineMode {
+        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             // Online: Zeige alle geladenen Alben
             albums = navidromeVM.albums
         } else {
@@ -38,6 +38,16 @@ struct AlbumsView: View {
         }
     }
     
+    // FIX: Enhanced availableSortTypes using canLoadOnlineContent
+    private var availableSortTypes: [SubsonicService.AlbumSortType] {
+        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+            return SubsonicService.AlbumSortType.allCases
+        } else {
+            // Offline nur lokale Sortierungen
+            return [.alphabetical, .alphabeticalByArtist]
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -51,16 +61,15 @@ struct AlbumsView: View {
                     } else if displayedAlbums.isEmpty {
                         Spacer()
                         AlbumsEmptyStateView(
-                            isOnline: networkMonitor.isConnected,
+                            isOnline: networkMonitor.canLoadOnlineContent, // FIX: Use canLoadOnlineContent
                             isOfflineMode: offlineManager.isOfflineMode
                         )
                         Spacer()
                     } else {
-                        // Header UND Grid zusammen in ScrollView
                         ScrollView {
                             LazyVStack(spacing: 0) {
                                 AlbumsStatusHeader(
-                                    isOnline: networkMonitor.isConnected,
+                                    isOnline: networkMonitor.canLoadOnlineContent, // FIX: Use canLoadOnlineContent
                                     isOfflineMode: offlineManager.isOfflineMode,
                                     albumCount: displayedAlbums.count,
                                     onOfflineToggle: { offlineManager.toggleOfflineMode() }
@@ -91,20 +100,6 @@ struct AlbumsView: View {
                                 }
                             }
                         }
-                        Divider()
-                        
-                        Button {
-                           // showOnlyDownloaded.toggle()
-                        } label: {
-                            HStack {
-                                Image(systemName: "arrow.down.circle")
-                                Text("Downloaded Only")
-                            //    if showOnlyDownloaded {
-                                    Image(systemName: "checkmark")
-                            //    }
-                            }
-                        }
-
                     } label: {
                         Image(systemName: selectedSortType.icon)
                     }
@@ -116,7 +111,7 @@ struct AlbumsView: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(isLoading || (!networkMonitor.isConnected && !offlineManager.isOfflineMode))
+                    .disabled(isLoading || networkMonitor.shouldForceOfflineMode) // FIX: Use shouldForceOfflineMode
                 }
             }
             .task {
@@ -128,45 +123,38 @@ struct AlbumsView: View {
             .refreshable {
                 await loadAlbums()
             }
-            .onChange(of: networkMonitor.isConnected) { _, isConnected in
-                if isConnected && !offlineManager.isOfflineMode {
+            // FIX: Listen to server reachability changes
+            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
+                if canLoad && !offlineManager.isOfflineMode {
                     Task { await loadAlbums() }
+                } else if !canLoad {
+                    // Auto-switch to offline mode when server becomes unreachable
+                    offlineManager.switchToOfflineMode()
                 }
             }
             .onChange(of: offlineManager.isOfflineMode) { _, _ in
                 // Trigger UI refresh when offline mode changes
             }
+            // FIX: Listen to server unreachable notifications
+            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
+                offlineManager.switchToOfflineMode()
+            }
             .accountToolbar()
         }
     }
     
-    // Verfügbare Sortierungen basierend auf Online/Offline Status
-    private var availableSortTypes: [SubsonicService.AlbumSortType] {
-        if networkMonitor.isConnected && !offlineManager.isOfflineMode {
-            return SubsonicService.AlbumSortType.allCases
-        } else {
-            // Offline nur lokale Sortierungen
-            return [.alphabetical, .alphabeticalByArtist]
-        }
-    }
-    
     private func loadAlbums() async {
-        guard networkMonitor.isConnected && !offlineManager.isOfflineMode else { return }
-        guard let service = navidromeVM.getService() else { return }
+        // FIX: Use enhanced method with auto-fallback
+        guard networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode else {
+            // Load from offline cache immediately
+            await navidromeVM.loadOfflineAlbums()
+            return
+        }
         
         isLoading = true
         defer { isLoading = false }
         
-        do {
-            let albums = try await service.getAllAlbums(sortBy: selectedSortType, size: 500)
-            navidromeVM.albums = albums
-            
-            // Cache Album-Metadaten für Offline-Nutzung
-            metadataCache.cacheAlbums(albums)
-            
-        } catch {
-            print("❌ Failed to load albums: \(error)")
-            navidromeVM.errorMessage = error.localizedDescription
-        }
+        // This will now auto-fallback to offline if server is unreachable
+        await navidromeVM.loadAllAlbums(sortBy: selectedSortType)
     }
 }

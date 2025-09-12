@@ -1,6 +1,7 @@
 import Foundation
 import CryptoKit
 
+@MainActor
 final class AppConfig: ObservableObject {
     static let shared = AppConfig()
     
@@ -11,7 +12,7 @@ final class AppConfig: ObservableObject {
         loadCredentials()
     }
     
-    // MARK: - Konfiguration speichern
+    // MARK: - FIX: Enhanced configure method with NetworkMonitor integration
     func configure(baseURL: URL, username: String, password: String) {
         guard validateCredentials(baseURL: baseURL, username: username, password: password) else {
             print("❌ Invalid credentials provided")
@@ -36,6 +37,11 @@ final class AppConfig: ObservableObject {
         // Credentials für die aktuelle Session
         self.credentials = ServerCredentials(baseURL: baseURL, username: username, password: password)
         isConfigured = true
+        
+        // FIX: Create service and set it in NetworkMonitor (now MainActor-isolated)
+        let service = SubsonicService(baseURL: baseURL, username: username, password: password)
+        NetworkMonitor.shared.setService(service)
+        print("✅ Credentials configured and NetworkMonitor updated")
     }
     
     func getCredentials() -> ServerCredentials? {
@@ -64,6 +70,17 @@ final class AppConfig: ObservableObject {
             username: creds.username,
             password: sessionPassword
         )
+        
+        // FIX: Set service in NetworkMonitor when loading existing credentials (now MainActor-isolated)
+        if !sessionPassword.isEmpty {
+            let service = SubsonicService(
+                baseURL: creds.baseURL,
+                username: creds.username,
+                password: sessionPassword
+            )
+            NetworkMonitor.shared.setService(service)
+            print("✅ NetworkMonitor updated with loaded credentials")
+        }
         
         isConfigured = true
     }
@@ -98,6 +115,15 @@ final class AppConfig: ObservableObject {
             // Passwort zusätzlich in Keychain für Session speichern
             _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
             
+            // FIX: Update NetworkMonitor with restored password (now MainActor-isolated)
+            let service = SubsonicService(
+                baseURL: creds.baseURL,
+                username: creds.username,
+                password: password
+            )
+            NetworkMonitor.shared.setService(service)
+            print("✅ NetworkMonitor updated with restored password")
+            
             return true
         }
         
@@ -109,8 +135,13 @@ final class AppConfig: ObservableObject {
         _ = KeychainHelper.shared.delete(forKey: "navidrome_credentials")
         _ = KeychainHelper.shared.delete(forKey: "navidrome_password_hash")
         _ = KeychainHelper.shared.delete(forKey: "navidrome_password_session")
+        
         credentials = nil
         isConfigured = false
+        
+        // FIX: Clear service from NetworkMonitor on logout (now MainActor-isolated)
+        NetworkMonitor.shared.setService(nil)
+        print("✅ NetworkMonitor cleared on logout")
     }
     
     // MARK: - Private Hilfsmethoden

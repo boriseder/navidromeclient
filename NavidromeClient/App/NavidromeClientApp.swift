@@ -38,8 +38,8 @@ struct NavidromeClientApp: App {
                 .environmentObject(downloadManager)
                 .environmentObject(appConfig)
                 .environmentObject(audioSessionManager)
-                .environmentObject(networkMonitor)  // NEU
-                .environmentObject(offlineManager)  // NEU
+                .environmentObject(networkMonitor)
+                .environmentObject(offlineManager)
                 .onAppear {
                     setupServices()
                     setupNetworkMonitoring()
@@ -62,17 +62,35 @@ struct NavidromeClientApp: App {
             )
             navidromeVM.updateService(service)
             playerVM.updateService(service)
+            
+            // FIX: Critical - Set service in NetworkMonitor for server monitoring
+            networkMonitor.setService(service)
+            
+            print("✅ All services configured with credentials")
+        } else {
+            print("⚠️ No credentials available - services not configured")
         }
     }
     
     private func setupNetworkMonitoring() {
         // Network Monitor ist bereits als Singleton aktiv
         print("🌐 Network monitoring active")
+        
+        // FIX: Start immediate server check if service is available
+        if networkMonitor.isConnected {
+            Task {
+                await networkMonitor.checkServerConnection()
+            }
+        }
     }
     
     private func handleAppBecameActive() {
-        print("📱 App became active - refreshing audio session")
-        // AudioSessionManager wird automatisch reaktiviert
+        print("📱 App became active - refreshing audio session and network status")
+        
+        // FIX: Check server connection when app becomes active
+        Task {
+            await networkMonitor.checkServerConnection()
+        }
     }
     
     private func handleAppWillResignActive() {
@@ -82,6 +100,4 @@ struct NavidromeClientApp: App {
             print("🎵 Music is playing - should continue in background")
         }
     }
-    
-
 }

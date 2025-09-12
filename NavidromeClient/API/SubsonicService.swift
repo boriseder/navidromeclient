@@ -1,5 +1,46 @@
+// SubsonicService.swift - Enhanced mit testConnection
+
 import Foundation
 import UIKit
+
+// MARK: - Connection Test Result
+enum ConnectionTestResult {
+    case success(ConnectionInfo)
+    case failure(ConnectionError)
+}
+
+struct ConnectionInfo {
+    let version: String
+    let type: String
+    let serverVersion: String
+    let openSubsonic: Bool
+}
+
+enum ConnectionError {
+    case invalidCredentials
+    case serverUnreachable
+    case timeout
+    case networkError(String)
+    case invalidServerType
+    case invalidURL
+    
+    var userMessage: String {
+        switch self {
+        case .invalidCredentials:
+            return "Benutzername oder Passwort ist falsch"
+        case .serverUnreachable:
+            return "Server ist nicht erreichbar"
+        case .timeout:
+            return "Verbindung zum Server dauert zu lange"
+        case .networkError(let message):
+            return "Netzwerkfehler: \(message)"
+        case .invalidServerType:
+            return "Ungültige Server-Antwort - möglicherweise falscher Server-Typ"
+        case .invalidURL:
+            return "Ungültige Server-URL"
+        }
+    }
+}
 
 @MainActor
 class SubsonicService: ObservableObject {
@@ -38,6 +79,85 @@ class SubsonicService: ObservableObject {
         config.httpCookieAcceptPolicy = .never
         
         self.session = URLSession(configuration: config)
+    }
+    
+    // MARK: - NEW: Enhanced Connection Test
+    func testConnection() async -> ConnectionTestResult {
+        do {
+            // Step 1: Test basic ping
+            let pingInfo = try await pingWithInfo()
+            
+            // Step 2: Test actual API call to verify credentials - ENHANCED
+            let albums = try await getRecentAlbums(size: 1)
+            
+            // Step 3: CRITICAL - Check if we got meaningful data
+            // If server returns 200 but empty data, it might be invalid credentials
+            if albums.isEmpty {
+                print("⚠️ Server returned empty albums - possible authentication issue")
+                
+                // Try another endpoint to double-check
+                do {
+                    let artists = try await getArtists()
+                    if artists.isEmpty {
+                        print("❌ Multiple endpoints return empty - likely invalid credentials")
+                        return .failure(.invalidCredentials)
+                    }
+                } catch {
+                    print("❌ Artist endpoint also failed - invalid credentials")
+                    return .failure(.invalidCredentials)
+                }
+            }
+            
+            let connectionInfo = ConnectionInfo(
+                version: pingInfo.version,
+                type: pingInfo.type,
+                serverVersion: pingInfo.serverVersion,
+                openSubsonic: pingInfo.openSubsonic
+            )
+            
+            print("✅ Connection test successful - got \(albums.count) albums")
+            return .success(connectionInfo)
+            
+        } catch {
+            print("❌ Connection test failed: \(error)")
+            
+            // Enhanced error mapping
+            if let subsonicError = error as? SubsonicError {
+                switch subsonicError {
+                case .unauthorized:
+                    return .failure(.invalidCredentials)
+                case .emptyResponse, .decoding:
+                    // ENHANCED: Empty responses often mean invalid auth
+                    print("🔍 Empty response detected - likely invalid credentials")
+                    return .failure(.invalidCredentials)
+                case .timeout:
+                    return .failure(.timeout)
+                case .network(let underlying):
+                    if let urlError = underlying as? URLError {
+                        switch urlError.code {
+                        case .timedOut:
+                            return .failure(.timeout)
+                        case .cannotConnectToHost, .cannotFindHost:
+                            return .failure(.serverUnreachable)
+                        case .notConnectedToInternet:
+                            return .failure(.networkError("Keine Internetverbindung"))
+                        default:
+                            return .failure(.networkError(urlError.localizedDescription))
+                        }
+                    } else {
+                        return .failure(.networkError(underlying.localizedDescription))
+                    }
+                case .server(let statusCode):
+                    return .failure(.networkError("Server-Fehler (Code: \(statusCode))"))
+                case .badURL:
+                    return .failure(.invalidURL)
+                default:
+                    return .failure(.networkError(subsonicError.localizedDescription))
+                }
+            } else {
+                return .failure(.networkError(error.localizedDescription))
+            }
+        }
     }
     
     // MARK: - Enhanced URL Builder mit Validation
@@ -170,6 +290,13 @@ class SubsonicService: ObservableObject {
                 throw error
             } else {
                 SecureLogger.shared.logNetworkError(endpoint: endpoint, error: error)
+                
+                // Enhanced: Detect timeouts specifically
+                if let urlError = error as? URLError, urlError.code == .timedOut {
+                    print("🕐 Request timed out for endpoint: \(endpoint)")
+                    throw SubsonicError.timeout(endpoint: endpoint)
+                }
+                
                 throw SubsonicError.network(underlying: error)
             }
         }
@@ -185,10 +312,21 @@ class SubsonicService: ObservableObject {
         do {
             return try await fetchData(endpoint: endpoint, params: params, type: type)
         } catch {
+            // Enhanced: Check for empty response decoding errors
             if let subsonicError = error as? SubsonicError, subsonicError.isEmptyResponse {
                 print("🔄 Using fallback for empty response: \(endpoint)")
                 return fallback
             }
+            
+            // NEW: Handle keyNotFound specifically for albumList2, artists, etc.
+            if case DecodingError.keyNotFound(let key, _) = error {
+                let emptyResponseKeys = ["albumList2", "artists", "genres", "searchResult2", "album"]
+                if emptyResponseKeys.contains(key.stringValue) {
+                    print("🔄 Server returned empty response for '\(key.stringValue)' in \(endpoint) - using fallback")
+                    return fallback
+                }
+            }
+            
             throw error
         }
     }
@@ -235,6 +373,8 @@ class SubsonicService: ObservableObject {
                 return false // 4xx errors should not be retried
             case .rateLimited:
                 return true
+            case .timeout:
+                return false // Don't retry timeouts - switch to offline immediately
             case .badURL, .unauthorized, .invalidInput, .decoding, .emptyResponse, .unknown:
                 return false
             }

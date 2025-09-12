@@ -1,11 +1,12 @@
 import SwiftUI
 
-import SwiftUI
-
 struct ArtistsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
+    
+    @StateObject private var networkMonitor = NetworkMonitor.shared
+    @StateObject private var offlineManager = OfflineManager.shared
     
     @State private var searchText = ""
     @State private var hasLoadedOnce = false
@@ -17,6 +18,11 @@ struct ArtistsView: View {
                 
                 if navidromeVM.isLoading {
                     loadingView()
+                } else if filteredArtists.isEmpty {
+                    ArtistsEmptyStateView(
+                        isOnline: networkMonitor.canLoadOnlineContent,
+                        isOfflineMode: offlineManager.isOfflineMode
+                    )
                 } else {
                     mainContent
                 }
@@ -26,26 +32,27 @@ struct ArtistsView: View {
             .searchable(
                 text: $searchText, placement: .automatic, prompt: "Search artists...")
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    OfflineModeToggle()
+                }
+                
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        Task {
-                            await navidromeVM.loadArtists()
-                            hasLoadedOnce = true
-                        }
+                        Task { await loadArtists() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(navidromeVM.isLoading)
+                    .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
                 }
             }
             .task {
                 if !hasLoadedOnce {
-                    await navidromeVM.loadArtists()
+                    await loadArtists()
                     hasLoadedOnce = true
                 }
             }
             .refreshable {
-                await navidromeVM.loadArtists()
+                await loadArtists()
                 hasLoadedOnce = true
             }
             .navigationDestination(for: Artist.self) { artist in
@@ -53,23 +60,72 @@ struct ArtistsView: View {
                     .environmentObject(navidromeVM)
                     .environmentObject(playerVM)
             }
+            // Enhanced network monitoring
+            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
+                if !canLoad {
+                    offlineManager.switchToOfflineMode()
+                } else if canLoad && !offlineManager.isOfflineMode {
+                    Task { await loadArtists() }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
+                offlineManager.switchToOfflineMode()
+            }
             .accountToolbar()
         }
     }
 
     private var filteredArtists: [Artist] {
-        if searchText.isEmpty {
-            return navidromeVM.artists.sorted(by: { $0.name < $1.name })
+        let artists: [Artist]
+        
+        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+            // Online: Use loaded artists
+            artists = navidromeVM.artists
         } else {
-            return navidromeVM.artists
+            // Offline: Load from offline cache
+            artists = getOfflineArtists()
+        }
+        
+        // Filter by search text
+        if searchText.isEmpty {
+            return artists.sorted(by: { $0.name < $1.name })
+        } else {
+            return artists
                 .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
                 .sorted(by: { $0.name < $1.name })
+        }
+    }
+    
+    private func getOfflineArtists() -> [Artist] {
+        let downloadedAlbums = DownloadManager.shared.downloadedAlbums
+        let albumIds = Set(downloadedAlbums.map { $0.albumId })
+        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
+        
+        // Extract unique artists
+        let uniqueArtists = Set(cachedAlbums.map { $0.artist })
+        return uniqueArtists.compactMap { artistName in
+            Artist(
+                id: artistName.replacingOccurrences(of: " ", with: "_"),
+                name: artistName,
+                coverArt: nil,
+                albumCount: cachedAlbums.filter { $0.artist == artistName }.count,
+                artistImageUrl: nil
+            )
         }
     }
 
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: 12) {
+                // Status header
+                if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
+                    ArtistsStatusHeader(
+                        isOnline: networkMonitor.canLoadOnlineContent,
+                        isOfflineMode: offlineManager.isOfflineMode,
+                        artistCount: filteredArtists.count
+                    )
+                }
+                
                 ForEach(Array(filteredArtists.enumerated()), id: \.element.id) { index, artist in
                     NavigationLink(value: artist) {
                         ArtistCard(artist: artist, index: index)
@@ -81,115 +137,104 @@ struct ArtistsView: View {
         }
     }
 
-    // MARK: - Helper Methods
-    private func loadArtistsIfNeeded() async {
-        // Nur laden, wenn konfiguriert und noch keine Artists geladen
-        if appConfig.isConfigured && navidromeVM.artists.isEmpty {
-            await navidromeVM.loadArtists()
+    // Enhanced loading method
+    private func loadArtists() async {
+        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+            await navidromeVM.loadArtistsWithOfflineSupport()
         }
+        // If offline, filteredArtists will automatically show cached data
     }
 }
 
-// MARK: - Enhanced Artist Card
-struct ArtistCard: View {
-    let artist: Artist
-    let index: Int
-    
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @State private var artistImage: UIImage?
-    @State private var isLoadingImage = false
-    @State private var isPressed = false
+// MARK: - Artists Empty State View
+struct ArtistsEmptyStateView: View {
+    let isOnline: Bool
+    let isOfflineMode: Bool
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Artist Avatar with glow
-            ZStack {
-                Circle()
-                    .fill(.black.opacity(0.1))
-                    .frame(width: 70, height: 70)
-                    .blur(radius: 1)
+        VStack(spacing: 24) {
+            Image(systemName: emptyStateIcon)
+                .font(.system(size: 60))
+                .foregroundStyle(.secondary)
+            
+            VStack(spacing: 8) {
+                Text(emptyStateTitle)
+                    .font(.title2.weight(.semibold))
                 
-                // Main avatar
-                Group {
-                    if let image = artistImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 70, height: 70)
-                            .clipShape(Circle())
-                    } else if isLoadingImage {
-                        Circle()
-                            .fill(.regularMaterial)
-                            .frame(width: 70, height: 70)
-                            .overlay(
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .tint(.primary)
-                            )
-                    } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.red, Color.blue.opacity(0.7)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "music.mic")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(.white.opacity(0.9))
-                                )
-                        }
-                    }
-                }
-                .task {
-                    await loadArtistImage()
-                }
-
-            // Artist Info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(artist.name)
+                Text(emptyStateMessage)
                     .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.black.opacity(0.9))
-                    .lineLimit(1)
-
-                HStack(spacing: 5) {
-                    Image(systemName: "record.circle")
-                        .font(.caption)
-                        .foregroundColor(.black.opacity(0.6))
-
-                    if let count = artist.albumCount {
-                        Text("\(count) Album\(count != 1 ? "s" : "")")
-                            .font(.caption)
-                            .foregroundColor(.black.opacity(0.6))
-                            .lineLimit(1)
-
-                    }
-                }
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+            
+            if !isOnline && !isOfflineMode {
+                Button("Switch to Downloaded Music") {
+                    OfflineManager.shared.switchToOfflineMode()
+                }
+                .buttonStyle(.borderedProminent)
+            }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.regularMaterial)
-        )
+        .padding(40)
     }
     
-    // MARK: - Helper Methods
-    private func loadArtistImage() async {
-        guard let coverId = artist.coverArt, !isLoadingImage else { return }
-        isLoadingImage = true
-        
-        // This already goes through cache via NavidromeVM -> Service -> PersistentImageCache
-        artistImage = await navidromeVM.loadCoverArt(for: coverId)
-        
-        isLoadingImage = false
+    private var emptyStateIcon: String {
+        if !isOnline {
+            return "wifi.slash"
+        } else if isOfflineMode {
+            return "person.2.slash"
+        } else {
+            return "person.2"
+        }
+    }
+    
+    private var emptyStateTitle: String {
+        if !isOnline {
+            return "No Connection"
+        } else if isOfflineMode {
+            return "No Offline Artists"
+        } else {
+            return "No Artists Found"
+        }
+    }
+    
+    private var emptyStateMessage: String {
+        if !isOnline {
+            return "Connect to WiFi or cellular to browse your artists"
+        } else if isOfflineMode {
+            return "Download some albums to see artists offline"
+        } else {
+            return "Your music library appears to have no artists"
+        }
     }
 }
+
+// MARK: - Artists Status Header
+struct ArtistsStatusHeader: View {
+    let isOnline: Bool
+    let isOfflineMode: Bool
+    let artistCount: Int
+    
+    var body: some View {
+        HStack {
+            NetworkStatusIndicator()
+            
+            Spacer()
+            
+            Text("\(artistCount) Artists")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            Spacer()
+            
+            if isOnline {
+                OfflineModeToggle()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+}
+
