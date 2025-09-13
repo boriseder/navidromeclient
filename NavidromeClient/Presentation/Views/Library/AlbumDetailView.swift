@@ -22,32 +22,30 @@ struct AlbumDetailView: View {
     @State private var miniPlayerVisible = false
 
     var body: some View {
-        ZStack {
-            DynamicMusicBackground()
-            ScrollView {
-                VStack(spacing: 32) {
-                    AlbumHeaderView(
-                        album: album,
-                        cover: coverArtService.coverImage(for: album, size: 400), // REAKTIV
-                        songs: songs
-                    )
-                    
-                    AlbumSongsListView(
-                        songs: songs,
-                        album: album,
-                        miniPlayerVisible: $miniPlayerVisible
-                    )
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, miniPlayerVisible ? 90 : 50)
+        ScrollView {
+            VStack(spacing: 32) {
+                AlbumHeaderView(
+                    album: album,
+                    cover: coverArtService.coverImage(for: album, size: 400), // REAKTIV
+                    songs: songs
+                )
+                
+                AlbumSongsListView(
+                    songs: songs,
+                    album: album,
+                    miniPlayerVisible: $miniPlayerVisible
+                )
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, miniPlayerVisible ? 90 : 50)
+            .navigationTitle(album.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await loadAlbumData()
+            }
+            .accountToolbar()
         }
-        .navigationTitle(album.name)
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await loadAlbumData()
-        }
-        .accountToolbar()
+        // ^^^^^^Scrollview end
     }
 
     @MainActor

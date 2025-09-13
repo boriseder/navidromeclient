@@ -15,9 +15,7 @@ struct GenreView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                DynamicMusicBackground()
-
+            Group {
                 if navidromeVM.isLoading {
                     loadingView()
                 } else if filteredGenres.isEmpty {

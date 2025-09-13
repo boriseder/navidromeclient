@@ -15,9 +15,7 @@ struct ArtistsView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                DynamicMusicBackground()
-                
+            Group {              
                 if navidromeVM.isLoading {
                     loadingView()
                 } else if filteredArtists.isEmpty {

@@ -22,7 +22,8 @@ struct MainTabView: View {
             TabItem(view: AnyView(AlbumsView()), label: "Albums", systemImage: "record.circle", badge: offlineManager.isOfflineMode ? "📱" : nil),
             TabItem(view: AnyView(ArtistsView()), label: "Artists", systemImage: "person.2", badge: nil),
             TabItem(view: AnyView(GenreView()), label: "Genres", systemImage: "music.note.list", badge: nil),
-            TabItem(view: AnyView(SearchView()), label: "Search", systemImage: "magnifyingglass", badge: nil)
+            TabItem(view: AnyView(SearchView()), label: "Search", systemImage: "magnifyingglass", badge: nil),
+            TabItem(view: AnyView(NetworkTestView()), label: "NWTV", systemImage: "magnifyingglass", badge: nil)
         ]
     }
     

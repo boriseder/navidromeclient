@@ -115,6 +115,8 @@ struct WelcomeHeader: View {
     let username: String
     let nowPlaying: Song?
 
+    @State private var showingNetworkTestView = false
+    
     // MARK: - Mehrsprachige Grüße nach Tageszeit
     private let greetingsByTime: [String: [String]] = [
         "morning": ["Good morning", "Bonjour", "Guten Morgen", "おはようございます", "Buongiorno"],
@@ -196,22 +198,30 @@ struct WelcomeHeader: View {
                     Text("\(timeBasedGreeting()), \(username)")
                         .font(.title2.weight(.bold))
                         .foregroundStyle(.white)
-
+                    
                     Text(randomQuote())
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.white.opacity(0.85))
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
                 }
-
+                
                 Spacer()
-
-                Image(systemName: nowPlaying == nil ? "music.note" : "waveform")
-                    .font(.system(size: 36, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .padding()
-                    .background(.white.opacity(0.15))
-                    .clipShape(Circle())
+                
+                Button(action: {
+                    // z. B. ein Sheet öffnen
+                    showingNetworkTestView.toggle()
+                }) {
+                    Image(systemName: nowPlaying == nil ? "music.note" : "waveform")
+                        .font(.system(size: 36, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding()
+                        .background(.white.opacity(0.15))
+                        .clipShape(Circle())
+                }
+                .sheet(isPresented: $showingNetworkTestView){
+                    NetworkTestView() // deine View, die aufgehen soll
+                }
             }
             .padding(.horizontal, 20)
         }

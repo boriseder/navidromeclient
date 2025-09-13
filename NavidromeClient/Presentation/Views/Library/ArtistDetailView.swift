@@ -21,8 +21,6 @@ struct ArtistDetailView: View {
     }
     
     var body: some View {
-        ZStack {
-            DynamicMusicBackground()
             ScrollView {
                 LazyVStack(spacing: 0) {
                     headerView
@@ -33,11 +31,11 @@ struct ArtistDetailView: View {
                 }
             }
             .scrollIndicators(.hidden)
-        }
-        .task {
-            await viewModel.loadContent(context: context, navidromeVM: navidromeVM)
-        }
-        .accountToolbar()
+            .task {
+                await viewModel.loadContent(context: context, navidromeVM: navidromeVM)
+            }
+            .accountToolbar()
+
     }
        
     // MARK: - Header

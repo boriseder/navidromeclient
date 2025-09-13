@@ -13,7 +13,7 @@ struct AlbumsView: View {
     @State private var isLoading = false
     @State private var hasLoadedOnce = false
 
-    private var displayedAlbums: [Album] {
+    private func getDisplayedAlbums() -> [Album] {
         let albums: [Album]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
@@ -27,8 +27,9 @@ struct AlbumsView: View {
             return albums
         } else {
             return albums.filter { album in
-                album.name.localizedCaseInsensitiveContains(searchText) ||
-                album.artist.localizedCaseInsensitiveContains(searchText)
+                let nameMatches = album.name.localizedCaseInsensitiveContains(searchText)
+                let artistMatches = album.artist.localizedCaseInsensitiveContains(searchText)
+                return nameMatches || artistMatches
             }
         }
     }
@@ -43,15 +44,13 @@ struct AlbumsView: View {
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                DynamicMusicBackground()
-                
+            Group {
                 VStack(spacing: 0) {
                     if isLoading {
                         Spacer()
                         loadingView()
                         Spacer()
-                    } else if displayedAlbums.isEmpty {
+                    } else if getDisplayedAlbums().isEmpty {
                         Spacer()
                         AlbumsEmptyStateView(
                             isOnline: networkMonitor.canLoadOnlineContent,
@@ -61,14 +60,7 @@ struct AlbumsView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {
-                                AlbumsStatusHeader(
-                                    isOnline: networkMonitor.canLoadOnlineContent,
-                                    isOfflineMode: offlineManager.isOfflineMode,
-                                    albumCount: displayedAlbums.count,
-                                    onOfflineToggle: { offlineManager.toggleOfflineMode() }
-                                )
-                                
-                                AlbumGridView(albums: displayedAlbums)
+                                AlbumGridView(albums: getDisplayedAlbums())
                             }
                         }
                     }
@@ -77,6 +69,37 @@ struct AlbumsView: View {
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, placement: .automatic, prompt: "Search albums...")
+            .task {
+                if !hasLoadedOnce {
+                    await loadAlbums()
+                    hasLoadedOnce = true
+                }
+            }
+            .refreshable {
+                await loadAlbums()
+            }
+            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
+                if canLoad && !offlineManager.isOfflineMode {
+                    Task { await loadAlbums() }
+                } else if !canLoad {
+                    offlineManager.switchToOfflineMode()
+                }
+            }
+            .onChange(of: offlineManager.isOfflineMode) { _, _ in
+                // Trigger UI refresh when offline mode changes
+            }
+            // FIX: Async preloading to avoid publishing during view updates
+            .task(id: getDisplayedAlbums().count) {
+                // Only preload when album count changes, with delay
+                let albums = getDisplayedAlbums()
+                if !albums.isEmpty {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
+                    coverArtService.preloadVisibleAlbums(albums)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
+                offlineManager.switchToOfflineMode()
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
@@ -98,44 +121,20 @@ struct AlbumsView: View {
                     }
                 }
                 
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    OfflineModeToggle()
+                }
+                
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        Task { await loadAlbums() }
+                        Task {
+                            await loadAlbums()
+                        }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(isLoading || networkMonitor.shouldForceOfflineMode)
+                    .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
                 }
-            }
-            .task {
-                if !hasLoadedOnce {
-                    await loadAlbums()
-                    hasLoadedOnce = true
-                }
-            }
-            .refreshable {
-                await loadAlbums()
-            }
-            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
-                if canLoad && !offlineManager.isOfflineMode {
-                    Task { await loadAlbums() }
-                } else if !canLoad {
-                    offlineManager.switchToOfflineMode()
-                }
-            }
-            .onChange(of: offlineManager.isOfflineMode) { _, _ in
-                // Trigger UI refresh when offline mode changes
-            }
-            // FIX: Async preloading to avoid publishing during view updates
-            .task(id: displayedAlbums.count) {
-                // Only preload when album count changes, with delay
-                if !displayedAlbums.isEmpty {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
-                    coverArtService.preloadVisibleAlbums(displayedAlbums)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
-                offlineManager.switchToOfflineMode()
             }
             .accountToolbar()
         }

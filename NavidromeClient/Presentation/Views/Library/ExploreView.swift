@@ -12,10 +12,8 @@ struct ExploreView: View {
     @State private var showRefreshAnimation = false
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
-                DynamicMusicBackground()
-
                 if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
                     onlineContent
                 } else {
