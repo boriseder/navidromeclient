@@ -1,8 +1,11 @@
 //
-//  HomeScreenViewModel.swift
+//  ExploreViewModel.swift - FIXED VERSION
 //  NavidromeClient
 //
-//  Created by Boris Eder on 04.09.25.
+//  ✅ FIXES:
+//  - Removed bypass call to navidromeVM.loadCoverArt()
+//  - Now uses ReactiveCoverArtService.loadImage() async method
+//  - Maintains consistency with unified caching architecture
 //
 
 import Foundation
@@ -20,14 +23,16 @@ class ExploreViewModel: ObservableObject {
     
     // MARK: - Dependencies (will be set from the view)
     private weak var navidromeVM: NavidromeViewModel?
+    private weak var coverArtService: ReactiveCoverArtService?
     
     init() {
         // Empty init - dependencies will be injected
     }
     
-    // MARK: - Dependency Injection
-    func configure(with navidromeVM: NavidromeViewModel) {
+    // MARK: - ✅ FIX: Enhanced Dependency Injection
+    func configure(with navidromeVM: NavidromeViewModel, coverArtService: ReactiveCoverArtService) {
         self.navidromeVM = navidromeVM
+        self.coverArtService = coverArtService
     }
     
     // MARK: - Public Methods
@@ -57,10 +62,18 @@ class ExploreViewModel: ObservableObject {
         await loadRandomAlbums(service: service)
     }
     
+    // ✅ FIX: Updated loadCoverArt method to use ReactiveCoverArtService
     func loadCoverArt(for albumId: String, size: Int = 200) async -> UIImage? {
-        guard let navidromeVM = navidromeVM else { return nil }
-        return await navidromeVM.loadCoverArt(for: albumId, size: size)
+        // OLD BYPASS CODE (removed):
+        // guard let navidromeVM = navidromeVM else { return nil }
+        // return await navidromeVM.loadCoverArt(for: albumId, size: size)
+        
+        // ✅ NEW: Use ReactiveCoverArtService async API
+        guard let coverArtService = coverArtService else { return nil }
+        return await coverArtService.loadImage(for: albumId, size: size)
     }
+    
+    // MARK: - Private Album Loading Methods (unchanged)
     
     private func loadRecentAlbums(service: SubsonicService) async {
         do {

@@ -1,3 +1,13 @@
+//
+//  NavidromeClientApp.swift - FIXED VERSION
+//  NavidromeClient
+//
+//  ✅ FIXES:
+//  - Enhanced setupServices to configure PlayerViewModel with coverArtService
+//  - Better dependency injection for all services
+//  - Proper service coordination
+//
+
 import SwiftUI
 
 @main
@@ -11,7 +21,7 @@ struct NavidromeClientApp: App {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @StateObject private var offlineManager = OfflineManager.shared
     
-    // NEW: Cover Art Service
+    // Cover Art Service
     @StateObject private var coverArtService = ReactiveCoverArtService.shared
     
     // App-wide ViewModels
@@ -41,7 +51,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(audioSessionManager)
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
-                .environmentObject(coverArtService) // NEW
+                .environmentObject(coverArtService)
                 .onAppear {
                     setupServices()
                     setupNetworkMonitoring()
@@ -55,6 +65,7 @@ struct NavidromeClientApp: App {
         }
     }
     
+    // ✅ FIX: Enhanced setupServices with proper dependency injection
     private func setupServices() {
         if let creds = appConfig.getCredentials() {
             let service = SubsonicService(
@@ -62,14 +73,19 @@ struct NavidromeClientApp: App {
                 username: creds.username,
                 password: creds.password
             )
+            
+            // Configure all services with proper dependencies
             navidromeVM.updateService(service)
             playerVM.updateService(service)
             networkMonitor.setService(service)
             
-            // NEW: Configure Cover Art Service
+            // ✅ FIX: Configure Cover Art Service
             coverArtService.configure(service: service)
             
-            print("✅ All services configured with credentials")
+            // ✅ FIX: Give PlayerViewModel reference to coverArtService
+            playerVM.updateCoverArtService(coverArtService)
+            
+            print("✅ All services configured with credentials and dependencies")
         } else {
             print("⚠️ No credentials available - services not configured")
         }

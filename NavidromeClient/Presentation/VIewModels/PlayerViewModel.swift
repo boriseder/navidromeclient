@@ -1,3 +1,13 @@
+//
+//  PlayerViewModel.swift - FIXED VERSION
+//  NavidromeClient
+//
+//  ✅ FIXES:
+//  - Removed bypass call to navidromeVM.loadCoverArt()
+//  - Now uses ReactiveCoverArtService.loadAlbumCover() async method
+//  - Maintains consistency with unified caching architecture
+//
+
 import Foundation
 import SwiftUI
 import AVFoundation
@@ -33,11 +43,14 @@ class PlayerViewModel: NSObject, ObservableObject {
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
     
+    // ✅ FIX: Add reference to ReactiveCoverArtService
+    private weak var coverArtService: ReactiveCoverArtService?
+    
     // MARK: - Private Properties
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var lastUpdateTime: Double = 0
-    private var playerItemEndObserver: NSObjectProtocol?   // <--- neu
+    private var playerItemEndObserver: NSObjectProtocol?
 
     // MARK: - Init
     
@@ -60,7 +73,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         NotificationCenter.default.removeObserver(self)
         
-        // Kein detached Task mehr nötig, direkter Aufruf
         // Safe: MainActor hop in Task
         Task { @MainActor in
             AudioSessionManager.shared.clearNowPlayingInfo()
@@ -173,10 +185,14 @@ class PlayerViewModel: NSObject, ObservableObject {
         _ = audioSessionManager.isAudioSessionActive
     }
     
-    // MARK: - Service Management
+    // MARK: - ✅ FIX: Service Management (Enhanced)
     
     func updateService(_ newService: SubsonicService) {
         self.service = newService
+    }
+    
+    func updateCoverArtService(_ newCoverArtService: ReactiveCoverArtService) {
+        self.coverArtService = newCoverArtService
     }
     
     // MARK: - Playback Methods
@@ -329,11 +345,19 @@ class PlayerViewModel: NSObject, ObservableObject {
         player?.volume = volume
     }
     
-    // MARK: - Cover Art & Now Playing
+    // MARK: - ✅ FIX: Cover Art & Now Playing
     
     func loadCoverArt() async {
-        guard let albumId = currentAlbumId, let service = service else { return }
-        coverArt = await service.getCoverArt(for: albumId)
+        guard let albumId = currentAlbumId else { return }
+        
+        // OLD BYPASS CODE (removed):
+        // guard let service = service else { return }
+        // coverArt = await service.getCoverArt(for: albumId)
+        
+        // ✅ NEW: Use ReactiveCoverArtService async API
+        guard let coverArtService = coverArtService else { return }
+        coverArt = await coverArtService.loadImage(for: albumId, size: 300)
+        
         updateNowPlayingInfo()
     }
     
@@ -356,30 +380,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     // MARK: - Time Observer
     
-    /*
-    private func setupTimeObserver() {
-        guard let player = player else { return }
-        
-        timeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
-            queue: .main
-        ) { [weak self] time in
-            guard let self = self else { return }
-            let newTime = time.seconds
-            
-            if abs(newTime - self.lastUpdateTime) > 0.1 {
-                self.lastUpdateTime = newTime
-                self.currentTime = newTime
-                self.updateProgress()
-                
-                // Update Now Playing Info every few seconds to keep it current
-                if Int(newTime) % 5 == 0 {
-                    self.updateNowPlayingInfo()
-                }
-            }
-        }
-    }
-    */
     private func updateProgress() {
         playbackProgress = duration > 0 ? currentTime / duration : 0
     }
@@ -391,7 +391,6 @@ class PlayerViewModel: NSObject, ObservableObject {
             forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main
         ) { [weak self] time in
-            // Kein Task mehr nötig - wir sind bereits auf Main Queue
             guard let self = self else { return }
             let newTime = time.seconds
             
@@ -426,7 +425,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         isPlaying = false
         isLoading = false
     }
-
 
     // MARK: - Notification Handlers
     
@@ -519,7 +517,4 @@ class PlayerViewModel: NSObject, ObservableObject {
     func deleteAlbum(albumId: String) {
         downloadManager.deleteAlbum(albumId: albumId)
     }
-    
-
 }
-

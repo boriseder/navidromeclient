@@ -1,8 +1,11 @@
 //
-//  AlbumDetailView.swift
+//  AlbumDetailView.swift - FIXED VERSION
 //  NavidromeClient
 //
-//  Created by Boris Eder on 04.09.25.
+//  ✅ FIXES:
+//  - Removed bypass call to navidromeVM.loadCoverArt()
+//  - Now uses ReactiveCoverArtService.loadAlbumCover() async method
+//  - Maintains reactive UI updates
 //
 
 import SwiftUI
@@ -16,17 +19,18 @@ struct AlbumDetailView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService // NEW
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
 
     @State private var songs: [Song] = []
     @State private var miniPlayerVisible = false
+    @State private var coverArt: UIImage? // ✅ FIX: Local state for cover art
 
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
                 AlbumHeaderView(
                     album: album,
-                    cover: coverArtService.coverImage(for: album, size: 400), // REAKTIV
+                    cover: coverArt, // ✅ FIX: Use local state
                     songs: songs
                 )
                 
@@ -45,20 +49,20 @@ struct AlbumDetailView: View {
             }
             .accountToolbar()
         }
-        // ^^^^^^Scrollview end
     }
 
     @MainActor
     private func loadAlbumData() async {
-        // REQUEST Cover Art (reaktiv)
-        coverArtService.requestImage(for: album.id, size: 400)
+        // ✅ FIX: Load cover art through ReactiveCoverArtService async API
+        // This replaces the old bypass: await navidromeVM.loadCoverArt(for: album.id, size: 400)
+        coverArt = await coverArtService.loadAlbumCover(album, size: 400)
         
-        // Load Songs
+        // Load Songs (unchanged)
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
 
-// MARK: - Album Header
+// MARK: - Album Header (unchanged - uses passed cover art)
 struct AlbumHeaderView: View {
     let album: Album
     let cover: UIImage?
@@ -72,12 +76,10 @@ struct AlbumHeaderView: View {
         HStack(spacing: 20) {
             // Cover Art
             AlbumCoverView(cover: cover)
-                //.frame(width: 120, height: 120)
                 .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
                 .scaleEffect(playerVM.currentAlbumId == album.id ? 1.02 : 1.0)
                 .animation(.spring(response: 0.4, dampingFraction: 0.7), value: playerVM.currentAlbumId)
                 .padding(.leading, 15)
-              //  .padding(.vertical, 20)
             
             VStack(alignment: .leading, spacing: 8) {
                 // Album Name + Artist
@@ -139,7 +141,7 @@ struct AlbumHeaderView: View {
     }
 }
 
-// MARK: - Kompakter Play Button
+// MARK: - Kompakter Play Button (unchanged)
 struct CompactPlayButton: View {
     let album: Album
     let songs: [Song]
@@ -166,7 +168,7 @@ struct CompactPlayButton: View {
     }
 }
 
-// MARK: - Album Cover
+// MARK: - Album Cover (unchanged)
 struct AlbumCoverView: View {
     let cover: UIImage?
     
@@ -193,6 +195,7 @@ struct AlbumCoverView: View {
     }
 }
 
+// MARK: - Shuffle Button (unchanged)
 struct ShuffleButton: View {
     let album: Album
     let songs: [Song]

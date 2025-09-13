@@ -1,3 +1,12 @@
+//
+//  ArtistDetailView.swift - FIXED VERSION
+//  NavidromeClient
+//
+//  ✅ FIXES:
+//  - Added missing coverArtService parameter to viewModel.loadContent call
+//  - Proper dependency injection for the view model
+//
+
 import SwiftUI
 
 enum ArtistDetailContext {
@@ -11,6 +20,7 @@ struct ArtistDetailView: View {
     // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService // ✅ FIX: Added this
     
     // NUR View-spezifisches ViewModel als @StateObject
     @StateObject private var viewModel = ArtistDetailViewModel()
@@ -21,21 +31,21 @@ struct ArtistDetailView: View {
     }
     
     var body: some View {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    headerView
-                        .padding(.top, 8)
-                    
-                    albumsSection
-                        .padding(.top, 16)
-                }
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                headerView
+                    .padding(.top, 8)
+                
+                albumsSection
+                    .padding(.top, 16)
             }
-            .scrollIndicators(.hidden)
-            .task {
-                await viewModel.loadContent(context: context, navidromeVM: navidromeVM)
-            }
-            .accountToolbar()
-
+        }
+        .scrollIndicators(.hidden)
+        .task {
+            // ✅ FIX: Added missing coverArtService parameter
+            await viewModel.loadContent(context: context, navidromeVM: navidromeVM, coverArtService: coverArtService)
+        }
+        .accountToolbar()
     }
        
     // MARK: - Header

@@ -1,3 +1,13 @@
+//
+//  NavidromeViewModel.swift - FIXED VERSION
+//  NavidromeClient
+//
+//  ✅ FIXES:
+//  - Removed loadCoverArt method (was causing cache bypass)
+//  - All cover art loading now goes through ReactiveCoverArtService
+//  - Cleaner separation of concerns
+//
+
 import Foundation
 import SwiftUI
 
@@ -64,7 +74,7 @@ class NavidromeViewModel: ObservableObject {
         }
     }
 
-    // MARK: - NEW: Enhanced Connection Test using Service
+    // MARK: - Enhanced Connection Test using Service
     func testConnection() async {
         guard let url = buildCurrentURL() else {
             connectionStatus = false
@@ -195,10 +205,15 @@ class NavidromeViewModel: ObservableObject {
         }
     }
 
-    func loadCoverArt(for albumId: String, size: Int = 300) async -> UIImage? {
-        guard let service else { return nil }
-        return await service.getCoverArt(for: albumId, size: size)
-    }
+    // ✅ FIX: REMOVED loadCoverArt method
+    // This method was causing cache bypass - all cover art loading
+    // should go through ReactiveCoverArtService
+    
+    // OLD CODE (removed):
+    // func loadCoverArt(for albumId: String, size: Int = 300) async -> UIImage? {
+    //     guard let service else { return nil }
+    //     return await service.getCoverArt(for: albumId, size: size)
+    // }
 
     func loadGenres() async {
         guard let service else { return }
@@ -426,5 +441,3 @@ class NavidromeViewModel: ObservableObject {
         print("📦 Loaded \(genres.count) genres from offline cache")
     }
 }
-
-

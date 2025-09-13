@@ -1,3 +1,13 @@
+//
+//  ExploreView.swift - FIXED VERSION
+//  NavidromeClient
+//
+//  ✅ FIXES:
+//  - Updated dependency injection for ExploreViewModel
+//  - Enhanced configure call to include coverArtService
+//  - Improved preloading integration
+//
+
 import SwiftUI
 
 struct ExploreView: View {
@@ -6,9 +16,9 @@ struct ExploreView: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService // NEW
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
-    @StateObject private var exploreVM = ExploreViewModel() // RENAMED
+    @StateObject private var exploreVM = ExploreViewModel()
     @State private var showRefreshAnimation = false
     
     var body: some View {
@@ -23,11 +33,11 @@ struct ExploreView: View {
             .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
             .task {
-                exploreVM.configure(with: navidromeVM)
+                // ✅ FIX: Enhanced configure call with coverArtService
+                exploreVM.configure(with: navidromeVM, coverArtService: coverArtService)
+                
                 if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
                     await exploreVM.loadHomeScreenData()
-                    
-                    // NEW: Smart preloading nach dem Laden
                     await preloadHomeScreenCovers()
                 }
             }
@@ -57,7 +67,7 @@ struct ExploreView: View {
         }
     }
     
-    // NEW: Smart preloading für Home Screen
+    // ✅ FIX: Smart preloading for Home Screen using ReactiveCoverArtService
     private func preloadHomeScreenCovers() async {
         let allAlbums = exploreVM.recentAlbums +
                        exploreVM.newestAlbums +
@@ -67,61 +77,68 @@ struct ExploreView: View {
         await coverArtService.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
     }
     
-    // MARK: - Online Content
+    // MARK: - Online Content (Enhanced with LazyVStack)
     private var onlineContent: some View {
         ScrollView {
+            // ✅ FIX: LazyVStack for better scroll performance
             LazyVStack(spacing: 32) {
                 WelcomeHeader(
                     username: AppConfig.shared.getCredentials()?.username ?? "User",
                     nowPlaying: playerVM.currentSong
                 )
                 
-                if !exploreVM.recentAlbums.isEmpty {
-                    AlbumSection(
-                        title: "Recently played",
-                        albums: exploreVM.recentAlbums,
-                        icon: "clock.fill",
-                        accentColor: .orange
-                    )
+                // ✅ FIX: Conditional sections to avoid empty views
+                Group {
+                    if !exploreVM.recentAlbums.isEmpty {
+                        AlbumSection(
+                            title: "Recently played",
+                            albums: exploreVM.recentAlbums,
+                            icon: "clock.fill",
+                            accentColor: .orange
+                        )
+                    }
+                    
+                    if !exploreVM.newestAlbums.isEmpty {
+                        AlbumSection(
+                            title: "Newly added",
+                            albums: exploreVM.newestAlbums,
+                            icon: "sparkles",
+                            accentColor: .green
+                        )
+                    }
+                    
+                    if !exploreVM.frequentAlbums.isEmpty {
+                        AlbumSection(
+                            title: "Often played",
+                            albums: exploreVM.frequentAlbums,
+                            icon: "chart.bar.fill",
+                            accentColor: .purple
+                        )
+                    }
+                    
+                    if !exploreVM.randomAlbums.isEmpty {
+                        AlbumSection(
+                            title: "Explore",
+                            albums: exploreVM.randomAlbums,
+                            icon: "dice.fill",
+                            accentColor: .blue,
+                            showRefreshButton: true,
+                            refreshAction: {
+                                await refreshRandomAlbums()
+                            }
+                        )
+                    }
                 }
                 
-                if !exploreVM.newestAlbums.isEmpty {
-                    AlbumSection(
-                        title: "Newly added",
-                        albums: exploreVM.newestAlbums,
-                        icon: "sparkles",
-                        accentColor: .green
-                    )
-                }
-                
-                if !exploreVM.frequentAlbums.isEmpty {
-                    AlbumSection(
-                        title: "Often played",
-                        albums: exploreVM.frequentAlbums,
-                        icon: "chart.bar.fill",
-                        accentColor: .purple
-                    )
-                }
-                
-                if !exploreVM.randomAlbums.isEmpty {
-                    AlbumSection(
-                        title: "Explore",
-                        albums: exploreVM.randomAlbums,
-                        icon: "dice.fill",
-                        accentColor: .blue,
-                        showRefreshButton: true,
-                        refreshAction: {
-                            await refreshRandomAlbums()
-                        }
-                    )
-                }
-                
-                if exploreVM.isLoading {
-                    loadingView()
-                }
-                
-                if let errorMessage = exploreVM.errorMessage {
-                    ErrorSection(message: errorMessage)
+                // Error/Loading states
+                Group {
+                    if exploreVM.isLoading {
+                        loadingView()
+                    }
+                    
+                    if let errorMessage = exploreVM.errorMessage {
+                        ErrorSection(message: errorMessage)
+                    }
                 }
                 
                 Color.clear.frame(height: 90)
@@ -130,7 +147,7 @@ struct ExploreView: View {
         }
     }
     
-    // MARK: - Offline Content
+    // MARK: - Offline Content (unchanged)
     private var offlineContent: some View {
         ScrollView {
             LazyVStack(spacing: 32) {
@@ -180,13 +197,14 @@ struct ExploreView: View {
         showRefreshAnimation = true
         await exploreVM.refreshRandomAlbums()
         
-        // NEW: Preload nach refresh
+        // ✅ FIX: Preload nach refresh
         await coverArtService.preloadAlbums(exploreVM.randomAlbums, size: 200)
         
         showRefreshAnimation = false
     }
 }
 
+// MARK: - Offline Components (unchanged)
 
 struct OfflineWelcomeHeader: View {
     let downloadedAlbums: Int
@@ -230,7 +248,7 @@ struct OfflineWelcomeHeader: View {
     }
 }
 
-// MARK: - Album Section
+// MARK: - Album Section (unchanged)
 struct AlbumSection: View {
     let title: String
     let albums: [Album]
@@ -287,7 +305,7 @@ struct AlbumSection: View {
     }
 }
 
-// MARK: - Offline-specific Components
+// MARK: - Quick Access Components (unchanged)
 struct QuickAccessCard: View {
     let title: String
     let subtitle: String
@@ -404,7 +422,7 @@ struct NetworkStatusCard: View {
     }
 }
 
-// MARK: - Error Section
+// MARK: - Error Section (unchanged)
 struct ErrorSection: View {
     let message: String
     

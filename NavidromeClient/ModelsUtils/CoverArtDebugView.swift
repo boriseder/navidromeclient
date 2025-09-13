@@ -38,15 +38,15 @@ struct CoverArtDebugView: View {
                 
                 let cacheStats = coverArtService.getCacheStats()
                 HStack {
-                    Text("Memory Cache:")
+                    Text("Persistent Cache:")
                     Spacer()
-                    Text("\(cacheStats.memory) images")
+                    Text("\(cacheStats.persistent) images")
                 }
                 
                 HStack {
-                    Text("Disk Cache:")
+                    Text("Network Requests:")
                     Spacer()
-                    Text("\(cacheStats.persistent) images")
+                    Text("\(cacheStats.networkRequests)")
                 }
             }
             

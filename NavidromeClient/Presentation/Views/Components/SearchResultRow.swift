@@ -3,16 +3,14 @@ import SwiftUI
 // MARK: - Artist Row with Cover Art (ArtistsView Style)
 struct SearchResultArtistRow: View {
     let artist: Artist
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @State private var artistImage: UIImage?
-    @State private var isLoadingImage = false
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService // ✅ FIX: Use coverArtService instead of navidromeVM
     
     var body: some View {
         NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
             HStack(spacing: 16) {
                 ArtistImageView(
-                    image: artistImage,
-                    isLoading: isLoadingImage
+                    artist: artist,
+                    coverArtService: coverArtService
                 )
                 
                 ArtistInfoView(artist: artist)
@@ -28,19 +26,6 @@ struct SearchResultArtistRow: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .task {
-            await loadArtistImage()
-        }
-    }
-    
-    private func loadArtistImage() async {
-        guard let coverId = artist.coverArt, !isLoadingImage else { return }
-        isLoadingImage = true
-        
-        // Use NavidromeVM instead of direct service - ensures caching
-        artistImage = await navidromeVM.loadCoverArt(for: coverId)
-        
-        isLoadingImage = false
     }
 }
 
@@ -185,10 +170,10 @@ struct SearchResultSongRow: View {
     }
 }
 
-// MARK: - Artist Components (Enhanced)
+// MARK: - ✅ FIX: Artist Components (Enhanced)
 struct ArtistImageView: View {
-    let image: UIImage?
-    let isLoading: Bool
+    let artist: Artist
+    let coverArtService: ReactiveCoverArtService
     
     var body: some View {
         ZStack {
@@ -200,21 +185,13 @@ struct ArtistImageView: View {
             
             // Main avatar
             Group {
-                if let image {
+                if let coverArt = artist.coverArt,
+                   let image = coverArtService.image(for: coverArt, size: 120) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 60, height: 60)
                         .clipShape(Circle())
-                } else if isLoading {
-                    Circle()
-                        .fill(.regularMaterial)
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .tint(.blue)
-                        )
                 } else {
                     Circle()
                         .fill(
@@ -230,6 +207,11 @@ struct ArtistImageView: View {
                                 .font(.system(size: 24))
                                 .foregroundStyle(.white.opacity(0.9))
                         )
+                        .onAppear {
+                            if let coverArt = artist.coverArt {
+                                coverArtService.requestImage(for: coverArt, size: 120)
+                            }
+                        }
                 }
             }
         }
@@ -262,66 +244,6 @@ struct ArtistInfoView: View {
 }
 
 // MARK: - Album Components (Enhanced)
-struct AlbumImageView: View {
-    let albumId: String
-    @Binding var albumCovers: [String: UIImage]
-    let isLoading: Bool
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    
-    var body: some View {
-        ZStack {
-            // Subtle glow background
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.1))
-                .frame(width: 70, height: 70)
-                .blur(radius: 3)
-            
-            // Album cover or placeholder
-            Group {
-                if let image = albumCovers[albumId] {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 60, height: 60)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                } else if isLoading {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(.regularMaterial)
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .tint(.blue)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(
-                            LinearGradient(
-                                colors: [.orange, .pink.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 60, height: 60)
-                        .overlay(
-                            Image(systemName: "record.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundStyle(.white.opacity(0.9))
-                        )
-                        .task {
-                            if albumCovers[albumId] == nil {
-                                // Use NavidromeVM instead of direct service - ensures caching
-                                if let loadedImage = await navidromeVM.loadCoverArt(for: albumId, size: 120) {
-                                    albumCovers[albumId] = loadedImage
-                                }
-                            }
-                        }
-                }
-            }
-        }
-    }
-}
-
 struct AlbumInfoView: View {
     let album: Album
     
@@ -368,78 +290,6 @@ struct AlbumInfoView: View {
 }
 
 // MARK: - Song Components (Enhanced)
-struct SongImageView: View {
-    let song: Song
-    @Binding var albumCovers: [String: UIImage]
-    let isLoading: Bool
-    let isPlaying: Bool
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    
-    var body: some View {
-        ZStack {
-            // Subtle glow background
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(isPlaying ? 0.2 : 0.1))
-                .frame(width: 60, height: 60)
-                .blur(radius: 3)
-            
-            // Song cover or placeholder
-            Group {
-                if let albumId = song.albumId, let image = albumCovers[albumId] {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 50, height: 50)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .overlay(
-                            // Playing indicator overlay
-                            isPlaying ?
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(.blue.opacity(0.3))
-                                .overlay(
-                                    Image(systemName: "speaker.wave.2.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.blue)
-                                ) : nil
-                        )
-                } else if isLoading {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.regularMaterial)
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            ProgressView()
-                                .scaleEffect(0.7)
-                                .tint(.blue)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [.green, .blue.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 50, height: 50)
-                        .overlay(
-                            Image(systemName: "music.note")
-                                .font(.system(size: 20))
-                                .foregroundStyle(.white.opacity(0.9))
-                        )
-                        .task {
-                            if let albumId = song.albumId, albumCovers[albumId] == nil {
-                                // Use NavidromeVM instead of direct service - ensures caching
-                                if let loadedImage = await navidromeVM.loadCoverArt(for: albumId, size: 100) {
-                                    albumCovers[albumId] = loadedImage
-                                }
-                            }
-                        }
-                }
-            }
-        }
-    }
-}
-
 struct SongInfoView: View {
     let song: Song
     let isPlaying: Bool

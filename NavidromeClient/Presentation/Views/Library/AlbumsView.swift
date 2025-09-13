@@ -1,3 +1,13 @@
+//
+//  AlbumsView.swift - FIXED VERSION
+//  NavidromeClient
+//
+//  ✅ FIXES:
+//  - Broken up complex expression that caused compiler timeout
+//  - Simplified computed properties for better SwiftUI performance
+//  - Added intermediate variables to help type inference
+//
+
 import SwiftUI
 
 struct AlbumsView: View {
@@ -13,16 +23,25 @@ struct AlbumsView: View {
     @State private var isLoading = false
     @State private var hasLoadedOnce = false
 
-    private func getDisplayedAlbums() -> [Album] {
-        let albums: [Album]
+    // ✅ FIX: Broken up complex expression into simpler computed properties
+    private var displayedAlbums: [Album] {
+        let sourceAlbums = getSourceAlbums()
+        return filterAlbums(sourceAlbums)
+    }
+    
+    private func getSourceAlbums() -> [Album] {
+        let canLoadOnline = networkMonitor.canLoadOnlineContent
+        let isOffline = offlineManager.isOfflineMode
         
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            albums = navidromeVM.albums
+        if canLoadOnline && !isOffline {
+            return navidromeVM.albums
         } else {
             let downloadedAlbumIds = Set(DownloadManager.shared.downloadedAlbums.map { $0.albumId })
-            albums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
+            return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
         }
-        
+    }
+    
+    private func filterAlbums(_ albums: [Album]) -> [Album] {
         if searchText.isEmpty {
             return albums
         } else {
@@ -35,7 +54,10 @@ struct AlbumsView: View {
     }
     
     private var availableSortTypes: [SubsonicService.AlbumSortType] {
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+        let canLoadOnline = networkMonitor.canLoadOnlineContent
+        let isOffline = offlineManager.isOfflineMode
+        
+        if canLoadOnline && !isOffline {
             return SubsonicService.AlbumSortType.allCases
         } else {
             return [.alphabetical, .alphabeticalByArtist]
@@ -50,17 +72,14 @@ struct AlbumsView: View {
                         Spacer()
                         loadingView()
                         Spacer()
-                    } else if getDisplayedAlbums().isEmpty {
+                    } else if displayedAlbums.isEmpty {
                         Spacer()
-                        AlbumsEmptyStateView(
-                            isOnline: networkMonitor.canLoadOnlineContent,
-                            isOfflineMode: offlineManager.isOfflineMode
-                        )
+                        albumsEmptyStateView
                         Spacer()
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {
-                                AlbumGridView(albums: getDisplayedAlbums())
+                                AlbumGridView(albums: displayedAlbums)
                             }
                         }
                     }
@@ -79,69 +98,86 @@ struct AlbumsView: View {
                 await loadAlbums()
             }
             .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
-                if canLoad && !offlineManager.isOfflineMode {
-                    Task { await loadAlbums() }
-                } else if !canLoad {
-                    offlineManager.switchToOfflineMode()
-                }
+                handleNetworkChange(canLoad: canLoad)
             }
             .onChange(of: offlineManager.isOfflineMode) { _, _ in
                 // Trigger UI refresh when offline mode changes
             }
-            // FIX: Async preloading to avoid publishing during view updates
-            .task(id: getDisplayedAlbums().count) {
-                // Only preload when album count changes, with delay
-                let albums = getDisplayedAlbums()
-                if !albums.isEmpty {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
-                    coverArtService.preloadVisibleAlbums(albums)
-                }
+            .task(id: displayedAlbums.count) {
+                // Preload with delay to avoid publishing during view updates
+                await preloadDisplayedAlbums()
             }
             .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
                 offlineManager.switchToOfflineMode()
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        ForEach(availableSortTypes, id: \.self) { sortType in
-                            Button {
-                                selectedSortType = sortType
-                                Task { await loadAlbums() }
-                            } label: {
-                                HStack {
-                                    Text(sortType.displayName)
-                                    if selectedSortType == sortType {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        Image(systemName: selectedSortType.icon)
-                    }
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    OfflineModeToggle()
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        Task {
-                            await loadAlbums()
-                        }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
-                }
+                toolbarContent
             }
             .accountToolbar()
         }
     }
     
+    // ✅ FIX: Simplified empty state view
+    private var albumsEmptyStateView: some View {
+        AlbumsEmptyStateView(
+            isOnline: networkMonitor.canLoadOnlineContent,
+            isOfflineMode: offlineManager.isOfflineMode
+        )
+    }
+    
+    // ✅ FIX: Extracted toolbar content
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Menu {
+                ForEach(availableSortTypes, id: \.self) { sortType in
+                    Button {
+                        selectedSortType = sortType
+                        Task { await loadAlbums() }
+                    } label: {
+                        HStack {
+                            Text(sortType.displayName)
+                            if selectedSortType == sortType {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: selectedSortType.icon)
+            }
+        }
+        
+        ToolbarItem(placement: .navigationBarTrailing) {
+            OfflineModeToggle()
+        }
+        
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button {
+                Task {
+                    await loadAlbums()
+                }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
+        }
+    }
+    
+    // ✅ FIX: Simplified helper methods
+    private func handleNetworkChange(canLoad: Bool) {
+        if canLoad && !offlineManager.isOfflineMode {
+            Task { await loadAlbums() }
+        } else if !canLoad {
+            offlineManager.switchToOfflineMode()
+        }
+    }
+    
     private func loadAlbums() async {
-        guard networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode else {
+        let canLoadOnline = networkMonitor.canLoadOnlineContent
+        let isOffline = offlineManager.isOfflineMode
+        
+        guard canLoadOnline && !isOffline else {
             await navidromeVM.loadOfflineAlbums()
             return
         }
@@ -150,5 +186,17 @@ struct AlbumsView: View {
         defer { isLoading = false }
         
         await navidromeVM.loadAllAlbums(sortBy: selectedSortType)
+    }
+    
+    private func preloadDisplayedAlbums() async {
+        let albums = displayedAlbums
+        guard !albums.isEmpty else { return }
+        
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
+        
+        // ✅ FIX: Call method on service instance, not dynamic member
+        Task {
+            await coverArtService.preloadAlbums(Array(albums.prefix(20)), size: 200)
+        }
     }
 }
