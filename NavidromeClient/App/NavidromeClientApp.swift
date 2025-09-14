@@ -1,12 +1,8 @@
 //
-//  NavidromeClientApp.swift - FIXED VERSION
+//  NavidromeClientApp.swift
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Enhanced setupServices to configure PlayerViewModel with coverArtService
-//  - Better dependency injection for all services
-//  - Proper service coordination
-//
+
 
 import SwiftUI
 

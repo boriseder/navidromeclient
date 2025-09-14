@@ -1,8 +1,8 @@
 //
-//  SettingsView.swift - Enhanced with Design System
+//  SettingsView.swift
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
 //
 
 import SwiftUI

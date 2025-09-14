@@ -1,8 +1,9 @@
 //
-//  ArtistsView.swift - Enhanced with Design System
+//  ArtistsView.swift - FIXED (DRY)
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  ✅ FIXED: Removed ArtistsStatusHeader reference
+//  ✅ USES: LibraryStatusHeader.artists() instead
 //
 
 import SwiftUI
@@ -78,12 +79,14 @@ struct ArtistsView: View {
     }
 
     private var filteredArtists: [Artist] {
+        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
         let artists: [Artist]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             artists = navidromeVM.artists
         } else {
-            artists = getOfflineArtists()
+            // ✅ DRY: Use centralized offline artists
+            artists = offlineManager.offlineArtists
         }
         
         if searchText.isEmpty {
@@ -94,32 +97,16 @@ struct ArtistsView: View {
                 .sorted(by: { $0.name < $1.name })
         }
     }
-    
-    private func getOfflineArtists() -> [Artist] {
-        let downloadedAlbums = downloadManager.downloadedAlbums
-        let albumIds = Set(downloadedAlbums.map { $0.albumId })
-        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
-        
-        let uniqueArtists = Set(cachedAlbums.map { $0.artist })
-        return uniqueArtists.compactMap { artistName in
-            Artist(
-                id: artistName.replacingOccurrences(of: " ", with: "_"),
-                name: artistName,
-                coverArt: nil,
-                albumCount: cachedAlbums.filter { $0.artist == artistName }.count,
-                artistImageUrl: nil
-            )
-        }
-    }
 
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.s) {
+                // ✅ FIXED: Use LibraryStatusHeader instead of ArtistsStatusHeader
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
-                    ArtistsStatusHeader(
+                    LibraryStatusHeader.artists(
+                        count: filteredArtists.count,
                         isOnline: networkMonitor.canLoadOnlineContent,
-                        isOfflineMode: offlineManager.isOfflineMode,
-                        artistCount: filteredArtists.count
+                        isOfflineMode: offlineManager.isOfflineMode
                     )
                 }
                 
@@ -131,7 +118,7 @@ struct ArtistsView: View {
                 }
             }
             .screenPadding()
-            .padding(.bottom, Sizes.miniPlayer) // Using DS value
+            .padding(.bottom, Sizes.miniPlayer)
         }
     }
 
@@ -150,7 +137,7 @@ struct ArtistsEmptyStateView: View {
     var body: some View {
         VStack(spacing: Spacing.l) {
             Image(systemName: emptyStateIcon)
-                .font(.system(size: 60)) // Approx. DS applied
+                .font(.system(size: 60))
                 .foregroundStyle(TextColor.secondary)
             
             VStack(spacing: Spacing.s) {
@@ -201,34 +188,5 @@ struct ArtistsEmptyStateView: View {
         } else {
             return "Your music library appears to have no artists"
         }
-    }
-}
-
-// MARK: - Artists Status Header (Enhanced with DS)
-struct ArtistsStatusHeader: View {
-    let isOnline: Bool
-    let isOfflineMode: Bool
-    let artistCount: Int
-    
-    var body: some View {
-        HStack {
-            NetworkStatusIndicator()
-            
-            Spacer()
-            
-            Text("\(artistCount) Artists")
-                .font(Typography.caption)
-                .foregroundStyle(TextColor.secondary)
-            
-            Spacer()
-            
-            if isOnline {
-                OfflineModeToggle()
-            }
-        }
-        .listItemPadding()
-        .glassCardStyle()
-        .screenPadding()
-        .padding(.bottom, Spacing.s)
     }
 }

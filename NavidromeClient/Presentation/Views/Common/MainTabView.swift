@@ -21,8 +21,7 @@ struct MainTabView: View {
             TabItem(view: AnyView(AlbumsView()), label: "Albums", systemImage: "record.circle", badge: offlineManager.isOfflineMode ? "📱" : nil),
             TabItem(view: AnyView(ArtistsView()), label: "Artists", systemImage: "person.2", badge: nil),
             TabItem(view: AnyView(GenreView()), label: "Genres", systemImage: "music.note.list", badge: nil),
-            TabItem(view: AnyView(SearchView()), label: "Search", systemImage: "magnifyingglass", badge: nil),
-            TabItem(view: AnyView(NetworkTestView()), label: "NWTV", systemImage: "magnifyingglass", badge: nil)
+            TabItem(view: AnyView(SearchView()), label: "Search", systemImage: "magnifyingglass", badge: nil)
         ]
     }
     
@@ -70,10 +69,10 @@ struct MainTabView: View {
             }
             .padding(.horizontal, Spacing.m)
             .padding(.vertical, Spacing.s)
+            .padding(.top, Spacing.s)
             .background(BrandColor.warning.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.s))
             .foregroundStyle(TextColor.onDark)
             .screenPadding()
-            .padding(.top, Spacing.s)
             .transition(.move(edge: .top).combined(with: .opacity))
             .animation(Animations.ease, value: networkMonitor.isConnected)
         }

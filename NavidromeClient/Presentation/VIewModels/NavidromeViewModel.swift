@@ -1,11 +1,8 @@
 //
-//  NavidromeViewModel.swift - FIXED VERSION
+//  NavidromeViewModel.swift - REFACTORED (DRY)
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Removed loadCoverArt method (was causing cache bypass)
-//  - All cover art loading now goes through ReactiveCoverArtService
-//  - Cleaner separation of concerns
+//  ✅ REMOVED: Duplicate offline Artists/Genres logic - now uses OfflineManager
 //
 
 import Foundation
@@ -205,16 +202,6 @@ class NavidromeViewModel: ObservableObject {
         }
     }
 
-    // ✅ FIX: REMOVED loadCoverArt method
-    // This method was causing cache bypass - all cover art loading
-    // should go through ReactiveCoverArtService
-    
-    // OLD CODE (removed):
-    // func loadCoverArt(for albumId: String, size: Int = 300) async -> UIImage? {
-    //     guard let service else { return nil }
-    //     return await service.getCoverArt(for: albumId, size: size)
-    // }
-
     func loadGenres() async {
         guard let service else { return }
         do {
@@ -390,54 +377,20 @@ class NavidromeViewModel: ObservableObject {
     }
     
     func loadOfflineAlbums() async {
-        // Bei Offline-Fehler: Versuche gecachte Alben zu laden
-        let offlineAlbums = OfflineManager.shared.offlineAlbums
-        if !offlineAlbums.isEmpty {
-            albums = offlineAlbums
-            print("📦 Loaded \(albums.count) albums from offline cache")
-        } else {
-            errorMessage = "No albums available offline"
-        }
+        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
+        albums = OfflineManager.shared.offlineAlbums
+        print("📦 Loaded \(albums.count) albums from offline cache")
     }
     
     private func loadOfflineArtists() async {
-        // Offline: Zeige nur Artists von heruntergeladenen Alben
-        let downloadedAlbums = downloadManager.downloadedAlbums
-        let albumIds = Set(downloadedAlbums.map { $0.albumId })
-        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
-        
-        // Extrahiere unique Artists
-        let uniqueArtists = Set(cachedAlbums.map { $0.artist })
-        let offlineArtists = uniqueArtists.compactMap { artistName in
-            Artist(
-                id: artistName.replacingOccurrences(of: " ", with: "_"),
-                name: artistName,
-                coverArt: nil,
-                albumCount: cachedAlbums.filter { $0.artist == artistName }.count,
-                artistImageUrl: nil
-            )
-        }
-        
-        artists = offlineArtists.sorted { $0.name < $1.name }
+        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
+        artists = OfflineManager.shared.offlineArtists
         print("📦 Loaded \(artists.count) artists from offline cache")
     }
     
     private func loadOfflineGenres() async {
-        // Offline: Extrahiere Genres von heruntergeladenen Alben
-        let downloadedAlbums = downloadManager.downloadedAlbums
-        let albumIds = Set(downloadedAlbums.map { $0.albumId })
-        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
-        
-        let genreGroups = Dictionary(grouping: cachedAlbums) { $0.genre ?? "Unknown" }
-        let offlineGenres = genreGroups.map { genreName, albums in
-            Genre(
-                value: genreName,
-                songCount: albums.reduce(0) { $0 + ($1.songCount ?? 0) },
-                albumCount: albums.count
-            )
-        }
-        
-        genres = offlineGenres.sorted { $0.value < $1.value }
+        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
+        genres = OfflineManager.shared.offlineGenres
         print("📦 Loaded \(genres.count) genres from offline cache")
     }
 }

@@ -1,8 +1,9 @@
 //
-//  GenreView.swift - Enhanced with Design System
+//  GenreView.swift - FIXED (DRY)
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  ✅ FIXED: Removed GenresStatusHeader reference
+//  ✅ USES: LibraryStatusHeader.genres() instead
 //
 
 import SwiftUI
@@ -80,12 +81,14 @@ struct GenreView: View {
     }
     
     private var filteredGenres: [Genre] {
+        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
         let genres: [Genre]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             genres = navidromeVM.genres
         } else {
-            genres = getOfflineGenres()
+            // ✅ DRY: Use centralized offline genres
+            genres = offlineManager.offlineGenres
         }
         
         if searchText.isEmpty {
@@ -96,31 +99,16 @@ struct GenreView: View {
                 .sorted(by: { $0.value < $1.value })
         }
     }
-    
-    private func getOfflineGenres() -> [Genre] {
-        let downloadedAlbums = downloadManager.downloadedAlbums
-        let albumIds = Set(downloadedAlbums.map { $0.albumId })
-        let cachedAlbums = AlbumMetadataCache.shared.getAlbums(ids: albumIds)
-        
-        let genreGroups = Dictionary(grouping: cachedAlbums) { $0.genre ?? "Unknown" }
-        return genreGroups.map { genreName, albums in
-            Genre(
-                value: genreName,
-                songCount: albums.reduce(0) { $0 + ($1.songCount ?? 0) },
-                albumCount: albums.count
-            )
-        }
-    }
 
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.s) {
-                // Status header for offline mode
+                // ✅ FIXED: Use LibraryStatusHeader instead of GenresStatusHeader
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
-                    GenresStatusHeader(
+                    LibraryStatusHeader.genres(
+                        count: filteredGenres.count,
                         isOnline: networkMonitor.canLoadOnlineContent,
-                        isOfflineMode: offlineManager.isOfflineMode,
-                        genreCount: filteredGenres.count
+                        isOfflineMode: offlineManager.isOfflineMode
                     )
                 }
                 
@@ -151,7 +139,7 @@ struct GenreCard: View {
             Circle()
                 .fill(BackgroundColor.secondary)
                 .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
-                .blur(radius: 1) // Approx. DS applied
+                .blur(radius: 1)
                 .overlay(
                     Image(systemName: "music.note")
                         .foregroundStyle(TextColor.onDark)
@@ -194,7 +182,7 @@ struct GenresEmptyStateView: View {
     var body: some View {
         VStack(spacing: Spacing.l) {
             Image(systemName: emptyStateIcon)
-                .font(.system(size: 60)) // Approx. DS applied
+                .font(.system(size: 60))
                 .foregroundStyle(TextColor.secondary)
             
             VStack(spacing: Spacing.s) {
@@ -245,34 +233,5 @@ struct GenresEmptyStateView: View {
         } else {
             return "Your music library appears to have no genres"
         }
-    }
-}
-
-// MARK: - Genres Status Header (Enhanced with DS)
-struct GenresStatusHeader: View {
-    let isOnline: Bool
-    let isOfflineMode: Bool
-    let genreCount: Int
-    
-    var body: some View {
-        HStack {
-            NetworkStatusIndicator()
-            
-            Spacer()
-            
-            Text("\(genreCount) Genres")
-                .font(Typography.caption)
-                .foregroundStyle(TextColor.secondary)
-            
-            Spacer()
-            
-            if isOnline {
-                OfflineModeToggle()
-            }
-        }
-        .listItemPadding()
-        .glassCardStyle()
-        .screenPadding()
-        .padding(.bottom, Spacing.s)
     }
 }

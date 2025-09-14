@@ -1,8 +1,8 @@
 //
-//  AlbumsView.swift - Enhanced with Design System
+//  AlbumsView.swift
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
 //
 
 import SwiftUI
@@ -76,6 +76,15 @@ struct AlbumsView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {
+                                // ✅ NEW: Added status header for consistency
+                                if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
+                                    LibraryStatusHeader.albums(
+                                        count: displayedAlbums.count,
+                                        isOnline: networkMonitor.canLoadOnlineContent,
+                                        isOfflineMode: offlineManager.isOfflineMode
+                                    )
+                                }
+                                
                                 AlbumGridView(albums: displayedAlbums)
                             }
                         }
@@ -196,4 +205,3 @@ struct AlbumsView: View {
         }
     }
 }
-
