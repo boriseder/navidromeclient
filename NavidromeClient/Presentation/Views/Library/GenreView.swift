@@ -1,7 +1,13 @@
+//
+//  GenreView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
 struct GenreView: View {
-    // ALLE zu @EnvironmentObject geändert - KEINE @StateObject für Singletons!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -9,7 +15,6 @@ struct GenreView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
 
-    // NUR View-spezifischer State als @State
     @State private var searchText = ""
     @State private var hasLoadedOnce = false
 
@@ -109,7 +114,7 @@ struct GenreView: View {
 
     private var mainContent: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: Spacing.s) {
                 // Status header for offline mode
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
                     GenresStatusHeader(
@@ -125,8 +130,8 @@ struct GenreView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 90)
+            .screenPadding()
+            .padding(.bottom, Sizes.miniPlayer)
         }
     }
     
@@ -137,37 +142,36 @@ struct GenreView: View {
     }
 }
 
-// MARK: - Genre Card
+// MARK: - Genre Card (Enhanced with DS)
 struct GenreCard: View {
     let genre: Genre
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Spacing.m) {
             Circle()
-                .fill(.black.opacity(0.1))
-                .frame(width: 44, height: 44)
-                .blur(radius: 1)
+                .fill(BackgroundColor.secondary)
+                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
+                .blur(radius: 1) // Approx. DS applied
                 .overlay(
                     Image(systemName: "music.note")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(TextColor.onDark)
                 )
             
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(genre.value)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.black.opacity(0.9))
+                    .font(Typography.bodyEmphasized)
+                    .foregroundColor(TextColor.primary)
                     .lineLimit(1)
 
-                HStack(spacing: 5) {
+                HStack(spacing: Spacing.xs) {
                     Image(systemName: "record.circle")
-                        .font(.caption)
-                        .foregroundColor(.black.opacity(0.6))
+                        .font(Typography.caption)
+                        .foregroundColor(TextColor.secondary)
 
                     let count = genre.albumCount
                     Text("\(count) Album\(count != 1 ? "s" : "")")
-                        .font(.caption)
-                        .foregroundColor(.black.opacity(0.6))
+                        .font(Typography.caption)
+                        .foregroundColor(TextColor.secondary)
                         .lineLimit(1)
                 }
             }
@@ -175,32 +179,31 @@ struct GenreCard: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(TextColor.tertiary)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .listItemPadding()
+        .materialCardStyle()
     }
 }
 
-// MARK: - Genres Empty State View
+// MARK: - Genres Empty State View (Enhanced with DS)
 struct GenresEmptyStateView: View {
     let isOnline: Bool
     let isOfflineMode: Bool
     
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             Image(systemName: emptyStateIcon)
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 60)) // Approx. DS applied
+                .foregroundStyle(TextColor.secondary)
             
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 Text(emptyStateTitle)
-                    .font(.title2.weight(.semibold))
+                    .font(Typography.title2)
                 
                 Text(emptyStateMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
                     .multilineTextAlignment(.center)
             }
             
@@ -208,10 +211,10 @@ struct GenresEmptyStateView: View {
                 Button("Switch to Downloaded Music") {
                     OfflineManager.shared.switchToOfflineMode()
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryButtonStyle()
             }
         }
-        .padding(40)
+        .padding(Padding.xl)
     }
     
     private var emptyStateIcon: String {
@@ -245,7 +248,7 @@ struct GenresEmptyStateView: View {
     }
 }
 
-// MARK: - Genres Status Header
+// MARK: - Genres Status Header (Enhanced with DS)
 struct GenresStatusHeader: View {
     let isOnline: Bool
     let isOfflineMode: Bool
@@ -258,8 +261,8 @@ struct GenresStatusHeader: View {
             Spacer()
             
             Text("\(genreCount) Genres")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Typography.caption)
+                .foregroundStyle(TextColor.secondary)
             
             Spacer()
             
@@ -267,10 +270,9 @@ struct GenresStatusHeader: View {
                 OfflineModeToggle()
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .listItemPadding()
+        .glassCardStyle()
+        .screenPadding()
+        .padding(.bottom, Spacing.s)
     }
 }

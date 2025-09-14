@@ -14,24 +14,23 @@ struct OfflineStatusBadge: View {
     @StateObject private var downloadManager = DownloadManager.shared
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.s) {
             Image(systemName: downloadManager.isAlbumDownloaded(album.id) ? "checkmark.circle.fill" : "icloud.slash")
-                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? .green : .orange)
+                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? BrandColor.success : BrandColor.warning)
             
             Text(downloadManager.isAlbumDownloaded(album.id) ? "Downloaded" : "Not Available Offline")
-                .font(.caption)
-                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? .green : .orange)
+                .font(Typography.caption)
+                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? BrandColor.success : BrandColor.warning)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Padding.s)
+        .padding(.vertical, Padding.xs)
         .background(
             Capsule()
-                .fill(downloadManager.isAlbumDownloaded(album.id) ? .green.opacity(0.1) : .orange.opacity(0.1))
+                .fill(downloadManager.isAlbumDownloaded(album.id) ? BrandColor.success.opacity(0.1) : BrandColor.warning.opacity(0.1))
         )
     }
 }
 
-// MARK: - Network Status Indicator für verschiedene Views
 struct NetworkStatusIndicator: View {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     let showText: Bool
@@ -41,26 +40,25 @@ struct NetworkStatusIndicator: View {
     }
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xs) {
             Image(systemName: networkMonitor.isConnected ? "wifi" : "wifi.slash")
-                .foregroundStyle(networkMonitor.isConnected ? .green : .red)
-                .font(.caption)
+                .foregroundStyle(networkMonitor.isConnected ? BrandColor.success : BrandColor.error)
+                .font(Typography.caption)
             
             if showText {
                 Text(networkMonitor.isConnected ? "Online" : "Offline")
-                    .font(.caption)
-                    .foregroundStyle(networkMonitor.isConnected ? .green : .red)
+                    .font(Typography.caption)
+                    .foregroundStyle(networkMonitor.isConnected ? BrandColor.success : BrandColor.error)
             }
         }
     }
 }
 
-// MARK: - Download Progress Ring
 struct DownloadProgressRing: View {
     let progress: Double
     let size: CGFloat
     
-    init(progress: Double, size: CGFloat = 24) {
+    init(progress: Double, size: CGFloat = Sizes.icon) {
         self.progress = progress
         self.size = size
     }
@@ -68,54 +66,30 @@ struct DownloadProgressRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color.blue.opacity(0.3), lineWidth: 2)
+                .stroke(BrandColor.primary.opacity(0.3), lineWidth: 2)
                 .frame(width: size, height: size)
             
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(Color.blue, lineWidth: 2)
+                .stroke(BrandColor.primary, lineWidth: 2)
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.3), value: progress)
+                .animation(Animations.ease, value: progress)
             
             if progress > 0 && progress < 1 {
                 Text("\(Int(progress * 100))%")
                     .font(.system(size: size * 0.3))
                     .fontWeight(.bold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(BrandColor.primary)
             } else if progress >= 1 {
                 Image(systemName: "checkmark")
                     .font(.system(size: size * 0.4))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(BrandColor.success)
             }
         }
     }
 }
 
-// MARK: - Source Indicator für Mini Player
-struct SourceIndicator: View {
-    let song: Song
-    @StateObject private var downloadManager = DownloadManager.shared
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    
-    var body: some View {
-        Group {
-            if downloadManager.isSongDownloaded(song.id) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.white)
-                    .background(Circle().fill(.green))
-            } else if !networkMonitor.isConnected {
-                Image(systemName: "wifi.slash")
-                    .font(.caption2)
-                    .foregroundStyle(.white)
-                    .background(Circle().fill(.red))
-            }
-        }
-    }
-}
-
-// MARK: - Offline Mode Toggle Button
 struct OfflineModeToggle: View {
     @StateObject private var offlineManager = OfflineManager.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
@@ -125,78 +99,52 @@ struct OfflineModeToggle: View {
             Button(action: {
                 offlineManager.toggleOfflineMode()
             }) {
-                HStack(spacing: 4) {
+                HStack(spacing: Spacing.xs) {
                     Image(systemName: offlineManager.isOfflineMode ? "icloud.slash" : "icloud")
-                        .font(.caption)
+                        .font(Typography.caption)
                     Text(offlineManager.isOfflineMode ? "Offline" : "All")
-                        .font(.caption)
+                        .font(Typography.caption)
                 }
-                .foregroundStyle(offlineManager.isOfflineMode ? .orange : .blue)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .foregroundStyle(offlineManager.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+                .padding(.horizontal, Padding.s)
+                .padding(.vertical, Padding.xs)
                 .background(
                     Capsule()
-                        .fill(offlineManager.isOfflineMode ? .orange.opacity(0.1) : .blue.opacity(0.1))
+                        .fill(offlineManager.isOfflineMode ? BrandColor.warning.opacity(0.1) : BrandColor.primary.opacity(0.1))
                 )
             }
         }
     }
 }
 
-// MARK: - Quick Offline Access Button
-struct QuickOfflineAccess: View {
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    @StateObject private var downloadManager = DownloadManager.shared
-    @StateObject private var offlineManager = OfflineManager.shared
-    
-    var body: some View {
-        if !networkMonitor.isConnected && !downloadManager.downloadedAlbums.isEmpty {
-            Button {
-                offlineManager.switchToOfflineMode()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.caption)
-                    Text("View Downloaded Music (\(downloadManager.downloadedAlbums.count) Albums)")
-                        .font(.caption)
-                }
-                .foregroundStyle(.blue)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(.blue.opacity(0.1), in: Capsule())
-            }
-        }
-    }
-}
-
+// MARK: - Debug Network Test View (Enhanced with DS)
 #if DEBUG
-// MARK: - Debug Network Test View
 struct NetworkTestView: View {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @StateObject private var offlineManager = OfflineManager.shared
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Spacing.l) {
             Text("Network Testing")
-                .font(.title)
+                .font(Typography.title)
             
             HStack {
                 Circle()
-                    .fill(networkMonitor.isConnected ? .green : .red)
-                    .frame(width: 20, height: 20)
+                    .fill(networkMonitor.isConnected ? BrandColor.success : BrandColor.error)
+                    .frame(width: Sizes.iconLarge, height: Sizes.iconLarge)
                 
                 Text(networkMonitor.isConnected ? "Online" : "Offline")
-                    .font(.headline)
+                    .font(Typography.headline)
             }
             
             Text("Connection: \(networkMonitor.connectionType)")
-                .font(.caption)
+                .font(Typography.caption)
             
             Divider()
             
             VStack {
                 Text("Offline Manager")
-                    .font(.headline)
+                    .font(Typography.headline)
                 
                 Text("Mode: \(offlineManager.isOfflineMode ? "Offline" : "Online")")
                 Text("Offline Albums: \(offlineManager.offlineAlbums.count)")
@@ -204,12 +152,13 @@ struct NetworkTestView: View {
                 Button("Toggle Offline Mode") {
                     offlineManager.toggleOfflineMode()
                 }
-                .buttonStyle(.bordered)
+                .secondaryButtonStyle()
             }
             
             Spacer()
         }
-        .padding()
+        .padding(Padding.xl)
     }
 }
 #endif
+

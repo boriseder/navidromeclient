@@ -1,11 +1,8 @@
 //
-//  ExploreView.swift - FIXED VERSION
+//  ExploreView.swift - Enhanced with Design System
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Updated dependency injection for ExploreViewModel
-//  - Enhanced configure call to include coverArtService
-//  - Improved preloading integration
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
 //
 
 import SwiftUI
@@ -33,7 +30,6 @@ struct ExploreView: View {
             .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
             .task {
-                // ✅ FIX: Enhanced configure call with coverArtService
                 exploreVM.configure(with: navidromeVM, coverArtService: coverArtService)
                 
                 if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
@@ -67,7 +63,7 @@ struct ExploreView: View {
         }
     }
     
-    // ✅ FIX: Smart preloading for Home Screen using ReactiveCoverArtService
+    // Smart preloading for Home Screen using ReactiveCoverArtService
     private func preloadHomeScreenCovers() async {
         let allAlbums = exploreVM.recentAlbums +
                        exploreVM.newestAlbums +
@@ -77,17 +73,16 @@ struct ExploreView: View {
         await coverArtService.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
     }
     
-    // MARK: - Online Content (Enhanced with LazyVStack)
+    // MARK: - Online Content (Enhanced with DS)
     private var onlineContent: some View {
         ScrollView {
-            // ✅ FIX: LazyVStack for better scroll performance
-            LazyVStack(spacing: 32) {
+            LazyVStack(spacing: Spacing.xl) {
                 WelcomeHeader(
                     username: AppConfig.shared.getCredentials()?.username ?? "User",
                     nowPlaying: playerVM.currentSong
                 )
                 
-                // ✅ FIX: Conditional sections to avoid empty views
+                // Conditional sections to avoid empty views
                 Group {
                     if !exploreVM.recentAlbums.isEmpty {
                         AlbumSection(
@@ -141,21 +136,21 @@ struct ExploreView: View {
                     }
                 }
                 
-                Color.clear.frame(height: 90)
+                Color.clear.frame(height: Sizes.miniPlayer)
             }
-            .padding(.top, 10)
+            .padding(.top, Spacing.s)
         }
     }
     
-    // MARK: - Offline Content (unchanged)
+    // MARK: - Offline Content (Enhanced with DS)
     private var offlineContent: some View {
         ScrollView {
-            LazyVStack(spacing: 32) {
+            LazyVStack(spacing: Spacing.xl) {
                 OfflineWelcomeHeader(
                     downloadedAlbums: downloadManager.downloadedAlbums.count,
                     isConnected: networkMonitor.isConnected
                 )
-                .padding(.horizontal, 20)
+                .screenPadding()
                 
                 if !offlineManager.offlineAlbums.isEmpty {
                     AlbumSection(
@@ -174,22 +169,22 @@ struct ExploreView: View {
                         color: .blue
                     )
                 }
-                .padding(.horizontal, 20)
+                .screenPadding()
                 
                 StorageInfoCard(
                     totalSize: downloadManager.totalDownloadSize(),
                     albumCount: downloadManager.downloadedAlbums.count
                 )
-                .padding(.horizontal, 20)
+                .screenPadding()
                 
                 if !networkMonitor.isConnected {
                     NetworkStatusCard()
-                        .padding(.horizontal, 20)
+                        .screenPadding()
                 }
                 
-                Color.clear.frame(height: 90)
+                Color.clear.frame(height: Sizes.miniPlayer)
             }
-            .padding(.top, 10)
+            .padding(.top, Spacing.s)
         }
     }
     
@@ -197,43 +192,42 @@ struct ExploreView: View {
         showRefreshAnimation = true
         await exploreVM.refreshRandomAlbums()
         
-        // ✅ FIX: Preload nach refresh
         await coverArtService.preloadAlbums(exploreVM.randomAlbums, size: 200)
         
         showRefreshAnimation = false
     }
 }
 
-// MARK: - Offline Components (unchanged)
+// MARK: - Offline Components (Enhanced with DS)
 
 struct OfflineWelcomeHeader: View {
     let downloadedAlbums: Int
     let isConnected: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Offline Music")
-                        .font(.title2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.black.opacity(0.8))
+                        .font(Typography.title2)
+                        .foregroundColor(TextColor.primary)
                     
                     Text(statusText)
-                        .font(.subheadline)
-                        .foregroundColor(.black.opacity(0.6))
+                        .font(Typography.subheadline)
+                        .foregroundColor(TextColor.secondary)
                 }
                 
                 Spacer()
                 
-                VStack(spacing: 4) {
+                VStack(spacing: Spacing.xs) {
                     Image(systemName: isConnected ? "wifi" : "wifi.slash")
-                        .font(.title3)
-                        .foregroundColor(isConnected ? .green : .orange)
+                        .font(Typography.title3)
+                        .foregroundColor(isConnected ? BrandColor.success : BrandColor.warning)
                     
                     Text(isConnected ? "Online" : "Offline")
-                        .font(.caption2)
-                        .foregroundColor(isConnected ? .green : .orange)
+                        .font(Typography.caption2)
+                        .foregroundColor(isConnected ? BrandColor.success : BrandColor.warning)
                 }
             }
         }
@@ -248,7 +242,7 @@ struct OfflineWelcomeHeader: View {
     }
 }
 
-// MARK: - Album Section (unchanged)
+// MARK: - Album Section (Enhanced with DS)
 struct AlbumSection: View {
     let title: String
     let albums: [Album]
@@ -260,13 +254,12 @@ struct AlbumSection: View {
     @State private var isRefreshing = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             // Section Header
             HStack {
                 Label(title, systemImage: icon)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.black.opacity(0.9))
+                    .font(Typography.headline)
+                    .foregroundColor(TextColor.primary)
                 
                 Spacer()
                 
@@ -279,7 +272,7 @@ struct AlbumSection: View {
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .font(.subheadline)
+                            .font(Typography.subheadline)
                             .foregroundColor(accentColor)
                             .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
                             .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
@@ -287,11 +280,11 @@ struct AlbumSection: View {
                     .disabled(isRefreshing)
                 }
             }
-            .padding(.horizontal, 20)
+            .screenPadding()
             
             // Horizontal Album Scroll
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(spacing: Spacing.m) {
                     ForEach(albums) { album in
                         NavigationLink(destination: AlbumDetailView(album: album)) {
                             AlbumCard(album: album, accentColor: accentColor)
@@ -299,13 +292,13 @@ struct AlbumSection: View {
                         .buttonStyle(PlainButtonStyle())
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, Sizes.screenPadding)
             }
         }
     }
 }
 
-// MARK: - Quick Access Components (unchanged)
+// MARK: - Quick Access Components (Enhanced with DS)
 struct QuickAccessCard: View {
     let title: String
     let subtitle: String
@@ -313,37 +306,32 @@ struct QuickAccessCard: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Spacing.m) {
             Image(systemName: icon)
-                .font(.title2)
+                .font(Typography.title2)
                 .foregroundColor(color)
-                .frame(width: 44, height: 44)
+                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
                 .background(color.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(title)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.black.opacity(0.9))
+                    .font(Typography.headline)
+                    .foregroundColor(TextColor.primary)
                 
                 Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundColor(.black.opacity(0.6))
+                    .font(Typography.subheadline)
+                    .foregroundColor(TextColor.secondary)
             }
             
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.secondary)
+                .font(Typography.caption.weight(.semibold))
+                .foregroundColor(TextColor.tertiary)
         }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
+        .listItemPadding()
+        .materialCardStyle()
     }
 }
 
@@ -352,94 +340,87 @@ struct StorageInfoCard: View {
     let albumCount: Int
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.m) {
             HStack {
                 Label("Storage Used", systemImage: "internaldrive")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.black.opacity(0.9))
+                    .font(Typography.headline)
+                    .foregroundColor(TextColor.primary)
                 
                 Spacer()
             }
             
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(totalSize)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.blue)
+                        .font(Typography.title2)
+                        .foregroundColor(BrandColor.primary)
                     
                     Text("\(albumCount) albums downloaded")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(Typography.caption)
+                        .foregroundColor(TextColor.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chart.pie.fill")
-                    .font(.title)
-                    .foregroundColor(.blue.opacity(0.6))
+                    .font(Typography.title)
+                    .foregroundColor(BrandColor.primary.opacity(0.6))
             }
         }
-        .padding(20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
+        .listItemPadding()
+        .materialCardStyle()
     }
 }
 
 struct NetworkStatusCard: View {
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Spacing.m) {
             Image(systemName: "wifi.slash")
-                .font(.title2)
-                .foregroundColor(.orange)
-                .frame(width: 44, height: 44)
-                .background(.orange.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .font(Typography.title2)
+                .foregroundColor(BrandColor.warning)
+                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
+                .background(BrandColor.warning.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("No Connection")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.black.opacity(0.9))
+                    .font(Typography.headline)
+                    .foregroundColor(TextColor.primary)
                 
                 Text("Playing from downloaded music only")
-                    .font(.subheadline)
-                    .foregroundColor(.black.opacity(0.6))
+                    .font(Typography.subheadline)
+                    .foregroundColor(TextColor.secondary)
             }
             
             Spacer()
         }
-        .padding(20)
-        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+        .listItemPadding()
+        .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.m))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.orange.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Radius.m)
+                .stroke(BrandColor.warning.opacity(0.3), lineWidth: 1)
         )
     }
 }
 
-// MARK: - Error Section (unchanged)
+// MARK: - Error Section (Enhanced with DS)
 struct ErrorSection: View {
     let message: String
     
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Spacing.s) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 24))
-                .foregroundColor(.orange)
+                .font(.system(size: Sizes.icon))
+                .foregroundColor(BrandColor.warning)
             
             Text(message)
-                .font(.subheadline)
-                .foregroundColor(.black.opacity(0.7))
+                .font(Typography.subheadline)
+                .foregroundColor(TextColor.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding()
-        .background(Color.orange.opacity(0.1))
-        .cornerRadius(12)
-        .padding(.horizontal, 20)
+        .padding(Padding.m)
+        .background(BrandColor.warning.opacity(0.1))
+        .cornerRadius(Radius.s)
+        .screenPadding()
     }
 }

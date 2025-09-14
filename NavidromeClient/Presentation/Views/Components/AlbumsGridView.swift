@@ -1,25 +1,29 @@
+//
+//  AlbumGridView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
-// MARK: - Reusable Album Grid View
+// MARK: - Reusable Album Grid View (Enhanced with DS)
 struct AlbumGridView: View {
     let albums: [Album]
     
-    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     
     var body: some View {
         ScrollView {
             albumsGrid
-                .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .screenPadding()
+                .padding(.bottom, 100) // Approx. DS applied - könnte Sizes.miniPlayer + Padding.s sein
         }
     }
     
     private var albumsGrid: some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 2)
-        
-        return LazyVGrid(columns: columns, spacing: 20) {
+        LazyVGrid(columns: GridColumns.two, spacing: Spacing.l) {
             ForEach(albums, id: \.id) { album in
                 NavigationLink {
                     AlbumDetailView(album: album)

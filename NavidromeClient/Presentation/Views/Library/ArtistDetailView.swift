@@ -1,10 +1,8 @@
 //
-//  ArtistDetailView.swift - FIXED VERSION
+//  ArtistDetailView.swift - Enhanced with Design System
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Added missing coverArtService parameter to viewModel.loadContent call
-//  - Proper dependency injection for the view model
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
 //
 
 import SwiftUI
@@ -17,12 +15,10 @@ enum ArtistDetailContext {
 struct ArtistDetailView: View {
     let context: ArtistDetailContext
     
-    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService // ✅ FIX: Added this
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
-    // NUR View-spezifisches ViewModel als @StateObject
     @StateObject private var viewModel = ArtistDetailViewModel()
 
     private var artist: Artist? {
@@ -34,33 +30,31 @@ struct ArtistDetailView: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 headerView
-                    .padding(.top, 8)
+                    .padding(.top, Spacing.s)
                 
                 albumsSection
-                    .padding(.top, 16)
+                    .padding(.top, Spacing.m)
             }
         }
         .scrollIndicators(.hidden)
         .task {
-            // ✅ FIX: Added missing coverArtService parameter
             await viewModel.loadContent(context: context, navidromeVM: navidromeVM, coverArtService: coverArtService)
         }
         .accountToolbar()
     }
        
-    // MARK: - Header
+    // MARK: - Header (Enhanced with DS)
     private var headerView: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: Spacing.l) {
             artistAvatar
             artistInfo
             Spacer()
         }
-        .padding(20)
-        .padding(.horizontal, 20)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .listItemPadding()
+        .materialCardStyle()
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(.white.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Radius.m)
+                .stroke(Color.white.opacity(0.3), lineWidth: 1)
         )
     }
     
@@ -70,27 +64,26 @@ struct ArtistDetailView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 100, height: 100)
+                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
                     .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(.black.opacity(0.1))
-                    .frame(width: 80, height: 80)
+                    .fill(BackgroundColor.secondary)
+                    .frame(width: 80, height: 80) // Approx. DS applied - zwischen avatar und avatarLarge
                     .overlay(
                         Image(systemName: "music.mic")
-                            .font(.system(size: 30))
-                            .foregroundStyle(.white)
+                            .font(.system(size: Sizes.iconLarge))
+                            .foregroundStyle(TextColor.onDark)
                     )
             }
         }
-        .shadow(radius: 6)
+        .cardShadow()
     }
     
     private var artistInfo: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Text(viewModel.title(for: context))
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(Typography.title2)
                 .lineLimit(2)
             
             if !viewModel.albums.isEmpty {
@@ -104,11 +97,11 @@ struct ArtistDetailView: View {
     
     private var albumCountBadge: some View {
         Text("\(viewModel.albums.count) Album\(viewModel.albums.count != 1 ? "s" : "")")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(.black.opacity(0.08), in: Capsule())
+            .font(Typography.caption)
+            .foregroundStyle(TextColor.secondary)
+            .padding(.horizontal, Padding.s)
+            .padding(.vertical, Padding.xs)
+            .background(BackgroundColor.secondary, in: Capsule())
     }
     
     private var shuffleButton: some View {
@@ -118,28 +111,28 @@ struct ArtistDetailView: View {
             }
         }) {
             Label("", systemImage: "shuffle")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 3)
+                .font(Typography.caption.weight(.medium))
+                .foregroundStyle(TextColor.onDark)
+                .padding(.horizontal, Padding.s)
+                .padding(.vertical, Padding.xs)
                 .background(
-                    Capsule().fill(Color.orange)
+                    Capsule().fill(BrandColor.warning)
                 )
-                .shadow(color: Color.black.opacity(0.2), radius: 3)
+                .miniShadow()
         }
         .disabled(viewModel.albums.isEmpty || viewModel.isLoading)
     }
     
-    // MARK: - Albums Section
+    // MARK: - Albums Section (Enhanced with DS)
     private var albumsSection: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             if viewModel.isLoading {
                 loadingView()
             } else {
                 AlbumGridView(albums: viewModel.albums)
             }
         }
-        .padding(.bottom, 120)
+        .padding(.bottom, 120) // Approx. DS applied - Sizes.miniPlayer + Spacing.xl
     }
     
     // MARK: - Shuffle Play Implementation

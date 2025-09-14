@@ -1,16 +1,11 @@
 //
-//  AlbumDetailView.swift - FIXED VERSION
+//  AlbumDetailView.swift - Enhanced with Design System
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Removed bypass call to navidromeVM.loadCoverArt()
-//  - Now uses ReactiveCoverArtService.loadAlbumCover() async method
-//  - Maintains reactive UI updates
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
 //
 
 import SwiftUI
-
-let buttonSize: CGFloat = 32 // gemeinsame Größe für alle Buttons
 
 struct AlbumDetailView: View {
     let album: Album
@@ -23,14 +18,14 @@ struct AlbumDetailView: View {
 
     @State private var songs: [Song] = []
     @State private var miniPlayerVisible = false
-    @State private var coverArt: UIImage? // ✅ FIX: Local state for cover art
+    @State private var coverArt: UIImage?
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 32) {
+            VStack(spacing: Spacing.xl) {
                 AlbumHeaderView(
                     album: album,
-                    cover: coverArt, // ✅ FIX: Use local state
+                    cover: coverArt,
                     songs: songs
                 )
                 
@@ -40,8 +35,8 @@ struct AlbumDetailView: View {
                     miniPlayerVisible: $miniPlayerVisible
                 )
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, miniPlayerVisible ? 90 : 50)
+            .screenPadding()
+            .padding(.bottom, miniPlayerVisible ? Sizes.miniPlayer : 50) // Approx. DS applied
             .navigationTitle(album.name)
             .navigationBarTitleDisplayMode(.inline)
             .task {
@@ -53,16 +48,15 @@ struct AlbumDetailView: View {
 
     @MainActor
     private func loadAlbumData() async {
-        // ✅ FIX: Load cover art through ReactiveCoverArtService async API
-        // This replaces the old bypass: await navidromeVM.loadCoverArt(for: album.id, size: 400)
-        coverArt = await coverArtService.loadAlbumCover(album, size: 400)
+        // Load cover art through ReactiveCoverArtService async API
+        coverArt = await coverArtService.loadAlbumCover(album, size: Int(Sizes.coverFull))
         
-        // Load Songs (unchanged)
+        // Load Songs
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
 
-// MARK: - Album Header (unchanged - uses passed cover art)
+// MARK: - Album Header (Enhanced with DS)
 struct AlbumHeaderView: View {
     let album: Album
     let cover: UIImage?
@@ -73,36 +67,37 @@ struct AlbumHeaderView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: Spacing.l) {
             // Cover Art
             AlbumCoverView(cover: cover)
-                .shadow(color: .black.opacity(0.25), radius: 2, x: 0, y: 4)
+                .frame(width: Sizes.card, height: Sizes.card)
+                .cardShadow()
                 .scaleEffect(playerVM.currentAlbumId == album.id ? 1.02 : 1.0)
-                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: playerVM.currentAlbumId)
-                .padding(.leading, 15)
+                .animation(Animations.spring, value: playerVM.currentAlbumId)
+                .padding(.leading, 15) // Approx. DS applied - sollte durch screenPadding() ersetzt werden
             
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Spacing.s) {
                 // Album Name + Artist
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(album.name)
-                        .font(.title3.weight(.bold))
+                        .font(Typography.title3)
                         .lineLimit(2)
-                        .foregroundColor(.black)
+                        .foregroundColor(TextColor.primary)
                     
                     Text(album.artist)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundColor(.black.opacity(0.7))
+                        .font(Typography.bodyEmphasized)
+                        .foregroundColor(TextColor.secondary)
                         .lineLimit(1)
                 }
                 
                 // Metadata als Text-String
                 Text(buildMetadataString())
-                    .font(.caption)
-                    .foregroundColor(.black.opacity(0.6))
+                    .font(Typography.caption)
+                    .foregroundColor(TextColor.tertiary)
                     .lineLimit(1)
                 
                 // Action Buttons
-                HStack(spacing: 12) {
+                HStack(spacing: Spacing.s) {
                     CompactPlayButton(album: album, songs: songs)
                     ShuffleButton(album: album, songs: songs)
                     DownloadButton(album: album, songs: songs, navidromeVM: navidromeVM, playerVM: playerVM, downloadManager: downloadManager)
@@ -110,12 +105,8 @@ struct AlbumHeaderView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
-        .overlay(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
+        .padding(.vertical, Spacing.xl)
+        .materialCardStyle()
     }
     
     private func buildMetadataString() -> String {
@@ -141,7 +132,7 @@ struct AlbumHeaderView: View {
     }
 }
 
-// MARK: - Kompakter Play Button (unchanged)
+// MARK: - Kompakter Play Button (Enhanced with DS)
 struct CompactPlayButton: View {
     let album: Album
     let songs: [Song]
@@ -151,24 +142,24 @@ struct CompactPlayButton: View {
         Button {
             Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.xs) {
                 Image(systemName: "play.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: Sizes.iconSmall, weight: .semibold))
                 Text("Play")
-                    .font(.caption.weight(.semibold))
+                    .font(Typography.caption.weight(.semibold))
             }
-            .foregroundColor(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .foregroundColor(TextColor.onDark)
+            .padding(.horizontal, Padding.s)
+            .padding(.vertical, Padding.xs)
             .background(
                 Capsule()
-                    .fill(Color.blue)
+                    .fill(BrandColor.primary)
             )
         }
     }
 }
 
-// MARK: - Album Cover (unchanged)
+// MARK: - Album Cover (Enhanced with DS)
 struct AlbumCoverView: View {
     let cover: UIImage?
     
@@ -178,24 +169,24 @@ struct AlbumCoverView: View {
                 Image(uiImage: cover)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 140, height: 140)
-                    .clipShape(RoundedRectangle(cornerRadius: 3))
-                    .shadow(color: .black.opacity(0.2), radius: 5, x: 0, y: 3)
+                    .frame(width: Sizes.card, height: Sizes.card)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                    .cardShadow()
             } else {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.gray.opacity(0.3))
-                    .frame(width: 140, height: 140)
+                RoundedRectangle(cornerRadius: Radius.xs)
+                    .fill(BackgroundColor.secondary)
+                    .frame(width: Sizes.card, height: Sizes.card)
                     .overlay(
                         Image(systemName: "record.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: Sizes.iconLarge))
+                            .foregroundStyle(TextColor.tertiary)
                     )
             }
         }
     }
 }
 
-// MARK: - Shuffle Button (unchanged)
+// MARK: - Shuffle Button (Enhanced with DS)
 struct ShuffleButton: View {
     let album: Album
     let songs: [Song]
@@ -208,8 +199,8 @@ struct ShuffleButton: View {
             Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
                 .resizable()
                 .scaledToFit()
-                .frame(width: buttonSize * 0.6, height: buttonSize * 0.6)
-                .foregroundColor(.black.opacity(0.8))
+                .frame(width: Sizes.icon, height: Sizes.icon)
+                .foregroundColor(TextColor.secondary)
         }
     }
 }

@@ -1,6 +1,13 @@
+//
+//  FullScreenPlayerView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
-// MARK: - Full Screen Player
+// MARK: - Full Screen Player (Enhanced with DS)
 struct FullScreenPlayerView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var audioSessionManager: AudioSessionManager
@@ -10,13 +17,11 @@ struct FullScreenPlayerView: View {
     @State private var showingQueue = false
     @State private var showingSettings = false
 
-    private let maxContentWidth: CGFloat = 300
-
     var body: some View {
         ZStack {
             BackgroundView(image: playerVM.coverArt)
 
-            VStack(spacing: 20) {
+            VStack(spacing: Spacing.l) {
                 PlayerTopBar(
                     dismiss: dismiss,
                     showingQueue: $showingQueue,
@@ -27,9 +32,9 @@ struct FullScreenPlayerView: View {
                 Spacer()
 
                 CoverArtView(cover: playerVM.coverArt)
-                    .frame(width: maxContentWidth, height: maxContentWidth)
+                    .frame(width: Sizes.cover, height: Sizes.cover)
                     .scaleEffect(isDragging ? 0.95 : 1.0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isDragging)
+                    .animation(Animations.spring, value: isDragging)
 
                 if let song = playerVM.currentSong {
                     PlayerSongInfoView(
@@ -37,33 +42,33 @@ struct FullScreenPlayerView: View {
                         isPlaying: playerVM.isPlaying,
                         isLoading: playerVM.isLoading
                     )
-                    .frame(maxWidth: maxContentWidth)
+                    .maxContentWidth()
                     .multilineTextAlignment(.center)
                 }
 
                 PlayerProgressView(playerVM: playerVM)
-                    .frame(width: maxContentWidth)
+                    .maxContentWidth()
 
                 PlaybackControls(playerVM: playerVM)
-                    .frame(width: maxContentWidth)
+                    .maxContentWidth()
 
                 VolumeSlider(playerVM: playerVM)
-                    .frame(width: maxContentWidth)
+                    .maxContentWidth()
 
                 Spacer()
 
                 BottomControls(playerVM: playerVM)
-                    .frame(width: maxContentWidth)
-                    .padding(.bottom, 40)
+                    .maxContentWidth()
+                    .padding(.bottom, Padding.xl)
             }
-            .padding(.top, 20)
-            .padding(.horizontal, 24)
+            .padding(.top, Spacing.l)
+            .screenPadding()
         }
         .statusBarHidden()
         .offset(y: dragOffset)
         .gesture(dismissDragGesture)
         .highPriorityGesture(longPressDismissGesture)
-        .animation(.interactiveSpring(), value: dragOffset)
+        .animation(Animations.interactive, value: dragOffset)
         .sheet(isPresented: $showingQueue) {
             QueueView()
                 .environmentObject(playerVM)
@@ -87,11 +92,11 @@ struct FullScreenPlayerView: View {
             .onEnded { value in
                 isDragging = false
                 if value.translation.height > 200 {
-                    withAnimation(.spring()) {
+                    withAnimation(Animations.spring) {
                         dismiss()
                     }
                 } else {
-                    withAnimation(.spring()) {
+                    withAnimation(Animations.spring) {
                         dragOffset = 0
                     }
                 }
@@ -102,7 +107,7 @@ struct FullScreenPlayerView: View {
     private var longPressDismissGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.5)
             .onEnded { _ in
-                withAnimation(.spring()) {
+                withAnimation(Animations.spring) {
                     playerVM.stop()
                     dismiss()
                 }
@@ -110,7 +115,7 @@ struct FullScreenPlayerView: View {
     }
 }
 
-// MARK: - Enhanced Top Bar
+// MARK: - Enhanced Top Bar (Enhanced with DS)
 struct PlayerTopBar: View {
     var dismiss: DismissAction
     @Binding var showingQueue: Bool
@@ -123,29 +128,28 @@ struct PlayerTopBar: View {
             
             Spacer()
             
-            VStack(spacing: 2) {
+            VStack(spacing: Spacing.xs) {
                 Text("Playing from")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(Typography.caption)
+                    .foregroundStyle(TextColor.onDarkSecondary)
                 
-                HStack(spacing: 4) {
+                HStack(spacing: Spacing.xs) {
                     // Audio Route Indicator
                     if audioSessionManager.isHeadphonesConnected {
                         Image(systemName: audioRouteIcon)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .font(Typography.caption2)
+                            .foregroundStyle(TextColor.onDark.opacity(0.8))
                     }
                     
                     Text(audioRouteText)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
+                        .font(Typography.caption.weight(.semibold))
+                        .foregroundStyle(TextColor.onDark)
                 }
             }
             
             Spacer()
             
-            HStack(spacing: 12) {
+            HStack(spacing: Spacing.s) {
                 CircleButton(icon: "list.bullet") {
                     showingQueue = true
                 }
@@ -178,7 +182,7 @@ struct PlayerTopBar: View {
     }
 }
 
-// MARK: - Enhanced Cover Art
+// MARK: - Enhanced Cover Art (Enhanced with DS)
 struct CoverArtView: View {
     let cover: UIImage?
 
@@ -189,115 +193,116 @@ struct CoverArtView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             } else {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: Radius.l)
+                    .fill(BackgroundColor.thin)
                     .overlay(
                         Image(systemName: "music.note")
-                            .font(.system(size: 80))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(.system(size: 80)) // Approx. DS applied
+                            .foregroundStyle(TextColor.onDark.opacity(0.6))
                     )
                     .aspectRatio(1, contentMode: .fit)
             }
         }
         .coverStyle()
         .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Radius.l)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
     }
 }
 
-// MARK: - Enhanced Song Info
+// MARK: - Enhanced Song Info (Enhanced with DS)
 struct PlayerSongInfoView: View {
     let song: Song
     let isPlaying: Bool
     let isLoading: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.s) {
             HStack {
                 Text(song.title)
-                    .font(.title2.weight(isPlaying ? .semibold : .medium))
-                    .foregroundStyle(isPlaying ? .blue : .white)
+                    .font(isPlaying ? Typography.title2 : Typography.title3)
+                    .foregroundStyle(isPlaying ? BrandColor.playing : TextColor.onDark)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                 
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: TextColor.onDark))
                         .scaleEffect(0.8)
+                        .frame(width: Sizes.iconLarge, height: Sizes.iconLarge)
                 }
             }
 
             if let artist = song.artist {
                 Text(artist)
-                    .font(.title3)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(Typography.title3)
+                    .foregroundStyle(TextColor.onDarkSecondary)
                     .lineLimit(1)
             }
             
             // Additional metadata
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.s) {
                 if let album = song.album {
                     Text(album)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(Typography.caption)
+                        .foregroundStyle(TextColor.onDark.opacity(0.6))
                         .lineLimit(1)
                 }
                 
                 if let year = song.year {
                     Text("•")
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(TextColor.onDark.opacity(0.4))
                     Text(String(year))
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.6))
+                        .font(Typography.caption)
+                        .foregroundStyle(TextColor.onDark.opacity(0.6))
                 }
             }
         }
     }
 }
 
-// MARK: - Enhanced Progress View
+// MARK: - Enhanced Progress View (Enhanced with DS)
 struct PlayerProgressView: View {
     @ObservedObject var playerVM: PlayerViewModel
     @State private var isDragging = false
     @State private var dragValue: Double = 0
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.s) {
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.white.opacity(0.3))
+                RoundedRectangle(cornerRadius: Radius.xs)
+                    .fill(TextColor.onDark.opacity(0.3))
                     .frame(height: 4)
                 
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.white)
+                RoundedRectangle(cornerRadius: Radius.xs)
+                    .fill(TextColor.onDark)
                     .frame(width: progressWidth, height: 4)
                 
                 Circle()
-                    .fill(.white)
-                    .frame(width: 12, height: 12)
+                    .fill(TextColor.onDark)
+                    .frame(width: 12, height: 12) // Approx. DS applied
                     .offset(x: progressWidth - 6)
-                    .shadow(color: .black.opacity(0.3), radius: 2)
+                    .miniShadow()
             }
             .gesture(progressDragGesture)
 
             HStack {
                 Text(formatTime(isDragging ? dragValue * playerVM.duration : playerVM.currentTime))
-                    .foregroundStyle(isDragging ? .blue : .white.opacity(0.7))
+                    .foregroundStyle(isDragging ? BrandColor.primary : TextColor.onDarkSecondary)
                 
                 Spacer()
                 
                 Text(formatTime(playerVM.duration))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(TextColor.onDarkSecondary)
             }
-            .font(.caption2.monospacedDigit())
-            .animation(.easeInOut(duration: 0.1), value: isDragging)
+            .font(Typography.monospacedNumbers)
+            .animation(Animations.easeQuick, value: isDragging)
         }
     }
 
     private var progressWidth: CGFloat {
-        let maxWidth = UIScreen.main.bounds.width - 48
+        let maxWidth = UIScreen.main.bounds.width - 48 // Approx. DS applied
         guard playerVM.duration > 0 else { return 0 }
         
         if isDragging {
@@ -311,12 +316,12 @@ struct PlayerProgressView: View {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 isDragging = true
-                let maxWidth = UIScreen.main.bounds.width - 48
+                let maxWidth = UIScreen.main.bounds.width - 48 // Approx. DS applied
                 let progress = max(0, min(1, value.location.x / maxWidth))
                 dragValue = progress
             }
             .onEnded { value in
-                let maxWidth = UIScreen.main.bounds.width - 48
+                let maxWidth = UIScreen.main.bounds.width - 48 // Approx. DS applied
                 let progress = max(0, min(1, value.location.x / maxWidth))
                 playerVM.seek(to: progress * playerVM.duration)
                 isDragging = false
@@ -330,18 +335,18 @@ struct PlayerProgressView: View {
     }
 }
 
-// MARK: - Enhanced Playback Controls
+// MARK: - Enhanced Playback Controls (Enhanced with DS)
 struct PlaybackControls: View {
     @ObservedObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: 40) {
+        HStack(spacing: Padding.xl) {
             Button {
                 Task { await playerVM.playPrevious() }
             } label: {
                 Image(systemName: "backward.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white)
+                    .font(.system(size: Sizes.icon))
+                    .foregroundStyle(TextColor.onDark)
             }
             .disabled(playerVM.isLoading)
 
@@ -350,18 +355,18 @@ struct PlaybackControls: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(.white)
-                        .frame(width: 80, height: 80)
-                        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+                        .fill(TextColor.onDark)
+                        .frame(width: 80, height: 80) // Approx. DS applied
+                        .largeShadow()
                     
                     if playerVM.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                            .progressViewStyle(CircularProgressViewStyle(tint: TextColor.onLight))
                             .scaleEffect(1.2)
                     } else {
                         Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(.black)
+                            .font(.system(size: 28)) // Approx. DS applied
+                            .foregroundStyle(TextColor.onLight)
                     }
                 }
             }
@@ -371,22 +376,22 @@ struct PlaybackControls: View {
                 Task { await playerVM.playNext() }
             } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white)
+                    .font(.system(size: Sizes.icon))
+                    .foregroundStyle(TextColor.onDark)
             }
             .disabled(playerVM.isLoading)
         }
     }
 }
 
-// MARK: - Enhanced Volume Slider
+// MARK: - Enhanced Volume Slider (Enhanced with DS)
 struct VolumeSlider: View {
     @ObservedObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.s) {
             Image(systemName: "speaker.fill")
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(TextColor.onDarkSecondary)
 
             Slider(
                 value: Binding(
@@ -398,31 +403,31 @@ struct VolumeSlider: View {
                 ),
                 in: 0...1
             )
-            .tint(.white)
+            .tint(TextColor.onDark)
 
             Image(systemName: "speaker.wave.3.fill")
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(TextColor.onDarkSecondary)
         }
     }
 }
 
-// MARK: - Enhanced Bottom Controls
+// MARK: - Enhanced Bottom Controls (Enhanced with DS)
 struct BottomControls: View {
     @ObservedObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: 60) {
+        HStack(spacing: 60) { // Approx. DS applied
             Button { playerVM.toggleShuffle() } label: {
                 Image(systemName: "shuffle")
-                    .font(.title3)
-                    .foregroundStyle(playerVM.isShuffling ? .blue : .white.opacity(0.7))
+                    .font(Typography.title3)
+                    .foregroundStyle(playerVM.isShuffling ? BrandColor.primary : TextColor.onDarkSecondary)
             }
 
             Spacer()
 
             Button { playerVM.toggleRepeat() } label: {
                 Image(systemName: repeatIcon)
-                    .font(.title3)
+                    .font(Typography.title3)
                     .foregroundStyle(repeatColor)
             }
         }
@@ -438,13 +443,13 @@ struct BottomControls: View {
 
     private var repeatColor: Color {
         switch playerVM.repeatMode {
-        case .off: return .white.opacity(0.7)
-        case .all, .one: return .blue
+        case .off: return TextColor.onDarkSecondary
+        case .all, .one: return BrandColor.primary
         }
     }
 }
 
-// MARK: - Background View
+// MARK: - Background View (Enhanced with DS)
 struct BackgroundView: View {
     let image: UIImage?
 
@@ -455,17 +460,17 @@ struct BackgroundView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .ignoresSafeArea()
-                    .blur(radius: 40)
+                    .blur(radius: 40) // Approx. DS applied
                     .scaleEffect(1.2)
             }
             Rectangle()
-                .fill(.black.opacity(0.4))
+                .fill(BackgroundColor.overlay)
                 .ignoresSafeArea()
         }
     }
 }
 
-// MARK: - Circle Button
+// MARK: - Circle Button (Enhanced with DS)
 struct CircleButton: View {
     let icon: String
     let action: () -> Void
@@ -473,16 +478,16 @@ struct CircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.title2)
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(.ultraThinMaterial)
+                .font(Typography.title2)
+                .foregroundStyle(TextColor.onDark)
+                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
+                .background(BackgroundColor.thin)
                 .clipShape(Circle())
         }
     }
 }
 
-// MARK: - Queue View (Optional)
+// MARK: - Queue View (Enhanced with DS)
 struct QueueView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @Environment(\.dismiss) private var dismiss
@@ -494,13 +499,13 @@ struct QueueView: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(song.title)
-                                .font(.headline)
-                                .foregroundStyle(index == playerVM.currentIndex ? .blue : .primary)
+                                .font(Typography.headline)
+                                .foregroundStyle(index == playerVM.currentIndex ? BrandColor.playing : TextColor.primary)
                             
                             if let artist = song.artist {
                                 Text(artist)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .font(Typography.caption)
+                                    .foregroundStyle(TextColor.secondary)
                             }
                         }
                         
@@ -508,7 +513,7 @@ struct QueueView: View {
                         
                         if index == playerVM.currentIndex {
                             Image(systemName: "speaker.wave.2.fill")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(BrandColor.playing)
                         }
                     }
                     .contentShape(Rectangle())
@@ -535,7 +540,7 @@ struct QueueView: View {
     }
 }
 
-// MARK: - Audio Settings View (Optional)
+// MARK: - Audio Settings View (Enhanced with DS)
 struct AudioSettingsView: View {
     @EnvironmentObject var audioSessionManager: AudioSessionManager
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -545,27 +550,28 @@ struct AudioSettingsView: View {
         NavigationView {
             List {
                 Section("Audio Output") {
-                    HStack {
-                        Text("Current Route")
-                        Spacer()
-                        Text(audioSessionManager.audioRoute)
-                            .foregroundStyle(.secondary)
-                    }
+                    SettingsRow(
+                        title: "Current Route",
+                        value: audioSessionManager.audioRoute
+                    )
                     
                     HStack {
                         Text("Headphones Connected")
+                            .font(Typography.body)
                         Spacer()
                         Image(systemName: audioSessionManager.isHeadphonesConnected ? "checkmark.circle.fill" : "xmark.circle")
-                            .foregroundStyle(audioSessionManager.isHeadphonesConnected ? .green : .secondary)
+                            .foregroundStyle(audioSessionManager.isHeadphonesConnected ? BrandColor.success : TextColor.secondary)
                     }
                 }
                 
                 Section("Playback") {
                     HStack {
                         Text("Volume")
+                            .font(Typography.body)
                         Spacer()
                         Text("\(Int(playerVM.volume * 100))%")
-                            .foregroundStyle(.secondary)
+                            .font(Typography.body)
+                            .foregroundStyle(TextColor.secondary)
                     }
                     
                     Slider(
@@ -588,10 +594,10 @@ struct AudioSettingsView: View {
     }
 }
 
-// MARK: - Style Extension
+// MARK: - Style Extension (Enhanced with DS)
 extension View {
     func coverStyle() -> some View {
-        self.clipShape(RoundedRectangle(cornerRadius: 24))
-            .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        self.clipShape(RoundedRectangle(cornerRadius: Radius.l))
+            .largeShadow()
     }
 }

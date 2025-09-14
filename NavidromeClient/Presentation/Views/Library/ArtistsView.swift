@@ -1,7 +1,13 @@
+//
+//  ArtistsView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
 struct ArtistsView: View {
-    // ALLE zu @EnvironmentObject geändert - KEINE @StateObject für Singletons!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -9,13 +15,12 @@ struct ArtistsView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
     
-    // NUR View-spezifischer State als @State
     @State private var searchText = ""
     @State private var hasLoadedOnce = false
     
     var body: some View {
         NavigationStack {
-            Group {              
+            Group {
                 if navidromeVM.isLoading {
                     loadingView()
                 } else if filteredArtists.isEmpty {
@@ -109,7 +114,7 @@ struct ArtistsView: View {
 
     private var mainContent: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: Spacing.s) {
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
                     ArtistsStatusHeader(
                         isOnline: networkMonitor.canLoadOnlineContent,
@@ -125,8 +130,8 @@ struct ArtistsView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 90)
+            .screenPadding()
+            .padding(.bottom, Sizes.miniPlayer) // Using DS value
         }
     }
 
@@ -137,24 +142,24 @@ struct ArtistsView: View {
     }
 }
 
-// MARK: - Artists Empty State View
+// MARK: - Artists Empty State View (Enhanced with DS)
 struct ArtistsEmptyStateView: View {
     let isOnline: Bool
     let isOfflineMode: Bool
     
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             Image(systemName: emptyStateIcon)
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 60)) // Approx. DS applied
+                .foregroundStyle(TextColor.secondary)
             
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 Text(emptyStateTitle)
-                    .font(.title2.weight(.semibold))
+                    .font(Typography.title2)
                 
                 Text(emptyStateMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
                     .multilineTextAlignment(.center)
             }
             
@@ -162,10 +167,10 @@ struct ArtistsEmptyStateView: View {
                 Button("Switch to Downloaded Music") {
                     OfflineManager.shared.switchToOfflineMode()
                 }
-                .buttonStyle(.borderedProminent)
+                .primaryButtonStyle()
             }
         }
-        .padding(40)
+        .padding(Padding.xl)
     }
     
     private var emptyStateIcon: String {
@@ -199,7 +204,7 @@ struct ArtistsEmptyStateView: View {
     }
 }
 
-// MARK: - Artists Status Header
+// MARK: - Artists Status Header (Enhanced with DS)
 struct ArtistsStatusHeader: View {
     let isOnline: Bool
     let isOfflineMode: Bool
@@ -212,8 +217,8 @@ struct ArtistsStatusHeader: View {
             Spacer()
             
             Text("\(artistCount) Artists")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Typography.caption)
+                .foregroundStyle(TextColor.secondary)
             
             Spacer()
             
@@ -221,10 +226,9 @@ struct ArtistsStatusHeader: View {
                 OfflineModeToggle()
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 16)
-        .padding(.bottom, 8)
+        .listItemPadding()
+        .glassCardStyle()
+        .screenPadding()
+        .padding(.bottom, Spacing.s)
     }
 }

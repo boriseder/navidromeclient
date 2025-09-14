@@ -1,13 +1,20 @@
+//
+//  SearchResultRow.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
-// MARK: - Artist Row with Cover Art (ArtistsView Style)
+// MARK: - Artist Row with Cover Art (Enhanced with DS)
 struct SearchResultArtistRow: View {
     let artist: Artist
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService // ✅ FIX: Use coverArtService instead of navidromeVM
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
-            HStack(spacing: 16) {
+            HStack(spacing: Spacing.m) {
                 ArtistImageView(
                     artist: artist,
                     coverArtService: coverArtService
@@ -18,18 +25,17 @@ struct SearchResultArtistRow: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(Typography.caption.weight(.semibold))
+                    .foregroundStyle(TextColor.tertiary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .listItemPadding()
+            .materialCardStyle()
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Album Row with Cover Art (ArtistsView Style)
+// MARK: - Album Row with Cover Art (Enhanced with DS)
 struct SearchResultAlbumRow: View {
     let album: Album
     
@@ -38,23 +44,23 @@ struct SearchResultAlbumRow: View {
     
     var body: some View {
         NavigationLink(destination: AlbumDetailView(album: album)) {
-            HStack(spacing: 16) {
+            HStack(spacing: Spacing.m) {
                 // REAKTIVES Album Cover
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 70, height: 70)
-                        .blur(radius: 3)
+                    RoundedRectangle(cornerRadius: Radius.s)
+                        .fill(BackgroundColor.secondary)
+                        .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
+                        .blur(radius: 3) // Approx. DS applied
                     
                     Group {
                         if let image = coverArtService.coverImage(for: album, size: 120) {
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 60, height: 60)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .frame(width: Sizes.avatar, height: Sizes.avatar)
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                         } else {
-                            RoundedRectangle(cornerRadius: 10)
+                            RoundedRectangle(cornerRadius: Radius.s)
                                 .fill(
                                     LinearGradient(
                                         colors: [.orange, .pink.opacity(0.7)],
@@ -62,11 +68,11 @@ struct SearchResultAlbumRow: View {
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                                .frame(width: 60, height: 60)
+                                .frame(width: Sizes.avatar, height: Sizes.avatar)
                                 .overlay(
                                     Image(systemName: "record.circle.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundStyle(.white.opacity(0.9))
+                                        .font(.system(size: Sizes.icon))
+                                        .foregroundStyle(TextColor.onDark)
                                 )
                                 .onAppear {
                                     // FIRE-AND-FORGET Request
@@ -81,18 +87,17 @@ struct SearchResultAlbumRow: View {
                 Spacer()
                 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(Typography.caption.weight(.semibold))
+                    .foregroundStyle(TextColor.tertiary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .listItemPadding()
+            .materialCardStyle()
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - Song Row (ArtistsView Style)
+// MARK: - Song Row (Enhanced with DS)
 struct SearchResultSongRow: View {
     let song: Song
     let index: Int
@@ -104,13 +109,13 @@ struct SearchResultSongRow: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 16) {
+            HStack(spacing: Spacing.m) {
                 // REAKTIVES Song Cover
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(isPlaying ? 0.2 : 0.1))
-                        .frame(width: 60, height: 60)
-                        .blur(radius: 3)
+                    RoundedRectangle(cornerRadius: Radius.s)
+                        .fill(BackgroundColor.secondary.opacity(isPlaying ? 0.2 : 0.1))
+                        .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
+                        .blur(radius: 3) // Approx. DS applied
                     
                     Group {
                         if let albumId = song.albumId,
@@ -118,21 +123,21 @@ struct SearchResultSongRow: View {
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 50, height: 50)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .frame(width: Sizes.coverMini, height: Sizes.coverMini)
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                                 .overlay(
                                     // Playing indicator overlay
                                     isPlaying ?
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(.blue.opacity(0.3))
+                                    RoundedRectangle(cornerRadius: Radius.s)
+                                        .fill(BrandColor.playing.opacity(0.3))
                                         .overlay(
                                             Image(systemName: "speaker.wave.2.fill")
-                                                .font(.caption)
-                                                .foregroundStyle(.blue)
+                                                .font(Typography.caption)
+                                                .foregroundStyle(BrandColor.playing)
                                         ) : nil
                                 )
                         } else {
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: Radius.s)
                                 .fill(
                                     LinearGradient(
                                         colors: [.green, .blue.opacity(0.7)],
@@ -140,11 +145,11 @@ struct SearchResultSongRow: View {
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                                .frame(width: 50, height: 50)
+                                .frame(width: Sizes.coverMini, height: Sizes.coverMini)
                                 .overlay(
                                     Image(systemName: "music.note")
-                                        .font(.system(size: 20))
-                                        .foregroundStyle(.white.opacity(0.9))
+                                        .font(.system(size: Sizes.iconLarge))
+                                        .foregroundStyle(TextColor.onDark)
                                 )
                                 .onAppear {
                                     // FIRE-AND-FORGET Request
@@ -162,15 +167,14 @@ struct SearchResultSongRow: View {
                 
                 SongDurationView(duration: song.duration)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .listItemPadding()
+            .materialCardStyle()
         }
         .buttonStyle(.plain)
     }
 }
 
-// MARK: - ✅ FIX: Artist Components (Enhanced)
+// MARK: - Artist Components (Enhanced with DS)
 struct ArtistImageView: View {
     let artist: Artist
     let coverArtService: ReactiveCoverArtService
@@ -179,9 +183,9 @@ struct ArtistImageView: View {
         ZStack {
             // Subtle glow background
             Circle()
-                .fill(Color.white.opacity(0.1))
-                .frame(width: 70, height: 70)
-                .blur(radius: 3)
+                .fill(BackgroundColor.secondary)
+                .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
+                .blur(radius: 3) // Approx. DS applied
             
             // Main avatar
             Group {
@@ -190,7 +194,7 @@ struct ArtistImageView: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 60, height: 60)
+                        .frame(width: Sizes.avatar, height: Sizes.avatar)
                         .clipShape(Circle())
                 } else {
                     Circle()
@@ -201,11 +205,11 @@ struct ArtistImageView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 60, height: 60)
+                        .frame(width: Sizes.avatar, height: Sizes.avatar)
                         .overlay(
                             Image(systemName: "music.mic")
-                                .font(.system(size: 24))
-                                .foregroundStyle(.white.opacity(0.9))
+                                .font(.system(size: Sizes.icon))
+                                .foregroundStyle(TextColor.onDark)
                         )
                         .onAppear {
                             if let coverArt = artist.coverArt {
@@ -222,28 +226,28 @@ struct ArtistInfoView: View {
     let artist: Artist
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(artist.name)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .font(Typography.headline)
+                .foregroundStyle(TextColor.primary)
                 .lineLimit(1)
             
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.s) {
                 Image(systemName: "music.mic")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.caption)
+                    .foregroundStyle(TextColor.secondary)
                 
                 if let count = artist.albumCount {
                     Text("\(count) Album\(count != 1 ? "s" : "")")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .font(Typography.caption.weight(.medium))
+                        .foregroundStyle(TextColor.secondary)
                 }
             }
         }
     }
 }
 
-// MARK: - Album Components (Enhanced)
+// MARK: - Album Components (Enhanced with DS)
 struct AlbumInfoView: View {
     let album: Album
     
@@ -253,35 +257,35 @@ struct AlbumInfoView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(album.name)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .font(Typography.headline)
+                .foregroundStyle(TextColor.primary)
                 .lineLimit(1)
             
             Text(album.artist)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(Typography.bodyEmphasized)
+                .foregroundStyle(TextColor.secondary)
                 .lineLimit(1)
             
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.s) {
                 if !formattedYear.isEmpty {
                     MetadataItem(
                         icon: "calendar",
                         text: formattedYear,
-                        fontSize: .caption
+                        fontSize: Typography.caption
                     )
                 }
                 
                 if !formattedYear.isEmpty && album.songCount ?? 0 > 0 {
-                    MetadataSeparator(fontSize: .caption)
+                    MetadataSeparator(fontSize: Typography.caption)
                 }
                 
                 if album.songCount ?? 0 > 0 {
                     MetadataItem(
                         icon: "music.note",
                         text: "\(album.songCount ?? 0) Songs",
-                        fontSize: .caption
+                        fontSize: Typography.caption
                     )
                 }
             }
@@ -289,7 +293,7 @@ struct AlbumInfoView: View {
     }
 }
 
-// MARK: - Song Components (Enhanced)
+// MARK: - Song Components (Enhanced with DS)
 struct SongInfoView: View {
     let song: Song
     let isPlaying: Bool
@@ -300,35 +304,35 @@ struct SongInfoView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(song.title)
-                .font(.headline.weight(.medium))
-                .foregroundStyle(isPlaying ? .blue : .primary)
+                .font(Typography.bodyEmphasized)
+                .foregroundStyle(isPlaying ? BrandColor.playing : TextColor.primary)
                 .lineLimit(1)
             
             Text(song.artist ?? "Unbekannter Künstler")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(Typography.bodyEmphasized)
+                .foregroundStyle(TextColor.secondary)
                 .lineLimit(1)
             
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.s) {
                 if !song.album.isNilOrEmpty {
                     MetadataItem(
                         icon: "record.circle.fill",
                         text: song.album!,
-                        fontSize: .caption
+                        fontSize: Typography.caption
                     )
                 }
                 
                 if !song.album.isNilOrEmpty && !formattedYear.isEmpty {
-                    MetadataSeparator(fontSize: .caption)
+                    MetadataSeparator(fontSize: Typography.caption)
                 }
                 
                 if !formattedYear.isEmpty {
                     MetadataItem(
                         icon: "calendar",
                         text: formattedYear,
-                        fontSize: .caption
+                        fontSize: Typography.caption
                     )
                 }
             }
@@ -347,41 +351,41 @@ struct SongDurationView: View {
     }
     
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
+        VStack(alignment: .trailing, spacing: Spacing.xs) {
             Text(formattedDuration)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                .font(Typography.monospacedNumbers)
+                .foregroundStyle(TextColor.secondary)
                 .monospacedDigit()
             
             // Small music note indicator
             Image(systemName: "music.note")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(Typography.caption2)
+                .foregroundStyle(TextColor.quaternary)
         }
     }
 }
 
-// MARK: - Shared Components
+// MARK: - Shared Components (Enhanced with DS)
 struct MetadataItem: View {
     let icon: String
     let text: String
     let fontSize: Font
     
-    init(icon: String, text: String, fontSize: Font = .caption) {
+    init(icon: String, text: String, fontSize: Font = Typography.caption) {
         self.icon = icon
         self.text = text
         self.fontSize = fontSize
     }
     
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Spacing.xs) {
             Image(systemName: icon)
                 .font(fontSize)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(TextColor.secondary)
             
             Text(text)
                 .font(fontSize.weight(.medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(TextColor.secondary)
                 .lineLimit(1)
         }
     }
@@ -390,14 +394,14 @@ struct MetadataItem: View {
 struct MetadataSeparator: View {
     let fontSize: Font
     
-    init(fontSize: Font = .caption) {
+    init(fontSize: Font = Typography.caption) {
         self.fontSize = fontSize
     }
     
     var body: some View {
         Text("•")
             .font(fontSize)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(TextColor.secondary)
     }
 }
 

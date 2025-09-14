@@ -1,9 +1,10 @@
 //
-//  ArtistCard.swift
+//  ArtistCard.swift - Enhanced with Design System
 //  NavidromeClient
 //
-//  Created by Boris Eder on 12.09.25.
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
 //
+
 import SwiftUI
 
 // MARK: - Enhanced Artist Card
@@ -15,12 +16,12 @@ struct ArtistCard: View {
     @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
-        HStack(spacing: 16) {
-            // Artist Avatar - REAKTIV
+        HStack(spacing: Spacing.m) {
+            // Artist Avatar - REAKTIV mit Design System
             ZStack {
                 Circle()
-                    .fill(.black.opacity(0.1))
-                    .frame(width: 70, height: 70)
+                    .fill(BackgroundColor.secondary)
+                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge) // 100pt aus Design System
                     .blur(radius: 1)
                 
                 Group {
@@ -29,7 +30,7 @@ struct ArtistCard: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 70, height: 70)
+                            .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
                             .clipShape(Circle())
                     } else {
                         Circle()
@@ -40,11 +41,11 @@ struct ArtistCard: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 60, height: 60)
+                            .frame(width: Sizes.avatar, height: Sizes.avatar) // 72pt aus Design System
                             .overlay(
                                 Image(systemName: "music.mic")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(.white.opacity(0.9))
+                                    .font(.system(size: Sizes.icon))
+                                    .foregroundStyle(TextColor.onDark)
                             )
                             .onAppear {
                                 // FIRE-AND-FORGET Request
@@ -56,23 +57,22 @@ struct ArtistCard: View {
                 }
             }
 
-            // Artist Info (unchanged)
-            VStack(alignment: .leading, spacing: 6) {
+            // Artist Info mit Design System
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(artist.name)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.black.opacity(0.9))
+                    .font(Typography.bodyEmphasized)
+                    .foregroundColor(TextColor.primary)
                     .lineLimit(1)
 
-                HStack(spacing: 5) {
+                HStack(spacing: Spacing.xs) {
                     Image(systemName: "record.circle")
-                        .font(.caption)
-                        .foregroundColor(.black.opacity(0.6))
+                        .font(Typography.caption)
+                        .foregroundColor(TextColor.secondary)
 
                     if let count = artist.albumCount {
                         Text("\(count) Album\(count != 1 ? "s" : "")")
-                            .font(.caption)
-                            .foregroundColor(.black.opacity(0.6))
+                            .font(Typography.caption)
+                            .foregroundColor(TextColor.secondary)
                             .lineLimit(1)
                     }
                 }
@@ -81,13 +81,10 @@ struct ArtistCard: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .font(Typography.caption.weight(.semibold))
+                .foregroundStyle(TextColor.tertiary)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.regularMaterial)
-        )
+        .listItemPadding()
+        .materialCardStyle()
     }
 }

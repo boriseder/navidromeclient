@@ -4,29 +4,28 @@ struct notConfiguredView: View {
     @State var showingSettings = false
 
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: Spacing.xl) {
             Image(systemName: "gear.badge.questionmark")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 60)) // Approx. DS applied
+                .foregroundStyle(TextColor.secondary)
             
-            VStack(spacing: 12) {
+            VStack(spacing: Spacing.s) {
                 Text("Setup Required")
-                    .font(.title2.weight(.semibold))
+                    .font(Typography.title2)
                 
                 Text("Please configure your Navidrome server connection in Settings")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.body)
+                    .foregroundStyle(TextColor.secondary)
                     .multilineTextAlignment(.center)
             }
             
             Button("Open Settings") {
                 showingSettings = true
             }
-            .buttonStyle(.borderedProminent)
+            .primaryButtonStyle()
         }
-        .padding()
+        .padding(Padding.xl)
     }
-
 }
 
 

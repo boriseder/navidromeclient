@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ContentView: View {
-    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel

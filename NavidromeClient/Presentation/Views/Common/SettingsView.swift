@@ -1,7 +1,13 @@
+//
+//  SettingsView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
 struct SettingsView: View {
-    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -16,122 +22,14 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 if !appConfig.isConfigured {
-                    Section("Navidrome") {
-                        NavigationLink("Edit server") {
-                            ServerEditView()
-                        }
-                    }
+                    navidromeSection
                 }
 
                 if appConfig.isConfigured {
-                    Section("Navidrome") {
-                        if let creds = AppConfig.shared.getCredentials() {
-                            let portPart = creds.baseURL.port.map { ":\($0)" } ?? ""
-
-                            HStack {
-                                Text("Server:")
-                                Spacer()
-                                Text("\(creds.baseURL.scheme ?? "http")://\(creds.baseURL.host ?? "-")\(portPart)")
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.trailing)
-                            }
-
-                            HStack {
-                                Text("User:")
-                                Spacer()
-                                Text(creds.username)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.trailing)
-                                    .textCase(nil)
-                            }
-                        }
-                        
-                        NavigationLink("Edit server") {
-                            ServerEditView()
-                        }
-
-                        Button(role: .destructive) {
-                            logout()
-                        } label: {
-                            Label("Logout", systemImage: "power")
-                        }
-                    }
-                    .task {
-                        await navidromeVM.testConnection()
-                    }
-                    
-                    Section("Download") {
-                        HStack {
-                            Text("Downloades music")
-                            Spacer()
-                            Text(downloadManager.totalDownloadSize())
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Button(role: .destructive) {
-                            downloadManager.deleteAllDownloads()
-                        } label: {
-                            Label("Delete all downloads", systemImage: "trash")
-                        }
-                    }
-
-                    Section("Cache Management") {
-                        NavigationLink("Cache Settings") {
-                            CacheSettingsView()
-                        }
-                        
-                        HStack {
-                            Text("Cover Art Cache")
-                            Spacer()
-                            Text(getCoverCacheSize())
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        HStack {
-                            Text("Download Cache")
-                            Spacer()
-                            Text(downloadManager.totalDownloadSize())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    Section("Server info") {
-                        HStack {
-                            Text("Type:")
-                            Spacer()
-                            Text(navidromeVM.serverType ?? "-")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack {
-                            Text("Navidrome-Version:")
-                            Spacer()
-                            Text(navidromeVM.serverVersion ?? "-")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack {
-                            Text("Subsonic-Version:")
-                            Spacer()
-                            Text(navidromeVM.subsonicVersion ?? "-")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack {
-                            Text("OpenSubsonic:")
-                            Spacer()
-                            if let open = navidromeVM.openSubsonic {
-                                Text(open ? "Yes" : "No")
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("-")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .task {
-                        await navidromeVM.testConnection()
-                    }
+                    serverInfoSection
+                    downloadSection
+                    cacheSection
+                    serverDetailsSection
                 }
             }
             .listStyle(.insetGrouped)
@@ -140,6 +38,132 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Navidrome Section (Enhanced with DS)
+    @ViewBuilder
+    private var navidromeSection: some View {
+        Section("Navidrome") {
+            NavigationLink("Edit server") {
+                ServerEditView()
+            }
+            .font(Typography.body)
+        }
+    }
+
+    // MARK: - Server Info Section (Enhanced with DS)
+    @ViewBuilder
+    private var serverInfoSection: some View {
+        Section("Navidrome") {
+            if let creds = AppConfig.shared.getCredentials() {
+                let portPart = creds.baseURL.port.map { ":\($0)" } ?? ""
+
+                SettingsRow(
+                    title: "Server:",
+                    value: "\(creds.baseURL.scheme ?? "http")://\(creds.baseURL.host ?? "-")\(portPart)"
+                )
+
+                SettingsRow(
+                    title: "User:",
+                    value: creds.username
+                )
+            }
+            
+            NavigationLink("Edit server") {
+                ServerEditView()
+            }
+            .font(Typography.body)
+
+            Button(role: .destructive) {
+                logout()
+            } label: {
+                Label("Logout", systemImage: "power")
+                    .font(Typography.body)
+            }
+        }
+        .task {
+            await navidromeVM.testConnection()
+        }
+    }
+
+    // MARK: - Download Section (Enhanced with DS)
+    @ViewBuilder
+    private var downloadSection: some View {
+        Section("Download") {
+            SettingsRow(
+                title: "Downloaded music",
+                value: downloadManager.totalDownloadSize()
+            )
+
+            Button(role: .destructive) {
+                downloadManager.deleteAllDownloads()
+            } label: {
+                Label("Delete all downloads", systemImage: "trash")
+                    .font(Typography.body)
+            }
+        }
+    }
+
+    // MARK: - Cache Section (Enhanced with DS)
+    @ViewBuilder
+    private var cacheSection: some View {
+        Section("Cache Management") {
+            NavigationLink("Cache Settings") {
+                CacheSettingsView()
+            }
+            .font(Typography.body)
+            
+            SettingsRow(
+                title: "Cover Art Cache",
+                value: getCoverCacheSize()
+            )
+            
+            SettingsRow(
+                title: "Download Cache",
+                value: downloadManager.totalDownloadSize()
+            )
+        }
+    }
+
+    // MARK: - Server Details Section (Enhanced with DS)
+    @ViewBuilder
+    private var serverDetailsSection: some View {
+        Section("Server info") {
+            SettingsRow(
+                title: "Type:",
+                value: navidromeVM.serverType ?? "-"
+            )
+
+            SettingsRow(
+                title: "Navidrome-Version:",
+                value: navidromeVM.serverVersion ?? "-"
+            )
+
+            SettingsRow(
+                title: "Subsonic-Version:",
+                value: navidromeVM.subsonicVersion ?? "-"
+            )
+
+            HStack {
+                Text("OpenSubsonic:")
+                    .font(Typography.body)
+                    .foregroundStyle(TextColor.primary)
+                Spacer()
+                if let open = navidromeVM.openSubsonic {
+                    Text(open ? "Yes" : "No")
+                        .font(Typography.body)
+                        .foregroundStyle(TextColor.secondary)
+                } else {
+                    Text("-")
+                        .font(Typography.body)
+                        .foregroundStyle(TextColor.secondary)
+                }
+            }
+        }
+        .task {
+            await navidromeVM.testConnection()
+        }
+    }
+
+    // MARK: - Helper Methods
     private func logout() {
         appConfig.logout()
         navidromeVM.reset()
@@ -152,5 +176,25 @@ struct SettingsView: View {
     private func getCoverCacheSize() -> String {
         let stats = PersistentImageCache.shared.getCacheStats()
         return stats.diskSizeFormatted
+    }
+}
+
+// MARK: - Settings Row Component (Enhanced with DS)
+struct SettingsRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(Typography.body)
+                .foregroundStyle(TextColor.primary)
+            Spacer()
+            Text(value)
+                .font(Typography.body)
+                .foregroundStyle(TextColor.secondary)
+                .multilineTextAlignment(.trailing)
+                .textCase(nil)
+        }
     }
 }

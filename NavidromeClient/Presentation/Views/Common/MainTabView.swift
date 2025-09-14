@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct MainTabView: View {
-    // ALLE als @EnvironmentObject - KEINE @StateObject mehr!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -43,7 +42,7 @@ struct MainTabView: View {
             VStack {
                 Spacer()
                 MiniPlayerView()
-                    .frame(height: 90)
+                    .frame(height: Sizes.miniPlayer)
             }
         }
         .tabItem {
@@ -56,23 +55,28 @@ struct MainTabView: View {
     private var networkStatusOverlay: some View {
         if !networkMonitor.isConnected {
             HStack {
-                Image(systemName: "wifi.slash").font(.caption)
-                Text("Offline Mode").font(.caption).fontWeight(.medium)
+                Image(systemName: "wifi.slash")
+                    .font(Typography.caption)
+                Text("Offline Mode")
+                    .font(Typography.caption.weight(.medium))
                 Spacer()
                 if downloadManager.downloadedAlbums.count > 0 {
-                    Button("Downloaded Music") { offlineManager.switchToOfflineMode() }
-                        .font(.caption)
-                        .foregroundStyle(.blue)
+                    Button("Downloaded Music") {
+                        offlineManager.switchToOfflineMode()
+                    }
+                    .font(Typography.caption)
+                    .foregroundStyle(BrandColor.primary)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(.orange.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
-            .foregroundStyle(.white)
-            .padding(.horizontal)
-            .padding(.top, 8)
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.s)
+            .background(BrandColor.warning.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.s))
+            .foregroundStyle(TextColor.onDark)
+            .screenPadding()
+            .padding(.top, Spacing.s)
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(.easeInOut(duration: 0.3), value: networkMonitor.isConnected)
+            .animation(Animations.ease, value: networkMonitor.isConnected)
         }
     }
 }
+

@@ -1,32 +1,45 @@
+//
+//  WelcomeView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
 struct WelcomeView: View {
     let onGetStarted: () -> Void
     
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: Spacing.xl) {
             Image(systemName: "music.note.house")
-                .font(.system(size: 80))
-                .foregroundStyle(.linearGradient(colors: [.blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .font(.system(size: 80)) // Approx. DS applied
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [BrandColor.primary, BrandColor.secondary],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
             
-            VStack(spacing: 16) {
+            VStack(spacing: Spacing.m) {
                 Text("Welcome to Navidrome Client")
-                    .font(.largeTitle.weight(.bold))
+                    .font(Typography.largeTitle)
                     .multilineTextAlignment(.center)
                 
                 Text("Connect to your Navidrome server to start listening to your music library")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.body)
+                    .foregroundStyle(TextColor.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                    .screenPadding()
             }
             
             Button("Get Started") {
                 onGetStarted()
             }
-            .buttonStyle(.borderedProminent)
-            .font(.headline)
+            .primaryButtonStyle()
+            .font(Typography.buttonLarge)
         }
-        .padding()
+        .padding(Padding.xl)
     }
 }

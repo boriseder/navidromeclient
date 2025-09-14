@@ -1,14 +1,19 @@
+//
+//  SearchView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
 struct SearchView: View {
-    // ALLE zu @EnvironmentObject geändert - KEINE @StateObject für Singletons!
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     
-    // NUR View-spezifischer State als @State/@StateObject
     @State private var query: String = ""
     @State private var selectedTab: SearchTab = .songs
-    @StateObject private var debouncer = Debouncer() // ✅ View-spezifisch, daher @StateObject
+    @StateObject private var debouncer = Debouncer()
     
     enum SearchTab: String, CaseIterable {
         case artists = "Künstler"
@@ -110,7 +115,7 @@ struct SearchView: View {
     }
 }
 
-// MARK: - SearchHeaderView
+// MARK: - SearchHeaderView (Enhanced with DS)
 struct SearchHeaderView: View {
     @Binding var query: String
     @Binding var selectedTab: SearchView.SearchTab
@@ -119,7 +124,7 @@ struct SearchHeaderView: View {
     let onClear: () -> Void
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: Spacing.m) {
             SearchBarView(
                 query: $query,
                 onSearch: onSearch,
@@ -131,54 +136,54 @@ struct SearchHeaderView: View {
                 countForTab: countForTab
             )
         }
-        .padding(.top, 8)
-        .background(.ultraThinMaterial)
+        .padding(.top, Spacing.s)
+        .background(BackgroundColor.thin)
     }
 }
 
-// MARK: - SearchBarView
+// MARK: - SearchBarView (Enhanced with DS)
 struct SearchBarView: View {
     @Binding var query: String
     let onSearch: () -> Void
     let onClear: () -> Void
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Spacing.s) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .font(.title3)
+                .foregroundStyle(TextColor.secondary)
+                .font(Typography.title3)
             
             TextField("Nach Musik suchen...", text: $query)
-                .font(.body)
+                .font(Typography.body)
                 .submitLabel(.search)
                 .onSubmit(onSearch)
             
             if !query.isEmpty {
                 Button(action: onClear) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(TextColor.secondary)
                 }
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, Padding.m)
+        .padding(.vertical, Padding.s)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                .fill(BackgroundColor.thin)
+                .miniShadow()
         )
-        .animation(.easeInOut(duration: 0.2), value: query.isEmpty)
+        .animation(Animations.ease, value: query.isEmpty)
     }
 }
 
-// MARK: - SearchTabsView
+// MARK: - SearchTabsView (Enhanced with DS)
 struct SearchTabsView: View {
     @Binding var selectedTab: SearchView.SearchTab
     let countForTab: (SearchView.SearchTab) -> Int
     
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Spacing.s) {
             ForEach(SearchView.SearchTab.allCases, id: \.self) { tab in
                 SearchTabButton(
                     tab: tab,
@@ -188,12 +193,11 @@ struct SearchTabsView: View {
                 )
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .listItemPadding()
     }
 }
 
-// MARK: - SearchTabButton
+// MARK: - SearchTabButton (Enhanced with DS)
 struct SearchTabButton: View {
     let tab: SearchView.SearchTab
     let count: Int
@@ -202,56 +206,56 @@ struct SearchTabButton: View {
     
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 6) {
+            HStack(spacing: Spacing.xs) {
                 Image(systemName: tab.icon)
-                    .font(.caption)
+                    .font(Typography.caption)
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .font(Typography.caption2)
+                        .padding(.horizontal, Spacing.xs)
+                        .padding(.vertical, Spacing.xs)
                         .background(countBackground)
                         .clipShape(Capsule())
-                        .foregroundStyle(isSelected ? .white : .primary)
+                        .foregroundStyle(isSelected ? TextColor.onDark : TextColor.primary)
                 }
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
+            .padding(.vertical, Padding.s)
+            .padding(.horizontal, Padding.s)
             .background(tabBackground)
-            .foregroundStyle(isSelected ? .white : .primary)
+            .foregroundStyle(isSelected ? TextColor.onDark : TextColor.primary)
         }
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .animation(Animations.ease, value: isSelected)
     }
     
     @ViewBuilder
     private var countBackground: some View {
         if isSelected {
             LinearGradient(
-                colors: [.blue, .purple],
+                colors: [BrandColor.primary, BrandColor.secondary],
                 startPoint: .leading,
                 endPoint: .trailing
             )
         } else {
-            Color.gray.opacity(0.2)
+            BackgroundColor.secondary
         }
     }
     
     private var tabBackground: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
+        RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
             .fill(
                 isSelected
                 ? AnyShapeStyle(LinearGradient(
-                    colors: [.blue, .purple],
+                    colors: [BrandColor.primary, BrandColor.secondary],
                     startPoint: .leading,
                     endPoint: .trailing
                 ))
-                : AnyShapeStyle(Color.gray.opacity(0.1))
+                : AnyShapeStyle(BackgroundColor.secondary)
             )
     }
 }
 
-// MARK: - SearchContentView
+// MARK: - SearchContentView (Enhanced with DS)
 struct SearchContentView: View {
     let query: String
     let selectedTab: SearchView.SearchTab
@@ -280,94 +284,82 @@ struct SearchContentView: View {
     }
 }
 
-// MARK: - State Views
+// MARK: - State Views (Enhanced with DS)
 struct SearchErrorView: View {
     let error: String
     
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 50))
-                .foregroundStyle(.orange)
+                .font(.system(size: 50)) // Approx. DS applied
+                .foregroundStyle(BrandColor.warning)
             
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 Text("Fehler bei der Suche")
-                    .font(.headline.weight(.semibold))
+                    .font(Typography.headline)
                 
                 Text(error)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(radius: 20, y: 10)
-        .padding(.horizontal, 40)
-        .padding(.vertical, 60)
+        .padding(Spacing.xl)
+        .materialCardStyle()
+        .largeShadow()
+        .padding(.horizontal, Padding.xl)
+        .padding(.vertical, 60) // Approx. DS applied
     }
 }
 
 struct SearchEmptyView: View {
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             Image(systemName: "music.note.house")
-                .font(.system(size: 60))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 60)) // Approx. DS applied
+                .foregroundStyle(TextColor.secondary)
             
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 Text("Keine Ergebnisse")
-                    .font(.title2.weight(.semibold))
+                    .font(Typography.title2)
                 
                 Text("Versuchen Sie andere Suchbegriffe")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
             }
         }
-        .padding(32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(radius: 20, y: 10)
-        .padding(.vertical, 60)
+        .padding(Spacing.xl)
+        .materialCardStyle()
+        .largeShadow()
+        .padding(.vertical, 60) // Approx. DS applied
     }
 }
 
 struct SearchInitialView: View {
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 80))
-                .foregroundStyle(.secondary.opacity(0.6))
+                .font(.system(size: 80)) // Approx. DS applied
+                .foregroundStyle(TextColor.secondary.opacity(0.6))
             
-            VStack(spacing: 8) {
+            VStack(spacing: Spacing.s) {
                 Text("Musik durchsuchen")
-                    .font(.title2.weight(.semibold))
+                    .font(Typography.title2)
                 
                 Text("Suchen Sie nach Künstlern, Alben oder Songs")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(40)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(.white.opacity(0.2), lineWidth: 1)
-        )
-        .shadow(radius: 20, y: 10)
-        .padding(.vertical, 80)
+        .padding(Padding.xl)
+        .materialCardStyle()
+        .largeShadow()
+        .padding(.vertical, 80) // Approx. DS applied
     }
 }
 
-// MARK: - SearchResultsView
+// MARK: - SearchResultsView (Enhanced with DS)
 struct SearchResultsView: View {
     let selectedTab: SearchView.SearchTab
     let navidromeVM: NavidromeViewModel
@@ -376,7 +368,7 @@ struct SearchResultsView: View {
     
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: Spacing.s) {
                 Section {
                     switch selectedTab {
                     case .artists:
@@ -402,8 +394,8 @@ struct SearchResultsView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 100)
+            .screenPadding()
+            .padding(.bottom, 100) // Approx. DS applied
         }
     }
 }

@@ -1,3 +1,10 @@
+//
+//  MiniPlayerView.swift - Enhanced with Design System
+//  NavidromeClient
+//
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//
+
 import SwiftUI
 
 struct MiniPlayerView: View {
@@ -10,23 +17,23 @@ struct MiniPlayerView: View {
     var body: some View {
         if let song = playerVM.currentSong {
             VStack(spacing: 0) {
-                // MARK: Progress Bar
+                // MARK: Progress Bar (Enhanced with DS)
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         Rectangle()
-                            .fill(.quaternary)
+                            .fill(BackgroundColor.tertiary)
                             .frame(height: 4)
-                            .cornerRadius(2)
+                            .cornerRadius(Radius.xs)
                         
                         Rectangle()
                             .fill(LinearGradient(
-                                colors: [.blue, .purple],
+                                colors: [BrandColor.primary, BrandColor.secondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ))
                             .frame(width: geometry.size.width * progressPercentage, height: 4)
-                            .cornerRadius(2)
-                            .animation(isDragging ? nil : .linear(duration: 0.1), value: progressPercentage)
+                            .cornerRadius(Radius.xs)
+                            .animation(isDragging ? nil : Animations.easeQuick, value: progressPercentage)
                         
                         // Drag Zone
                         Rectangle()
@@ -48,10 +55,10 @@ struct MiniPlayerView: View {
                 }
                 .frame(height: 4)
                 
-                // MARK: Player HStack
-                HStack(spacing: 16) {
+                // MARK: Player HStack (Enhanced with DS)
+                HStack(spacing: Spacing.m) {
                     // Cover + Song Info
-                    HStack(spacing: 16) {
+                    HStack(spacing: Spacing.m) {
                         // Cover Art with Audio Route Indicator
                         ZStack {
                             Group {
@@ -62,19 +69,19 @@ struct MiniPlayerView: View {
                                 } else {
                                     Rectangle()
                                         .fill(LinearGradient(
-                                            colors: [.gray.opacity(0.3), .gray.opacity(0.5)],
+                                            colors: [BackgroundColor.secondary, BackgroundColor.tertiary],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
                                         ))
                                         .overlay(
                                             Image(systemName: "music.note")
-                                                .font(.title3)
-                                                .foregroundStyle(.secondary)
+                                                .font(.system(size: Sizes.icon))
+                                                .foregroundStyle(TextColor.tertiary)
                                         )
                                 }
                             }
-                            .frame(width: 50, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .frame(width: Sizes.coverMini, height: Sizes.coverMini)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.s))
                             
                             // Audio Route Indicator
                             if audioSessionManager.isHeadphonesConnected {
@@ -82,28 +89,27 @@ struct MiniPlayerView: View {
                                     HStack {
                                         Spacer()
                                         Image(systemName: audioSessionManager.audioRoute.contains("Bluetooth") ? "bluetooth" : "headphones")
-                                            .font(.caption2)
-                                            .foregroundStyle(.white)
-                                            .padding(2)
-                                            .background(Circle().fill(.blue))
+                                            .font(Typography.caption2)
+                                            .foregroundStyle(TextColor.onDark)
+                                            .padding(Padding.xs)
+                                            .background(Circle().fill(BrandColor.primary))
                                     }
                                     Spacer()
                                 }
                             }
                         }
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text(song.title)
-                                .font(.headline)
-                                .fontWeight(.semibold)
+                                .font(Typography.headline)
                                 .lineLimit(1)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(TextColor.primary)
                             
-                            HStack(spacing: 4) {
+                            HStack(spacing: Spacing.xs) {
                                 if let artist = song.artist {
                                     Text(artist)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
+                                        .font(Typography.subheadline)
+                                        .foregroundStyle(TextColor.secondary)
                                         .lineLimit(1)
                                 }
                                 
@@ -111,7 +117,7 @@ struct MiniPlayerView: View {
                                 if playerVM.isLoading {
                                     ProgressView()
                                         .scaleEffect(0.6)
-                                        .frame(width: 12, height: 12)
+                                        .frame(width: 12, height: 12) // Approx. DS applied
                                 }
                             }
                         }
@@ -123,14 +129,14 @@ struct MiniPlayerView: View {
                     
                     Spacer()
                     
-                    // MARK: Controls
-                    HStack(spacing: 20) {
+                    // MARK: Controls (Enhanced with DS)
+                    HStack(spacing: Spacing.l) {
                         Button {
                             Task { await playerVM.playPrevious() }
                         } label: {
                             Image(systemName: "backward.fill")
-                                .font(.title3)
-                                .foregroundStyle(.primary)
+                                .font(.system(size: Sizes.icon))
+                                .foregroundStyle(TextColor.primary)
                         }
                         .disabled(playerVM.isLoading)
                         
@@ -140,24 +146,24 @@ struct MiniPlayerView: View {
                             ZStack {
                                 if playerVM.isLoading {
                                     ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: TextColor.onDark))
                                         .scaleEffect(0.8)
                                 } else {
                                     Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                                        .font(.title2)
-                                        .foregroundStyle(.white)
+                                        .font(.system(size: Sizes.iconLarge))
+                                        .foregroundStyle(TextColor.onDark)
                                 }
                             }
-                            .frame(width: 40, height: 40)
+                            .frame(width: 40, height: 40) // Approx. DS applied - könnte Sizes.buttonHeight - 4 sein
                             .background(
                                 Circle()
                                     .fill(LinearGradient(
-                                        colors: [.blue, .purple],
+                                        colors: [BrandColor.primary, BrandColor.secondary],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     ))
                             )
-                            .shadow(color: .blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                            .glowShadow(color: BrandColor.primary)
                         }
                         .disabled(playerVM.isLoading)
                         
@@ -165,17 +171,16 @@ struct MiniPlayerView: View {
                             Task { await playerVM.playNext() }
                         } label: {
                             Image(systemName: "forward.fill")
-                                .font(.title3)
-                                .foregroundStyle(.primary)
+                                .font(.system(size: Sizes.icon))
+                                .foregroundStyle(TextColor.primary)
                         }
                         .disabled(playerVM.isLoading)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.regularMaterial)
+                .listItemPadding()
+                .background(BackgroundColor.regular)
                 
-                // MARK: Audio Session Status Bar (Debug - entfernbar in Production)
+                // MARK: Audio Session Status Bar (Debug - Enhanced with DS)
                 if ProcessInfo.processInfo.environment["DEBUG_AUDIO"] == "1" {
                     AudioStatusBar()
                         .environmentObject(audioSessionManager)
@@ -199,7 +204,7 @@ struct MiniPlayerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 0))
             .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -2)
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: playerVM.currentSong?.id)
+            .animation(Animations.spring, value: playerVM.currentSong?.id)
             .fullScreenCover(isPresented: $showFullScreen) {
                 FullScreenPlayerView()
                     .environmentObject(playerVM)
@@ -215,31 +220,30 @@ struct MiniPlayerView: View {
     }
 }
 
-// MARK: - Audio Status Bar (Debug)
+// MARK: - Audio Status Bar (Enhanced with DS)
 struct AudioStatusBar: View {
     @EnvironmentObject var audioSessionManager: AudioSessionManager
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Spacing.s) {
             // Audio Session Status
             Circle()
-                .fill(audioSessionManager.isAudioSessionActive ? .green : .red)
-                .frame(width: 6, height: 6)
+                .fill(audioSessionManager.isAudioSessionActive ? BrandColor.success : BrandColor.error)
+                .frame(width: 6, height: 6) // Approx. DS applied
             
             Text("Audio: \(audioSessionManager.audioRoute)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(Typography.caption2)
+                .foregroundStyle(TextColor.secondary)
             
             if audioSessionManager.isHeadphonesConnected {
                 Image(systemName: "headphones")
-                    .font(.caption2)
-                    .foregroundStyle(.blue)
+                    .font(Typography.caption2)
+                    .foregroundStyle(BrandColor.primary)
             }
             
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 4)
-        .background(.ultraThinMaterial)
+        .listItemPadding()
+        .background(BackgroundColor.thin)
     }
 }

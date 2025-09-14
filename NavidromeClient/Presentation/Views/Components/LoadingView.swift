@@ -4,17 +4,16 @@ struct loadingView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: Spacing.l) {
             // Animated loading circles
-            HStack(spacing: 8) {
+            HStack(spacing: Spacing.s) {
                 ForEach(0..<3) { index in
                     Circle()
-                        .fill(Color(.systemIndigo))
-                        .frame(width: 12, height: 12)
+                        .fill(BrandColor.primary)
+                        .frame(width: 12, height: 12) // Approx. DS applied
                         .scaleEffect(navidromeVM.isLoading ? 1.0 : 0.5)
                         .animation(
-                            .easeInOut(duration: 0.6)
-                            .repeatForever()
+                            Animations.ease.repeatForever()
                             .delay(Double(index) * 0.2),
                             value: navidromeVM.isLoading
                         )
@@ -22,20 +21,20 @@ struct loadingView: View {
             }
             
             Text("Loading...")
-                .font(.headline.weight(.medium))
-                .foregroundStyle(.primary)
+                .font(Typography.headline)
+                .foregroundStyle(TextColor.primary)
             
             Text("Discovering your music library")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(Typography.caption)
+                .foregroundStyle(TextColor.secondary)
         }
-        .padding(32)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .padding(Spacing.xl)
+        .materialCardStyle()
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: Radius.m)
                 .stroke(.white.opacity(0.2), lineWidth: 1)
         )
-        .shadow(radius: 20, y: 10)
+        .largeShadow()
     }
 }
 

@@ -1,11 +1,8 @@
 //
-//  AlbumsView.swift - FIXED VERSION
+//  AlbumsView.swift - Enhanced with Design System
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Broken up complex expression that caused compiler timeout
-//  - Simplified computed properties for better SwiftUI performance
-//  - Added intermediate variables to help type inference
+//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
 //
 
 import SwiftUI
@@ -23,7 +20,7 @@ struct AlbumsView: View {
     @State private var isLoading = false
     @State private var hasLoadedOnce = false
 
-    // ✅ FIX: Broken up complex expression into simpler computed properties
+    // Broken up complex expression into simpler computed properties
     private var displayedAlbums: [Album] {
         let sourceAlbums = getSourceAlbums()
         return filterAlbums(sourceAlbums)
@@ -117,7 +114,7 @@ struct AlbumsView: View {
         }
     }
     
-    // ✅ FIX: Simplified empty state view
+    // Simplified empty state view
     private var albumsEmptyStateView: some View {
         AlbumsEmptyStateView(
             isOnline: networkMonitor.canLoadOnlineContent,
@@ -125,7 +122,7 @@ struct AlbumsView: View {
         )
     }
     
-    // ✅ FIX: Extracted toolbar content
+    // Extracted toolbar content with DS
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
@@ -164,7 +161,7 @@ struct AlbumsView: View {
         }
     }
     
-    // ✅ FIX: Simplified helper methods
+    // Simplified helper methods
     private func handleNetworkChange(canLoad: Bool) {
         if canLoad && !offlineManager.isOfflineMode {
             Task { await loadAlbums() }
@@ -194,9 +191,9 @@ struct AlbumsView: View {
         
         try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
         
-        // ✅ FIX: Call method on service instance, not dynamic member
         Task {
             await coverArtService.preloadAlbums(Array(albums.prefix(20)), size: 200)
         }
     }
 }
+
