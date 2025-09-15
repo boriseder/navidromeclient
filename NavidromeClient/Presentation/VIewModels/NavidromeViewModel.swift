@@ -60,8 +60,6 @@ class NavidromeViewModel: ObservableObject {
     }
 
     // MARK: - ✅ ENHANCED: Smart Song Loading with Offline Support
-    
-    /// Enhanced loadSongs with complete offline support and caching
     func loadSongs(for albumId: String) async -> [Song] {
         // 1. Check memory cache first
         if let cached = albumSongs[albumId], !cached.isEmpty {

@@ -25,8 +25,8 @@
 			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
 			buildPhase = A1D552D82E5E6BDB00317006 /* Resources */;
 			membershipExceptions = (
-				"API/SubsonicService+Artists.swift",
-				Infrastructure/Utils/md5string.swift,
+				Core/Utils/md5string.swift,
+				"Data/API/SubsonicService+Artists.swift",
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
