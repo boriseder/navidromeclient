@@ -28,7 +28,7 @@ struct AlbumGridView: View {
                 NavigationLink {
                     AlbumDetailView(album: album)
                 } label: {
-                    AlbumCard(album: album, accentColor: .black)
+                    AlbumCard(album: album, accentColor: .primary)
                 }
             }
         }

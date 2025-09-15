@@ -45,6 +45,16 @@ struct AlbumCard: View {
             }
             .cardShadow()
             
+            /*
+             Warum der text nicht accentColor hat?
+             Ja, technisch ist der Text(album.name) innerhalb deiner AlbumCard Teil eines NavigationLink.
+                 •    SwiftUI interpretiert damit den Text als interaktiv.
+                 •    Allerdings: der foregroundColor(TextColor.primary) in AlbumCard überschreibt explizit die AccentColor.
+
+             → selbst wenn der Text Teil eines Buttons/NavigationLink ist, wird er nicht blau, sondern nimmt die explizit gesetzte Farbe.
+
+             */
+            
             // Album Info mit Design System
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(album.name)

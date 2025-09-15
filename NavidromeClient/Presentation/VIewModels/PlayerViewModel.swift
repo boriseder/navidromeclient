@@ -3,9 +3,10 @@
 //  NavidromeClient
 //
 //  ✅ FIXES:
-//  - Removed bypass call to navidromeVM.loadCoverArt()
-//  - Now uses ReactiveCoverArtService.loadAlbumCover() async method
-//  - Maintains consistency with unified caching architecture
+//  - Task cancellation for parallel player prevention
+//  - Proper observer cleanup
+//  - Memory management with replaceCurrentItem
+//  - Race condition prevention on fast skipping
 //
 
 import Foundation
@@ -42,8 +43,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     var service: SubsonicService?
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
-    
-    // ✅ FIX: Add reference to ReactiveCoverArtService
     private weak var coverArtService: ReactiveCoverArtService?
     
     // MARK: - Private Properties
@@ -51,6 +50,10 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var timeObserver: Any?
     private var lastUpdateTime: Double = 0
     private var playerItemEndObserver: NSObjectProtocol?
+    
+    // FIX: Track current play task
+    private var currentPlayTask: Task<Void, Never>?
+    private var playerObservers: [NSObjectProtocol] = []
 
     // MARK: - Init
     
@@ -64,17 +67,26 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     deinit {
+        // Can't call MainActor methods from deinit
+        // Move cleanup to separate method or use Task
+        
+        // Option A: Just remove observers (thread-safe operations only)
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
-            timeObserver = nil
         }
-        player?.pause()
-        player = nil
-        
+        if let token = playerItemEndObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        playerObservers.forEach {
+            NotificationCenter.default.removeObserver($0)
+        }
         NotificationCenter.default.removeObserver(self)
         
-        // Safe: MainActor hop in Task
+        // Option B: Schedule cleanup on MainActor (if needed)
+        let playerToClean = player
         Task { @MainActor in
+            playerToClean?.pause()
+            playerToClean?.replaceCurrentItem(with: nil)
             AudioSessionManager.shared.clearNowPlayingInfo()
         }
     }
@@ -169,23 +181,13 @@ class PlayerViewModel: NSObject, ObservableObject {
             name: .remoteSkipBackwardCommand,
             object: nil
         )
-        
-        // Player finished
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(playerDidFinishPlaying),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: nil
-        )
     }
     
     private func configureAudioSession() {
-        // AudioSessionManager handles the configuration
-        // We just make sure it's active
         _ = audioSessionManager.isAudioSessionActive
     }
     
-    // MARK: - ✅ FIX: Service Management (Enhanced)
+    // MARK: - Service Management
     
     func updateService(_ newService: SubsonicService) {
         self.service = newService
@@ -214,31 +216,49 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func playCurrent() async {
-        guard let song = playlistManager.currentSong else {
-            stop()
-            return
-        }
+        // FIX: Cancel any pending play operation
+        currentPlayTask?.cancel()
         
-        currentSong = song
-        currentAlbumId = song.albumId
-        duration = Double(song.duration ?? 0)
-        currentTime = 0
-        isLoading = true
-        
-        cleanupPlayer()
-        
-        // Try local file first
-        if let localURL = downloadManager.getLocalFileURL(for: song.id) {
-            await playFromURL(localURL)
-        } else if let service = service, let url = service.streamURL(for: song.id) {
-            await playFromURL(url)
-        } else {
-            errorMessage = "Keine URL zum Abspielen gefunden"
-            isLoading = false
+        currentPlayTask = Task {
+            // Check cancellation before starting
+            guard !Task.isCancelled else { return }
+            
+            guard let song = playlistManager.currentSong else {
+                stop()
+                return
+            }
+            
+            currentSong = song
+            currentAlbumId = song.albumId
+            duration = Double(song.duration ?? 0)
+            currentTime = 0
+            isLoading = true
+            
+            // FIX: Ensure clean state before new playback
+            cleanupPlayer()
+            
+            // Check again after cleanup
+            guard !Task.isCancelled else {
+                isLoading = false
+                return
+            }
+            
+            // Try local file first
+            if let localURL = downloadManager.getLocalFileURL(for: song.id) {
+                await playFromURL(localURL)
+            } else if let service = service, let url = service.streamURL(for: song.id) {
+                await playFromURL(url)
+            } else {
+                errorMessage = "Keine URL zum Abspielen gefunden"
+                isLoading = false
+            }
         }
     }
     
     private func playFromURL(_ url: URL) async {
+        // FIX: Check task cancellation
+        guard currentPlayTask?.isCancelled == false else { return }
+        
         let item = AVPlayerItem(url: url)
         player = AVPlayer(playerItem: item)
         player?.volume = volume
@@ -246,10 +266,15 @@ class PlayerViewModel: NSObject, ObservableObject {
         isPlaying = true
         isLoading = false
         
-        // PlayerItem-spezifischen End-Observer registrieren
+        // FIX: Clean observer management
+        if let existingObserver = playerItemEndObserver {
+            NotificationCenter.default.removeObserver(existingObserver)
+            playerItemEndObserver = nil
+        }
+        
         playerItemEndObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
+            object: item,  // Important: observe specific item
             queue: .main
         ) { [weak self] _ in
             Task { [weak self] in
@@ -261,7 +286,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         updateNowPlayingInfo()
     }
 
-    
     func togglePlayPause() {
         guard let player = player else { return }
         
@@ -309,11 +333,15 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     func playNext() async {
+        // FIX: Cancel current before next
+        currentPlayTask?.cancel()
         playlistManager.advanceToNext()
         await playCurrent()
     }
     
     func playPrevious() async {
+        // FIX: Cancel current before previous
+        currentPlayTask?.cancel()
         playlistManager.moveToPrevious(currentTime: currentTime)
         await playCurrent()
     }
@@ -345,19 +373,12 @@ class PlayerViewModel: NSObject, ObservableObject {
         player?.volume = volume
     }
     
-    // MARK: - ✅ FIX: Cover Art & Now Playing
+    // MARK: - Cover Art & Now Playing
     
     func loadCoverArt() async {
         guard let albumId = currentAlbumId else { return }
-        
-        // OLD BYPASS CODE (removed):
-        // guard let service = service else { return }
-        // coverArt = await service.getCoverArt(for: albumId)
-        
-        // ✅ NEW: Use ReactiveCoverArtService async API
         guard let coverArtService = coverArtService else { return }
         coverArt = await coverArtService.loadImage(for: albumId, size: 300)
-        
         updateNowPlayingInfo()
     }
     
@@ -387,6 +408,12 @@ class PlayerViewModel: NSObject, ObservableObject {
     private func setupTimeObserver() {
         guard let player = player else { return }
         
+        // Remove existing observer
+        if let observer = timeObserver {
+            player.removeTimeObserver(observer)
+            timeObserver = nil
+        }
+        
         timeObserver = player.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main
@@ -410,18 +437,33 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Cleanup
     
     private func cleanupPlayer() {
+        // FIX: Complete cleanup
+        currentPlayTask?.cancel()
+        currentPlayTask = nil
+        
+        // Remove time observer
         if let observer = timeObserver {
             player?.removeTimeObserver(observer)
             timeObserver = nil
         }
         
+        // Remove end observer
         if let token = playerItemEndObserver {
             NotificationCenter.default.removeObserver(token)
             playerItemEndObserver = nil
         }
         
+        // Remove all other observers
+        playerObservers.forEach {
+            NotificationCenter.default.removeObserver($0)
+        }
+        playerObservers.removeAll()
+        
+        // Stop and properly clear player
         player?.pause()
+        player?.replaceCurrentItem(with: nil)  // FIX: Properly clear item
         player = nil
+        
         isPlaying = false
         isLoading = false
     }
@@ -489,14 +531,8 @@ class PlayerViewModel: NSObject, ObservableObject {
         let interval = notification.userInfo?["interval"] as? TimeInterval ?? 15
         skipBackward(seconds: interval)
     }
-    
-    @objc private func playerDidFinishPlaying(_ notification: Notification) {
-        Task { [weak self] in
-            await self?.playNext()
-        }
-    }
 
-    // MARK: - Download Status Methods (unchanged)
+    // MARK: - Download Status Methods
     
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         downloadManager.isAlbumDownloaded(albumId)

@@ -136,6 +136,10 @@ enum BackgroundColor {
     static let secondary = Color(.secondarySystemBackground)
     static let tertiary = Color(.tertiarySystemBackground)
     
+    // Heller Akzent-Hintergrund
+    static let light = Color(UIColor.systemGray6) // wirkt fast weiß in Light Mode, dunkel in Dark Mode
+    static let medium = Color(UIColor.systemGray5)
+    
     // Materials
     static let thin: Material = .ultraThin
     static let regular: Material = .regular

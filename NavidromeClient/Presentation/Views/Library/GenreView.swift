@@ -103,7 +103,6 @@ struct GenreView: View {
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.s) {
-                // ✅ FIXED: Use LibraryStatusHeader instead of GenresStatusHeader
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
                     LibraryStatusHeader.genres(
                         count: filteredGenres.count,
@@ -137,12 +136,12 @@ struct GenreCard: View {
     var body: some View {
         HStack(spacing: Spacing.m) {
             Circle()
-                .fill(BackgroundColor.secondary)
+                .fill(BackgroundColor.medium)
                 .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
                 .blur(radius: 1)
                 .overlay(
                     Image(systemName: "music.note")
-                        .foregroundStyle(TextColor.onDark)
+                        .foregroundStyle(TextColor.primary)
                 )
             
             VStack(alignment: .leading, spacing: Spacing.xs) {
