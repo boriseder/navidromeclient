@@ -1,13 +1,13 @@
 //
-//  SearchResultRow.swift - FIXED for New Image API
+//  SearchResultRow.swift - CLEAN Async Implementation
 //  NavidromeClient
 //
-//  ✅ FIXED: Updated to use new ReactiveCoverArtService methods and fixed SwiftUI issues
+//  ✅ CORRECT: No UI blocking, proper async patterns
 //
 
 import SwiftUI
 
-// MARK: - Artist Row with Cover Art (Enhanced with DS)
+// MARK: - Artist Row (Clean Async)
 struct SearchResultArtistRow: View {
     let artist: Artist
     @EnvironmentObject var coverArtService: ReactiveCoverArtService
@@ -15,15 +15,9 @@ struct SearchResultArtistRow: View {
     var body: some View {
         NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
             HStack(spacing: Spacing.m) {
-                ArtistImageView(
-                    artist: artist,
-                    coverArtService: coverArtService
-                )
-                
+                ArtistImageView(artist: artist)
                 ArtistInfoView(artist: artist)
-                
                 Spacer()
-                
                 Image(systemName: "chevron.right")
                     .font(Typography.caption.weight(.semibold))
                     .foregroundStyle(TextColor.tertiary)
@@ -35,59 +29,17 @@ struct SearchResultArtistRow: View {
     }
 }
 
-// MARK: - Album Row with Cover Art (Enhanced with DS)
+// MARK: - Album Row (Clean Async)
 struct SearchResultAlbumRow: View {
     let album: Album
-    
-    // REAKTIVER Cover Art Service
     @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         NavigationLink(destination: AlbumDetailView(album: album)) {
             HStack(spacing: Spacing.m) {
-                // REAKTIVES Album Cover
-                ZStack {
-                    RoundedRectangle(cornerRadius: Radius.s)
-                        .fill(BackgroundColor.secondary)
-                        .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
-                        .blur(radius: 3)
-                    
-                    // ✅ FIXED: Updated to use new API
-                    if let image = coverArtService.coverImage(for: album, size: 120) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: Sizes.avatar, height: Sizes.avatar)
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.s))
-                    } else {
-                        // ✅ FIXED: Use AnyShapeStyle to resolve generic inference
-                        RoundedRectangle(cornerRadius: Radius.s)
-                            .fill(
-                                AnyShapeStyle(
-                                    LinearGradient(
-                                        colors: [.orange, .pink.opacity(0.7)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            )
-                            .frame(width: Sizes.avatar, height: Sizes.avatar)
-                            .overlay(
-                                Image(systemName: "record.circle.fill")
-                                    .font(.system(size: Sizes.icon))
-                                    .foregroundStyle(TextColor.onDark)
-                            )
-                            .onAppear {
-                                // ✅ FIXED: Use correct method
-                                coverArtService.requestImage(for: album.id, size: 120)
-                            }
-                    }
-                }
-                
+                AlbumImageView(album: album)
                 AlbumInfoView(album: album)
-                
                 Spacer()
-                
                 Image(systemName: "chevron.right")
                     .font(Typography.caption.weight(.semibold))
                     .foregroundStyle(TextColor.tertiary)
@@ -99,78 +51,21 @@ struct SearchResultAlbumRow: View {
     }
 }
 
-// MARK: - Song Row (Enhanced with DS)
+// MARK: - Song Row (Clean Async)
 struct SearchResultSongRow: View {
     let song: Song
     let index: Int
     let isPlaying: Bool
     let action: () -> Void
     
-    // REAKTIVER Cover Art Service
     @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: Spacing.m) {
-                // REAKTIVES Song Cover
-                ZStack {
-                    RoundedRectangle(cornerRadius: Radius.s)
-                        .fill(BackgroundColor.secondary.opacity(isPlaying ? 0.2 : 0.1))
-                        .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
-                        .blur(radius: 3)
-                    
-                    Group {
-                        if let albumId = song.albumId,
-                           // ✅ FIXED: Use correct method signature
-                           let image = coverArtService.image(for: albumId, size: 100) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: Sizes.coverMini, height: Sizes.coverMini)
-                                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
-                                .overlay(
-                                    // Playing indicator overlay
-                                    isPlaying ?
-                                    RoundedRectangle(cornerRadius: Radius.s)
-                                        .fill(BrandColor.playing.opacity(0.3))
-                                        .overlay(
-                                            Image(systemName: "speaker.wave.2.fill")
-                                                .font(Typography.caption)
-                                                .foregroundStyle(BrandColor.playing)
-                                        ) : nil
-                                )
-                        } else {
-                            // ✅ FIXED: Use AnyShapeStyle to resolve generic inference
-                            RoundedRectangle(cornerRadius: Radius.s)
-                                .fill(
-                                    AnyShapeStyle(
-                                        LinearGradient(
-                                            colors: [.green, .blue.opacity(0.7)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                )
-                                .frame(width: Sizes.coverMini, height: Sizes.coverMini)
-                                .overlay(
-                                    Image(systemName: "music.note")
-                                        .font(.system(size: Sizes.iconLarge))
-                                        .foregroundStyle(TextColor.onDark)
-                                )
-                                .onAppear {
-                                    // ✅ FIXED: Use correct method
-                                    if let albumId = song.albumId {
-                                        coverArtService.requestImage(for: albumId, size: 100)
-                                    }
-                                }
-                        }
-                    }
-                }
-                
+                SongImageView(song: song, isPlaying: isPlaying)
                 SongInfoView(song: song, isPlaying: isPlaying)
-                
                 Spacer()
-                
                 SongDurationView(duration: song.duration)
             }
             .listItemPadding()
@@ -180,56 +75,232 @@ struct SearchResultSongRow: View {
     }
 }
 
-// MARK: - Artist Components (Enhanced with DS)
+// MARK: - Image Components (Clean Async)
+
 struct ArtistImageView: View {
     let artist: Artist
-    let coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    
+    @State private var artistImage: UIImage?
+    @State private var isLoading = false
     
     var body: some View {
         ZStack {
-            // Subtle glow background
             Circle()
                 .fill(BackgroundColor.secondary)
                 .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
                 .blur(radius: 3)
             
-            // Main avatar
             Group {
-                // ✅ FIXED: Use artistImage method
-                if let image = coverArtService.artistImage(for: artist, size: 120) {
+                if let image = artistImage {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(width: Sizes.avatar, height: Sizes.avatar)
                         .clipShape(Circle())
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
                 } else {
                     Circle()
                         .fill(
-                            AnyShapeStyle(
-                                LinearGradient(
-                                    colors: [.blue, .purple.opacity(0.7)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                            LinearGradient(
+                                colors: [.blue, .purple.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: Sizes.avatar, height: Sizes.avatar)
                         .overlay(
-                            Image(systemName: "music.mic")
-                                .font(.system(size: Sizes.icon))
-                                .foregroundStyle(TextColor.onDark)
-                        )
-                        .onAppear {
-                            // ✅ FIXED: Use consistent API like ArtistCard
-                            if let coverArt = artist.coverArt {
-                                coverArtService.requestImage(for: coverArt, size: 120)
+                            Group {
+                                if isLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "music.mic")
+                                        .font(.system(size: Sizes.icon))
+                                        .foregroundStyle(TextColor.onDark)
+                                }
                             }
-                        }
+                        )
                 }
             }
         }
+        .task(id: artist.id) {
+            await loadArtistImage()
+        }
+    }
+    
+    private func loadArtistImage() async {
+        if let cached = coverArtService.getCachedArtistImage(artist, size: 120) {
+            artistImage = cached
+            return
+        }
+        
+        guard artist.coverArt != nil else { return }
+        
+        isLoading = true
+        let loadedImage = await coverArtService.loadArtistImage(artist, size: 120)
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            artistImage = loadedImage
+            isLoading = false
+        }
     }
 }
+
+struct AlbumImageView: View {
+    let album: Album
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    
+    @State private var albumImage: UIImage?
+    @State private var isLoading = false
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Radius.s)
+                .fill(BackgroundColor.secondary)
+                .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
+                .blur(radius: 3)
+            
+            Group {
+                if let image = albumImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: Sizes.avatar, height: Sizes.avatar)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                } else {
+                    RoundedRectangle(cornerRadius: Radius.s)
+                        .fill(
+                            LinearGradient(
+                                colors: [.orange, .pink.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: Sizes.avatar, height: Sizes.avatar)
+                        .overlay(
+                            Group {
+                                if isLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "record.circle.fill")
+                                        .font(.system(size: Sizes.icon))
+                                        .foregroundStyle(TextColor.onDark)
+                                }
+                            }
+                        )
+                }
+            }
+        }
+        .task(id: album.id) {
+            await loadAlbumImage()
+        }
+    }
+    
+    private func loadAlbumImage() async {
+        if let cached = coverArtService.getCachedAlbumCover(album, size: 120) {
+            albumImage = cached
+            return
+        }
+        
+        isLoading = true
+        let loadedImage = await coverArtService.loadAlbumCover(album, size: 120)
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            albumImage = loadedImage
+            isLoading = false
+        }
+    }
+}
+
+struct SongImageView: View {
+    let song: Song
+    let isPlaying: Bool
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    
+    @State private var songImage: UIImage?
+    @State private var isLoading = false
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: Radius.s)
+                .fill(BackgroundColor.secondary.opacity(isPlaying ? 0.2 : 0.1))
+                .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
+                .blur(radius: 3)
+            
+            Group {
+                if let image = songImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: Sizes.coverMini, height: Sizes.coverMini)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                        .overlay(
+                            isPlaying ?
+                            RoundedRectangle(cornerRadius: Radius.s)
+                                .fill(BrandColor.playing.opacity(0.3))
+                                .overlay(
+                                    Image(systemName: "speaker.wave.2.fill")
+                                        .font(Typography.caption)
+                                        .foregroundStyle(BrandColor.playing)
+                                ) : nil
+                        )
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                } else {
+                    RoundedRectangle(cornerRadius: Radius.s)
+                        .fill(
+                            LinearGradient(
+                                colors: [.green, .blue.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: Sizes.coverMini, height: Sizes.coverMini)
+                        .overlay(
+                            Group {
+                                if isLoading {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "music.note")
+                                        .font(.system(size: Sizes.iconLarge))
+                                        .foregroundStyle(TextColor.onDark)
+                                }
+                            }
+                        )
+                }
+            }
+        }
+        .task(id: song.albumId) {
+            await loadSongImage()
+        }
+    }
+    
+    private func loadSongImage() async {
+        guard let albumId = song.albumId else { return }
+        
+        let imageType = ImageType.album(albumId)
+        if let cached = coverArtService.getCachedImage(for: imageType, size: 100) {
+            songImage = cached
+            return
+        }
+        
+        isLoading = true
+        let loadedImage = await coverArtService.loadImage(for: imageType, size: 100)
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            songImage = loadedImage
+            isLoading = false
+        }
+    }
+}
+
+// MARK: - Info Components (unchanged)
 
 struct ArtistInfoView: View {
     let artist: Artist
@@ -256,7 +327,6 @@ struct ArtistInfoView: View {
     }
 }
 
-// MARK: - Album Components (Enhanced with DS)
 struct AlbumInfoView: View {
     let album: Album
     
@@ -302,7 +372,6 @@ struct AlbumInfoView: View {
     }
 }
 
-// MARK: - Song Components (Enhanced with DS)
 struct SongInfoView: View {
     let song: Song
     let isPlaying: Bool
@@ -366,7 +435,6 @@ struct SongDurationView: View {
                 .foregroundStyle(TextColor.secondary)
                 .monospacedDigit()
             
-            // Small music note indicator
             Image(systemName: "music.note")
                 .font(Typography.caption2)
                 .foregroundStyle(TextColor.quaternary)
@@ -374,7 +442,8 @@ struct SongDurationView: View {
     }
 }
 
-// MARK: - Shared Components (Enhanced with DS)
+// MARK: - Shared Components (unchanged)
+
 struct MetadataItem: View {
     let icon: String
     let text: String
@@ -414,7 +483,7 @@ struct MetadataSeparator: View {
     }
 }
 
-// MARK: - Helper Extension
+// MARK: - Helper Extension (unchanged)
 extension Optional where Wrapped == String {
     var isNilOrEmpty: Bool {
         return self?.isEmpty ?? true

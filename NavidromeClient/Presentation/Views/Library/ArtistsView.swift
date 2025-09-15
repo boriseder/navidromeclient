@@ -15,11 +15,10 @@ struct ArtistsView: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
     @State private var searchText = ""
-    
-    // ✅ SIMPLIFIED: No hasLoadedOnce, no task, no onChange
-    
+      
     var body: some View {
         NavigationStack {
             Group {
@@ -46,7 +45,7 @@ struct ArtistsView: View {
             .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $searchText, placement: .automatic, prompt: "Search artists...")
-            .toolbar {
+            .toolbar {              
                 ToolbarItem(placement: .navigationBarTrailing) {
                     OfflineModeToggle()
                 }
@@ -60,7 +59,6 @@ struct ArtistsView: View {
                     .disabled(navidromeVM.isLoadingInBackground)
                 }
             }
-            // ✅ SIMPLIFIED: Only refreshable
             .refreshable {
                 await navidromeVM.refreshAllData()
             }
@@ -71,6 +69,7 @@ struct ArtistsView: View {
         }
     }
 
+    // Rest of the existing code remains the same...
     private var filteredArtists: [Artist] {
         let artists: [Artist]
         
@@ -112,4 +111,3 @@ struct ArtistsView: View {
         }
     }
 }
-

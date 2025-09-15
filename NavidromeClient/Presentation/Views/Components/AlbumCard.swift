@@ -1,8 +1,8 @@
 //
-//  AlbumCard.swift - FIXED for New Image API
+//  AlbumCard.swift - CLEAN Async Implementation
 //  NavidromeClient
 //
-//  ✅ FIXED: Updated to use new ReactiveCoverArtService methods
+//  ✅ CORRECT: No UI blocking, proper async patterns
 //
 
 import SwiftUI
@@ -11,12 +11,15 @@ struct AlbumCard: View {
     let album: Album
     let accentColor: Color
     
-    // REAKTIVER Cover Art Service
     @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    
+    // ✅ CORRECT: Local state for async loading
+    @State private var coverImage: UIImage?
+    @State private var isLoading = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            // Album Cover - REAKTIV mit Design System
+            // Album Cover - CLEAN ASYNC
             ZStack {
                 RoundedRectangle(cornerRadius: Radius.xs)
                     .fill(LinearGradient(
@@ -26,26 +29,35 @@ struct AlbumCard: View {
                     ))
                     .frame(width: Sizes.card, height: Sizes.card)
                 
-                // ✅ FIXED: Updated to use new API methods
-                if let coverImage = coverArtService.coverImage(for: album, size: 200) {
-                    Image(uiImage: coverImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: Sizes.card, height: Sizes.card)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
-                } else {
-                    Image(systemName: "music.note")
-                        .font(.system(size: Sizes.iconLarge))
-                        .foregroundColor(accentColor.opacity(0.7))
-                        .onAppear {
-                            // ✅ FIXED: Use the correct method name
-                            coverArtService.requestImage(for: album.id, size: 200)
+                Group {
+                    if let image = coverImage {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: Sizes.card, height: Sizes.card)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                            .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                    } else {
+                        Group {
+                            if isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(accentColor)
+                            } else {
+                                Image(systemName: "music.note")
+                                    .font(.system(size: Sizes.iconLarge))
+                                    .foregroundColor(accentColor.opacity(0.7))
+                            }
                         }
+                    }
                 }
             }
             .cardShadow()
+            .task(id: album.id) {
+                await loadAlbumCover()
+            }
             
-            // Album Info mit Design System
+            // Album Info (unchanged)
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(album.name)
                     .font(Typography.bodyEmphasized)
@@ -62,12 +74,33 @@ struct AlbumCard: View {
                         .font(Typography.caption2)
                         .foregroundColor(TextColor.tertiary)
                 } else {
-                    Text(" ") // Spacer für konsistente Höhe
+                    Text(" ") // Spacer for consistent height
                         .font(Typography.caption2)
                         .foregroundColor(TextColor.tertiary)
                 }
             }
             .frame(width: Sizes.card, alignment: .leading)
+        }
+    }
+    
+    // ✅ CORRECT: Proper async loading
+    private func loadAlbumCover() async {
+        // 1. Check cache first (fast, non-blocking)
+        if let cached = coverArtService.getCachedAlbumCover(album, size: 200) {
+            coverImage = cached
+            return
+        }
+        
+        // 2. Async loading with proper state management
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isLoading = true
+        }
+        
+        let loadedImage = await coverArtService.loadAlbumCover(album, size: 200)
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            coverImage = loadedImage
+            isLoading = false
         }
     }
 }

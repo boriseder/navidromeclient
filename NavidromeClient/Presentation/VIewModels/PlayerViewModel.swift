@@ -224,7 +224,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             coverArt = await coverArtService.loadAlbumCover(album, size: 300)
         } else {
             // Fallback: try to load directly by ID using the unified API
-            coverArt = await coverArtService.loadImage(for: albumId, size: 300)
+            coverArt = await coverArtService.loadImage(for: .album(albumId), size: 300)
         }
         
         updateNowPlayingInfo()
