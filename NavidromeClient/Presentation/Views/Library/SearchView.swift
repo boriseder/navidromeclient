@@ -1,5 +1,5 @@
 //
-//  SearchView.swift - Enhanced with Offline Search Support
+//  SearchView.swift - FIXED for Progressive Loading Architecture
 //
 
 import SwiftUI
@@ -182,11 +182,12 @@ struct SearchView: View {
         }
     }
     
+    // ✅ FIXED: Clear results method
     private func clearResults() {
-        navidromeVM.artists = []
-        navidromeVM.albums = []
-        navidromeVM.songs = []
-        navidromeVM.errorMessage = nil
+        // ✅ FIX: Don't directly assign to computed properties, use the ViewModel's method
+        Task {
+            await navidromeVM.search(query: "")  // Empty search clears results
+        }
         
         // ✅ NEW: Clear offline results
         offlineSearchResults = OfflineSearchResults()
