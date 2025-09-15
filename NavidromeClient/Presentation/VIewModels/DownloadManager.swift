@@ -1,5 +1,8 @@
+//
+//  DownloadManager.swift - Enhanced with Complete Song Metadata Storage
+//
+
 import Foundation
-//import SwiftUI
 
 @MainActor
 class DownloadManager: ObservableObject {
@@ -10,10 +13,59 @@ class DownloadManager: ObservableObject {
     @Published private(set) var isDownloading: Set<String> = []
     @Published private(set) var downloadProgress: [String: Double] = [:]
 
+    // ✅ NEW: Enhanced data structures with full metadata
     struct DownloadedAlbum: Codable, Equatable {
         let albumId: String
-        let songIds: [String]
+        let albumName: String        // ✅ NEW
+        let artistName: String       // ✅ NEW
+        let year: Int?              // ✅ NEW
+        let genre: String?          // ✅ NEW
+        let songs: [DownloadedSong] // ✅ ENHANCED: Full song objects instead of just IDs
         let folderPath: String
+        let downloadDate: Date      // ✅ NEW
+        
+        // Legacy support
+        var songIds: [String] {
+            return songs.map { $0.id }
+        }
+    }
+    
+    // ✅ NEW: Complete Song Metadata Storage
+    struct DownloadedSong: Codable, Equatable, Identifiable {
+        let id: String
+        let title: String
+        let artist: String?
+        let album: String?
+        let albumId: String?
+        let track: Int?
+        let duration: Int?
+        let year: Int?
+        let genre: String?
+        let contentType: String?
+        let fileName: String        // ✅ NEW: Actual file name
+        let fileSize: Int64         // ✅ NEW: File size in bytes
+        let downloadDate: Date      // ✅ NEW
+        
+        // Convert to Song object for playback
+        func toSong() -> Song {
+            Song(
+                id: id,
+                title: title,
+                duration: duration,
+                coverArt: albumId,
+                artist: artist,
+                album: album,
+                albumId: albumId,
+                track: track,
+                year: year,
+                genre: genre,
+                artistId: nil,
+                isVideo: false,
+                contentType: contentType ?? "audio/mpeg",
+                suffix: "mp3",
+                path: nil
+            )
+        }
     }
 
     private var downloadsFolder: URL {
@@ -35,10 +87,10 @@ class DownloadManager: ObservableObject {
 
     init() {
         loadDownloadedAlbums()
-        loadDownloadedSongs() // NEW: Load persisted songs
+        migrateOldDataIfNeeded() // ✅ NEW: Handle migration from old format
     }
 
-    // MARK: - Album / Song Status
+    // MARK: - Album / Song Status (Enhanced)
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         downloadedAlbums.contains { $0.albumId == albumId }
     }
@@ -50,111 +102,91 @@ class DownloadManager: ObservableObject {
     func isSongDownloaded(_ songId: String) -> Bool {
         downloadedSongs.contains(songId)
     }
+    
+    // ✅ NEW: Get downloaded song metadata
+    func getDownloadedSong(_ songId: String) -> DownloadedSong? {
+        for album in downloadedAlbums {
+            if let song = album.songs.first(where: { $0.id == songId }) {
+                return song
+            }
+        }
+        return nil
+    }
+    
+    // ✅ NEW: Get all downloaded songs for an album
+    func getDownloadedSongs(for albumId: String) -> [DownloadedSong] {
+        return downloadedAlbums.first { $0.albumId == albumId }?.songs ?? []
+    }
+    
+    // ✅ NEW: Convert downloaded songs to Song objects for playback
+    func getSongsForPlayback(albumId: String) -> [Song] {
+        return getDownloadedSongs(for: albumId).map { $0.toSong() }
+    }
 
     func getLocalFileURL(for songId: String) -> URL? {
-        guard downloadedSongs.contains(songId) else { return nil }
-
-        // First check in album folders
+        // ✅ ENHANCED: Use stored file name from metadata
+        guard let downloadedSong = getDownloadedSong(songId) else { return nil }
+        
+        // Find the album this song belongs to
         for album in downloadedAlbums {
-            if album.songIds.contains(songId) {
-                let path = URL(fileURLWithPath: album.folderPath).appendingPathComponent("\(songId).mp3")
-                if FileManager.default.fileExists(atPath: path.path) {
-                    return path
+            if album.songs.contains(where: { $0.id == songId }) {
+                let albumFolder = URL(fileURLWithPath: album.folderPath)
+                let filePath = albumFolder.appendingPathComponent(downloadedSong.fileName)
+                
+                if FileManager.default.fileExists(atPath: filePath.path) {
+                    return filePath
                 }
             }
         }
-
-        // Fallback: check in root downloads folder
+        
+        // Legacy fallback
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let filePath = documentsPath.appendingPathComponent("\(songId).mp3")
         return FileManager.default.fileExists(atPath: filePath.path) ? filePath : nil
     }
 
     func totalDownloadSize() -> String {
-        var total: UInt64 = 0
-        if let enumerator = FileManager.default.enumerator(at: downloadsFolder, includingPropertiesForKeys: [.fileSizeKey]) {
-            for case let fileURL as URL in enumerator {
-                if let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize {
-                    total += UInt64(size)
-                }
+        // ✅ ENHANCED: Use stored file sizes from metadata
+        let totalBytes = downloadedAlbums.reduce(0) { total, album in
+            total + album.songs.reduce(0) { songTotal, song in
+                songTotal + song.fileSize
             }
         }
-        let mb = Double(total) / 1_048_576.0
+        
+        let mb = Double(totalBytes) / 1_048_576.0
         return String(format: "%.1f MB", mb)
     }
-
-    // MARK: - Persistenz
-    private func loadDownloadedAlbums() {
-        guard FileManager.default.fileExists(atPath: downloadedAlbumsFile.path) else { return }
-        do {
-            let data = try Data(contentsOf: downloadedAlbumsFile)
-            downloadedAlbums = try JSONDecoder().decode([DownloadedAlbum].self, from: data)
-            // Rebuild downloadedSongs from albums
-            downloadedSongs.removeAll()
-            for album in downloadedAlbums {
-                downloadedSongs.formUnion(album.songIds)
-            }
-            print("📦 Loaded \(downloadedAlbums.count) albums, \(downloadedSongs.count) songs from cache")
-        } catch {
-            print("Failed to load downloaded albums: \(error)")
-            downloadedAlbums = []
-        }
-    }
     
-    // NEW: Load downloaded songs separately for robustness
-    private func loadDownloadedSongs() {
-        guard FileManager.default.fileExists(atPath: downloadedSongsFile.path) else {
-            print("📦 No separate songs file found - using songs from albums")
-            return
+    // ✅ NEW: Get download statistics
+    func getDownloadStats() -> DownloadStats {
+        let totalSongs = downloadedAlbums.reduce(0) { $0 + $1.songs.count }
+        let totalSize = downloadedAlbums.reduce(0) { total, album in
+            total + album.songs.reduce(0) { $0 + $1.fileSize }
         }
-        do {
-            let data = try Data(contentsOf: downloadedSongsFile)
-            let songIds = try JSONDecoder().decode([String].self, from: data)
-            let loadedSongs = Set(songIds)
-            
-            // Merge with songs from albums (albums are authoritative)
-            downloadedSongs.formUnion(loadedSongs)
-            
-            print("📦 Loaded additional \(loadedSongs.count) songs from separate cache")
-        } catch {
-            print("Failed to load downloaded songs: \(error)")
-        }
+        
+        return DownloadStats(
+            albumCount: downloadedAlbums.count,
+            songCount: totalSongs,
+            totalSizeBytes: totalSize,
+            oldestDownload: downloadedAlbums.map { $0.downloadDate }.min(),
+            newestDownload: downloadedAlbums.map { $0.downloadDate }.max()
+        )
     }
 
-    private func saveDownloadedAlbums() {
-        do {
-            let data = try JSONEncoder().encode(downloadedAlbums)
-            try data.write(to: downloadedAlbumsFile)
-            
-            // Also save songs separately for persistence
-            saveDownloadedSongs()
-            
-            print("💾 Saved \(downloadedAlbums.count) albums, \(downloadedSongs.count) songs")
-        } catch {
-            print("Failed to save downloaded albums: \(error)")
-        }
-    }
-    
-    // NEW: Save downloaded songs separately
-    private func saveDownloadedSongs() {
-        do {
-            let songIds = Array(downloadedSongs).sorted() // Sort for consistent file
-            let data = try JSONEncoder().encode(songIds)
-            try data.write(to: downloadedSongsFile)
-        } catch {
-            print("Failed to save downloaded songs: \(error)")
-        }
-    }
-
-    // MARK: - Enhanced Download Logic
+    // ✅ ENHANCED: Download with Complete Metadata Storage
     func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async {
-        // Prüfen, ob schon ein Download läuft
         guard !isDownloading.contains(albumId) else {
             print("⚠️ Download for album \(albumId) already in progress")
             return
         }
         
-        print("🔽 Starting download of album \(albumId) with \(songs.count) songs")
+        // Get album metadata
+        guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
+            print("❌ Album metadata not found for \(albumId)")
+            return
+        }
+        
+        print("🔽 Starting download of album '\(albumMetadata.name)' with \(songs.count) songs")
         
         isDownloading.insert(albumId)
         downloadProgress[albumId] = 0
@@ -171,8 +203,9 @@ class DownloadManager: ObservableObject {
             }
         }
 
-        var successfulSongIds: [String] = []
+        var downloadedSongsMetadata: [DownloadedSong] = []
         let totalSongs = songs.count
+        let downloadDate = Date()
 
         for (index, song) in songs.enumerated() {
             guard let url = service.streamURL(for: song.id) else {
@@ -180,13 +213,16 @@ class DownloadManager: ObservableObject {
                 continue
             }
             
-            let fileURL = albumFolder.appendingPathComponent("\(song.id).mp3")
+            // ✅ ENHANCED: Generate proper file name
+            let sanitizedTitle = sanitizeFileName(song.title)
+            let trackNumber = String(format: "%02d", song.track ?? index + 1)
+            let fileName = "\(trackNumber) - \(sanitizedTitle).mp3"
+            let fileURL = albumFolder.appendingPathComponent(fileName)
 
             do {
                 print("⬇️ Downloading: \(song.title)")
                 let (data, response) = try await URLSession.shared.data(from: url)
                 
-                // Verify response
                 if let httpResponse = response as? HTTPURLResponse {
                     guard httpResponse.statusCode == 200 else {
                         print("❌ Download failed for \(song.title): HTTP \(httpResponse.statusCode)")
@@ -194,68 +230,82 @@ class DownloadManager: ObservableObject {
                     }
                 }
                 
-                // Write file atomically
                 try data.write(to: fileURL, options: .atomic)
 
-                // Update tracking
-                successfulSongIds.append(song.id)
+                // ✅ NEW: Create complete song metadata
+                let downloadedSong = DownloadedSong(
+                    id: song.id,
+                    title: song.title,
+                    artist: song.artist,
+                    album: song.album,
+                    albumId: song.albumId,
+                    track: song.track,
+                    duration: song.duration,
+                    year: song.year,
+                    genre: song.genre,
+                    contentType: song.contentType,
+                    fileName: fileName,
+                    fileSize: Int64(data.count),
+                    downloadDate: downloadDate
+                )
+                
+                downloadedSongsMetadata.append(downloadedSong)
                 downloadedSongs.insert(song.id)
                 
-                // Update progress - IMPORTANT: Update on MainActor
                 await MainActor.run {
                     downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
-                    print("📊 Progress updated: \(albumId) -> \(downloadProgress[albumId] ?? 0)")
                 }
                 
-                print("✅ Downloaded: \(song.title)")
+                print("✅ Downloaded: \(song.title) (\(data.count) bytes)")
                 
             } catch {
                 print("❌ Download error for \(song.title): \(error)")
-                // Continue with other songs
             }
         }
 
-        // Save album metadata if any songs were downloaded
-        if !successfulSongIds.isEmpty {
+        // ✅ ENHANCED: Save complete album metadata
+        if !downloadedSongsMetadata.isEmpty {
             let downloadedAlbum = DownloadedAlbum(
                 albumId: albumId,
-                songIds: successfulSongIds,
-                folderPath: albumFolder.path
+                albumName: albumMetadata.name,
+                artistName: albumMetadata.artist,
+                year: albumMetadata.year,
+                genre: albumMetadata.genre,
+                songs: downloadedSongsMetadata,
+                folderPath: albumFolder.path,
+                downloadDate: downloadDate
             )
             
             // Update or add album
             if let existingIndex = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
-                // Merge with existing download
-                let existingSongs = Set(downloadedAlbums[existingIndex].songIds)
-                let newSongs = Set(successfulSongIds)
-                let allSongs = existingSongs.union(newSongs)
-                
-                downloadedAlbums[existingIndex] = DownloadedAlbum(
-                    albumId: albumId,
-                    songIds: Array(allSongs),
-                    folderPath: albumFolder.path
-                )
+                downloadedAlbums[existingIndex] = downloadedAlbum
             } else {
                 downloadedAlbums.append(downloadedAlbum)
             }
 
             saveDownloadedAlbums()
             
-            print("✅ Album download completed: \(successfulSongIds.count)/\(totalSongs) songs")
+            print("✅ Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs")
         } else {
             print("❌ Album download failed: No songs downloaded")
         }
 
-        // Cleanup
         isDownloading.remove(albumId)
         downloadProgress[albumId] = 1.0
         
-        // Send completion notification
         NotificationCenter.default.post(name: .downloadCompleted, object: albumId)
 
-        // Clear progress after delay
         try? await Task.sleep(nanoseconds: 2_000_000_000)
         downloadProgress.removeValue(forKey: albumId)
+    }
+    
+    // ✅ NEW: Sanitize file names for filesystem
+    private func sanitizeFileName(_ name: String) -> String {
+        let invalidChars = CharacterSet(charactersIn: ":/\\?%*|\"<>")
+        return name.components(separatedBy: invalidChars).joined(separator: "_")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(50) // Limit length
+            .description
     }
     
     func deleteAlbum(albumId: String) {
@@ -274,8 +324,8 @@ class DownloadManager: ObservableObject {
             }
 
             // Remove from tracking
-            for songId in album.songIds {
-                downloadedSongs.remove(songId)
+            for song in album.songs {
+                downloadedSongs.remove(song.id)
             }
 
             downloadedAlbums.removeAll { $0.albumId == albumId }
@@ -284,7 +334,7 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            print("✅ Deleted album: \(albumId)")
+            print("✅ Deleted album: \(album.albumName)")
         }
     }
     
@@ -298,7 +348,6 @@ class DownloadManager: ObservableObject {
             print("❌ Failed to delete downloads folder: \(error)")
         }
 
-        // Clear all tracking
         downloadedAlbums.removeAll()
         downloadedSongs.removeAll()
         downloadProgress.removeAll()
@@ -307,6 +356,152 @@ class DownloadManager: ObservableObject {
         saveDownloadedAlbums()
         
         print("✅ Cleared all downloads")
+    }
+
+    // MARK: - ✅ ENHANCED: Persistence with Migration Support
+    
+    private func loadDownloadedAlbums() {
+        guard FileManager.default.fileExists(atPath: downloadedAlbumsFile.path) else { return }
+        
+        do {
+            let data = try Data(contentsOf: downloadedAlbumsFile)
+            
+            // Try to decode new format first
+            if let newAlbums = try? JSONDecoder().decode([DownloadedAlbum].self, from: data) {
+                downloadedAlbums = newAlbums
+                rebuildDownloadedSongsSet()
+                print("📦 Loaded \(downloadedAlbums.count) albums with full metadata")
+                return
+            }
+            
+            // ✅ LEGACY: Try old format for migration
+            if let oldAlbums = try? JSONDecoder().decode([LegacyDownloadedAlbum].self, from: data) {
+                print("🔄 Migrating \(oldAlbums.count) albums from legacy format...")
+                downloadedAlbums = migrateLegacyAlbums(oldAlbums)
+                rebuildDownloadedSongsSet()
+                saveDownloadedAlbums() // Save in new format
+                print("✅ Migration completed")
+                return
+            }
+            
+        } catch {
+            print("❌ Failed to load downloaded albums: \(error)")
+            downloadedAlbums = []
+        }
+    }
+    
+    // ✅ NEW: Migration from old format
+    private struct LegacyDownloadedAlbum: Codable, Equatable {
+        let albumId: String
+        let songIds: [String]
+        let folderPath: String
+    }
+    
+    private func migrateLegacyAlbums(_ legacyAlbums: [LegacyDownloadedAlbum]) -> [DownloadedAlbum] {
+        return legacyAlbums.compactMap { legacy in
+            // Get album metadata
+            guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: legacy.albumId) else {
+                print("⚠️ No metadata found for legacy album \(legacy.albumId)")
+                return nil
+            }
+            
+            // Create minimal song metadata from legacy data
+            let songs = legacy.songIds.enumerated().map { index, songId in
+                DownloadedSong(
+                    id: songId,
+                    title: "Track \(index + 1)", // Fallback title
+                    artist: albumMetadata.artist,
+                    album: albumMetadata.name,
+                    albumId: legacy.albumId,
+                    track: index + 1,
+                    duration: nil,
+                    year: albumMetadata.year,
+                    genre: albumMetadata.genre,
+                    contentType: "audio/mpeg",
+                    fileName: "\(songId).mp3", // Legacy file naming
+                    fileSize: getFileSizeForLegacySong(songId, folderPath: legacy.folderPath),
+                    downloadDate: Date() // Approximate
+                )
+            }
+            
+            return DownloadedAlbum(
+                albumId: legacy.albumId,
+                albumName: albumMetadata.name,
+                artistName: albumMetadata.artist,
+                year: albumMetadata.year,
+                genre: albumMetadata.genre,
+                songs: songs,
+                folderPath: legacy.folderPath,
+                downloadDate: Date() // Approximate
+            )
+        }
+    }
+    
+    private func getFileSizeForLegacySong(_ songId: String, folderPath: String) -> Int64 {
+        let fileURL = URL(fileURLWithPath: folderPath).appendingPathComponent("\(songId).mp3")
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            return attributes[.size] as? Int64 ?? 0
+        } catch {
+            return 0
+        }
+    }
+    
+    private func migrateOldDataIfNeeded() {
+        // Check if we need to migrate from very old format
+        let oldSongsFile = downloadsFolder.appendingPathComponent("downloaded_songs.json")
+        if FileManager.default.fileExists(atPath: oldSongsFile.path) && downloadedAlbums.isEmpty {
+            print("🔄 Found old songs file - cleaning up...")
+            try? FileManager.default.removeItem(at: oldSongsFile)
+        }
+    }
+    
+    private func rebuildDownloadedSongsSet() {
+        downloadedSongs.removeAll()
+        for album in downloadedAlbums {
+            for song in album.songs {
+                downloadedSongs.insert(song.id)
+            }
+        }
+    }
+
+    private func saveDownloadedAlbums() {
+        do {
+            let data = try JSONEncoder().encode(downloadedAlbums)
+            try data.write(to: downloadedAlbumsFile)
+            print("💾 Saved \(downloadedAlbums.count) albums with full metadata")
+        } catch {
+            print("❌ Failed to save downloaded albums: \(error)")
+        }
+    }
+}
+
+// ✅ NEW: Download Statistics
+struct DownloadStats {
+    let albumCount: Int
+    let songCount: Int
+    let totalSizeBytes: Int64
+    let oldestDownload: Date?
+    let newestDownload: Date?
+    
+    var totalSizeFormatted: String {
+        ByteCountFormatter.string(fromByteCount: totalSizeBytes, countStyle: .file)
+    }
+    
+    var averageSongSize: Int64 {
+        guard songCount > 0 else { return 0 }
+        return totalSizeBytes / Int64(songCount)
+    }
+    
+    var averageAlbumSize: Int64 {
+        guard albumCount > 0 else { return 0 }
+        return totalSizeBytes / Int64(albumCount)
+    }
+    
+    var downloadTimespan: String? {
+        guard let oldest = oldestDownload, let newest = newestDownload else { return nil }
+        let days = Calendar.current.dateComponents([.day], from: oldest, to: newest).day ?? 0
+        return "\(days) days"
     }
 }
 

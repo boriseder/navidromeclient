@@ -1,8 +1,5 @@
 //
-//  NavidromeViewModel.swift - Enhanced with Background Sequential Loading
-//  NavidromeClient
-//
-//  ✅ ENHANCED: Centralized data loading with background sequential loading
+//  NavidromeViewModel.swift - Enhanced with Offline Song Loading Support
 //
 
 import Foundation
@@ -26,13 +23,11 @@ class NavidromeViewModel: ObservableObject {
     @Published var subsonicVersion: String?
     @Published var openSubsonic: Bool?
 
-    // MARK: - NEW: Data Loading State Management
     @Published var hasLoadedInitialData = false
     @Published var lastRefreshDate: Date?
     @Published var isLoadingInBackground = false
     @Published var backgroundLoadingProgress: String = ""
     
-    // Track what has been loaded
     private var loadedDataTypes: Set<DataType> = []
     
     enum DataType {
@@ -47,25 +42,149 @@ class NavidromeViewModel: ObservableObject {
         }
     }
     
-    // MARK: - Credentials / UI Bindings (unchanged)
+    // MARK: - Credentials / UI Bindings
     @Published var scheme: String = "http"
     @Published var host: String = ""
     @Published var port: String = ""
     @Published var username: String = ""
     @Published var password: String = ""
 
-    // MARK: - Dependencies (unchanged)
+    // MARK: - Dependencies
     private var service: SubsonicService?
     private let downloadManager: DownloadManager
 
-    // MARK: - Init (unchanged)
+    // MARK: - Init
     init(downloadManager: DownloadManager? = nil) {
         self.downloadManager = downloadManager ?? DownloadManager.shared
         loadSavedCredentials()
     }
 
-    // MARK: - ✅ NEW: Central Data Loading Methods
-
+    // MARK: - ✅ ENHANCED: Smart Song Loading with Offline Support
+    
+    /// Enhanced loadSongs with complete offline support and caching
+    func loadSongs(for albumId: String) async -> [Song] {
+        // 1. Check memory cache first
+        if let cached = albumSongs[albumId], !cached.isEmpty {
+            print("📋 Using cached songs for album \(albumId): \(cached.count) songs")
+            return cached
+        }
+        
+        // 2. Check if album is downloaded (highest priority)
+        if downloadManager.isAlbumDownloaded(albumId) {
+            print("📱 Loading offline songs for album \(albumId)")
+            let offlineSongs = await loadOfflineSongs(for: albumId)
+            if !offlineSongs.isEmpty {
+                albumSongs[albumId] = offlineSongs // Cache them
+                return offlineSongs
+            }
+        }
+        
+        // 3. Try online loading if available
+        if NetworkMonitor.shared.canLoadOnlineContent && !OfflineManager.shared.isOfflineMode {
+            print("🌐 Loading online songs for album \(albumId)")
+            let onlineSongs = await loadOnlineSongs(for: albumId)
+            if !onlineSongs.isEmpty {
+                albumSongs[albumId] = onlineSongs // Cache them
+                return onlineSongs
+            }
+        }
+        
+        // 4. Final fallback to offline (in case online failed)
+        print("📱 Fallback to offline songs for album \(albumId)")
+        let fallbackSongs = await loadOfflineSongs(for: albumId)
+        if !fallbackSongs.isEmpty {
+            albumSongs[albumId] = fallbackSongs
+        }
+        
+        return fallbackSongs
+    }
+    
+    // ✅ NEW: Load songs from online service
+    private func loadOnlineSongs(for albumId: String) async -> [Song] {
+        guard let service = service else {
+            print("❌ No service available for online song loading")
+            return []
+        }
+        
+        do {
+            let songs = try await service.getSongs(for: albumId)
+            print("✅ Loaded \(songs.count) online songs for album \(albumId)")
+            return songs
+        } catch {
+            print("⚠️ Failed to load online songs for album \(albumId): \(error)")
+            
+            // Check if it's a timeout or network error
+            if let subsonicError = error as? SubsonicError {
+                if subsonicError.isOfflineError || subsonicError.isRecoverable {
+                    print("🔄 Network error detected - this will trigger offline fallback")
+                }
+            }
+            
+            return []
+        }
+    }
+    
+    // ✅ NEW: Load songs from downloaded files with full metadata
+    private func loadOfflineSongs(for albumId: String) async -> [Song] {
+        // 1. Try to get full metadata from DownloadManager
+        let downloadedSongs = downloadManager.getDownloadedSongs(for: albumId)
+        if !downloadedSongs.isEmpty {
+            let songs = downloadedSongs.map { $0.toSong() }
+            print("✅ Loaded \(songs.count) offline songs with full metadata for album \(albumId)")
+            return songs
+        }
+        
+        // 2. Legacy fallback for older downloads
+        guard let legacyAlbum = downloadManager.downloadedAlbums.first(where: { $0.albumId == albumId }) else {
+            print("⚠️ Album \(albumId) not found in downloads")
+            return []
+        }
+        
+        // 3. Get album metadata for fallback song creation
+        let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId)
+        
+        // 4. Create minimal Song objects from legacy data
+        let fallbackSongs = legacyAlbum.songIds.enumerated().map { index, songId in
+            Song.createFromDownload(
+                id: songId,
+                title: generateFallbackTitle(index: index, songId: songId),
+                duration: nil,
+                coverArt: albumId,
+                artist: albumMetadata?.artist ?? "Unknown Artist",
+                album: albumMetadata?.name ?? "Unknown Album",
+                albumId: albumId,
+                track: index + 1,
+                year: albumMetadata?.year,
+                genre: albumMetadata?.genre,
+                contentType: "audio/mpeg"
+            )
+        }
+        
+        print("✅ Created \(fallbackSongs.count) fallback songs for legacy album \(albumId)")
+        return fallbackSongs
+    }
+    
+    // ✅ NEW: Smart title generation for fallback songs
+    private func generateFallbackTitle(index: Int, songId: String) -> String {
+        // Try to extract meaningful title from songId if possible
+        let trackNumber = String(format: "%02d", index + 1)
+        
+        // If songId looks like a hash, use generic title
+        if songId.count > 10 && songId.allSatisfy({ $0.isHexDigit }) {
+            return "Track \(trackNumber)"
+        }
+        
+        // Otherwise, try to use songId as title (cleaned up)
+        let cleanTitle = songId
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
+        
+        return cleanTitle.isEmpty ? "Track \(trackNumber)" : cleanTitle
+    }
+    
+    // MARK: - Data Loading Methods
+    
     /// Loads initial data if not already loaded - called once per app session
     func loadInitialDataIfNeeded() async {
         guard !hasLoadedInitialData,
@@ -90,7 +209,7 @@ class NavidromeViewModel: ObservableObject {
         await loadDataSequentially(isInitial: false)
     }
     
-    /// ✅ NEW: Sequential Background Loading
+    /// Sequential Background Loading
     private func loadDataSequentially(isInitial: Bool) async {
         let canLoadOnline = NetworkMonitor.shared.canLoadOnlineContent
         let isOffline = OfflineManager.shared.isOfflineMode
@@ -174,7 +293,7 @@ class NavidromeViewModel: ObservableObject {
         print("✅ Offline data loading completed")
     }
 
-    // MARK: - ✅ NEW: Intelligent Network Change Handling
+    // MARK: - Network Change Handling
     
     /// Handle network state changes with throttling
     func handleNetworkChange(isOnline: Bool) async {
@@ -202,7 +321,7 @@ class NavidromeViewModel: ObservableObject {
         }
     }
     
-    // MARK: - ✅ NEW: Data Freshness Checks
+    // MARK: - Data Freshness Checks
     
     var isDataFresh: Bool {
         guard let lastRefresh = lastRefreshDate else { return false }
@@ -216,7 +335,8 @@ class NavidromeViewModel: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) > hintThreshold
     }
 
-    // MARK: - Service Management (unchanged)
+    // MARK: - Service Management
+    
     func updateService(_ newService: SubsonicService) {
         self.service = newService
         // Reset loading state when service changes
@@ -229,7 +349,8 @@ class NavidromeViewModel: ObservableObject {
         return service
     }
 
-    // MARK: - Credentials Management (unchanged)
+    // MARK: - Credentials Management
+    
     private func loadSavedCredentials() {
         if let creds = AppConfig.shared.getCredentials() {
             self.scheme = creds.baseURL.scheme ?? "http"
@@ -245,8 +366,6 @@ class NavidromeViewModel: ObservableObject {
             )
         }
     }
-
-    // MARK: - Individual Loading Methods (unchanged but enhanced error handling)
 
     func testConnection() async {
         guard let url = buildCurrentURL() else {
@@ -329,7 +448,7 @@ class NavidromeViewModel: ObservableObject {
         return URL(string: "\(scheme)://\(host)\(portString)")
     }
     
-    // MARK: - Individual Data Loading Methods (unchanged)
+    // MARK: - Individual Data Loading Methods
     
     func loadArtists() async {
         guard let service else {
@@ -353,24 +472,6 @@ class NavidromeViewModel: ObservableObject {
             return try await service.getAlbumsByArtist(artistId: artist.id)
         case .genre(let genre):
             return try await service.getAlbumsByGenre(genre: genre.value)
-        }
-    }
-
-    func loadSongs(for albumId: String) async -> [Song] {
-        guard let service else { return [] }
-
-        if let cached = albumSongs[albumId], !cached.isEmpty {
-            return cached
-        }
-
-        do {
-            let songs = try await service.getSongs(for: albumId)
-            albumSongs[albumId] = songs
-            return songs
-        } catch {
-            errorMessage = "Failed to load songs: \(error.localizedDescription)"
-            print("Failed to load songs: \(error)")
-            return []
         }
     }
 
@@ -433,7 +534,7 @@ class NavidromeViewModel: ObservableObject {
         backgroundLoadingProgress = ""
     }
     
-    // MARK: - Enhanced Album Loading (unchanged but better error handling)
+    // MARK: - Enhanced Album Loading
     
     func loadAllAlbums(sortBy: SubsonicService.AlbumSortType = .alphabetical) async {
         guard let service else {
@@ -490,17 +591,12 @@ class NavidromeViewModel: ObservableObject {
             return
         }
         
-        do {
-            await loadArtists()
-        } catch {
-            if let subsonicError = error as? SubsonicError,
-               subsonicError.isOfflineError || subsonicError.isRecoverable {
-                print("🔄 Artists loading failed - switching to offline")
-                await handleImmediateOfflineSwitch()
-                await loadOfflineArtists()
-            } else {
-                errorMessage = "Failed to load artists: \(error.localizedDescription)"
-            }
+        await loadArtists()
+        // If artists failed to load online, fallback to offline
+        if artists.isEmpty {
+            print("🔄 Artists loading failed - switching to offline")
+            await handleImmediateOfflineSwitch()
+            await loadOfflineArtists()
         }
     }
     
@@ -511,21 +607,16 @@ class NavidromeViewModel: ObservableObject {
             return
         }
         
-        do {
-            await loadGenres()
-        } catch {
-            if let subsonicError = error as? SubsonicError,
-               subsonicError.isOfflineError || subsonicError.isRecoverable {
-                print("🔄 Genres loading failed - switching to offline")
-                await handleImmediateOfflineSwitch()
-                await loadOfflineGenres()
-            } else {
-                errorMessage = "Failed to load genres: \(error.localizedDescription)"
-            }
+        await loadGenres()
+        // If genres failed to load online, fallback to offline
+        if genres.isEmpty {
+            print("🔄 Genres loading failed - switching to offline")
+            await handleImmediateOfflineSwitch()
+            await loadOfflineGenres()
         }
     }
     
-    // MARK: - Offline Fallback Helpers (unchanged)
+    // MARK: - Offline Fallback Helpers
     
     private func handleImmediateOfflineSwitch() async {
         OfflineManager.shared.switchToOfflineMode()
@@ -552,5 +643,99 @@ class NavidromeViewModel: ObservableObject {
     private func loadOfflineGenres() async {
         genres = OfflineManager.shared.offlineGenres
         print("📦 Loaded \(genres.count) genres from offline cache")
+    }
+    
+    // MARK: - ✅ NEW: Batch song loading for multiple albums
+    func loadSongsForAlbums(_ albumIds: [String]) async -> [String: [Song]] {
+        var results: [String: [Song]] = [:]
+        
+        // Load songs for each album
+        for albumId in albumIds {
+            let songs = await loadSongs(for: albumId)
+            if !songs.isEmpty {
+                results[albumId] = songs
+            }
+        }
+        
+        print("✅ Batch loaded songs for \(results.count)/\(albumIds.count) albums")
+        return results
+    }
+    
+    // MARK: - ✅ NEW: Preload songs for visible albums (performance optimization)
+    func preloadSongsForAlbums(_ albums: [Album]) async {
+        let albumIds = Array(albums.prefix(5).map { $0.id }) // Only preload first 5
+        
+        // Check which albums need loading
+        var albumsToLoad: [String] = []
+        for albumId in albumIds {
+            if albumSongs[albumId] == nil || albumSongs[albumId]?.isEmpty == true {
+                albumsToLoad.append(albumId)
+            }
+        }
+        
+        // Load songs for albums that need it
+        await withTaskGroup(of: Void.self) { group in
+            for albumId in albumsToLoad {
+                group.addTask { @MainActor in
+                    _ = await self.loadSongs(for: albumId)
+                }
+            }
+        }
+    }
+    
+    // MARK: - ✅ NEW: Memory management
+    func clearSongCache() {
+        let cacheSize = albumSongs.count
+        albumSongs.removeAll()
+        print("🧹 Cleared song cache (\(cacheSize) albums)")
+    }
+    
+    func getCachedSongCount() -> Int {
+        return albumSongs.values.reduce(0) { $0 + $1.count }
+    }
+    
+    func hasSongsAvailableOffline(for albumId: String) -> Bool {
+        return downloadManager.isAlbumDownloaded(albumId)
+    }
+    
+    func getOfflineSongCount(for albumId: String) -> Int {
+        return downloadManager.getDownloadedSongs(for: albumId).count
+    }
+}
+
+// ✅ NEW: String extension for hex digit checking
+extension Character {
+    var isHexDigit: Bool {
+        return self.isNumber || ("a"..."f").contains(self.lowercased()) || ("A"..."F").contains(self)
+    }
+}
+
+// MARK: - ✅ NEW: Song Loading Statistics (for debugging)
+extension NavidromeViewModel {
+    
+    func getSongLoadingStats() -> SongLoadingStats {
+        let totalCachedSongs = getCachedSongCount()
+        let cachedAlbums = albumSongs.count
+        let offlineAlbums = downloadManager.downloadedAlbums.count
+        let offlineSongs = downloadManager.downloadedAlbums.reduce(0) { $0 + $1.songs.count }
+        
+        return SongLoadingStats(
+            totalCachedSongs: totalCachedSongs,
+            cachedAlbums: cachedAlbums,
+            offlineAlbums: offlineAlbums,
+            offlineSongs: offlineSongs
+        )
+    }
+}
+
+struct SongLoadingStats {
+    let totalCachedSongs: Int
+    let cachedAlbums: Int
+    let offlineAlbums: Int
+    let offlineSongs: Int
+    
+    var cacheHitRate: Double {
+        guard offlineSongs > 0 else { return 0 }
+        return Double(totalCachedSongs) / Double(offlineSongs) * 100
     }
 }

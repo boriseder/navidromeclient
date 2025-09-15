@@ -26,7 +26,7 @@
 			buildPhase = A1D552D82E5E6BDB00317006 /* Resources */;
 			membershipExceptions = (
 				"API/SubsonicService+Artists.swift",
-				ModelsUtils/md5string.swift,
+				Infrastructure/Utils/md5string.swift,
 			);
 		};
 /* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */

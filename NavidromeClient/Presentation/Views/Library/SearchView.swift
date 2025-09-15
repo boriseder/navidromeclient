@@ -1,8 +1,5 @@
 //
-//  SearchView.swift - Enhanced with Design System
-//  NavidromeClient
-//
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  SearchView.swift - Enhanced with Offline Search Support
 //
 
 import SwiftUI
@@ -10,10 +7,16 @@ import SwiftUI
 struct SearchView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
+    @EnvironmentObject var downloadManager: DownloadManager
     
     @State private var query: String = ""
     @State private var selectedTab: SearchTab = .songs
     @StateObject private var debouncer = Debouncer()
+    
+    // ✅ NEW: Offline search results
+    @State private var offlineSearchResults = OfflineSearchResults()
     
     enum SearchTab: String, CaseIterable {
         case artists = "Künstler"
@@ -29,41 +32,70 @@ struct SearchView: View {
         }
     }
     
+    struct OfflineSearchResults {
+        var artists: [Artist] = []
+        var albums: [Album] = []
+        var songs: [Song] = []
+    }
+    
     private var hasResults: Bool {
-        !navidromeVM.artists.isEmpty || !navidromeVM.albums.isEmpty || !navidromeVM.songs.isEmpty
+        if shouldUseOfflineSearch {
+            return !offlineSearchResults.artists.isEmpty ||
+                   !offlineSearchResults.albums.isEmpty ||
+                   !offlineSearchResults.songs.isEmpty
+        } else {
+            return !navidromeVM.artists.isEmpty ||
+                   !navidromeVM.albums.isEmpty ||
+                   !navidromeVM.songs.isEmpty
+        }
+    }
+    
+    private var shouldUseOfflineSearch: Bool {
+        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
     }
     
     private var resultCount: Int {
-        switch selectedTab {
-        case .artists: return navidromeVM.artists.count
-        case .albums: return navidromeVM.albums.count
-        case .songs: return navidromeVM.songs.count
+        if shouldUseOfflineSearch {
+            switch selectedTab {
+            case .artists: return offlineSearchResults.artists.count
+            case .albums: return offlineSearchResults.albums.count
+            case .songs: return offlineSearchResults.songs.count
+            }
+        } else {
+            switch selectedTab {
+            case .artists: return navidromeVM.artists.count
+            case .albums: return navidromeVM.albums.count
+            case .songs: return navidromeVM.songs.count
+            }
         }
     }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                VStack(spacing: 0) {
-                    SearchHeaderView(
-                        query: $query,
-                        selectedTab: $selectedTab,
-                        countForTab: countForTab,
-                        onSearch: performSearch,
-                        onClear: clearResults
-                    )
-                    
-                    SearchContentView(
-                        query: query,
-                        selectedTab: selectedTab,
-                        hasResults: hasResults,
-                        navidromeVM: navidromeVM,
-                        playerVM: playerVM,
-                        onSongTap: handleSongTap
-                    )
-                    
-                    Spacer()
-                }
+            VStack(spacing: 0) {
+                // ✅ NEW: Search Mode Indicator
+                SearchModeHeader(isOfflineSearch: shouldUseOfflineSearch)
+                
+                SearchHeaderView(
+                    query: $query,
+                    selectedTab: $selectedTab,
+                    countForTab: countForTab,
+                    onSearch: performSearch,
+                    onClear: clearResults
+                )
+                
+                SearchContentView(
+                    query: query,
+                    selectedTab: selectedTab,
+                    hasResults: hasResults,
+                    isOfflineSearch: shouldUseOfflineSearch,
+                    navidromeVM: navidromeVM,
+                    offlineSearchResults: offlineSearchResults,
+                    playerVM: playerVM,
+                    onSongTap: handleSongTap
+                )
+                
+                Spacer()
             }
             .navigationTitle("Suche")
             .navigationBarTitleDisplayMode(.large)
@@ -74,10 +106,79 @@ struct SearchView: View {
         }
     }
     
+    // ✅ ENHANCED: Smart Search Logic
     private func performSearch() {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        Task {
-            await navidromeVM.search(query: query.trimmingCharacters(in: .whitespacesAndNewlines))
+        
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if shouldUseOfflineSearch {
+            performOfflineSearch(query: trimmedQuery)
+        } else {
+            Task {
+                await navidromeVM.search(query: trimmedQuery)
+            }
+        }
+    }
+    
+    // ✅ NEW: Offline Search Implementation
+    private func performOfflineSearch(query: String) {
+        let lowercaseQuery = query.lowercased()
+        
+        // Search in offline albums
+        let searchableAlbums = offlineManager.offlineAlbums
+        offlineSearchResults.albums = searchableAlbums.filter { album in
+            album.name.lowercased().contains(lowercaseQuery) ||
+            album.artist.lowercased().contains(lowercaseQuery) ||
+            (album.genre?.lowercased().contains(lowercaseQuery) ?? false)
+        }
+        
+        // Search in offline artists
+        offlineSearchResults.artists = offlineManager.offlineArtists.filter { artist in
+            artist.name.lowercased().contains(lowercaseQuery)
+        }
+        
+        // Search in offline songs
+        offlineSearchResults.songs = searchOfflineSongs(query: lowercaseQuery)
+        
+        print("🔍 Offline search for '\(query)': \(offlineSearchResults.albums.count) albums, \(offlineSearchResults.artists.count) artists, \(offlineSearchResults.songs.count) songs")
+    }
+    
+    // ✅ NEW: Search Songs in Downloaded Albums
+    private func searchOfflineSongs(query: String) -> [Song] {
+        var allSongs: [Song] = []
+        
+        for downloadedAlbum in downloadManager.downloadedAlbums {
+            // Get cached songs for this album
+            if let cachedSongs = navidromeVM.albumSongs[downloadedAlbum.albumId] {
+                allSongs.append(contentsOf: cachedSongs)
+            } else {
+                // Create minimal song objects from downloaded files
+                let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: downloadedAlbum.albumId)
+                let songs = downloadedAlbum.songIds.enumerated().map { index, songId in
+                    Song.createFromDownload(
+                        id: songId,
+                        title: "Track \(index + 1)",
+                        duration: nil,
+                        coverArt: downloadedAlbum.albumId,
+                        artist: albumMetadata?.artist ?? "Unknown Artist",
+                        album: albumMetadata?.name ?? "Unknown Album",
+                        albumId: downloadedAlbum.albumId,
+                        track: index + 1,
+                        year: albumMetadata?.year,
+                        genre: albumMetadata?.genre,
+                        contentType: "audio/mpeg"
+                    )
+                }
+                allSongs.append(contentsOf: songs)
+            }
+        }
+        
+        // Filter songs by query
+        return allSongs.filter { song in
+            song.title.lowercased().contains(query) ||
+            (song.artist?.lowercased().contains(query) ?? false) ||
+            (song.album?.lowercased().contains(query) ?? false)
         }
     }
     
@@ -86,13 +187,24 @@ struct SearchView: View {
         navidromeVM.albums = []
         navidromeVM.songs = []
         navidromeVM.errorMessage = nil
+        
+        // ✅ NEW: Clear offline results
+        offlineSearchResults = OfflineSearchResults()
     }
     
     private func countForTab(_ tab: SearchTab) -> Int {
-        switch tab {
-        case .artists: return navidromeVM.artists.count
-        case .albums: return navidromeVM.albums.count
-        case .songs: return navidromeVM.songs.count
+        if shouldUseOfflineSearch {
+            switch tab {
+            case .artists: return offlineSearchResults.artists.count
+            case .albums: return offlineSearchResults.albums.count
+            case .songs: return offlineSearchResults.songs.count
+            }
+        } else {
+            switch tab {
+            case .artists: return navidromeVM.artists.count
+            case .albums: return navidromeVM.albums.count
+            case .songs: return navidromeVM.songs.count
+            }
         }
     }
     
@@ -105,9 +217,17 @@ struct SearchView: View {
     }
     
     private func handleSongTap(at index: Int) {
+        let songsToPlay: [Song]
+        
+        if shouldUseOfflineSearch {
+            songsToPlay = offlineSearchResults.songs
+        } else {
+            songsToPlay = navidromeVM.songs
+        }
+        
         Task {
             await playerVM.setPlaylist(
-                navidromeVM.songs,
+                songsToPlay,
                 startIndex: index,
                 albumId: nil
             )
@@ -255,43 +375,14 @@ struct SearchTabButton: View {
     }
 }
 
-// MARK: - SearchContentView (Enhanced with DS)
-struct SearchContentView: View {
-    let query: String
-    let selectedTab: SearchView.SearchTab
-    let hasResults: Bool
-    let navidromeVM: NavidromeViewModel
-    let playerVM: PlayerViewModel
-    let onSongTap: (Int) -> Void
-    
-    var body: some View {
-        Group {
-            if let error = navidromeVM.errorMessage {
-                SearchErrorView(error: error)
-            } else if hasResults {
-                SearchResultsView(
-                    selectedTab: selectedTab,
-                    navidromeVM: navidromeVM,
-                    playerVM: playerVM,
-                    onSongTap: onSongTap
-                )
-            } else if !query.isEmpty && !navidromeVM.isLoading {
-                SearchEmptyView()
-            } else if query.isEmpty {
-                SearchInitialView()
-            }
-        }
-    }
-}
-
-// MARK: - State Views (Enhanced with DS)
+// MARK: - SearchErrorView (Enhanced with DS)
 struct SearchErrorView: View {
     let error: String
     
     var body: some View {
         VStack(spacing: Spacing.l) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 50)) // Approx. DS applied
+                .font(.system(size: 50))
                 .foregroundStyle(BrandColor.warning)
             
             VStack(spacing: Spacing.s) {
@@ -308,61 +399,77 @@ struct SearchErrorView: View {
         .materialCardStyle()
         .largeShadow()
         .padding(.horizontal, Padding.xl)
-        .padding(.vertical, 60) // Approx. DS applied
+        .padding(.vertical, 60)
     }
 }
 
-struct SearchEmptyView: View {
+// ✅ NEW: Search Mode Header Component
+struct SearchModeHeader: View {
+    let isOfflineSearch: Bool
+    
     var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: "music.note.house")
-                .font(.system(size: 60)) // Approx. DS applied
-                .foregroundStyle(TextColor.secondary)
-            
-            VStack(spacing: Spacing.s) {
-                Text("Keine Ergebnisse")
-                    .font(Typography.title2)
+        if isOfflineSearch {
+            HStack(spacing: Spacing.s) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(BrandColor.warning)
                 
-                Text("Versuchen Sie andere Suchbegriffe")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
+                Text("Searching in downloaded music only")
+                    .font(Typography.caption)
+                    .foregroundStyle(BrandColor.warning)
+                
+                Spacer()
+            }
+            .listItemPadding()
+            .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.s)
+                    .stroke(BrandColor.warning.opacity(0.3), lineWidth: 1)
+            )
+            .screenPadding()
+            .padding(.top, Spacing.xs)
+        }
+    }
+}
+
+// ✅ ENHANCED: Search Content View with Offline Support
+struct SearchContentView: View {
+    let query: String
+    let selectedTab: SearchView.SearchTab
+    let hasResults: Bool
+    let isOfflineSearch: Bool
+    let navidromeVM: NavidromeViewModel
+    let offlineSearchResults: SearchView.OfflineSearchResults
+    let playerVM: PlayerViewModel
+    let onSongTap: (Int) -> Void
+    
+    var body: some View {
+        Group {
+            if let error = navidromeVM.errorMessage, !isOfflineSearch {
+                SearchErrorView(error: error)
+            } else if hasResults {
+                SearchResultsView(
+                    selectedTab: selectedTab,
+                    isOfflineSearch: isOfflineSearch,
+                    navidromeVM: navidromeVM,
+                    offlineSearchResults: offlineSearchResults,
+                    playerVM: playerVM,
+                    onSongTap: onSongTap
+                )
+            } else if !query.isEmpty && !navidromeVM.isLoading {
+                SearchEmptyView(isOfflineSearch: isOfflineSearch)
+            } else if query.isEmpty {
+                SearchInitialView(isOfflineSearch: isOfflineSearch)
             }
         }
-        .padding(Spacing.xl)
-        .materialCardStyle()
-        .largeShadow()
-        .padding(.vertical, 60) // Approx. DS applied
     }
 }
 
-struct SearchInitialView: View {
-    var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 80)) // Approx. DS applied
-                .foregroundStyle(TextColor.secondary.opacity(0.6))
-            
-            VStack(spacing: Spacing.s) {
-                Text("Musik durchsuchen")
-                    .font(Typography.title2)
-                
-                Text("Suchen Sie nach Künstlern, Alben oder Songs")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(Padding.xl)
-        .materialCardStyle()
-        .largeShadow()
-        .padding(.vertical, 80) // Approx. DS applied
-    }
-}
-
-// MARK: - SearchResultsView (Enhanced with DS)
+// ✅ ENHANCED: Search Results View with Offline Support
 struct SearchResultsView: View {
     let selectedTab: SearchView.SearchTab
+    let isOfflineSearch: Bool
     let navidromeVM: NavidromeViewModel
+    let offlineSearchResults: SearchView.OfflineSearchResults
     let playerVM: PlayerViewModel
     let onSongTap: (Int) -> Void
     
@@ -372,18 +479,21 @@ struct SearchResultsView: View {
                 Section {
                     switch selectedTab {
                     case .artists:
-                        ForEach(navidromeVM.artists) { artist in
+                        let artists = isOfflineSearch ? offlineSearchResults.artists : navidromeVM.artists
+                        ForEach(artists) { artist in
                             SearchResultArtistRow(artist: artist)
                         }
                         
                     case .albums:
-                        ForEach(navidromeVM.albums) { album in
+                        let albums = isOfflineSearch ? offlineSearchResults.albums : navidromeVM.albums
+                        ForEach(albums) { album in
                             SearchResultAlbumRow(album: album)
                         }
                         
                     case .songs:
-                        ForEach(navidromeVM.songs.indices, id: \.self) { index in
-                            let song = navidromeVM.songs[index]
+                        let songs = isOfflineSearch ? offlineSearchResults.songs : navidromeVM.songs
+                        ForEach(songs.indices, id: \.self) { index in
+                            let song = songs[index]
                             SearchResultSongRow(
                                 song: song,
                                 index: index + 1,
@@ -395,7 +505,63 @@ struct SearchResultsView: View {
                 }
             }
             .screenPadding()
-            .padding(.bottom, 100) // Approx. DS applied
+            .padding(.bottom, 100)
         }
+    }
+}
+
+// ✅ ENHANCED: Empty Views with Offline Context
+struct SearchEmptyView: View {
+    let isOfflineSearch: Bool
+    
+    var body: some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: isOfflineSearch ? "arrow.down.circle" : "music.note.house")
+                .font(.system(size: 60))
+                .foregroundStyle(TextColor.secondary)
+            
+            VStack(spacing: Spacing.s) {
+                Text("Keine Ergebnisse")
+                    .font(Typography.title2)
+                
+                Text(isOfflineSearch ?
+                     "Keine Downloads gefunden" :
+                     "Versuchen Sie andere Suchbegriffe")
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
+            }
+        }
+        .padding(Spacing.xl)
+        .materialCardStyle()
+        .largeShadow()
+        .padding(.vertical, 60)
+    }
+}
+
+struct SearchInitialView: View {
+    let isOfflineSearch: Bool
+    
+    var body: some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: isOfflineSearch ? "arrow.down.circle" : "magnifyingglass.circle")
+                .font(.system(size: 80))
+                .foregroundStyle(TextColor.secondary.opacity(0.6))
+            
+            VStack(spacing: Spacing.s) {
+                Text(isOfflineSearch ? "Downloads durchsuchen" : "Musik durchsuchen")
+                    .font(Typography.title2)
+                
+                Text(isOfflineSearch ?
+                     "Suchen Sie in Ihren heruntergeladenen Alben" :
+                     "Suchen Sie nach Künstlern, Alben oder Songs")
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(Padding.xl)
+        .materialCardStyle()
+        .largeShadow()
+        .padding(.vertical, 80)
     }
 }
