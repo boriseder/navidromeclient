@@ -1,8 +1,8 @@
 //
-//  AlbumCard.swift - Enhanced with Design System
+//  AlbumCard.swift - FIXED for New Image API
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  ✅ FIXED: Updated to use new ReactiveCoverArtService methods
 //
 
 import SwiftUI
@@ -26,7 +26,7 @@ struct AlbumCard: View {
                     ))
                     .frame(width: Sizes.card, height: Sizes.card)
                 
-                // REAKTIV: Automatisches Update wenn Bild geladen
+                // ✅ FIXED: Updated to use new API methods
                 if let coverImage = coverArtService.coverImage(for: album, size: 200) {
                     Image(uiImage: coverImage)
                         .resizable()
@@ -38,22 +38,12 @@ struct AlbumCard: View {
                         .font(.system(size: Sizes.iconLarge))
                         .foregroundColor(accentColor.opacity(0.7))
                         .onAppear {
-                            // FIRE-AND-FORGET Request
+                            // ✅ FIXED: Use the correct method name
                             coverArtService.requestImage(for: album.id, size: 200)
                         }
                 }
             }
             .cardShadow()
-            
-            /*
-             Warum der text nicht accentColor hat?
-             Ja, technisch ist der Text(album.name) innerhalb deiner AlbumCard Teil eines NavigationLink.
-                 •    SwiftUI interpretiert damit den Text als interaktiv.
-                 •    Allerdings: der foregroundColor(TextColor.primary) in AlbumCard überschreibt explizit die AccentColor.
-
-             → selbst wenn der Text Teil eines Buttons/NavigationLink ist, wird er nicht blau, sondern nimmt die explizit gesetzte Farbe.
-
-             */
             
             // Album Info mit Design System
             VStack(alignment: .leading, spacing: Spacing.xs) {

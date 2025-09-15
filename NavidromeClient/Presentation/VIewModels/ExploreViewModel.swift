@@ -1,11 +1,8 @@
 //
-//  ExploreViewModel.swift - FIXED VERSION
+//  ExploreViewModel.swift - FIXED for New Image API
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Removed bypass call to navidromeVM.loadCoverArt()
-//  - Now uses ReactiveCoverArtService.loadImage() async method
-//  - Maintains consistency with unified caching architecture
+//  ✅ FIXED: Updated to use new convenience methods instead of direct ImageType
 //
 
 import Foundation
@@ -13,7 +10,7 @@ import SwiftUI
 
 @MainActor
 class ExploreViewModel: ObservableObject {
-    // MARK: - Published Properties
+    // MARK: - Published Properties (unchanged)
     @Published var recentAlbums: [Album] = []
     @Published var newestAlbums: [Album] = []
     @Published var frequentAlbums: [Album] = []
@@ -21,7 +18,7 @@ class ExploreViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     
-    // MARK: - Dependencies (will be set from the view)
+    // MARK: - Dependencies (unchanged)
     private weak var navidromeVM: NavidromeViewModel?
     private weak var coverArtService: ReactiveCoverArtService?
     
@@ -29,13 +26,13 @@ class ExploreViewModel: ObservableObject {
         // Empty init - dependencies will be injected
     }
     
-    // MARK: - ✅ FIX: Enhanced Dependency Injection
+    // MARK: - ✅ FIX: Enhanced Dependency Injection (unchanged)
     func configure(with navidromeVM: NavidromeViewModel, coverArtService: ReactiveCoverArtService) {
         self.navidromeVM = navidromeVM
         self.coverArtService = coverArtService
     }
     
-    // MARK: - Public Methods
+    // MARK: - Public Methods (unchanged)
     func loadHomeScreenData() async {
         guard let navidromeVM = navidromeVM,
               let service = navidromeVM.getService() else {
@@ -62,15 +59,17 @@ class ExploreViewModel: ObservableObject {
         await loadRandomAlbums(service: service)
     }
     
-    // ✅ FIX: Updated loadCoverArt method to use ReactiveCoverArtService
+    // ✅ FIXED: Updated loadCoverArt method to use convenience API
     func loadCoverArt(for albumId: String, size: Int = 200) async -> UIImage? {
-        // OLD BYPASS CODE (removed):
-        // guard let navidromeVM = navidromeVM else { return nil }
-        // return await navidromeVM.loadCoverArt(for: albumId, size: size)
-        
-        // ✅ NEW: Use ReactiveCoverArtService async API
         guard let coverArtService = coverArtService else { return nil }
-        return await coverArtService.loadImage(for: albumId, size: size)
+        
+        // ✅ NEW: Use convenience method with Album object if possible
+        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
+            return await coverArtService.loadAlbumCover(albumMetadata, size: size)
+        } else {
+            // ✅ FALLBACK: Use direct ImageType API when Album object not available
+            return await coverArtService.loadImage(for: .album(albumId), size: size)
+        }
     }
     
     // MARK: - Private Album Loading Methods (unchanged)

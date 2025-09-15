@@ -1,5 +1,8 @@
 //
-//  ArtistDetailViewModel.swift - Complete Implementation with Offline Support
+//  ArtistDetailViewModel.swift - FIXED for New Image API
+//  NavidromeClient
+//
+//  ✅ FIXED: Updated to use new ImageType enum instead of String IDs
 //
 
 import Foundation
@@ -52,12 +55,11 @@ class ArtistDetailViewModel: ObservableObject {
         isLoading = false
     }
     
-    // ✅ FIX: Make loadArtistImage accessible
+    // ✅ FIXED: Updated to use new ImageType API
     func loadArtistImage(context: ArtistDetailContext, coverArtService: ReactiveCoverArtService) async {
-        if case .artist(let artist) = context,
-           let coverId = artist.coverArt {
-            
-            let image = await coverArtService.loadImage(for: coverId, size: 300)
+        if case .artist(let artist) = context {
+            // ✅ NEW: Use the enhanced artist image loading
+            let image = await coverArtService.loadArtistImage(artist, size: 300)
             artistImage = image
         }
     }
@@ -95,11 +97,13 @@ class ArtistDetailViewModel: ObservableObject {
         }
     }
     
-    // ✅ FIX: Updated loadAlbumCover method
+    // ✅ FIXED: Updated to use new ImageType API
     func loadAlbumCover(for album: Album, navidromeVM: NavidromeViewModel) async {
         guard albumCovers[album.id] == nil else { return }
         
         guard let coverArtService = coverArtService else { return }
+        
+        // ✅ NEW: Use the enhanced album cover loading
         let cover = await coverArtService.loadAlbumCover(album, size: 200)
         
         if let cover = cover {

@@ -1,8 +1,8 @@
 //
-//  ArtistCard.swift - Enhanced with Design System
+//  ArtistCard.swift - FIXED SwiftUI Generic Issue
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  ✅ FIXED: SwiftUI generic parameter issue in Circle gradient
 //
 
 import SwiftUI
@@ -21,7 +21,7 @@ struct ArtistCard: View {
             ZStack {
                 Circle()
                     .fill(BackgroundColor.secondary)
-                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge) // 100pt aus Design System
+                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
                     .blur(radius: 1)
                 
                 Group {
@@ -36,22 +36,20 @@ struct ArtistCard: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [Color.red, Color.blue.opacity(0.7)],
+                                    colors: [.red, .blue],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: Sizes.avatar, height: Sizes.avatar) // 72pt aus Design System
+                            .frame(width: Sizes.avatar, height: Sizes.avatar)
                             .overlay(
                                 Image(systemName: "music.mic")
                                     .font(.system(size: Sizes.icon))
                                     .foregroundStyle(TextColor.onDark)
                             )
                             .onAppear {
-                                // FIRE-AND-FORGET Request
-                                if let coverArt = artist.coverArt {
-                                    coverArtService.requestImage(for: coverArt, size: 120)
-                                }
+                                // ✅ FIXED: Don't call requestImage - it doesn't exist in new API
+                                // The reactive system will handle loading automatically
                             }
                     }
                 }

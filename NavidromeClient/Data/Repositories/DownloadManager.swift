@@ -1,5 +1,11 @@
 //
-//  DownloadManager.swift - COMPLETE VERSION with Notification Names
+//  DownloadManager.swift - ENHANCED with Artist Image Caching
+//  NavidromeClient
+//
+//  ✅ ENHANCEMENTS:
+//  - Downloads artist images during album download
+//  - Preloads both album and artist images for offline mode
+//  - Uses new unified image caching system
 //
 
 import Foundation
@@ -31,8 +37,8 @@ class DownloadManager: ObservableObject {
         migrateOldDataIfNeeded()
     }
 
-
-    // MARK: - Album / Song Status
+    // MARK: - Status Methods (unchanged)
+    
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         downloadedAlbums.contains { $0.albumId == albumId }
     }
@@ -76,7 +82,6 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        // Legacy fallback
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let filePath = documentsPath.appendingPathComponent("\(songId).mp3")
         return FileManager.default.fileExists(atPath: filePath.path) ? filePath : nil
@@ -93,7 +98,8 @@ class DownloadManager: ObservableObject {
         return String(format: "%.1f MB", mb)
     }
 
-    // ✅ FIXED: Download with Complete Metadata Storage
+    // MARK: - ✅ ENHANCED: Download with Artist Image Caching
+    
     func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async {
         guard !isDownloading.contains(albumId) else {
             print("⚠️ Download for album \(albumId) already in progress")
@@ -105,7 +111,7 @@ class DownloadManager: ObservableObject {
             return
         }
         
-        print("🔽 Starting download of album '\(albumMetadata.name)' with \(songs.count) songs")
+        print("🔽 Starting enhanced download of album '\(albumMetadata.name)' with \(songs.count) songs")
         
         isDownloading.insert(albumId)
         downloadProgress[albumId] = 0
@@ -122,10 +128,18 @@ class DownloadManager: ObservableObject {
             }
         }
 
+        // ✅ ENHANCED: Download songs AND cache cover arts
         var downloadedSongsMetadata: [DownloadedSong] = []
         let totalSongs = songs.count
         let downloadDate = Date()
 
+        // Step 1: Download album cover art
+        await cacheAlbumCoverArt(albumId: albumId, service: service)
+        
+        // Step 2: Download artist image (if available)
+        await cacheArtistImage(for: albumMetadata, service: service)
+
+        // Step 3: Download songs
         for (index, song) in songs.enumerated() {
             guard let url = service.streamURL(for: song.id) else {
                 print("❌ No stream URL for song: \(song.title)")
@@ -200,7 +214,7 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            print("✅ Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs")
+            print("✅ Enhanced album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
         } else {
             print("❌ Album download failed: No songs downloaded")
         }
@@ -208,20 +222,71 @@ class DownloadManager: ObservableObject {
         isDownloading.remove(albumId)
         downloadProgress[albumId] = 1.0
         
-        // ✅ FIXED: Use the notification name we'll define below
         NotificationCenter.default.post(name: .downloadCompleted, object: albumId)
 
         try? await Task.sleep(nanoseconds: 2_000_000_000)
         downloadProgress.removeValue(forKey: albumId)
     }
     
-    private func sanitizeFileName(_ name: String) -> String {
-        let invalidChars = CharacterSet(charactersIn: ":/\\?%*|\"<>")
-        return name.components(separatedBy: invalidChars).joined(separator: "_")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .prefix(50)
-            .description
+    // MARK: - ✅ NEW: Cover Art Caching During Download
+    
+    private func cacheAlbumCoverArt(albumId: String, service: SubsonicService) async {
+        let coverArtService = ReactiveCoverArtService.shared
+        
+        // Cache album cover in multiple sizes for offline use
+        let sizes = [50, 120, 200, 300] // Standard sizes
+        
+        for size in sizes {
+            _ = await coverArtService.loadImage(for: .album(albumId), size: size)
+        }
+        
+        print("✅ Cached album cover art for \(albumId) in \(sizes.count) sizes")
     }
+    
+    private func cacheArtistImage(for album: Album, service: SubsonicService) async {
+        let coverArtService = ReactiveCoverArtService.shared
+        
+        // Try to find artist from the cached data or create a minimal one
+        let artist = findOrCreateArtist(for: album)
+        
+        // Cache artist image in standard sizes
+        let sizes = [50, 120] // Smaller sizes for artist avatars
+        
+        for size in sizes {
+            _ = await coverArtService.loadArtistImage(artist, size: size)
+        }
+        
+        print("✅ Cached artist image for \(artist.name) in \(sizes.count) sizes")
+    }
+    
+    private func findOrCreateArtist(for album: Album) -> Artist {
+        // Try to find artist in NavidromeViewModel's cache first
+        // If not found, create a minimal artist object
+        
+        // Check if we have this artist cached
+        if let navidromeVM = getNavidromeViewModel(),
+           let existingArtist = navidromeVM.artists.first(where: { $0.name == album.artist }) {
+            return existingArtist
+        }
+        
+        // Create minimal artist object with the album's artist info
+        return Artist(
+            id: album.artistId ?? "artist_\(album.artist.hash)",
+            name: album.artist,
+            coverArt: album.coverArt, // Use album's cover art as fallback
+            albumCount: 1,
+            artistImageUrl: nil
+        )
+    }
+    
+    // Helper to access NavidromeViewModel (if available)
+    private func getNavidromeViewModel() -> NavidromeViewModel? {
+        // In the current architecture, this would need dependency injection
+        // For now, return nil and use the fallback artist creation
+        return nil
+    }
+    
+    // MARK: - Deletion Methods (unchanged)
     
     func deleteAlbum(albumId: String) {
         Task { @MainActor in
@@ -248,10 +313,7 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            // ✅ CRITICAL: Post notification for OfflineManager
             NotificationCenter.default.post(name: .downloadDeleted, object: nil)
-            
-            // ✅ CRITICAL: Force UI update
             objectWillChange.send()
 
             print("✅ Deleted album: \(album.albumName)")
@@ -277,16 +339,14 @@ class DownloadManager: ObservableObject {
 
         saveDownloadedAlbums()
         
-        // ✅ CRITICAL: Post notification for OfflineManager
         NotificationCenter.default.post(name: .downloadDeleted, object: nil)
-        
-        // ✅ CRITICAL: Force UI update
         objectWillChange.send()
         
         print("✅ Cleared all downloads and notified observers")
     }
 
-    // MARK: - Persistence
+    // MARK: - Persistence (unchanged)
+    
     private func loadDownloadedAlbums() {
         guard FileManager.default.fileExists(atPath: downloadedAlbumsFile.path) else { return }
         
@@ -329,13 +389,20 @@ class DownloadManager: ObservableObject {
         }
     }
     
-
+    private func sanitizeFileName(_ name: String) -> String {
+        let invalidChars = CharacterSet(charactersIn: ":/\\?%*|\"<>")
+        return name.components(separatedBy: invalidChars).joined(separator: "_")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .prefix(50)
+            .description
+    }
 }
 
+// MARK: - Notification Names (unchanged)
 extension Notification.Name {
     static let downloadCompleted = Notification.Name("downloadCompleted")
     static let downloadStarted = Notification.Name("downloadStarted")
     static let downloadFailed = Notification.Name("downloadFailed")
-    static let downloadDeleted = Notification.Name("downloadDeleted") // ✅ NEW
+    static let downloadDeleted = Notification.Name("downloadDeleted")
     static let networkStatusChanged = Notification.Name("networkStatusChanged")
 }

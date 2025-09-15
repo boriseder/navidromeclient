@@ -1,12 +1,8 @@
 //
-//  PlayerViewModel.swift - FIXED VERSION
+//  PlayerViewModel.swift - FIXED for New Image API
 //  NavidromeClient
 //
-//  ✅ FIXES:
-//  - Task cancellation for parallel player prevention
-//  - Proper observer cleanup
-//  - Memory management with replaceCurrentItem
-//  - Race condition prevention on fast skipping
+//  ✅ FIXED: Updated loadCoverArt method to use new convenience API
 //
 
 import Foundation
@@ -16,7 +12,7 @@ import MediaPlayer
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
-    // MARK: - Published Properties
+    // MARK: - Published Properties (unchanged)
     @Published var isPlaying = false
     @Published var currentSong: Song?
     @Published var currentAlbumId: String?
@@ -28,7 +24,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var volume: Float = 0.7
     
-    // MARK: - Playlist Management
+    // MARK: - Playlist Management (unchanged)
     @Published var playlistManager = PlaylistManager()
     
     typealias RepeatMode = PlaylistManager.RepeatMode
@@ -39,13 +35,13 @@ class PlayerViewModel: NSObject, ObservableObject {
     var currentPlaylist: [Song] { playlistManager.currentPlaylist }
     var currentIndex: Int { playlistManager.currentIndex }
     
-    // MARK: - Dependencies
+    // MARK: - Dependencies (unchanged)
     var service: SubsonicService?
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
     private weak var coverArtService: ReactiveCoverArtService?
     
-    // MARK: - Private Properties
+    // MARK: - Private Properties (unchanged)
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var lastUpdateTime: Double = 0
@@ -55,7 +51,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var currentPlayTask: Task<Void, Never>?
     private var playerObservers: [NSObjectProtocol] = []
 
-    // MARK: - Init
+    // MARK: - Init (unchanged)
     
     init(service: SubsonicService? = nil, downloadManager: DownloadManager? = nil) {
         self.service = service
@@ -91,7 +87,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Setup
+    // MARK: - Setup (unchanged)
     
     private func setupNotifications() {
         let notificationCenter = NotificationCenter.default
@@ -187,7 +183,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         _ = audioSessionManager.isAudioSessionActive
     }
     
-    // MARK: - Service Management
+    // MARK: - Service Management (unchanged)
     
     func updateService(_ newService: SubsonicService) {
         self.service = newService
@@ -197,7 +193,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         self.coverArtService = newCoverArtService
     }
     
-    // MARK: - Playback Methods
+    // MARK: - Playback Methods (mostly unchanged)
     
     func play(song: Song) async {
         await setPlaylist([song], startIndex: 0, albumId: song.albumId)
@@ -214,6 +210,27 @@ class PlayerViewModel: NSObject, ObservableObject {
         await loadCoverArt()
         await playCurrent()
     }
+    
+    // MARK: - ✅ FIXED: Cover Art Loading
+    
+    func loadCoverArt() async {
+        guard let albumId = currentAlbumId else { return }
+        guard let coverArtService = coverArtService else { return }
+        
+        // ✅ FIXED: Use the new convenience API instead of direct ImageType
+        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
+            // Create Album object for the convenience method
+            let album = albumMetadata
+            coverArt = await coverArtService.loadAlbumCover(album, size: 300)
+        } else {
+            // Fallback: try to load directly by ID using the unified API
+            coverArt = await coverArtService.loadImage(for: albumId, size: 300)
+        }
+        
+        updateNowPlayingInfo()
+    }
+    
+    // MARK: - Playback Control Methods (unchanged)
     
     private func playCurrent() async {
         // FIX: Cancel any pending play operation
@@ -356,7 +373,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         seek(to: newTime)
     }
     
-    // MARK: - Playlist Controls
+    // MARK: - Playlist Controls (unchanged)
     
     func toggleShuffle() {
         playlistManager.toggleShuffle()
@@ -366,21 +383,14 @@ class PlayerViewModel: NSObject, ObservableObject {
         playlistManager.toggleRepeat()
     }
     
-    // MARK: - Volume Control
+    // MARK: - Volume Control (unchanged)
     
     func setVolume(_ volume: Float) {
         self.volume = volume
         player?.volume = volume
     }
     
-    // MARK: - Cover Art & Now Playing
-    
-    func loadCoverArt() async {
-        guard let albumId = currentAlbumId else { return }
-        guard let coverArtService = coverArtService else { return }
-        coverArt = await coverArtService.loadImage(for: albumId, size: 300)
-        updateNowPlayingInfo()
-    }
+    // MARK: - Now Playing Info (unchanged)
     
     private func updateNowPlayingInfo() {
         guard let song = currentSong else {
@@ -399,7 +409,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         )
     }
     
-    // MARK: - Time Observer
+    // MARK: - Time Observer (unchanged)
     
     private func updateProgress() {
         playbackProgress = duration > 0 ? currentTime / duration : 0
@@ -434,7 +444,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Cleanup
+    // MARK: - Cleanup (unchanged)
     
     private func cleanupPlayer() {
         // FIX: Complete cleanup
@@ -468,7 +478,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         isLoading = false
     }
 
-    // MARK: - Notification Handlers
+    // MARK: - Notification Handlers (unchanged)
     
     @objc private func handleAudioInterruptionBegan() {
         pause()
@@ -532,7 +542,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         skipBackward(seconds: interval)
     }
 
-    // MARK: - Download Status Methods
+    // MARK: - Download Status Methods (unchanged)
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         downloadManager.isAlbumDownloaded(albumId)
     }

@@ -1,8 +1,8 @@
 //
-//  SearchResultRow.swift - Enhanced with Design System
+//  SearchResultRow.swift - FIXED for New Image API
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  ✅ FIXED: Updated to use new ReactiveCoverArtService methods and fixed SwiftUI issues
 //
 
 import SwiftUI
@@ -50,35 +50,37 @@ struct SearchResultAlbumRow: View {
                     RoundedRectangle(cornerRadius: Radius.s)
                         .fill(BackgroundColor.secondary)
                         .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
-                        .blur(radius: 3) // Approx. DS applied
+                        .blur(radius: 3)
                     
-                    Group {
-                        if let image = coverArtService.coverImage(for: album, size: 120) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: Sizes.avatar, height: Sizes.avatar)
-                                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
-                        } else {
-                            RoundedRectangle(cornerRadius: Radius.s)
-                                .fill(
+                    // ✅ FIXED: Updated to use new API
+                    if let image = coverArtService.coverImage(for: album, size: 120) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: Sizes.avatar, height: Sizes.avatar)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                    } else {
+                        // ✅ FIXED: Use AnyShapeStyle to resolve generic inference
+                        RoundedRectangle(cornerRadius: Radius.s)
+                            .fill(
+                                AnyShapeStyle(
                                     LinearGradient(
                                         colors: [.orange, .pink.opacity(0.7)],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
                                 )
-                                .frame(width: Sizes.avatar, height: Sizes.avatar)
-                                .overlay(
-                                    Image(systemName: "record.circle.fill")
-                                        .font(.system(size: Sizes.icon))
-                                        .foregroundStyle(TextColor.onDark)
-                                )
-                                .onAppear {
-                                    // FIRE-AND-FORGET Request
-                                    coverArtService.requestImage(for: album.id, size: 120)
-                                }
-                        }
+                            )
+                            .frame(width: Sizes.avatar, height: Sizes.avatar)
+                            .overlay(
+                                Image(systemName: "record.circle.fill")
+                                    .font(.system(size: Sizes.icon))
+                                    .foregroundStyle(TextColor.onDark)
+                            )
+                            .onAppear {
+                                // ✅ FIXED: Use correct method
+                                coverArtService.requestImage(for: album.id, size: 120)
+                            }
                     }
                 }
                 
@@ -115,10 +117,11 @@ struct SearchResultSongRow: View {
                     RoundedRectangle(cornerRadius: Radius.s)
                         .fill(BackgroundColor.secondary.opacity(isPlaying ? 0.2 : 0.1))
                         .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
-                        .blur(radius: 3) // Approx. DS applied
+                        .blur(radius: 3)
                     
                     Group {
                         if let albumId = song.albumId,
+                           // ✅ FIXED: Use correct method signature
                            let image = coverArtService.image(for: albumId, size: 100) {
                             Image(uiImage: image)
                                 .resizable()
@@ -137,12 +140,15 @@ struct SearchResultSongRow: View {
                                         ) : nil
                                 )
                         } else {
+                            // ✅ FIXED: Use AnyShapeStyle to resolve generic inference
                             RoundedRectangle(cornerRadius: Radius.s)
                                 .fill(
-                                    LinearGradient(
-                                        colors: [.green, .blue.opacity(0.7)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                                    AnyShapeStyle(
+                                        LinearGradient(
+                                            colors: [.green, .blue.opacity(0.7)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
                                 )
                                 .frame(width: Sizes.coverMini, height: Sizes.coverMini)
@@ -152,7 +158,7 @@ struct SearchResultSongRow: View {
                                         .foregroundStyle(TextColor.onDark)
                                 )
                                 .onAppear {
-                                    // FIRE-AND-FORGET Request
+                                    // ✅ FIXED: Use correct method
                                     if let albumId = song.albumId {
                                         coverArtService.requestImage(for: albumId, size: 100)
                                     }
@@ -185,12 +191,12 @@ struct ArtistImageView: View {
             Circle()
                 .fill(BackgroundColor.secondary)
                 .frame(width: Sizes.coverSmall, height: Sizes.coverSmall)
-                .blur(radius: 3) // Approx. DS applied
+                .blur(radius: 3)
             
             // Main avatar
             Group {
-                if let coverArt = artist.coverArt,
-                   let image = coverArtService.image(for: coverArt, size: 120) {
+                // ✅ FIXED: Use artistImage method
+                if let image = coverArtService.artistImage(for: artist, size: 120) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -199,10 +205,12 @@ struct ArtistImageView: View {
                 } else {
                     Circle()
                         .fill(
-                            LinearGradient(
-                                colors: [.blue, .purple.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                            AnyShapeStyle(
+                                LinearGradient(
+                                    colors: [.blue, .purple.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
                         )
                         .frame(width: Sizes.avatar, height: Sizes.avatar)
@@ -212,6 +220,7 @@ struct ArtistImageView: View {
                                 .foregroundStyle(TextColor.onDark)
                         )
                         .onAppear {
+                            // ✅ FIXED: Use consistent API like ArtistCard
                             if let coverArt = artist.coverArt {
                                 coverArtService.requestImage(for: coverArt, size: 120)
                             }
