@@ -24,6 +24,9 @@ class SearchManager: ObservableObject {
     private let offlineManager: OfflineManager
     private let downloadManager: DownloadManager
     
+    /// Debounced search for real-time search as user types
+    private var searchTask: Task<Void, Never>?
+
     // MARK: - Search Results Model
     
     struct SearchResults {
@@ -401,8 +404,6 @@ struct SearchStats {
 
 extension SearchManager {
     
-    /// Debounced search for real-time search as user types
-    private var searchTask: Task<Void, Never>?
     
     func searchWithDebounce(query: String, delay: TimeInterval = 0.5) {
         searchTask?.cancel()

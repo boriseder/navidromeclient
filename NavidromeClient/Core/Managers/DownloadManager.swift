@@ -1,11 +1,8 @@
 //
-//  DownloadManager.swift - ENHANCED with Artist Image Caching
+//  DownloadManager.swift - ENHANCED with UI State Management
 //  NavidromeClient
 //
-//  ✅ ENHANCEMENTS:
-//  - Downloads artist images during album download
-//  - Preloads both album and artist images for offline mode
-//  - Uses new unified image caching system
+//  ✅ ENHANCED: Centralized download state + UI logic extraction from DownloadButton
 //
 
 import Foundation
@@ -18,6 +15,10 @@ class DownloadManager: ObservableObject {
     @Published private(set) var downloadedSongs: Set<String> = []
     @Published private(set) var isDownloading: Set<String> = []
     @Published private(set) var downloadProgress: [String: Double] = [:]
+    
+    // ✅ NEW: Centralized Download UI States
+    @Published private(set) var downloadStates: [String: DownloadState] = [:]
+    @Published private(set) var downloadErrors: [String: String] = [:]
 
     private var downloadsFolder: URL {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -32,9 +33,157 @@ class DownloadManager: ObservableObject {
         downloadsFolder.appendingPathComponent("downloaded_albums.json")
     }
 
+    // ✅ NEW: Download State Enum (moved from DownloadButton)
+    enum DownloadState: Equatable {
+        case idle
+        case downloading
+        case downloaded
+        case error(String)
+        case cancelling
+        
+        var isLoading: Bool {
+            switch self {
+            case .downloading, .cancelling: return true
+            default: return false
+            }
+        }
+        
+        var canStartDownload: Bool {
+            switch self {
+            case .idle, .error: return true
+            default: return false
+            }
+        }
+        
+        var canCancel: Bool {
+            return self == .downloading
+        }
+        
+        var canDelete: Bool {
+            return self == .downloaded
+        }
+    }
+
     init() {
         loadDownloadedAlbums()
         migrateOldDataIfNeeded()
+        setupStateObservation()
+    }
+    
+    // ✅ NEW: Setup state observation for UI consistency
+    private func setupStateObservation() {
+        // Update download states when core properties change
+        NotificationCenter.default.addObserver(
+            forName: .downloadCompleted,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let albumId = notification.object as? String {
+                self?.updateDownloadState(for: albumId)
+            }
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: .downloadFailed,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let albumId = notification.object as? String {
+                self?.downloadStates[albumId] = .error("Download failed")
+            }
+        }
+    }
+
+    // MARK: - ✅ ENHANCED: UI State Management
+    
+    /// Get current download state for UI
+    func getDownloadState(for albumId: String) -> DownloadState {
+        return downloadStates[albumId] ?? determineDownloadState(for: albumId)
+    }
+    
+    /// Set download state (for UI updates)
+    private func setDownloadState(_ state: DownloadState, for albumId: String) {
+        downloadStates[albumId] = state
+        objectWillChange.send()
+    }
+    
+    /// Update download state based on current data
+    private func updateDownloadState(for albumId: String) {
+        let newState = determineDownloadState(for: albumId)
+        setDownloadState(newState, for: albumId)
+    }
+    
+    /// Determine download state from current data
+    private func determineDownloadState(for albumId: String) -> DownloadState {
+        if isAlbumDownloaded(albumId) {
+            return .downloaded
+        } else if isAlbumDownloading(albumId) {
+            return .downloading
+        } else if let error = downloadErrors[albumId] {
+            return .error(error)
+        } else {
+            return .idle
+        }
+    }
+    
+    // MARK: - ✅ ENHANCED: Download Operations with State Management
+    
+    /// Start download with UI state management
+    func startDownload(album: Album, songs: [Song], service: SubsonicService) async {
+        guard getDownloadState(for: album.id).canStartDownload else {
+            print("⚠️ Cannot start download for album \(album.id) in current state")
+            return
+        }
+        
+        setDownloadState(.downloading, for: album.id)
+        downloadErrors.removeValue(forKey: album.id)
+        
+        do {
+            try await downloadAlbum(songs: songs, albumId: album.id, service: service)
+            setDownloadState(.downloaded, for: album.id)
+        } catch {
+            let errorMessage = "Download failed: \(error.localizedDescription)"
+            downloadErrors[album.id] = errorMessage
+            setDownloadState(.error(errorMessage), for: album.id)
+            
+            NotificationCenter.default.post(
+                name: .downloadFailed,
+                object: album.id,
+                userInfo: ["error": error]
+            )
+        }
+    }
+    
+    /// Cancel download with UI state management
+    func cancelDownload(albumId: String) {
+        guard getDownloadState(for: albumId).canCancel else {
+            print("⚠️ Cannot cancel download for album \(albumId) in current state")
+            return
+        }
+        
+        setDownloadState(.cancelling, for: albumId)
+        
+        // Cancel the actual download (this would need enhancement in the actual download logic)
+        isDownloading.remove(albumId)
+        downloadProgress.removeValue(forKey: albumId)
+        
+        // After a brief delay, reset to idle
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+            setDownloadState(.idle, for: albumId)
+        }
+    }
+    
+    /// Delete download with UI state management
+    func deleteDownload(albumId: String) {
+        guard getDownloadState(for: albumId).canDelete else {
+            print("⚠️ Cannot delete download for album \(albumId) in current state")
+            return
+        }
+        
+        deleteAlbum(albumId: albumId)
+        setDownloadState(.idle, for: albumId)
+        downloadErrors.removeValue(forKey: albumId)
     }
 
     // MARK: - Status Methods (unchanged)
@@ -98,17 +247,15 @@ class DownloadManager: ObservableObject {
         return String(format: "%.1f MB", mb)
     }
 
-    // MARK: - ✅ ENHANCED: Download with Artist Image Caching
+    // MARK: - ✅ ENHANCED: Download with Artist Image Caching (unchanged but enhanced error handling)
     
-    func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async {
+    func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async throws {
         guard !isDownloading.contains(albumId) else {
-            print("⚠️ Download for album \(albumId) already in progress")
-            return
+            throw DownloadError.alreadyInProgress
         }
         
         guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
-            print("❌ Album metadata not found for \(albumId)")
-            return
+            throw DownloadError.missingMetadata
         }
         
         print("🔽 Starting enhanced download of album '\(albumMetadata.name)' with \(songs.count) songs")
@@ -121,14 +268,12 @@ class DownloadManager: ObservableObject {
             do {
                 try FileManager.default.createDirectory(at: albumFolder, withIntermediateDirectories: true)
             } catch {
-                print("❌ Failed to create album folder: \(error)")
                 isDownloading.remove(albumId)
                 downloadProgress.removeValue(forKey: albumId)
-                return
+                throw DownloadError.folderCreationFailed(error)
             }
         }
 
-        // ✅ ENHANCED: Download songs AND cache cover arts
         var downloadedSongsMetadata: [DownloadedSong] = []
         let totalSongs = songs.count
         let downloadDate = Date()
@@ -191,6 +336,7 @@ class DownloadManager: ObservableObject {
                 
             } catch {
                 print("❌ Download error for \(song.title): \(error)")
+                throw DownloadError.songDownloadFailed(song.title, error)
             }
         }
 
@@ -216,7 +362,7 @@ class DownloadManager: ObservableObject {
             
             print("✅ Enhanced album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
         } else {
-            print("❌ Album download failed: No songs downloaded")
+            throw DownloadError.noSongsDownloaded
         }
 
         isDownloading.remove(albumId)
@@ -228,13 +374,37 @@ class DownloadManager: ObservableObject {
         downloadProgress.removeValue(forKey: albumId)
     }
     
-    // MARK: - ✅ FIXED: Cover Art Caching During Download
+    // MARK: - ✅ NEW: Download Error Types
+    
+    enum DownloadError: LocalizedError {
+        case alreadyInProgress
+        case missingMetadata
+        case folderCreationFailed(Error)
+        case songDownloadFailed(String, Error)
+        case noSongsDownloaded
+        
+        var errorDescription: String? {
+            switch self {
+            case .alreadyInProgress:
+                return "Download already in progress"
+            case .missingMetadata:
+                return "Album metadata not found"
+            case .folderCreationFailed(let error):
+                return "Failed to create download folder: \(error.localizedDescription)"
+            case .songDownloadFailed(let title, let error):
+                return "Failed to download '\(title)': \(error.localizedDescription)"
+            case .noSongsDownloaded:
+                return "No songs were successfully downloaded"
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods (unchanged)
     
     private func cacheAlbumCoverArt(album: Album, service: SubsonicService) async {
         let coverArtService = ReactiveCoverArtService.shared
         
-        // Cache album cover in multiple sizes for offline use
-        let sizes = [50, 120, 200, 300] // Standard sizes
+        let sizes = [50, 120, 200, 300]
         
         for size in sizes {
             _ = await coverArtService.loadAlbumCover(album, size: size)
@@ -246,11 +416,8 @@ class DownloadManager: ObservableObject {
     private func cacheArtistImage(for album: Album, service: SubsonicService) async {
         let coverArtService = ReactiveCoverArtService.shared
         
-        // Try to find artist from the cached data or create a minimal one
         let artist = findOrCreateArtist(for: album)
-        
-        // Cache artist image in standard sizes
-        let sizes = [50, 120] // Smaller sizes for artist avatars
+        let sizes = [50, 120]
         
         for size in sizes {
             _ = await coverArtService.loadArtistImage(artist, size: size)
@@ -260,33 +427,16 @@ class DownloadManager: ObservableObject {
     }
     
     private func findOrCreateArtist(for album: Album) -> Artist {
-        // Try to find artist in NavidromeViewModel's cache first
-        // If not found, create a minimal artist object
-        
-        // Check if we have this artist cached
-        if let navidromeVM = getNavidromeViewModel(),
-           let existingArtist = navidromeVM.artists.first(where: { $0.name == album.artist }) {
-            return existingArtist
-        }
-        
-        // Create minimal artist object with the album's artist info
         return Artist(
             id: album.artistId ?? "artist_\(album.artist.hash)",
             name: album.artist,
-            coverArt: album.coverArt, // Use album's cover art as fallback
+            coverArt: album.coverArt,
             albumCount: 1,
             artistImageUrl: nil
         )
     }
     
-    // Helper to access NavidromeViewModel (if available)
-    private func getNavidromeViewModel() -> NavidromeViewModel? {
-        // In the current architecture, this would need dependency injection
-        // For now, return nil and use the fallback artist creation
-        return nil
-    }
-    
-    // MARK: - Deletion Methods (unchanged)
+    // MARK: - Deletion Methods (enhanced with state management)
     
     func deleteAlbum(albumId: String) {
         Task { @MainActor in
@@ -310,6 +460,10 @@ class DownloadManager: ObservableObject {
             downloadedAlbums.removeAll { $0.albumId == albumId }
             downloadProgress.removeValue(forKey: albumId)
             isDownloading.remove(albumId)
+            
+            // ✅ NEW: Clean up UI state
+            downloadStates.removeValue(forKey: albumId)
+            downloadErrors.removeValue(forKey: albumId)
 
             saveDownloadedAlbums()
             
@@ -336,6 +490,10 @@ class DownloadManager: ObservableObject {
         downloadedSongs.removeAll()
         downloadProgress.removeAll()
         isDownloading.removeAll()
+        
+        // ✅ NEW: Clean up all UI state
+        downloadStates.removeAll()
+        downloadErrors.removeAll()
 
         saveDownloadedAlbums()
         
@@ -356,6 +514,12 @@ class DownloadManager: ObservableObject {
             if let newAlbums = try? JSONDecoder().decode([DownloadedAlbum].self, from: data) {
                 downloadedAlbums = newAlbums
                 rebuildDownloadedSongsSet()
+                
+                // ✅ NEW: Initialize UI states
+                for album in newAlbums {
+                    updateDownloadState(for: album.albumId)
+                }
+                
                 print("📦 Loaded \(downloadedAlbums.count) albums with full metadata")
                 return
             }
@@ -398,7 +562,7 @@ class DownloadManager: ObservableObject {
     }
 }
 
-// MARK: - Notification Names (unchanged)
+// MARK: - Notification Names (enhanced)
 extension Notification.Name {
     static let downloadCompleted = Notification.Name("downloadCompleted")
     static let downloadStarted = Notification.Name("downloadStarted")

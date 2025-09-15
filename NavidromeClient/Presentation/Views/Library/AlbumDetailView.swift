@@ -171,9 +171,7 @@ struct AlbumHeaderView: View {
                         DownloadButton(
                             album: album,
                             songs: songs,
-                            navidromeVM: navidromeVM,
-                            playerVM: playerVM,
-                            downloadManager: downloadManager
+                            navidromeVM: navidromeVM
                         )
                     }
                 }

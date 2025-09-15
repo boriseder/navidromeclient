@@ -1,8 +1,9 @@
 //
-//  ArtistCard.swift - CLEAN Async Implementation
+//  ArtistCard.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ CORRECT: No UI blocking, proper async patterns
+//  ✅ CLEAN: All image loading logic moved to CoverArtManager
+//  ✅ REACTIVE: Uses centralized state, automatic staggering handled by manager
 //
 
 import SwiftUI
@@ -11,79 +12,23 @@ struct ArtistCard: View {
     let artist: Artist
     let index: Int
     
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
-    
-    // ✅ CORRECT: Local state for async loading
-    @State private var artistImage: UIImage?
-    @State private var isLoading = false
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         HStack(spacing: Spacing.m) {
-            // Artist Avatar - CLEAN ASYNC
-            ZStack {
-                Circle()
-                    .fill(BackgroundColor.secondary)
-                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
-                    .blur(radius: 1)
-                
-                Group {
-                    if let image = artistImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
-                            .clipShape(Circle())
-                            .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                    } else {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.red, .blue],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: Sizes.avatar, height: Sizes.avatar)
-                            .overlay(
-                                Group {
-                                    if isLoading {
-                                        ProgressView()
-                                            .scaleEffect(0.7)
-                                            .tint(.white)
-                                    } else {
-                                        Image(systemName: "music.mic")
-                                            .font(.system(size: Sizes.icon))
-                                            .foregroundStyle(TextColor.onDark)
-                                    }
-                                }
-                            )
-                    }
+            // Artist Avatar - ✅ PURE UI
+            artistAvatarView
+                .task(id: artist.id) {
+                    // ✅ SINGLE LINE: Manager handles staggering, caching, state
+                    await coverArtManager.loadArtistImage(
+                        artist: artist,
+                        size: Int(Sizes.avatarLarge),
+                        staggerIndex: index
+                    )
                 }
-            }
-            .task(id: artist.id) {
-                await loadArtistImage()
-            }
 
             // Artist Info (unchanged)
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(artist.name)
-                    .font(Typography.bodyEmphasized)
-                    .foregroundColor(TextColor.primary)
-                    .lineLimit(1)
-
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: "record.circle")
-                        .font(Typography.caption)
-                        .foregroundColor(TextColor.secondary)
-
-                    if let count = artist.albumCount {
-                        Text("\(count) Album\(count != 1 ? "s" : "")")
-                            .font(Typography.caption)
-                            .foregroundColor(TextColor.secondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
+            artistInfoView
             
             Spacer()
             
@@ -95,31 +40,77 @@ struct ArtistCard: View {
         .materialCardStyle()
     }
     
-    // ✅ CORRECT: Proper async loading
-    private func loadArtistImage() async {
-        // 1. Check cache first (fast, non-blocking)
-        if let cached = coverArtService.getCachedArtistImage(artist, size: 120) {
-            artistImage = cached
-            return
+    // MARK: - ✅ Pure UI Components
+    
+    @ViewBuilder
+    private var artistAvatarView: some View {
+        ZStack {
+            // Background blur
+            Circle()
+                .fill(BackgroundColor.secondary)
+                .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
+                .blur(radius: 1)
+            
+            // Avatar content
+            Group {
+                if let image = coverArtManager.getArtistImage(for: artist.id) {
+                    // ✅ REACTIVE: Uses centralized state
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
+                        .clipShape(Circle())
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                } else {
+                    // Default avatar with loading state
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.red, .blue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: Sizes.avatar, height: Sizes.avatar)
+                        .overlay(avatarOverlay)
+                }
+            }
         }
-        
-        // 2. Only proceed if we have coverArt
-        guard artist.coverArt != nil else { return }
-        
-        // 3. Async loading with proper state management
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isLoading = true
+    }
+    
+    @ViewBuilder
+    private var avatarOverlay: some View {
+        if coverArtManager.isLoadingImage(for: artist.id) {
+            // ✅ REACTIVE: Uses centralized loading state
+            ProgressView()
+                .scaleEffect(0.7)
+                .tint(.white)
+        } else {
+            Image(systemName: "music.mic")
+                .font(.system(size: Sizes.icon))
+                .foregroundStyle(TextColor.onDark)
         }
-        
-        // Add staggered delay to prevent thundering herd
-        let delay = UInt64(min(index * 50_000_000, 500_000_000)) // Max 500ms
-        try? await Task.sleep(nanoseconds: delay)
-        
-        let loadedImage = await coverArtService.loadArtistImage(artist, size: 120)
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            artistImage = loadedImage
-            isLoading = false
+    }
+    
+    private var artistInfoView: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text(artist.name)
+                .font(Typography.bodyEmphasized)
+                .foregroundColor(TextColor.primary)
+                .lineLimit(1)
+
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "record.circle")
+                    .font(Typography.caption)
+                    .foregroundColor(TextColor.secondary)
+
+                if let count = artist.albumCount {
+                    Text("\(count) Album\(count != 1 ? "s" : "")")
+                        .font(Typography.caption)
+                        .foregroundColor(TextColor.secondary)
+                        .lineLimit(1)
+                }
+            }
         }
     }
 }

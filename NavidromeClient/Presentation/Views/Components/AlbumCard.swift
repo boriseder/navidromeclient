@@ -1,8 +1,9 @@
 //
-//  AlbumCard.swift - CLEAN Async Implementation
+//  AlbumCard.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ CORRECT: No UI blocking, proper async patterns
+//  ✅ CLEAN: All business logic moved to CoverArtManager
+//  ✅ REACTIVE: Uses centralized state instead of local @State
 //
 
 import SwiftUI
@@ -10,97 +11,101 @@ import SwiftUI
 struct AlbumCard: View {
     let album: Album
     let accentColor: Color
+    let index: Int // For staggered loading
     
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
-    
-    // ✅ CORRECT: Local state for async loading
-    @State private var coverImage: UIImage?
-    @State private var isLoading = false
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            // Album Cover - CLEAN ASYNC
-            ZStack {
-                RoundedRectangle(cornerRadius: Radius.xs)
-                    .fill(LinearGradient(
-                        colors: [accentColor.opacity(0.3), accentColor.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .frame(width: Sizes.card, height: Sizes.card)
-                
-                Group {
-                    if let image = coverImage {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: Sizes.card, height: Sizes.card)
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
-                            .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                    } else {
-                        Group {
-                            if isLoading {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                    .tint(accentColor)
-                            } else {
-                                Image(systemName: "music.note")
-                                    .font(.system(size: Sizes.iconLarge))
-                                    .foregroundColor(accentColor.opacity(0.7))
-                            }
-                        }
-                    }
+            // Album Cover - ✅ PURE UI
+            albumCoverView
+                .frame(width: Sizes.card, height: Sizes.card)
+                .cardShadow()
+                .task(id: album.id) {
+                    // ✅ SINGLE LINE: Manager handles all complexity
+                    await coverArtManager.loadAlbumImage(
+                        album: album,
+                        size: Int(Sizes.card),
+                        staggerIndex: index
+                    )
                 }
-            }
-            .cardShadow()
-            .task(id: album.id) {
-                await loadAlbumCover()
-            }
             
             // Album Info (unchanged)
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(album.name)
-                    .font(Typography.bodyEmphasized)
-                    .foregroundColor(TextColor.primary)
-                    .lineLimit(1)
-                
-                Text(album.artist)
-                    .font(Typography.caption)
-                    .foregroundColor(TextColor.secondary)
-                    .lineLimit(1)
-                
-                if let year = album.year {
-                    Text(String(year))
-                        .font(Typography.caption2)
-                        .foregroundColor(TextColor.tertiary)
-                } else {
-                    Text(" ") // Spacer for consistent height
-                        .font(Typography.caption2)
-                        .foregroundColor(TextColor.tertiary)
-                }
-            }
-            .frame(width: Sizes.card, alignment: .leading)
+            albumInfoView
+                .frame(width: Sizes.card, alignment: .leading)
         }
     }
     
-    // ✅ CORRECT: Proper async loading
-    private func loadAlbumCover() async {
-        // 1. Check cache first (fast, non-blocking)
-        if let cached = coverArtService.getCachedAlbumCover(album, size: 200) {
-            coverImage = cached
-            return
+    // MARK: - ✅ Pure UI Components
+    
+    @ViewBuilder
+    private var albumCoverView: some View {
+        ZStack {
+            // Background gradient
+            RoundedRectangle(cornerRadius: Radius.xs)
+                .fill(LinearGradient(
+                    colors: [accentColor.opacity(0.3), accentColor.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+            
+            // Image content
+            Group {
+                if let image = coverArtManager.getAlbumImage(for: album.id) {
+                    // ✅ REACTIVE: Uses centralized state
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                } else if coverArtManager.isLoadingImage(for: album.id) {
+                    // ✅ REACTIVE: Uses centralized loading state
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(accentColor)
+                } else {
+                    // Placeholder
+                    Image(systemName: "music.note")
+                        .font(.system(size: Sizes.iconLarge))
+                        .foregroundColor(accentColor.opacity(0.7))
+                }
+            }
         }
-        
-        // 2. Async loading with proper state management
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isLoading = true
+        .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
+    }
+    
+    private var albumInfoView: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text(album.name)
+                .font(Typography.bodyEmphasized)
+                .foregroundColor(TextColor.primary)
+                .lineLimit(1)
+            
+            Text(album.artist)
+                .font(Typography.caption)
+                .foregroundColor(TextColor.secondary)
+                .lineLimit(1)
+            
+            if let year = album.year {
+                Text(String(year))
+                    .font(Typography.caption2)
+                    .foregroundColor(TextColor.tertiary)
+            } else {
+                Text(" ") // Spacer for consistent height
+                    .font(Typography.caption2)
+                    .foregroundColor(TextColor.tertiary)
+            }
         }
-        
-        let loadedImage = await coverArtService.loadAlbumCover(album, size: 200)
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            coverImage = loadedImage
-            isLoading = false
-        }
+    }
+}
+
+// MARK: - ✅ Preview Helper
+
+extension AlbumCard {
+    /// Convenience initializer without index for simple usage
+    init(album: Album, accentColor: Color) {
+        self.album = album
+        self.accentColor = accentColor
+        self.index = 0
     }
 }

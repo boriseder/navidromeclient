@@ -1,8 +1,9 @@
 //
-//  AlbumsView.swift
+//  AlbumsView.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//
+//  ✅ CLEAN: All business logic moved to LibraryViewModel
+//  ✅ DRY: No more duplicated filtering/sorting logic
 //
 
 import SwiftUI
@@ -11,145 +12,186 @@ struct AlbumsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
-    @State private var searchText = ""
-    @State private var selectedSortType: SubsonicService.AlbumSortType = .alphabetical
-
-    // ✅ SIMPLIFIED: No hasLoadedOnce, no task, no onChange
+    // ✅ NEW: Single source of truth for all UI logic
+    @StateObject private var libraryVM = LibraryViewModel()
     
     var body: some View {
         NavigationStack {
             Group {
-                if navidromeVM.isLoading && !navidromeVM.hasLoadedInitialData {
-                    VStack(spacing: 16) {
-                        loadingView()
-                        
-                        if navidromeVM.isLoadingInBackground {
-                            Text(navidromeVM.backgroundLoadingProgress)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else if displayedAlbums.isEmpty {
+                if libraryVM.shouldShowAlbumsLoading {
+                    albumsLoadingView
+                } else if libraryVM.shouldShowAlbumsEmptyState {
                     albumsEmptyStateView
                 } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
-                                LibraryStatusHeader.albums(
-                                    count: displayedAlbums.count,
-                                    isOnline: networkMonitor.canLoadOnlineContent,
-                                    isOfflineMode: offlineManager.isOfflineMode
-                                )
-                            }
-                            
-                            AlbumGridView(albums: displayedAlbums)
-                        }
-                    }
-                    // ✅ SIMPLIFIED: Only refreshable - no other loading triggers
-                    .refreshable {
-                        await navidromeVM.refreshAllData()
-                    }
+                    albumsContentView
                 }
             }
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, placement: .automatic, prompt: "Search albums...")
+            .searchable(
+                text: $libraryVM.searchText,
+                placement: .automatic,
+                prompt: "Search albums..."
+            )
+            .onChange(of: libraryVM.searchText) { _, _ in
+                // ✅ REACTIVE: ViewModel handles debouncing
+                libraryVM.handleSearchTextChange()
+            }
             .toolbar {
-                toolbarContent
+                albumsToolbarContent
+            }
+            .refreshable {
+                // ✅ SINGLE LINE: ViewModel handles all complexity
+                await libraryVM.refreshAllData()
+            }
+            .task(id: libraryVM.displayedAlbums.count) {
+                // ✅ SINGLE LINE: ViewModel coordinates preloading
+                await libraryVM.preloadAlbumImages(libraryVM.displayedAlbums, coverArtManager: coverArtManager)
             }
             .accountToolbar()
-            .task(id: displayedAlbums.count) {
-                await preloadDisplayedAlbums()
-            }
         }
     }
     
-    // Rest of the computed properties and helper methods remain the same...
-    private var displayedAlbums: [Album] {
-        let sourceAlbums = getSourceAlbums()
-        return filterAlbums(sourceAlbums)
-    }
+    // MARK: - ✅ Pure UI Components
     
-    private func getSourceAlbums() -> [Album] {
-        let canLoadOnline = networkMonitor.canLoadOnlineContent
-        let isOffline = offlineManager.isOfflineMode
-        
-        if canLoadOnline && !isOffline {
-            return navidromeVM.albums
-        } else {
-            let downloadedAlbumIds = Set(DownloadManager.shared.downloadedAlbums.map { $0.albumId })
-            return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
-        }
-    }
-    
-    private func filterAlbums(_ albums: [Album]) -> [Album] {
-        if searchText.isEmpty {
-            return albums
-        } else {
-            return albums.filter { album in
-                let nameMatches = album.name.localizedCaseInsensitiveContains(searchText)
-                let artistMatches = album.artist.localizedCaseInsensitiveContains(searchText)
-                return nameMatches || artistMatches
+    private var albumsLoadingView: some View {
+        VStack(spacing: 16) {
+            loadingView()
+            
+            if libraryVM.isLoadingInBackground {
+                Text(libraryVM.backgroundLoadingProgress)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
     
     private var albumsEmptyStateView: some View {
         AlbumsEmptyStateView(
-            isOnline: networkMonitor.canLoadOnlineContent,
-            isOfflineMode: offlineManager.isOfflineMode
+            isOnline: libraryVM.canLoadOnlineContent,
+            isOfflineMode: libraryVM.isOfflineMode
         )
     }
     
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Menu {
-                ForEach(SubsonicService.AlbumSortType.allCases, id: \.self) { sortType in
-                    Button {
-                        selectedSortType = sortType
-                        Task { await navidromeVM.loadAllAlbums(sortBy: sortType) }
-                    } label: {
-                        HStack {
-                            Text(sortType.displayName)
-                            if selectedSortType == sortType {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
+    private var albumsContentView: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                // ✅ REACTIVE: Show status header based on ViewModel state
+                if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
+                    LibraryStatusHeader(
+                        itemType: .albums,
+                        count: libraryVM.albumCount,
+                        isOnline: libraryVM.canLoadOnlineContent,
+                        isOfflineMode: libraryVM.isOfflineMode
+                    )
                 }
-            } label: {
-                Image(systemName: selectedSortType.icon)
+                
+                // ✅ REACTIVE: Albums automatically filtered by ViewModel
+                AlbumGridView(albums: libraryVM.displayedAlbums)
             }
-        }
-        
-        ToolbarItem(placement: .navigationBarTrailing) {
-            OfflineModeToggle()
-        }
-        
-        // ✅ SIMPLIFIED: Manual refresh button (optional)
-        ToolbarItem(placement: .navigationBarLeading) {
-            Button {
-                Task { await navidromeVM.refreshAllData() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .disabled(navidromeVM.isLoadingInBackground)
         }
     }
     
-    private func preloadDisplayedAlbums() async {
-        let albums = displayedAlbums
-        guard !albums.isEmpty else { return }
+    @ToolbarContentBuilder
+    private var albumsToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            albumSortMenu
+        }
         
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        ToolbarItem(placement: .navigationBarTrailing) {
+            offlineModeToggle
+        }
         
-        Task {
-            await coverArtService.preloadAlbums(Array(albums.prefix(20)), size: 200)
+        ToolbarItem(placement: .navigationBarLeading) {
+            refreshButton
+        }
+    }
+    
+    private var albumSortMenu: some View {
+        Menu {
+            ForEach(libraryVM.availableAlbumSorts, id: \.self) { sortType in
+                Button {
+                    Task {
+                        // ✅ SINGLE LINE: ViewModel handles sorting logic
+                        await libraryVM.loadAlbums(sortBy: sortType)
+                    }
+                } label: {
+                    HStack {
+                        Text(sortType.displayName)
+                        if libraryVM.isAlbumSortSelected(sortType) {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: libraryVM.selectedAlbumSort.icon)
+        }
+    }
+    
+    private var offlineModeToggle: some View {
+        Button {
+            // ✅ SINGLE LINE: ViewModel handles mode switching
+            libraryVM.toggleOfflineMode()
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: libraryVM.isOfflineMode ? "icloud.slash" : "icloud")
+                    .font(Typography.caption)
+                Text(libraryVM.isOfflineMode ? "Offline" : "All")
+                    .font(Typography.caption)
+            }
+            .foregroundStyle(libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+            .padding(.horizontal, Padding.s)
+            .padding(.vertical, Padding.xs)
+            .background(
+                Capsule()
+                    .fill((libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+            )
+        }
+    }
+    
+    private var refreshButton: some View {
+        Button {
+            Task {
+                // ✅ SINGLE LINE: ViewModel handles refresh logic
+                await libraryVM.refreshAllData()
+            }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .disabled(libraryVM.isLoadingInBackground)
+    }
+}
+
+// MARK: - ✅ Reusable AlbumGridView (unchanged but can be enhanced)
+
+struct AlbumGridView: View {
+    let albums: [Album]
+    
+    @EnvironmentObject var navidromeVM: NavidromeViewModel
+    @EnvironmentObject var playerVM: PlayerViewModel
+    
+    var body: some View {
+        ScrollView {
+            albumsGrid
+                .screenPadding()
+                .padding(.bottom, 100)
+        }
+    }
+    
+    private var albumsGrid: some View {
+        LazyVGrid(columns: GridColumns.two, spacing: Spacing.l) {
+            ForEach(albums.indices, id: \.self) { index in
+                let album = albums[index]
+                NavigationLink {
+                    AlbumDetailView(album: album)
+                } label: {
+                    // ✅ PASS INDEX: For staggered loading
+                    AlbumCard(album: album, accentColor: .primary, index: index)
+                }
+            }
         }
     }
 }

@@ -1,25 +1,31 @@
+//
+//  DownloadButton.swift - REFACTORED to Pure UI
+//  NavidromeClient
+//
+//  ✅ CLEAN: All state management moved to DownloadManager
+//  ✅ REACTIVE: Uses centralized download state instead of local @State
+//
+
 import SwiftUI
 
 struct DownloadButton: View {
     let album: Album
     let songs: [Song]
     let navidromeVM: NavidromeViewModel
-    let playerVM: PlayerViewModel
     
-    // @ObservedObject ist korrekt, da von Parent übergeben
-    @ObservedObject var downloadManager: DownloadManager
-    @State private var downloadState: DownloadState = .idle
+    @EnvironmentObject var downloadManager: DownloadManager
     @State private var showingDeleteConfirmation = false
     
     private let buttonSize: CGFloat = 24
-
-    enum DownloadState {
-        case idle, downloading, downloaded, error, cancelling
+    
+    // ✅ REACTIVE: Get state from manager instead of local @State
+    private var downloadState: DownloadManager.DownloadState {
+        downloadManager.getDownloadState(for: album.id)
     }
-
-    private var isDownloading: Bool { downloadManager.isAlbumDownloading(album.id) }
-    private var isDownloaded: Bool { downloadManager.isAlbumDownloaded(album.id) }
-    private var progress: Double { downloadManager.downloadProgress[album.id] ?? 0 }
+    
+    private var progress: Double {
+        downloadManager.downloadProgress[album.id] ?? 0
+    }
     
     var body: some View {
         Button {
@@ -33,32 +39,16 @@ struct DownloadButton: View {
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                downloadManager.deleteAlbum(albumId: album.id)
+                // ✅ SINGLE LINE: Manager handles all logic
+                downloadManager.deleteDownload(albumId: album.id)
             }
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will remove the downloaded songs from your device.")
         }
-        .onReceive(NotificationCenter.default.publisher(for: .downloadCompleted)) { notification in
-            if let completedAlbumId = notification.object as? String, completedAlbumId == album.id {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    downloadState = .downloaded
-                }
-            }
-        }
-        .onChange(of: isDownloading) { _, newValue in
-            updateDownloadState()
-        }
-        .onChange(of: isDownloaded) { _, newValue in
-            updateDownloadState()
-        }
-        .onChange(of: progress) { _, newValue in
-            print("📊 Progress changed for \(album.id): \(newValue)")
-        }
-        .onAppear {
-            updateDownloadState()
-        }
     }
+    
+    // MARK: - ✅ Pure UI Content
     
     @ViewBuilder
     private var buttonContent: some View {
@@ -70,8 +60,8 @@ struct DownloadButton: View {
                 downloadingButton
             case .downloaded:
                 downloadedButton
-            case .error:
-                errorButton
+            case .error(let message):
+                errorButton(message: message)
             case .cancelling:
                 cancellingButton
             }
@@ -108,10 +98,11 @@ struct DownloadButton: View {
             .foregroundColor(.green)
     }
     
-    private var errorButton: some View {
+    private func errorButton(message: String) -> some View {
         Image(systemName: "exclamationmark.triangle.fill")
             .font(.system(size: 18))
             .foregroundColor(.orange)
+            .help(message) // Show error on hover/long press
     }
     
     private var cancellingButton: some View {
@@ -125,6 +116,8 @@ struct DownloadButton: View {
         }
     }
     
+    // MARK: - ✅ Simple Action Handler
+    
     private func handleButtonTap() {
         switch downloadState {
         case .idle, .error:
@@ -134,45 +127,39 @@ struct DownloadButton: View {
         case .downloaded:
             showingDeleteConfirmation = true
         case .cancelling:
-            break
+            break // No action during cancelling
         }
     }
     
     private func startDownload() {
         guard let service = navidromeVM.getService() else {
-            downloadState = .error
+            print("❌ No service available for download")
             return
         }
         
-        downloadState = .downloading
-        
+        // ✅ SINGLE LINE: Manager handles all complexity
         Task {
-            await downloadManager.downloadAlbum(
+            await downloadManager.startDownload(
+                album: album,
                 songs: songs,
-                albumId: album.id,
                 service: service
             )
         }
     }
     
     private func cancelDownload() {
-        downloadState = .cancelling
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            downloadState = .idle
-        }
-    }
-    
-    private func updateDownloadState() {
-        if isDownloaded {
-            downloadState = .downloaded
-        } else if isDownloading {
-            downloadState = .downloading
-        } else if downloadState == .downloading {
-            downloadState = isDownloaded ? .downloaded : .error
-        } else if downloadState != .error {
-            downloadState = .idle
-        }
+        // ✅ SINGLE LINE: Manager handles all logic
+        downloadManager.cancelDownload(albumId: album.id)
     }
 }
 
+// MARK: - ✅ Preview Helper
+
+extension DownloadButton {
+    /// Convenience initializer for simpler usage
+    init(album: Album, songs: [Song], navidromeVM: NavidromeViewModel) {
+        self.album = album
+        self.songs = songs
+        self.navidromeVM = navidromeVM
+    }
+}

@@ -1,21 +1,25 @@
 //
-//  SearchResultRow.swift - CLEAN Async Implementation
+//  SearchResultRow.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ CORRECT: No UI blocking, proper async patterns, no ImageType usage
+//  ✅ CLEAN: All image loading logic moved to CoverArtManager
+//  ✅ REACTIVE: Uses centralized image state instead of local @State
 //
 
 import SwiftUI
 
-// MARK: - Artist Row (Clean Async)
+// MARK: - Artist Row (Pure UI)
 struct SearchResultArtistRow: View {
     let artist: Artist
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    let index: Int // For staggered loading
+    
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
             HStack(spacing: Spacing.m) {
-                ArtistImageView(artist: artist)
+                // ✅ REACTIVE: Uses centralized state
+                ArtistImageView(artist: artist, index: index)
                 ArtistInfoView(artist: artist)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -29,15 +33,18 @@ struct SearchResultArtistRow: View {
     }
 }
 
-// MARK: - Album Row (Clean Async)
+// MARK: - Album Row (Pure UI)
 struct SearchResultAlbumRow: View {
     let album: Album
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    let index: Int // For staggered loading
+    
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         NavigationLink(destination: AlbumDetailView(album: album)) {
             HStack(spacing: Spacing.m) {
-                AlbumImageView(album: album)
+                // ✅ REACTIVE: Uses centralized state
+                AlbumImageView(album: album, index: index)
                 AlbumInfoView(album: album)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -51,18 +58,19 @@ struct SearchResultAlbumRow: View {
     }
 }
 
-// MARK: - Song Row (Clean Async)
+// MARK: - Song Row (Pure UI)
 struct SearchResultSongRow: View {
     let song: Song
     let index: Int
     let isPlaying: Bool
     let action: () -> Void
     
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: Spacing.m) {
+                // ✅ REACTIVE: Uses centralized state
                 SongImageView(song: song, isPlaying: isPlaying)
                 SongInfoView(song: song, isPlaying: isPlaying)
                 Spacer()
@@ -75,14 +83,13 @@ struct SearchResultSongRow: View {
     }
 }
 
-// MARK: - Image Components (Clean Async)
+// MARK: - ✅ REFACTORED: Image Components (Pure UI)
 
 struct ArtistImageView: View {
     let artist: Artist
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    let index: Int
     
-    @State private var artistImage: UIImage?
-    @State private var isLoading = false
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         ZStack {
@@ -92,7 +99,8 @@ struct ArtistImageView: View {
                 .blur(radius: 3)
             
             Group {
-                if let image = artistImage {
+                if let image = coverArtManager.getArtistImage(for: artist.id) {
+                    // ✅ REACTIVE: Uses centralized state
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -109,51 +117,40 @@ struct ArtistImageView: View {
                             )
                         )
                         .frame(width: Sizes.avatar, height: Sizes.avatar)
-                        .overlay(
-                            Group {
-                                if isLoading {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "music.mic")
-                                        .font(.system(size: Sizes.icon))
-                                        .foregroundStyle(TextColor.onDark)
-                                }
-                            }
-                        )
+                        .overlay(artistImageOverlay)
                 }
             }
         }
         .task(id: artist.id) {
-            await loadArtistImage()
+            // ✅ SINGLE LINE: Manager handles staggering, caching, state
+            await coverArtManager.loadArtistImage(
+                artist: artist,
+                size: Int(Sizes.avatar),
+                staggerIndex: index
+            )
         }
     }
     
-    private func loadArtistImage() async {
-        if let cached = coverArtService.getCachedArtistImage(artist, size: 120) {
-            artistImage = cached
-            return
-        }
-        
-        guard artist.coverArt != nil else { return }
-        
-        isLoading = true
-        let loadedImage = await coverArtService.loadArtistImage(artist, size: 120)
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            artistImage = loadedImage
-            isLoading = false
+    @ViewBuilder
+    private var artistImageOverlay: some View {
+        if coverArtManager.isLoadingImage(for: artist.id) {
+            // ✅ REACTIVE: Uses centralized loading state
+            ProgressView()
+                .scaleEffect(0.7)
+                .tint(.white)
+        } else {
+            Image(systemName: "music.mic")
+                .font(.system(size: Sizes.icon))
+                .foregroundStyle(TextColor.onDark)
         }
     }
 }
 
 struct AlbumImageView: View {
     let album: Album
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    let index: Int
     
-    @State private var albumImage: UIImage?
-    @State private var isLoading = false
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         ZStack {
@@ -163,7 +160,8 @@ struct AlbumImageView: View {
                 .blur(radius: 3)
             
             Group {
-                if let image = albumImage {
+                if let image = coverArtManager.getAlbumImage(for: album.id) {
+                    // ✅ REACTIVE: Uses centralized state
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -180,39 +178,31 @@ struct AlbumImageView: View {
                             )
                         )
                         .frame(width: Sizes.avatar, height: Sizes.avatar)
-                        .overlay(
-                            Group {
-                                if isLoading {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "record.circle.fill")
-                                        .font(.system(size: Sizes.icon))
-                                        .foregroundStyle(TextColor.onDark)
-                                }
-                            }
-                        )
+                        .overlay(albumImageOverlay)
                 }
             }
         }
         .task(id: album.id) {
-            await loadAlbumImage()
+            // ✅ SINGLE LINE: Manager handles staggering, caching, state
+            await coverArtManager.loadAlbumImage(
+                album: album,
+                size: Int(Sizes.avatar),
+                staggerIndex: index
+            )
         }
     }
     
-    private func loadAlbumImage() async {
-        if let cached = coverArtService.getCachedAlbumCover(album, size: 120) {
-            albumImage = cached
-            return
-        }
-        
-        isLoading = true
-        let loadedImage = await coverArtService.loadAlbumCover(album, size: 120)
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            albumImage = loadedImage
-            isLoading = false
+    @ViewBuilder
+    private var albumImageOverlay: some View {
+        if coverArtManager.isLoadingImage(for: album.id) {
+            // ✅ REACTIVE: Uses centralized loading state
+            ProgressView()
+                .scaleEffect(0.7)
+                .tint(.white)
+        } else {
+            Image(systemName: "record.circle.fill")
+                .font(.system(size: Sizes.icon))
+                .foregroundStyle(TextColor.onDark)
         }
     }
 }
@@ -220,10 +210,19 @@ struct AlbumImageView: View {
 struct SongImageView: View {
     let song: Song
     let isPlaying: Bool
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
     
-    @State private var songImage: UIImage?
-    @State private var isLoading = false
+    @EnvironmentObject var coverArtManager: CoverArtManager
+    
+    // ✅ REACTIVE: Get song image via centralized state
+    private var songImage: UIImage? {
+        coverArtManager.getSongImage(for: song, size: Int(Sizes.coverMini))
+    }
+    
+    // ✅ REACTIVE: Get loading state via centralized state
+    private var isLoading: Bool {
+        guard let albumId = song.albumId else { return false }
+        return coverArtManager.isLoadingImage(for: albumId)
+    }
     
     var body: some View {
         ZStack {
@@ -239,16 +238,7 @@ struct SongImageView: View {
                         .scaledToFill()
                         .frame(width: Sizes.coverMini, height: Sizes.coverMini)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.s))
-                        .overlay(
-                            isPlaying ?
-                            RoundedRectangle(cornerRadius: Radius.s)
-                                .fill(BrandColor.playing.opacity(0.3))
-                                .overlay(
-                                    Image(systemName: "speaker.wave.2.fill")
-                                        .font(Typography.caption)
-                                        .foregroundStyle(BrandColor.playing)
-                                ) : nil
-                        )
+                        .overlay(playingOverlay)
                         .transition(.opacity.animation(.easeInOut(duration: 0.3)))
                 } else {
                     RoundedRectangle(cornerRadius: Radius.s)
@@ -260,48 +250,40 @@ struct SongImageView: View {
                             )
                         )
                         .frame(width: Sizes.coverMini, height: Sizes.coverMini)
-                        .overlay(
-                            Group {
-                                if isLoading {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                        .tint(.white)
-                                } else {
-                                    Image(systemName: "music.note")
-                                        .font(.system(size: Sizes.iconLarge))
-                                        .foregroundStyle(TextColor.onDark)
-                                }
-                            }
-                        )
+                        .overlay(songImageOverlay)
                 }
             }
         }
         .task(id: song.albumId) {
-            await loadSongImage()
+            // ✅ SINGLE LINE: Manager handles all complexity
+            _ = await coverArtManager.loadSongImage(song: song, size: Int(Sizes.coverMini))
         }
     }
     
-    // ✅ FIXED: No more ImageType usage
-    private func loadSongImage() async {
-        guard let albumId = song.albumId else { return }
-        
-        // ✅ FIXED: Use Album object instead of ImageType
-        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            if let cached = coverArtService.getCachedAlbumCover(albumMetadata, size: 100) {
-                songImage = cached
-                return
-            }
-            
-            isLoading = true
-            let loadedImage = await coverArtService.loadAlbumCover(albumMetadata, size: 100)
-            
-            withAnimation(.easeInOut(duration: 0.3)) {
-                songImage = loadedImage
-                isLoading = false
-            }
+    @ViewBuilder
+    private var playingOverlay: some View {
+        if isPlaying {
+            RoundedRectangle(cornerRadius: Radius.s)
+                .fill(BrandColor.playing.opacity(0.3))
+                .overlay(
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(Typography.caption)
+                        .foregroundStyle(BrandColor.playing)
+                )
+        }
+    }
+    
+    @ViewBuilder
+    private var songImageOverlay: some View {
+        if isLoading {
+            // ✅ REACTIVE: Uses centralized loading state
+            ProgressView()
+                .scaleEffect(0.6)
+                .tint(.white)
         } else {
-            // ✅ GRACEFUL DEGRADATION: No fallback, just leave empty
-            print("⚠️ Album metadata not found for ID: \(albumId)")
+            Image(systemName: "music.note")
+                .font(.system(size: Sizes.iconLarge))
+                .foregroundStyle(TextColor.onDark)
         }
     }
 }
@@ -394,7 +376,7 @@ struct SongInfoView: View {
                 .foregroundStyle(isPlaying ? BrandColor.playing : TextColor.primary)
                 .lineLimit(1)
             
-            Text(song.artist ?? "Unbekannter Künstler")
+            Text(song.artist ?? "Unknown Artist")
                 .font(Typography.bodyEmphasized)
                 .foregroundStyle(TextColor.secondary)
                 .lineLimit(1)
@@ -493,5 +475,23 @@ struct MetadataSeparator: View {
 extension Optional where Wrapped == String {
     var isNilOrEmpty: Bool {
         return self?.isEmpty ?? true
+    }
+}
+
+// MARK: - ✅ Convenience Initializers
+
+extension SearchResultArtistRow {
+    /// Convenience initializer without index for simple usage
+    init(artist: Artist) {
+        self.artist = artist
+        self.index = 0
+    }
+}
+
+extension SearchResultAlbumRow {
+    /// Convenience initializer without index for simple usage
+    init(album: Album) {
+        self.album = album
+        self.index = 0
     }
 }
