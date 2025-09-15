@@ -14,7 +14,7 @@ class NavidromeViewModel: ObservableObject {
     
     // MARK: - Manager Dependencies
     private let connectionManager = ConnectionManager()
-    private let musicLibraryManager = MusicLibraryManager()
+    let musicLibraryManager = MusicLibraryManager.shared
     private let searchManager = SearchManager()
     private let songManager = SongManager()
     

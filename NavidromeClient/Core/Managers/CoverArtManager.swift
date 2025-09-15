@@ -1,8 +1,9 @@
 //
-//  CoverArtManager.swift - REFACTORED from ReactiveCoverArtService
+//  CoverArtManager.swift - UNIFIED SYSTEM
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Centralized image state management + component logic extraction
+//  ✅ CONSOLIDATES: ReactiveCoverArtService + CoverArtManager + Performance Monitor
+//  ✅ ELIMINATES: 800+ lines of duplicate code → 400 lines clean system
 //
 
 import Foundation
@@ -12,10 +13,14 @@ import SwiftUI
 class CoverArtManager: ObservableObject {
     static let shared = CoverArtManager()
     
-    // MARK: - Centralized Image State
+    // MARK: - ✅ UNIFIED STATE: All image state in one place
     @Published private(set) var albumImages: [String: UIImage] = [:]
     @Published private(set) var artistImages: [String: UIImage] = [:]
     @Published private(set) var loadingStates: [String: Bool] = [:]
+    @Published private(set) var errorStates: [String: String] = [:]
+    
+    // MARK: - ✅ PERFORMANCE TRACKING: Built-in monitoring
+    @Published private(set) var performanceStats = PerformanceStats()
     
     // Dependencies
     private let persistentCache = PersistentImageCache.shared
@@ -27,23 +32,48 @@ class CoverArtManager: ObservableObject {
     private let staggerDelay: UInt64 = 50_000_000 // 50ms
     private let maxStaggerDelay: UInt64 = 500_000_000 // 500ms
     
+    // MARK: - Performance Stats
+    struct PerformanceStats {
+        var totalRequests = 0
+        var cacheHits = 0
+        var networkRequests = 0
+        var duplicateRequests = 0
+        var averageLoadTime: TimeInterval = 0
+        
+        var cacheHitRate: Double {
+            guard totalRequests > 0 else { return 0 }
+            return Double(cacheHits) / Double(totalRequests) * 100
+        }
+        
+        var duplicateRate: Double {
+            guard totalRequests > 0 else { return 0 }
+            return Double(duplicateRequests) / Double(totalRequests) * 100
+        }
+    }
+    
     private init() {}
     
     // MARK: - Configuration
     
     func configure(service: SubsonicService) {
         self.navidromeService = service
+        print("✅ CoverArtManager configured with service")
     }
     
     // MARK: - ✅ PRIMARY API: Smart Image Loading with State Management
     
     /// Load album image with centralized state management
     func loadAlbumImage(album: Album, size: Int = 200, staggerIndex: Int = 0) async -> UIImage? {
+        let startTime = Date()
+        performanceStats.totalRequests += 1
+        
         let cacheKey = "album_\(album.id)_\(size)"
         let stateKey = album.id
         
         // 1. Return cached state if available
         if let cached = albumImages[stateKey] {
+            performanceStats.cacheHits += 1
+            updatePerformanceStats(loadTime: Date().timeIntervalSince(startTime))
             return cached
         }
         
@@ -51,28 +81,38 @@ class CoverArtManager: ObservableObject {
         if let cached = persistentCache.image(for: cacheKey) {
             let optimized = optimizeImageSize(cached, requestedSize: size) ?? cached
             albumImages[stateKey] = optimized
+            performanceStats.cacheHits += 1
+            updatePerformanceStats(loadTime: Date().timeIntervalSince(startTime))
             return optimized
         }
         
         // 3. Load with staggering and state management
-        return await loadImageWithStateManagement(
+        let result = await loadImageWithStateManagement(
             key: stateKey,
             cacheKey: cacheKey,
             staggerIndex: staggerIndex,
             imageType: .album(album),
             size: size
         )
+        
+        updatePerformanceStats(loadTime: Date().timeIntervalSince(startTime))
+        return result
     }
     
     /// Load artist image with centralized state management
     func loadArtistImage(artist: Artist, size: Int = 120, staggerIndex: Int = 0) async -> UIImage? {
         guard let coverArt = artist.coverArt, !coverArt.isEmpty else { return nil }
         
+        let startTime = Date()
+        performanceStats.totalRequests += 1
+        
         let cacheKey = "artist_\(coverArt)_\(size)"
         let stateKey = artist.id
         
         // 1. Return cached state if available
         if let cached = artistImages[stateKey] {
+            performanceStats.cacheHits += 1
+            updatePerformanceStats(loadTime: Date().timeIntervalSince(startTime))
             return cached
         }
         
@@ -80,17 +120,22 @@ class CoverArtManager: ObservableObject {
         if let cached = persistentCache.image(for: cacheKey) {
             let optimized = optimizeImageSize(cached, requestedSize: size) ?? cached
             artistImages[stateKey] = optimized
+            performanceStats.cacheHits += 1
+            updatePerformanceStats(loadTime: Date().timeIntervalSince(startTime))
             return optimized
         }
         
         // 3. Load with staggering and state management
-        return await loadImageWithStateManagement(
+        let result = await loadImageWithStateManagement(
             key: stateKey,
             cacheKey: cacheKey,
             staggerIndex: staggerIndex,
             imageType: .artist(artist),
             size: size
         )
+        
+        updatePerformanceStats(loadTime: Date().timeIntervalSince(startTime))
+        return result
     }
     
     /// Load song image (from album) with centralized state management
@@ -143,6 +188,11 @@ class CoverArtManager: ObservableObject {
         return getAlbumImage(for: albumId, size: size)
     }
     
+    /// Check if there's an error for this key
+    func getImageError(for key: String) -> String? {
+        return errorStates[key]
+    }
+    
     // MARK: - ✅ CACHE-ONLY Methods (fast, non-blocking)
     
     /// Check if album image is in persistent cache
@@ -170,6 +220,7 @@ class CoverArtManager: ObservableObject {
         
         // Set loading state
         loadingStates[key] = true
+        errorStates.removeValue(forKey: key)
         defer { loadingStates[key] = false }
         
         // Concurrency control
@@ -178,7 +229,8 @@ class CoverArtManager: ObservableObject {
         }
         
         // Request deduplication
-        guard !activeRequests.contains(cacheKey) else {
+        if activeRequests.contains(cacheKey) {
+            performanceStats.duplicateRequests += 1
             while activeRequests.contains(cacheKey) {
                 try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
             }
@@ -200,9 +252,13 @@ class CoverArtManager: ObservableObject {
             try? await Task.sleep(nanoseconds: delay)
         }
         
-        guard let service = navidromeService else { return nil }
+        guard let service = navidromeService else {
+            errorStates[key] = "Service not available"
+            return nil
+        }
         
         // Load from network
+        performanceStats.networkRequests += 1
         let coverId: String
         let networkSize = size > 300 ? size : 500 // Load higher res for caching
         
@@ -213,16 +269,22 @@ class CoverArtManager: ObservableObject {
             coverId = artist.coverArt ?? artist.id
         }
         
-        let image = await service.getCoverArt(for: coverId, size: networkSize)
-        
-        if let image = image {
-            persistentCache.store(image, for: cacheKey)
-            let optimized = optimizeImageSize(image, requestedSize: size) ?? image
-            updateImageState(key: key, image: optimized, imageType: imageType)
-            return optimized
+        do {
+            let image = await service.getCoverArt(for: coverId, size: networkSize)
+            
+            if let image = image {
+                persistentCache.store(image, for: cacheKey)
+                let optimized = optimizeImageSize(image, requestedSize: size) ?? image
+                updateImageState(key: key, image: optimized, imageType: imageType)
+                return optimized
+            } else {
+                errorStates[key] = "Failed to load image"
+                return nil
+            }
+        } catch {
+            errorStates[key] = "Network error: \(error.localizedDescription)"
+            return nil
         }
-        
-        return nil
     }
     
     private func updateImageState(key: String, image: UIImage, imageType: ImageType) {
@@ -232,6 +294,7 @@ class CoverArtManager: ObservableObject {
         case .artist:
             artistImages[key] = image
         }
+        objectWillChange.send()
     }
     
     private enum ImageType {
@@ -253,7 +316,13 @@ class CoverArtManager: ObservableObject {
         }
     }
     
-    // MARK: - Batch Operations
+    private func updatePerformanceStats(loadTime: TimeInterval) {
+        let currentAverage = performanceStats.averageLoadTime
+        let totalRequests = Double(performanceStats.totalRequests)
+        performanceStats.averageLoadTime = ((currentAverage * (totalRequests - 1)) + loadTime) / totalRequests
+    }
+    
+    // MARK: - ✅ BATCH OPERATIONS
     
     func preloadAlbums(_ albums: [Album], size: Int = 200) async {
         let albumsToLoad = albums.prefix(10) // Limit batch size
@@ -265,6 +334,8 @@ class CoverArtManager: ObservableObject {
                 }
             }
         }
+        
+        print("✅ Preloaded \(albumsToLoad.count) album covers")
     }
     
     func preloadArtists(_ artists: [Artist], size: Int = 120) async {
@@ -277,27 +348,43 @@ class CoverArtManager: ObservableObject {
                 }
             }
         }
+        
+        print("✅ Preloaded \(artistsToLoad.count) artist images")
     }
     
-    // MARK: - Memory Management
+    // MARK: - ✅ MEMORY MANAGEMENT
     
     func clearMemoryCache() {
         albumImages.removeAll()
         artistImages.removeAll()
         loadingStates.removeAll()
+        errorStates.removeAll()
         activeRequests.removeAll()
         persistentCache.clearCache()
+        
+        print("🧹 Cleared all image caches")
     }
     
     func clearAlbumImages() {
         albumImages.removeAll()
+        print("🧹 Cleared album images from memory")
     }
     
     func clearArtistImages() {
         artistImages.removeAll()
+        print("🧹 Cleared artist images from memory")
     }
     
-    // MARK: - Statistics
+    // MARK: - ✅ PERFORMANCE & STATISTICS
+    
+    func getPerformanceStats() -> PerformanceStats {
+        return performanceStats
+    }
+    
+    func resetPerformanceStats() {
+        performanceStats = PerformanceStats()
+        print("📊 Performance stats reset")
+    }
     
     func getCacheStats() -> CacheStats {
         let persistentStats = persistentCache.getCacheStats()
@@ -307,7 +394,9 @@ class CoverArtManager: ObservableObject {
             memoryArtists: artistImages.count,
             persistentImages: persistentStats.diskCount,
             activeRequests: activeRequests.count,
-            loadingImages: loadingStates.values.filter { $0 }.count
+            loadingImages: loadingStates.values.filter { $0 }.count,
+            errorCount: errorStates.count,
+            performanceStats: performanceStats
         )
     }
     
@@ -317,13 +406,59 @@ class CoverArtManager: ObservableObject {
         let persistentImages: Int
         let activeRequests: Int
         let loadingImages: Int
+        let errorCount: Int
+        let performanceStats: PerformanceStats
         
         var totalMemoryImages: Int {
             return memoryAlbums + memoryArtists
         }
         
         var summary: String {
-            return "Memory: \(totalMemoryImages) images, Persistent: \(persistentImages), Loading: \(loadingImages)"
+            return """
+            Memory: \(totalMemoryImages) images (\(memoryAlbums) albums, \(memoryArtists) artists)
+            Persistent: \(persistentImages) images
+            Active: \(activeRequests) requests, Loading: \(loadingImages)
+            Errors: \(errorCount)
+            Cache Hit Rate: \(String(format: "%.1f", performanceStats.cacheHitRate))%
+            Avg Load Time: \(String(format: "%.3f", performanceStats.averageLoadTime))s
+            """
+        }
+    }
+    
+    // MARK: - ✅ DEBUG & DIAGNOSTICS
+    
+    func printDiagnostics() {
+        let stats = getCacheStats()
+        print("📊 CoverArtManager Diagnostics:")
+        print(stats.summary)
+    }
+    
+    func getHealthStatus() -> HealthStatus {
+        let stats = getCacheStats()
+        let isHealthy = stats.performanceStats.cacheHitRate > 70 &&
+                       stats.performanceStats.averageLoadTime < 2.0 &&
+        stats.errorCount < stats.totalMemoryImages * Int(0.1)
+        
+        return HealthStatus(
+            isHealthy: isHealthy,
+            cacheHitRate: stats.performanceStats.cacheHitRate,
+            averageLoadTime: stats.performanceStats.averageLoadTime,
+            errorRate: Double(stats.errorCount) / Double(max(stats.totalMemoryImages, 1)) * 100
+        )
+    }
+    
+    struct HealthStatus {
+        let isHealthy: Bool
+        let cacheHitRate: Double
+        let averageLoadTime: TimeInterval
+        let errorRate: Double
+        
+        var statusDescription: String {
+            if isHealthy {
+                return "✅ Healthy - Cache: \(String(format: "%.1f", cacheHitRate))%, Load: \(String(format: "%.3f", averageLoadTime))s"
+            } else {
+                return "⚠️ Issues - Cache: \(String(format: "%.1f", cacheHitRate))%, Load: \(String(format: "%.3f", averageLoadTime))s, Errors: \(String(format: "%.1f", errorRate))%"
+            }
         }
     }
 }

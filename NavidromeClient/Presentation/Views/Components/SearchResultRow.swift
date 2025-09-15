@@ -1,8 +1,8 @@
 //
-//  SearchResultRow.swift - REFACTORED to Pure UI
+//  SearchResultRow.swift - UPDATED for CoverArtManager
 //  NavidromeClient
 //
-//  ✅ CLEAN: All image loading logic moved to CoverArtManager
+//  ✅ UPDATED: Uses unified CoverArtManager instead of multiple services
 //  ✅ REACTIVE: Uses centralized image state instead of local @State
 //
 
@@ -13,6 +13,7 @@ struct SearchResultArtistRow: View {
     let artist: Artist
     let index: Int // For staggered loading
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -38,6 +39,7 @@ struct SearchResultAlbumRow: View {
     let album: Album
     let index: Int // For staggered loading
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -65,6 +67,7 @@ struct SearchResultSongRow: View {
     let isPlaying: Bool
     let action: () -> Void
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -83,12 +86,13 @@ struct SearchResultSongRow: View {
     }
 }
 
-// MARK: - ✅ REFACTORED: Image Components (Pure UI)
+// MARK: - ✅ UPDATED: Image Components (Pure UI)
 
 struct ArtistImageView: View {
     let artist: Artist
     let index: Int
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -138,6 +142,11 @@ struct ArtistImageView: View {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
+        } else if let error = coverArtManager.getImageError(for: artist.id) {
+            // ✅ NEW: Error state handling
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: Sizes.iconSmall))
+                .foregroundStyle(.orange)
         } else {
             Image(systemName: "music.mic")
                 .font(.system(size: Sizes.icon))
@@ -150,6 +159,7 @@ struct AlbumImageView: View {
     let album: Album
     let index: Int
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -199,6 +209,11 @@ struct AlbumImageView: View {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
+        } else if let error = coverArtManager.getImageError(for: album.id) {
+            // ✅ NEW: Error state handling
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: Sizes.iconSmall))
+                .foregroundStyle(.orange)
         } else {
             Image(systemName: "record.circle.fill")
                 .font(.system(size: Sizes.icon))
@@ -211,6 +226,7 @@ struct SongImageView: View {
     let song: Song
     let isPlaying: Bool
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     // ✅ REACTIVE: Get song image via centralized state
@@ -280,6 +296,11 @@ struct SongImageView: View {
             ProgressView()
                 .scaleEffect(0.6)
                 .tint(.white)
+        } else if let albumId = song.albumId, let error = coverArtManager.getImageError(for: albumId) {
+            // ✅ NEW: Error state handling
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: Sizes.iconSmall))
+                .foregroundStyle(.orange)
         } else {
             Image(systemName: "music.note")
                 .font(.system(size: Sizes.iconLarge))

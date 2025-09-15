@@ -13,6 +13,7 @@ struct AlbumCard: View {
     let accentColor: Color
     let index: Int // For staggered loading
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -63,6 +64,16 @@ struct AlbumCard: View {
                     ProgressView()
                         .scaleEffect(0.8)
                         .tint(accentColor)
+                } else if let error = coverArtManager.getImageError(for: album.id) {
+                    // ✅ NEW: Error state handling
+                    VStack(spacing: Spacing.xs) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: Sizes.icon))
+                            .foregroundColor(BrandColor.error)
+                        Text("Failed to load")
+                            .font(Typography.caption2)
+                            .foregroundColor(BrandColor.error)
+                    }
                 } else {
                     // Placeholder
                     Image(systemName: "music.note")
@@ -100,7 +111,6 @@ struct AlbumCard: View {
 }
 
 // MARK: - ✅ Preview Helper
-
 extension AlbumCard {
     /// Convenience initializer without index for simple usage
     init(album: Album, accentColor: Color) {

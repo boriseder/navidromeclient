@@ -39,8 +39,8 @@ class PlayerViewModel: NSObject, ObservableObject {
     var service: SubsonicService?
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
-    private weak var coverArtService: ReactiveCoverArtService?
-    
+    private weak var coverArtManager: CoverArtManager?
+
     // MARK: - Private Properties (unchanged)
     private var player: AVPlayer?
     private var timeObserver: Any?
@@ -189,10 +189,25 @@ class PlayerViewModel: NSObject, ObservableObject {
         self.service = newService
     }
     
-    func updateCoverArtService(_ newCoverArtService: ReactiveCoverArtService) {
-        self.coverArtService = newCoverArtService
+    func updateCoverArtService(_ newCoverArtManager: CoverArtManager) {
+        self.coverArtManager = newCoverArtManager
     }
     
+    func loadCoverArt() async {
+        guard let albumId = currentAlbumId else { return }
+        guard let coverArtManager = coverArtManager else { return }
+        
+        // ✅ CLEAN: Single call with fallback handling
+        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
+            coverArt = await coverArtManager.loadAlbumImage(album: albumMetadata, size: 300)
+        } else {
+            print("⚠️ Album metadata not found for ID: \(albumId)")
+            coverArt = nil
+        }
+        
+        updateNowPlayingInfo()
+    }
+
     // MARK: - Playback Methods (mostly unchanged)
     
     func play(song: Song) async {
@@ -209,24 +224,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         currentAlbumId = albumId
         await loadCoverArt()
         await playCurrent()
-    }
-    
-    // MARK: - ✅ FIXED: Cover Art Loading
-    
-    func loadCoverArt() async {
-        guard let albumId = currentAlbumId else { return }
-        guard let coverArtService = coverArtService else { return }
-        
-        // ✅ FIXED: Use the new convenience API instead of direct ImageType
-        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            coverArt = await coverArtService.loadAlbumCover(albumMetadata, size: 300)
-        } else {
-            // ✅ GRACEFUL DEGRADATION: Clear cover art instead of forcing load
-            print("⚠️ Album metadata not found for ID: \(albumId), clearing cover art")
-            coverArt = nil
-        }
-        
-        updateNowPlayingInfo()
     }
     
     // MARK: - Playback Control Methods (unchanged)

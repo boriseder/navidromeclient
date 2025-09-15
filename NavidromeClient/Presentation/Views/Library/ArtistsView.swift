@@ -1,9 +1,9 @@
 //
-//  ArtistsView.swift - FIXED (DRY)
+//  ArtistsView.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ FIXED: Removed ArtistsStatusHeader reference
-//  ✅ USES: LibraryStatusHeader.artists() instead
+//  ✅ CLEAN: All business logic moved to LibraryViewModel
+//  ✅ DRY: No more duplicated filtering/sorting logic
 //
 
 import SwiftUI
@@ -12,55 +12,43 @@ struct ArtistsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
-    @State private var searchText = ""
-      
+    // ✅ NEW: Single source of truth for all UI logic
+    @StateObject private var libraryVM = LibraryViewModel()
+    
     var body: some View {
         NavigationStack {
             Group {
-                if navidromeVM.isLoading && !navidromeVM.hasLoadedInitialData {
-                    VStack(spacing: 16) {
-                        loadingView()
-                        
-                        if navidromeVM.isLoadingInBackground {
-                            Text(navidromeVM.backgroundLoadingProgress)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else if filteredArtists.isEmpty {
-                    ArtistsEmptyStateView(
-                        isOnline: networkMonitor.canLoadOnlineContent,
-                        isOfflineMode: offlineManager.isOfflineMode
-                    )
+                if libraryVM.shouldShowArtistsLoading {
+                    artistsLoadingView
+                } else if libraryVM.shouldShowArtistsEmptyState {
+                    artistsEmptyStateView
                 } else {
-                    mainContent
+                    artistsContentView
                 }
             }
             .navigationTitle("Artists")
             .navigationBarTitleDisplayMode(.large)
             .searchable(
-                text: $searchText, placement: .automatic, prompt: "Search artists...")
-            .toolbar {              
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    OfflineModeToggle()
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        Task { await navidromeVM.refreshAllData() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(navidromeVM.isLoadingInBackground)
-                }
+                text: $libraryVM.searchText,
+                placement: .automatic,
+                prompt: "Search artists..."
+            )
+            .onChange(of: libraryVM.searchText) { _, _ in
+                // ✅ REACTIVE: ViewModel handles debouncing
+                libraryVM.handleSearchTextChange()
+            }
+            .toolbar {
+                artistsToolbarContent
             }
             .refreshable {
-                await navidromeVM.refreshAllData()
+                // ✅ SINGLE LINE: ViewModel handles all complexity
+                await libraryVM.refreshAllData()
+            }
+            .task(id: libraryVM.displayedArtists.count) {
+                // ✅ SINGLE LINE: ViewModel coordinates preloading
+                await libraryVM.preloadArtistImages(libraryVM.displayedArtists, coverArtManager: coverArtManager)
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(context: .artist(artist))
@@ -68,46 +56,107 @@ struct ArtistsView: View {
             .accountToolbar()
         }
     }
-
-    // Rest of the existing code remains the same...
-    private var filteredArtists: [Artist] {
-        let artists: [Artist]
-        
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            artists = navidromeVM.artists
-        } else {
-            artists = offlineManager.offlineArtists
-        }
-        
-        if searchText.isEmpty {
-            return artists.sorted(by: { $0.name < $1.name })
-        } else {
-            return artists
-                .filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-                .sorted(by: { $0.name < $1.name })
+    
+    // MARK: - ✅ Pure UI Components
+    
+    private var artistsLoadingView: some View {
+        VStack(spacing: 16) {
+            loadingView()
+            
+            if libraryVM.isLoadingInBackground {
+                Text(libraryVM.backgroundLoadingProgress)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
-
-    private var mainContent: some View {
+    
+    private var artistsEmptyStateView: some View {
+        ArtistsEmptyStateView(
+            isOnline: libraryVM.canLoadOnlineContent,
+            isOfflineMode: libraryVM.isOfflineMode
+        )
+    }
+    
+    private var artistsContentView: some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.s) {
-                if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
+            LazyVStack(spacing: 0) {
+                // ✅ REACTIVE: Show status header based on ViewModel state
+                if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
                     LibraryStatusHeader.artists(
-                        count: filteredArtists.count,
-                        isOnline: networkMonitor.canLoadOnlineContent,
-                        isOfflineMode: offlineManager.isOfflineMode
+                        count: libraryVM.artistCount,
+                        isOnline: libraryVM.canLoadOnlineContent,
+                        isOfflineMode: libraryVM.isOfflineMode
                     )
                 }
                 
-                ForEach(filteredArtists.indices, id: \.self) { index in
-                    let artist = filteredArtists[index]
-                    NavigationLink(value: artist) {
-                        ArtistCard(artist: artist, index: index)
-                    }
+                // ✅ REACTIVE: Artists automatically filtered by ViewModel
+                ArtistListView(artists: libraryVM.displayedArtists)
+            }
+        }
+    }
+    
+    @ToolbarContentBuilder
+    private var artistsToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            offlineModeToggle
+        }
+        
+        ToolbarItem(placement: .navigationBarLeading) {
+            refreshButton
+        }
+    }
+    
+    private var offlineModeToggle: some View {
+        Button {
+            // ✅ SINGLE LINE: ViewModel handles mode switching
+            libraryVM.toggleOfflineMode()
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: libraryVM.isOfflineMode ? "icloud.slash" : "icloud")
+                    .font(Typography.caption)
+                Text(libraryVM.isOfflineMode ? "Offline" : "All")
+                    .font(Typography.caption)
+            }
+            .foregroundStyle(libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+            .padding(.horizontal, Padding.s)
+            .padding(.vertical, Padding.xs)
+            .background(
+                Capsule()
+                    .fill((libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+            )
+        }
+    }
+    
+    private var refreshButton: some View {
+        Button {
+            Task {
+                // ✅ SINGLE LINE: ViewModel handles refresh logic
+                await libraryVM.refreshAllData()
+            }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .disabled(libraryVM.isLoadingInBackground)
+    }
+}
+
+// MARK: - ✅ Reusable ArtistListView (extracted from original code)
+
+struct ArtistListView: View {
+    let artists: [Artist]
+    
+    var body: some View {
+        LazyVStack(spacing: Spacing.s) {
+            ForEach(artists.indices, id: \.self) { index in
+                let artist = artists[index]
+                NavigationLink(value: artist) {
+                    // ✅ PASS INDEX: For staggered loading
+                    ArtistCard(artist: artist, index: index)
                 }
             }
-            .screenPadding()
-            .padding(.bottom, Sizes.miniPlayer)
         }
+        .screenPadding()
+        .padding(.bottom, Sizes.miniPlayer)
     }
 }

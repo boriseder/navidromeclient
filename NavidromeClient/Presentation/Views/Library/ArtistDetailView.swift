@@ -1,5 +1,9 @@
 //
-//  ArtistDetailView.swift - Enhanced with Complete Offline Support
+//  ArtistDetailView.swift - UPDATED for CoverArtManager
+//  NavidromeClient
+//
+//  ✅ UPDATED: Uses unified CoverArtManager instead of ReactiveCoverArtService
+//  ✅ SIMPLIFIED: Cleaner image loading integration
 //
 
 import SwiftUI
@@ -14,7 +18,8 @@ struct ArtistDetailView: View {
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
@@ -26,7 +31,6 @@ struct ArtistDetailView: View {
         return nil
     }
     
-    // ✅ NEW: Computed properties for offline support
     private var isOfflineMode: Bool {
         !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
     }
@@ -46,7 +50,6 @@ struct ArtistDetailView: View {
                 headerView
                     .padding(.top, Spacing.s)
                 
-                // ✅ NEW: Offline Status Section
                 if isOfflineMode || !availableOfflineAlbums.isEmpty {
                     offlineStatusSection
                         .padding(.top, Spacing.m)
@@ -58,10 +61,11 @@ struct ArtistDetailView: View {
         }
         .scrollIndicators(.hidden)
         .task {
+            // ✅ UPDATED: Pass CoverArtManager instead of ReactiveCoverArtService
             await viewModel.loadContent(
                 context: context,
                 navidromeVM: navidromeVM,
-                coverArtService: coverArtService,
+                coverArtManager: coverArtManager,
                 isOfflineMode: isOfflineMode,
                 offlineManager: offlineManager
             )
@@ -112,7 +116,6 @@ struct ArtistDetailView: View {
                 .font(Typography.title2)
                 .lineLimit(2)
             
-            // ✅ ENHANCED: Show both online and offline album counts
             albumCountView
             
             if !viewModel.albums.isEmpty {
@@ -123,7 +126,6 @@ struct ArtistDetailView: View {
         }
     }
     
-    // ✅ NEW: Album Count View with Offline Support
     private var albumCountView: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             if !isOfflineMode {
@@ -175,7 +177,6 @@ struct ArtistDetailView: View {
         .disabled(viewModel.albums.isEmpty || viewModel.isLoading)
     }
     
-    // ✅ NEW: Offline Status Section
     private var offlineStatusSection: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             HStack {
@@ -219,13 +220,11 @@ struct ArtistDetailView: View {
         }
     }
     
-    // MARK: - Albums Section (Enhanced with DS)
     private var albumsSection: some View {
         VStack(spacing: Spacing.l) {
             if viewModel.isLoading {
                 loadingView()
             } else {
-                // ✅ ENHANCED: Show appropriate albums based on mode
                 let albumsToShow = isOfflineMode ? availableOfflineAlbums : viewModel.albums
                 
                 if albumsToShow.isEmpty {
@@ -238,7 +237,6 @@ struct ArtistDetailView: View {
         .padding(.bottom, 120)
     }
     
-    // ✅ NEW: Empty State for Offline Mode
     private var emptyStateView: some View {
         VStack(spacing: Spacing.l) {
             Image(systemName: isOfflineMode ? "arrow.down.circle.slash" : "music.note.house")
@@ -268,7 +266,6 @@ struct ArtistDetailView: View {
         .materialCardStyle()
     }
     
-    // ✅ ENHANCED: Shuffle Play with Offline Support
     @MainActor
     private func shufflePlayAllAlbums() async {
         let albumsToPlay = isOfflineMode ? availableOfflineAlbums : viewModel.albums
@@ -279,7 +276,6 @@ struct ArtistDetailView: View {
         
         var allSongs: [Song] = []
         
-        // Load songs from all albums with offline support
         for album in albumsToPlay {
             do {
                 let songs = try await loadSongsForAlbumWithOfflineSupport(album)
@@ -308,7 +304,6 @@ struct ArtistDetailView: View {
         }
     }
     
-    // ✅ NEW: Load Songs with Offline Support
     private func loadSongsForAlbumWithOfflineSupport(_ album: Album) async throws -> [Song] {
         // 1. If we're in offline mode or album is downloaded, prefer offline
         if isOfflineMode || downloadManager.isAlbumDownloaded(album.id) {
@@ -330,19 +325,15 @@ struct ArtistDetailView: View {
         return await loadOfflineSongsForAlbum(album)
     }
     
-    // ✅ NEW: Load Offline Songs for Album
     private func loadOfflineSongsForAlbum(_ album: Album) async -> [Song] {
-        // Try cached songs first
         if let cachedSongs = navidromeVM.albumSongs[album.id] {
             return cachedSongs
         }
         
-        // Get from download manager
         guard let downloadedAlbum = downloadManager.downloadedAlbums.first(where: { $0.albumId == album.id }) else {
             return []
         }
         
-        // Create song objects from downloaded files
         return downloadedAlbum.songIds.enumerated().map { index, songId in
             Song.createFromDownload(
                 id: songId,
@@ -360,4 +351,3 @@ struct ArtistDetailView: View {
         }
     }
 }
-

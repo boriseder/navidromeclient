@@ -117,7 +117,7 @@ final class AppConfig: ObservableObject {
         PersistentImageCache.shared.clearCache()
         
         // Clear cover art service
-        ReactiveCoverArtService.shared.clearMemoryCache()
+        CoverArtManager.shared.clearMemoryCache()
         
         // Clear album metadata cache
         // Note: This would need to be implemented in AlbumMetadataCache

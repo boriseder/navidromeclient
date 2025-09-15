@@ -14,7 +14,7 @@ struct SettingsView: View {
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtService: CoverArtManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingSaveSuccess = false
@@ -281,7 +281,7 @@ struct ServerEditView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtService: CoverArtManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingSaveSuccess = false

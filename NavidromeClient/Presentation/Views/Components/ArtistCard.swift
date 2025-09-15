@@ -12,6 +12,7 @@ struct ArtistCard: View {
     let artist: Artist
     let index: Int
     
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -85,6 +86,11 @@ struct ArtistCard: View {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
+        } else if let error = coverArtManager.getImageError(for: artist.id) {
+            // ✅ NEW: Error state handling
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: Sizes.icon))
+                .foregroundStyle(.orange)
         } else {
             Image(systemName: "music.mic")
                 .font(.system(size: Sizes.icon))

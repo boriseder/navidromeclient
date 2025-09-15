@@ -11,6 +11,11 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
+    static let shared = MusicLibraryManager()
+    
+    private init() { } // verhindert, dass andere Instanzen erzeugt werden
+
+    
     
     // MARK: - Progressive Library Data
     

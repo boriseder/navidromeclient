@@ -13,7 +13,7 @@ struct ExploreView: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    @EnvironmentObject var coverArtService: CoverArtManager
     
     @StateObject private var exploreVM = ExploreViewModel()
     @State private var showRefreshAnimation = false

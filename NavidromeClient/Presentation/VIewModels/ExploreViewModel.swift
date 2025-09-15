@@ -20,14 +20,14 @@ class ExploreViewModel: ObservableObject {
     
     // MARK: - Dependencies (unchanged)
     private weak var navidromeVM: NavidromeViewModel?
-    private weak var coverArtService: ReactiveCoverArtService?
+    private weak var coverArtService: CoverArtManager?
     
     init() {
         // Empty init - dependencies will be injected
     }
     
     // MARK: - ✅ FIX: Enhanced Dependency Injection (unchanged)
-    func configure(with navidromeVM: NavidromeViewModel, coverArtService: ReactiveCoverArtService) {
+    func configure(with navidromeVM: NavidromeViewModel, coverArtService: CoverArtManager) {
         self.navidromeVM = navidromeVM
         self.coverArtService = coverArtService
     }
@@ -65,7 +65,7 @@ class ExploreViewModel: ObservableObject {
         
         // ✅ FIXED: Use convenience method with Album object if possible
         if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            return await coverArtService.loadAlbumCover(albumMetadata, size: size)
+            return await coverArtService.loadAlbumImage(album: albumMetadata, size: size)
         } else {
             // ✅ GRACEFUL DEGRADATION: Return nil instead of creating fallback Album
             // This encourages proper data flow through AlbumMetadataCache
@@ -73,6 +73,7 @@ class ExploreViewModel: ObservableObject {
             return nil
         }
     }
+    
     
     // MARK: - Private Album Loading Methods (unchanged)
     

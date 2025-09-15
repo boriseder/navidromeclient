@@ -1,8 +1,9 @@
 //
-//  ArtistDetailViewModel.swift - FIXED for New Image API
+//  ArtistDetailViewModel.swift - UPDATED for CoverArtManager
 //  NavidromeClient
 //
-//  ✅ FIXED: Updated to use new ImageType enum instead of String IDs
+//  ✅ UPDATED: Uses unified CoverArtManager instead of ReactiveCoverArtService
+//  ✅ SIMPLIFIED: Direct image loading without complex state management
 //
 
 import Foundation
@@ -16,8 +17,8 @@ class ArtistDetailViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isLoadingSongs = false
     
-    // ✅ FIX: Make coverArtService accessible
-    private(set) var coverArtService: ReactiveCoverArtService?
+    // ✅ UPDATED: Uses unified CoverArtManager
+    private(set) var coverArtManager: CoverArtManager?
     
     func title(for context: ArtistDetailContext) -> String {
         switch context {
@@ -26,15 +27,15 @@ class ArtistDetailViewModel: ObservableObject {
         }
     }
     
-    // ✅ FIX: Updated loadContent method signature
+    // ✅ UPDATED: Simplified method signature with CoverArtManager
     func loadContent(
         context: ArtistDetailContext,
         navidromeVM: NavidromeViewModel,
-        coverArtService: ReactiveCoverArtService,
+        coverArtManager: CoverArtManager,
         isOfflineMode: Bool,
         offlineManager: OfflineManager
     ) async {
-        self.coverArtService = coverArtService
+        self.coverArtManager = coverArtManager
         
         isLoading = true
         
@@ -48,23 +49,21 @@ class ArtistDetailViewModel: ObservableObject {
                 )
             }
             group.addTask {
-                await self.loadArtistImage(context: context, coverArtService: coverArtService)
+                await self.loadArtistImage(context: context, coverArtManager: coverArtManager)
             }
         }
         
         isLoading = false
     }
     
-    // ✅ FIXED: Updated to use new ImageType API
-    func loadArtistImage(context: ArtistDetailContext, coverArtService: ReactiveCoverArtService) async {
+    // ✅ UPDATED: Uses CoverArtManager directly
+    func loadArtistImage(context: ArtistDetailContext, coverArtManager: CoverArtManager) async {
         if case .artist(let artist) = context {
-            // ✅ NEW: Use the enhanced artist image loading
-            let image = await coverArtService.loadArtistImage(artist, size: 300)
-            artistImage = image
+            // ✅ SINGLE LINE: Clean, unified API
+            artistImage = await coverArtManager.loadArtistImage(artist: artist, size: 300)
         }
     }
     
-    // ✅ FIX: Updated loadAlbums method
     func loadAlbums(
         context: ArtistDetailContext,
         navidromeVM: NavidromeViewModel,
@@ -97,26 +96,25 @@ class ArtistDetailViewModel: ObservableObject {
         }
     }
     
-    // ✅ FIXED: Updated to use new ImageType API
+    // ✅ UPDATED: Uses CoverArtManager directly
     func loadAlbumCover(for album: Album, navidromeVM: NavidromeViewModel) async {
         guard albumCovers[album.id] == nil else { return }
+        guard let coverArtManager = coverArtManager else { return }
         
-        guard let coverArtService = coverArtService else { return }
-        
-        // ✅ NEW: Use the enhanced album cover loading
-        let cover = await coverArtService.loadAlbumCover(album, size: 200)
+        // ✅ SINGLE LINE: Clean, unified API
+        let cover = await coverArtManager.loadAlbumImage(album: album, size: 200)
         
         if let cover = cover {
             self.albumCovers[album.id] = cover
         }
     }
     
-    // Original loadContent method for compatibility
-    func loadContent(context: ArtistDetailContext, navidromeVM: NavidromeViewModel, coverArtService: ReactiveCoverArtService) async {
+    // Legacy compatibility method
+    func loadContent(context: ArtistDetailContext, navidromeVM: NavidromeViewModel, coverArtService: CoverArtManager) async {
         await loadContent(
             context: context,
             navidromeVM: navidromeVM,
-            coverArtService: coverArtService,
+            coverArtManager: coverArtService,
             isOfflineMode: false,
             offlineManager: OfflineManager.shared
         )

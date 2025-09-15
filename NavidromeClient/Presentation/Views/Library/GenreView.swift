@@ -1,9 +1,9 @@
 //
-//  GenreView.swift - FIXED (DRY)
+//  GenreView.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ FIXED: Removed GenresStatusHeader reference
-//  ✅ USES: LibraryStatusHeader.genres() instead
+//  ✅ CLEAN: All business logic moved to LibraryViewModel
+//  ✅ DRY: No more duplicated filtering/sorting logic
 //
 
 import SwiftUI
@@ -12,57 +12,38 @@ struct GenreView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var downloadManager: DownloadManager
-
-    @State private var searchText = ""
     
-    // ✅ SIMPLIFIED: No hasLoadedOnce, no task, no onChange
-
+    // ✅ NEW: Single source of truth for all UI logic
+    @StateObject private var libraryVM = LibraryViewModel()
+    
     var body: some View {
         NavigationStack {
             Group {
-                if navidromeVM.isLoading && !navidromeVM.hasLoadedInitialData {
-                    VStack(spacing: 16) {
-                        loadingView()
-                        
-                        if navidromeVM.isLoadingInBackground {
-                            Text(navidromeVM.backgroundLoadingProgress)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else if filteredGenres.isEmpty {
-                    GenresEmptyStateView(
-                        isOnline: networkMonitor.canLoadOnlineContent,
-                        isOfflineMode: offlineManager.isOfflineMode
-                    )
+                if libraryVM.shouldShowGenresLoading {
+                    genresLoadingView
+                } else if libraryVM.shouldShowGenresEmptyState {
+                    genresEmptyStateView
                 } else {
-                    mainContent
+                    genresContentView
                 }
             }
             .navigationTitle("Genres")
             .navigationBarTitleDisplayMode(.large)
             .searchable(
-                text: $searchText, placement: .automatic, prompt: "Search genres...")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    OfflineModeToggle()
-                }
-                
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        Task { await navidromeVM.refreshAllData() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(navidromeVM.isLoadingInBackground)
-                }
+                text: $libraryVM.searchText,
+                placement: .automatic,
+                prompt: "Search genres..."
+            )
+            .onChange(of: libraryVM.searchText) { _, _ in
+                // ✅ REACTIVE: ViewModel handles debouncing
+                libraryVM.handleSearchTextChange()
             }
-            // ✅ SIMPLIFIED: Only refreshable
+            .toolbar {
+                genresToolbarContent
+            }
             .refreshable {
-                await navidromeVM.refreshAllData()
+                // ✅ SINGLE LINE: ViewModel handles all complexity
+                await libraryVM.refreshAllData()
             }
             .navigationDestination(for: Genre.self) { genre in
                 ArtistDetailView(context: .genre(genre))
@@ -71,45 +52,104 @@ struct GenreView: View {
         }
     }
     
-    private var filteredGenres: [Genre] {
-        let genres: [Genre]
-        
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            genres = navidromeVM.genres
-        } else {
-            genres = offlineManager.offlineGenres
-        }
-        
-        if searchText.isEmpty {
-            return genres.sorted(by: { $0.value < $1.value })
-        } else {
-            return genres
-                .filter { $0.value.localizedCaseInsensitiveContains(searchText) }
-                .sorted(by: { $0.value < $1.value })
+    // MARK: - ✅ Pure UI Components
+    
+    private var genresLoadingView: some View {
+        VStack(spacing: 16) {
+            loadingView()
+            
+            if libraryVM.isLoadingInBackground {
+                Text(libraryVM.backgroundLoadingProgress)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
-
-    private var mainContent: some View {
+    
+    private var genresEmptyStateView: some View {
+        GenresEmptyStateView(
+            isOnline: libraryVM.canLoadOnlineContent,
+            isOfflineMode: libraryVM.isOfflineMode
+        )
+    }
+    
+    private var genresContentView: some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.s) {
-                if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
+            LazyVStack(spacing: 0) {
+                // ✅ REACTIVE: Show status header based on ViewModel state
+                if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
                     LibraryStatusHeader.genres(
-                        count: filteredGenres.count,
-                        isOnline: networkMonitor.canLoadOnlineContent,
-                        isOfflineMode: offlineManager.isOfflineMode
+                        count: libraryVM.genreCount,
+                        isOnline: libraryVM.canLoadOnlineContent,
+                        isOfflineMode: libraryVM.isOfflineMode
                     )
                 }
                 
-                ForEach(filteredGenres, id: \.id) { genre in
-                    NavigationLink(value: genre) {
-                        GenreCard(genre: genre)
-                    }
-                }
+                // ✅ REACTIVE: Genres automatically filtered by ViewModel
+                GenreListView(genres: libraryVM.displayedGenres)
             }
-            .screenPadding()
-            .padding(.bottom, Sizes.miniPlayer)
         }
+    }
+    
+    @ToolbarContentBuilder
+    private var genresToolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            offlineModeToggle
+        }
+        
+        ToolbarItem(placement: .navigationBarLeading) {
+            refreshButton
+        }
+    }
+    
+    private var offlineModeToggle: some View {
+        Button {
+            // ✅ SINGLE LINE: ViewModel handles mode switching
+            libraryVM.toggleOfflineMode()
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: libraryVM.isOfflineMode ? "icloud.slash" : "icloud")
+                    .font(Typography.caption)
+                Text(libraryVM.isOfflineMode ? "Offline" : "All")
+                    .font(Typography.caption)
+            }
+            .foregroundStyle(libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+            .padding(.horizontal, Padding.s)
+            .padding(.vertical, Padding.xs)
+            .background(
+                Capsule()
+                    .fill((libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+            )
+        }
+    }
+    
+    private var refreshButton: some View {
+        Button {
+            Task {
+                // ✅ SINGLE LINE: ViewModel handles refresh logic
+                await libraryVM.refreshAllData()
+            }
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .disabled(libraryVM.isLoadingInBackground)
     }
 }
 
+// MARK: - ✅ Reusable GenreListView (extracted from original code)
 
+struct GenreListView: View {
+    let genres: [Genre]
+    
+    var body: some View {
+        LazyVStack(spacing: Spacing.s) {
+            ForEach(genres, id: \.id) { genre in
+                NavigationLink(value: genre) {
+                    GenreCard(genre: genre)
+                }
+            }
+        }
+        .screenPadding()
+        .padding(.bottom, Sizes.miniPlayer)
+    }
+}

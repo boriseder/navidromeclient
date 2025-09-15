@@ -42,6 +42,9 @@ class LibraryViewModel: ObservableObject {
         self.downloadManager = downloadManager
     }
     
+    
+    
+    
     // MARK: - ✅ ALBUMS: Data Source + Filtering Logic
     
     /// Get filtered and sorted albums for UI

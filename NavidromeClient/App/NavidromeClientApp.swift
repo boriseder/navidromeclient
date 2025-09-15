@@ -12,8 +12,8 @@ struct NavidromeClientApp: App {
     @StateObject private var offlineManager = OfflineManager.shared
     
     // Cover Art Service
-    @StateObject private var coverArtService = ReactiveCoverArtService.shared
-    
+    @StateObject private var coverArtManager = CoverArtManager.shared
+
     // App-wide ViewModels
     @StateObject private var navidromeVM = NavidromeViewModel()
     @StateObject private var playerVM: PlayerViewModel
@@ -41,7 +41,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(audioSessionManager)
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
-                .environmentObject(coverArtService)
+                .environmentObject(coverArtManager)
                 .task {
                     await setupInitialDataLoading()
                 }
@@ -80,9 +80,9 @@ struct NavidromeClientApp: App {
             navidromeVM.updateService(service)
             playerVM.updateService(service)
             networkMonitor.setService(service)
-            coverArtService.configure(service: service)
-            playerVM.updateCoverArtService(coverArtService)
-            
+            coverArtManager.configure(service: service)
+            playerVM.updateCoverArtService(coverArtManager)
+
             print("✅ All services configured with credentials")
         }
     }

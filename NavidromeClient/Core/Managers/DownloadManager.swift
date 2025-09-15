@@ -402,25 +402,25 @@ class DownloadManager: ObservableObject {
     // MARK: - Helper Methods (unchanged)
     
     private func cacheAlbumCoverArt(album: Album, service: SubsonicService) async {
-        let coverArtService = ReactiveCoverArtService.shared
+        let coverArtService = CoverArtManager.shared
         
         let sizes = [50, 120, 200, 300]
         
         for size in sizes {
-            _ = await coverArtService.loadAlbumCover(album, size: size)
+            _ = await coverArtService.loadAlbumImage(album: album, size: size)
         }
         
         print("✅ Cached album cover art for \(album.id) in \(sizes.count) sizes")
     }
     
     private func cacheArtistImage(for album: Album, service: SubsonicService) async {
-        let coverArtService = ReactiveCoverArtService.shared
+        let coverArtService = CoverArtManager.shared
         
         let artist = findOrCreateArtist(for: album)
         let sizes = [50, 120]
         
         for size in sizes {
-            _ = await coverArtService.loadArtistImage(artist, size: size)
+            _ = await coverArtService.loadArtistImage(artist: artist, size: size)
         }
         
         print("✅ Cached artist image for \(artist.name) in \(sizes.count) sizes")

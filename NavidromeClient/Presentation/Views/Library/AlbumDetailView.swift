@@ -1,5 +1,9 @@
 //
-//  AlbumDetailView.swift - Enhanced with Complete Offline Support
+//  AlbumDetailView.swift - UPDATED for CoverArtManager
+//  NavidromeClient
+//
+//  ✅ UPDATED: Uses unified CoverArtManager instead of ReactiveCoverArtService
+//  ✅ SIMPLIFIED: Direct image loading without complex state management
 //
 
 import SwiftUI
@@ -11,7 +15,8 @@ struct AlbumDetailView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtService: ReactiveCoverArtService
+    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
 
@@ -30,7 +35,7 @@ struct AlbumDetailView: View {
                     isOfflineAlbum: isOfflineAlbum
                 )
                 
-                // ✅ ENHANCED: Offline Status Banner
+                // Enhanced: Offline Status Banner
                 if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
                     OfflineStatusBanner(
                         isDownloaded: downloadManager.isAlbumDownloaded(album.id),
@@ -55,20 +60,20 @@ struct AlbumDetailView: View {
         }
     }
 
-    // ✅ ENHANCED: Smart Album Data Loading with Offline Support
+    // ✅ UPDATED: Smart Album Data Loading with CoverArtManager
     @MainActor
     private func loadAlbumData() async {
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
-        // Load cover art
-        coverArt = await coverArtService.loadAlbumCover(album, size: Int(Sizes.coverFull))
+        // ✅ UPDATED: Load cover art using CoverArtManager
+        coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(Sizes.coverFull))
         
-        // ✅ FIXED: Use NavidromeViewModel's smart loading method
+        // Load songs using NavidromeViewModel's smart loading method
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
 
-// ✅ ENHANCED: Offline Status Banner Component
+// Enhanced: Offline Status Banner Component (unchanged)
 struct OfflineStatusBanner: View {
     let isDownloaded: Bool
     let isOnline: Bool
@@ -123,8 +128,7 @@ struct OfflineStatusBanner: View {
     }
 }
 
-// Rest of the view components remain the same...
-// ✅ ENHANCED: Album Header with Offline Support
+// ✅ UPDATED: Album Header with CoverArtManager integration
 struct AlbumHeaderView: View {
     let album: Album
     let cover: UIImage?
@@ -166,7 +170,7 @@ struct AlbumHeaderView: View {
                     CompactPlayButton(album: album, songs: songs)
                     ShuffleButton(album: album, songs: songs)
                     
-                    // ✅ CONDITIONAL: Only show download button if online
+                    // Conditional: Only show download button if online
                     if !isOfflineAlbum {
                         DownloadButton(
                             album: album,
@@ -204,9 +208,8 @@ struct AlbumHeaderView: View {
         return String(format: "%d:%02d", minutes, remaining)
     }
 }
-// ✅ NEW: Offline Status Banner Component
 
-// MARK: - Kompakter Play Button (Enhanced with DS)
+// Compact Play Button (Enhanced with DS) - unchanged
 struct CompactPlayButton: View {
     let album: Album
     let songs: [Song]
@@ -233,7 +236,7 @@ struct CompactPlayButton: View {
     }
 }
 
-// MARK: - Album Cover (Enhanced with DS)
+// Album Cover (Enhanced with DS) - unchanged
 struct AlbumCoverView: View {
     let cover: UIImage?
     
@@ -260,7 +263,7 @@ struct AlbumCoverView: View {
     }
 }
 
-// MARK: - Shuffle Button (Enhanced with DS)
+// Shuffle Button (Enhanced with DS) - unchanged
 struct ShuffleButton: View {
     let album: Album
     let songs: [Song]
@@ -278,3 +281,6 @@ struct ShuffleButton: View {
         }
     }
 }
+
+
+
