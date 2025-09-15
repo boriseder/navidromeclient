@@ -533,7 +533,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     // MARK: - Download Status Methods
-    
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         downloadManager.isAlbumDownloaded(albumId)
     }

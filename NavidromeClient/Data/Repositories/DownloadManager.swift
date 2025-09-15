@@ -13,56 +13,6 @@ class DownloadManager: ObservableObject {
     @Published private(set) var isDownloading: Set<String> = []
     @Published private(set) var downloadProgress: [String: Double] = [:]
 
-    // ✅ FIXED: Enhanced data structures with full metadata
-    struct DownloadedAlbum: Codable, Equatable {
-        let albumId: String
-        let albumName: String
-        let artistName: String
-        let year: Int?
-        let genre: String?
-        let songs: [DownloadedSong]
-        let folderPath: String
-        let downloadDate: Date
-        
-        var songIds: [String] {
-            return songs.map { $0.id }
-        }
-    }
-    
-    // ✅ FIXED: Complete Song Metadata Storage
-    struct DownloadedSong: Codable, Equatable, Identifiable {
-        let id: String
-        let title: String
-        let artist: String?
-        let album: String?
-        let albumId: String?
-        let track: Int?
-        let duration: Int?
-        let year: Int?
-        let genre: String?
-        let contentType: String?
-        let fileName: String
-        let fileSize: Int64
-        let downloadDate: Date
-        
-        // ✅ FIXED: Convert to Song object for playback
-        func toSong() -> Song {
-            return Song.createFromDownload(
-                id: id,
-                title: title,
-                duration: duration,
-                coverArt: albumId,
-                artist: artist,
-                album: album,
-                albumId: albumId,
-                track: track,
-                year: year,
-                genre: genre,
-                contentType: contentType
-            )
-        }
-    }
-
     private var downloadsFolder: URL {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Downloads", isDirectory: true)
@@ -80,6 +30,7 @@ class DownloadManager: ObservableObject {
         loadDownloadedAlbums()
         migrateOldDataIfNeeded()
     }
+
 
     // MARK: - Album / Song Status
     func isAlbumDownloaded(_ albumId: String) -> Bool {
@@ -297,11 +248,19 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
+            // ✅ CRITICAL: Post notification for OfflineManager
+            NotificationCenter.default.post(name: .downloadDeleted, object: nil)
+            
+            // ✅ CRITICAL: Force UI update
+            objectWillChange.send()
+
             print("✅ Deleted album: \(album.albumName)")
         }
     }
     
     func deleteAllDownloads() {
+        print("🗑️ Starting complete download deletion...")
+        
         let folder = downloadsFolder
         do {
             try FileManager.default.removeItem(at: folder)
@@ -318,7 +277,13 @@ class DownloadManager: ObservableObject {
 
         saveDownloadedAlbums()
         
-        print("✅ Cleared all downloads")
+        // ✅ CRITICAL: Post notification for OfflineManager
+        NotificationCenter.default.post(name: .downloadDeleted, object: nil)
+        
+        // ✅ CRITICAL: Force UI update
+        objectWillChange.send()
+        
+        print("✅ Cleared all downloads and notified observers")
     }
 
     // MARK: - Persistence
@@ -363,12 +328,14 @@ class DownloadManager: ObservableObject {
             print("❌ Failed to save downloaded albums: \(error)")
         }
     }
+    
+
 }
 
-// ✅ FIXED: Add missing Notification Names
 extension Notification.Name {
     static let downloadCompleted = Notification.Name("downloadCompleted")
     static let downloadStarted = Notification.Name("downloadStarted")
     static let downloadFailed = Notification.Name("downloadFailed")
+    static let downloadDeleted = Notification.Name("downloadDeleted") // ✅ NEW
     static let networkStatusChanged = Notification.Name("networkStatusChanged")
 }

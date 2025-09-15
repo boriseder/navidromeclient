@@ -1,3 +1,7 @@
+//
+//  OfflineManager.swift - ENHANCED with Complete Reset Logic
+//
+
 import Foundation
 import SwiftUI
 
@@ -9,16 +13,29 @@ class OfflineManager: ObservableObject {
     @Published var isOfflineMode = false
     @Published var offlineAlbums: [Album] = []
     
-    private let downloadManager = DownloadManager.shared
-    private let networkMonitor = NetworkMonitor.shared
+    private let downloadManager: DownloadManager
+    private let networkMonitor: NetworkMonitor
     
     private init() {
-        // Initial load - synchron da wir schon auf MainActor sind
+        self.downloadManager = DownloadManager.shared
+        self.networkMonitor = NetworkMonitor.shared
+        
         loadOfflineAlbumsSync()
         
-        // Überwache Netzwerk-Änderungen
+        // Überwache Download-Änderungen
         NotificationCenter.default.addObserver(
             forName: .downloadCompleted,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.loadOfflineAlbums()
+            }
+        }
+        
+        // ✅ NEW: Überwache Download-Löschungen
+        NotificationCenter.default.addObserver(
+            forName: .downloadDeleted,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -29,14 +46,12 @@ class OfflineManager: ObservableObject {
     }
     
     private func loadOfflineAlbumsSync() {
-        // Synchrone Version für init
         let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
         offlineAlbums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
         print("📦 Initially loaded \(offlineAlbums.count) offline albums")
     }
     
     func loadOfflineAlbums() {
-        // Async Version für Updates
         let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
         offlineAlbums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
         print("📦 Loaded \(offlineAlbums.count) offline albums")
@@ -45,10 +60,12 @@ class OfflineManager: ObservableObject {
     func switchToOfflineMode() {
         isOfflineMode = true
         loadOfflineAlbums()
+        objectWillChange.send() // Force UI update
     }
     
     func switchToOnlineMode() {
         isOfflineMode = false
+        objectWillChange.send() // Force UI update
     }
     
     func toggleOfflineMode() {
@@ -57,31 +74,36 @@ class OfflineManager: ObservableObject {
         } else {
             isOfflineMode = true // Zwinge Offline-Modus wenn kein Netz
         }
+        objectWillChange.send() // Force UI update
+    }
+    
+    // ✅ NEW: Complete Reset Method
+    func performCompleteReset() {
+        print("🔄 OfflineManager: Performing complete reset...")
+        
+        isOfflineMode = false
+        offlineAlbums.removeAll()
+        
+        // Force UI update
+        objectWillChange.send()
+        
+        print("✅ OfflineManager: Reset completed")
     }
     
     // Prüfe ob ein Album offline verfügbar ist
     func isAlbumAvailableOffline(_ albumId: String) -> Bool {
         return downloadManager.isAlbumDownloaded(albumId)
     }
-}
-
-// MARK: - ✅ NEW: Offline Data Providers (DRY Solution)
-extension OfflineManager {
     
-    /// Computed property für offline verfügbare Artists
     var offlineArtists: [Artist] {
         return extractArtistsFromOfflineAlbums(offlineAlbums)
     }
     
-    /// Computed property für offline verfügbare Genres
     var offlineGenres: [Genre] {
         return extractGenresFromOfflineAlbums(offlineAlbums)
     }
     
-    // MARK: - Private Helper Methods
-    
     private func extractArtistsFromOfflineAlbums(_ albums: [Album]) -> [Artist] {
-        // Extrahiere unique Artists
         let uniqueArtists = Set(albums.map { $0.artist })
         
         return uniqueArtists.compactMap { artistName in
@@ -96,7 +118,6 @@ extension OfflineManager {
     }
     
     private func extractGenresFromOfflineAlbums(_ albums: [Album]) -> [Genre] {
-        // Gruppiere Alben nach Genre
         let genreGroups = Dictionary(grouping: albums) { $0.genre ?? "Unknown" }
         
         return genreGroups.map { genreName, albumsInGenre in
@@ -107,32 +128,23 @@ extension OfflineManager {
             )
         }.sorted { $0.value < $1.value }
     }
-}
-
-// MARK: - ✅ NEW: Convenience Methods
-extension OfflineManager {
     
-    /// Gibt offline verfügbare Alben für einen bestimmten Artist zurück
     func getOfflineAlbums(for artist: Artist) -> [Album] {
         return offlineAlbums.filter { $0.artist == artist.name }
     }
     
-    /// Gibt offline verfügbare Alben für ein bestimmtes Genre zurück
     func getOfflineAlbums(for genre: Genre) -> [Album] {
         return offlineAlbums.filter { $0.genre == genre.value }
     }
     
-    /// Prüft ob ein Artist offline verfügbar ist
     func isArtistAvailableOffline(_ artistName: String) -> Bool {
         return offlineAlbums.contains { $0.artist == artistName }
     }
     
-    /// Prüft ob ein Genre offline verfügbar ist
     func isGenreAvailableOffline(_ genreName: String) -> Bool {
         return offlineAlbums.contains { $0.genre == genreName }
     }
     
-    /// Gibt Statistiken über offline verfügbare Inhalte zurück
     var offlineStats: OfflineStats {
         return OfflineStats(
             albumCount: offlineAlbums.count,
@@ -142,6 +154,8 @@ extension OfflineManager {
         )
     }
 }
+
+
 
 // MARK: - ✅ NEW: Stats Helper
 struct OfflineStats {
@@ -167,3 +181,5 @@ struct OfflineStats {
         return parts.joined(separator: ", ")
     }
 }
+
+
