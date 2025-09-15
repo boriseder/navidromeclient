@@ -1,6 +1,5 @@
 //
-//
-//  AlbumDetailView.swift - Enhanced with Offline Support
+//  AlbumDetailView.swift - Enhanced with Complete Offline Support
 //
 
 import SwiftUI
@@ -31,7 +30,7 @@ struct AlbumDetailView: View {
                     isOfflineAlbum: isOfflineAlbum
                 )
                 
-                // ✅ NEW: Offline Status Banner
+                // ✅ ENHANCED: Offline Status Banner
                 if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
                     OfflineStatusBanner(
                         isDownloaded: downloadManager.isAlbumDownloaded(album.id),
@@ -59,74 +58,17 @@ struct AlbumDetailView: View {
     // ✅ ENHANCED: Smart Album Data Loading with Offline Support
     @MainActor
     private func loadAlbumData() async {
-        // Check if this is an offline scenario
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
         // Load cover art
         coverArt = await coverArtService.loadAlbumCover(album, size: Int(Sizes.coverFull))
         
-        // ✅ NEW: Smart Song Loading with Offline Support
-        songs = await loadSongsWithOfflineSupport()
-    }
-    
-    // ✅ NEW: Unified Song Loading Logic
-    private func loadSongsWithOfflineSupport() async -> [Song] {
-        // 1. Check if album is downloaded (priority)
-        if downloadManager.isAlbumDownloaded(album.id) {
-            return await loadOfflineSongs()
-        }
-        
-        // 2. Try online if available
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            let onlineSongs = await navidromeVM.loadSongs(for: album.id)
-            if !onlineSongs.isEmpty {
-                return onlineSongs
-            }
-        }
-        
-        // 3. Fallback to offline if online failed
-        return await loadOfflineSongs()
-    }
-    
-    // ✅ NEW: Load Songs from Downloaded Files
-    private func loadOfflineSongs() async -> [Song] {
-        guard let downloadedAlbum = downloadManager.downloadedAlbums.first(where: { $0.albumId == album.id }) else {
-            print("⚠️ Album \(album.id) not found in downloads")
-            return []
-        }
-        
-        // Get cached album metadata
-        guard let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: album.id) else {
-            print("⚠️ Album metadata not found for \(album.id)")
-            return []
-        }
-        
-        // Try to get songs from NavidromeVM cache first
-        let cachedSongs = navidromeVM.albumSongs[album.id] ?? []
-        if !cachedSongs.isEmpty {
-            return cachedSongs.filter { downloadedAlbum.songIds.contains($0.id) }
-        }
-        
-        // ✅ FALLBACK: Create minimal Song objects from downloaded files
-        return downloadedAlbum.songIds.enumerated().map { index, songId in
-            Song.createFromDownload(
-                id: songId,
-                title: "Track \(index + 1)", // Fallback title
-                duration: nil,
-                coverArt: album.id,
-                artist: album.artist,
-                album: album.name,
-                albumId: album.id,
-                track: index + 1,
-                year: album.year,
-                genre: album.genre,
-                contentType: "audio/mpeg"
-            )
-        }
+        // ✅ FIXED: Use NavidromeViewModel's smart loading method
+        songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
 
-// ✅ NEW: Offline Status Banner Component
+// ✅ ENHANCED: Offline Status Banner Component
 struct OfflineStatusBanner: View {
     let isDownloaded: Bool
     let isOnline: Bool
@@ -181,6 +123,7 @@ struct OfflineStatusBanner: View {
     }
 }
 
+// Rest of the view components remain the same...
 // ✅ ENHANCED: Album Header with Offline Support
 struct AlbumHeaderView: View {
     let album: Album
