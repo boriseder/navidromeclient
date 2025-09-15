@@ -2,7 +2,7 @@
 //  SearchResultRow.swift - CLEAN Async Implementation
 //  NavidromeClient
 //
-//  ✅ CORRECT: No UI blocking, proper async patterns
+//  ✅ CORRECT: No UI blocking, proper async patterns, no ImageType usage
 //
 
 import SwiftUI
@@ -281,21 +281,27 @@ struct SongImageView: View {
         }
     }
     
+    // ✅ FIXED: No more ImageType usage
     private func loadSongImage() async {
         guard let albumId = song.albumId else { return }
         
-        let imageType = ImageType.album(albumId)
-        if let cached = coverArtService.getCachedImage(for: imageType, size: 100) {
-            songImage = cached
-            return
-        }
-        
-        isLoading = true
-        let loadedImage = await coverArtService.loadImage(for: imageType, size: 100)
-        
-        withAnimation(.easeInOut(duration: 0.3)) {
-            songImage = loadedImage
-            isLoading = false
+        // ✅ FIXED: Use Album object instead of ImageType
+        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
+            if let cached = coverArtService.getCachedAlbumCover(albumMetadata, size: 100) {
+                songImage = cached
+                return
+            }
+            
+            isLoading = true
+            let loadedImage = await coverArtService.loadAlbumCover(albumMetadata, size: 100)
+            
+            withAnimation(.easeInOut(duration: 0.3)) {
+                songImage = loadedImage
+                isLoading = false
+            }
+        } else {
+            // ✅ GRACEFUL DEGRADATION: No fallback, just leave empty
+            print("⚠️ Album metadata not found for ID: \(albumId)")
         }
     }
 }

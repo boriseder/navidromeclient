@@ -1,8 +1,8 @@
 //
-//  ReactiveCoverArtService.swift - PROPERLY REFACTORED
+//  ReactiveCoverArtService.swift - REFACTORED WITHOUT ImageType
 //  NavidromeClient
 //
-//  ✅ CORRECT: True async-only API, no UI blocking
+//  ✅ CLEAN: Type-safe, unified API without ImageType enum
 //
 
 import Foundation
@@ -28,22 +28,11 @@ class ReactiveCoverArtService: ObservableObject {
         self.navidromeService = service
     }
     
-    // MARK: - ✅ CORE API: Only Async Methods
+    // MARK: - ✅ PRIMARY API: Type-Safe Album/Artist Loading
     
     /// Load album cover (async only - no UI blocking)
     func loadAlbumCover(_ album: Album, size: Int = 300) async -> UIImage? {
-        return await loadImage(for: .album(album.id), size: size)
-    }
-    
-    /// Load artist image (async only - no UI blocking)
-    func loadArtistImage(_ artist: Artist, size: Int = 120) async -> UIImage? {
-        guard let coverArt = artist.coverArt, !coverArt.isEmpty else { return nil }
-        return await loadImage(for: .artist(coverArt), size: size)
-    }
-    
-    /// Core async loading method
-    func loadImage(for imageType: ImageType, size: Int) async -> UIImage? {
-        let cacheKey = buildCacheKey(for: imageType, size: size)
+        let cacheKey = "album_\(album.id)_\(size)"
         
         // 1. Fast cache check (non-blocking)
         if let cached = persistentCache.image(for: cacheKey) {
@@ -51,40 +40,60 @@ class ReactiveCoverArtService: ObservableObject {
         }
         
         // 2. Async network loading with concurrency control
-        return await loadFromNetwork(imageType: imageType, size: size, cacheKey: cacheKey)
+        return await loadFromNetwork(coverId: album.id, size: size, cacheKey: cacheKey)
+    }
+    
+    /// Load artist image (async only - no UI blocking)
+    func loadArtistImage(_ artist: Artist, size: Int = 120) async -> UIImage? {
+        guard let coverArt = artist.coverArt, !coverArt.isEmpty else { return nil }
+        let cacheKey = "artist_\(coverArt)_\(size)"
+        
+        // 1. Fast cache check (non-blocking)
+        if let cached = persistentCache.image(for: cacheKey) {
+            return optimizeImageSize(cached, requestedSize: size)
+        }
+        
+        // 2. Async network loading with concurrency control
+        return await loadFromNetwork(coverId: coverArt, size: size, cacheKey: cacheKey)
     }
     
     // MARK: - ✅ CACHE-ONLY Methods (for quick checks)
     
-    /// Check if image is in cache (fast, non-blocking)
-    func hasCachedImage(for imageType: ImageType, size: Int) -> Bool {
-        let cacheKey = buildCacheKey(for: imageType, size: size)
+    /// Check if album image is in cache (fast, non-blocking)
+    func hasCachedAlbumCover(_ album: Album, size: Int) -> Bool {
+        let cacheKey = "album_\(album.id)_\(size)"
         return persistentCache.image(for: cacheKey) != nil
     }
     
-    /// Get cached image immediately (fast, non-blocking)
-    func getCachedImage(for imageType: ImageType, size: Int) -> UIImage? {
-        let cacheKey = buildCacheKey(for: imageType, size: size)
+    /// Get cached album image immediately (fast, non-blocking)
+    func getCachedAlbumCover(_ album: Album, size: Int = 300) -> UIImage? {
+        let cacheKey = "album_\(album.id)_\(size)"
         if let cached = persistentCache.image(for: cacheKey) {
             return optimizeImageSize(cached, requestedSize: size)
         }
         return nil
     }
     
-    // MARK: - ✅ CONVENIENCE: Cache-only methods for UI
-    
-    func getCachedAlbumCover(_ album: Album, size: Int = 300) -> UIImage? {
-        return getCachedImage(for: .album(album.id), size: size)
+    /// Check if artist image is in cache (fast, non-blocking)
+    func hasCachedArtistImage(_ artist: Artist, size: Int) -> Bool {
+        guard let coverArt = artist.coverArt, !coverArt.isEmpty else { return false }
+        let cacheKey = "artist_\(coverArt)_\(size)"
+        return persistentCache.image(for: cacheKey) != nil
     }
     
+    /// Get cached artist image immediately (fast, non-blocking)
     func getCachedArtistImage(_ artist: Artist, size: Int = 120) -> UIImage? {
         guard let coverArt = artist.coverArt, !coverArt.isEmpty else { return nil }
-        return getCachedImage(for: .artist(coverArt), size: size)
+        let cacheKey = "artist_\(coverArt)_\(size)"
+        if let cached = persistentCache.image(for: cacheKey) {
+            return optimizeImageSize(cached, requestedSize: size)
+        }
+        return nil
     }
     
-    // MARK: - Private Implementation
+    // MARK: - ✅ UNIFIED NETWORK LOADING
     
-    private func loadFromNetwork(imageType: ImageType, size: Int, cacheKey: String) async -> UIImage? {
+    private func loadFromNetwork(coverId: String, size: Int, cacheKey: String) async -> UIImage? {
         // Concurrency control
         while activeRequests.count >= maxConcurrentRequests {
             try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
@@ -106,7 +115,7 @@ class ReactiveCoverArtService: ObservableObject {
         guard let service = navidromeService else { return nil }
         
         let networkSize = size > 300 ? size : 500 // Load higher res for caching
-        let image = await loadImageFromService(service: service, imageType: imageType, size: networkSize)
+        let image = await service.getCoverArt(for: coverId, size: networkSize)
         
         if let image = image {
             persistentCache.store(image, for: cacheKey)
@@ -120,20 +129,6 @@ class ReactiveCoverArtService: ObservableObject {
         }
         
         return nil
-    }
-    
-    private func loadImageFromService(service: SubsonicService, imageType: ImageType, size: Int) async -> UIImage? {
-        switch imageType {
-        case .album(let albumId):
-            return await service.getCoverArt(for: albumId, size: size)
-            
-        case .artist(let artistId):
-            return await service.getCoverArt(for: artistId, size: size)
-        }
-    }
-    
-    private func buildCacheKey(for imageType: ImageType, size: Int) -> String {
-        return "\(imageType.cachePrefix)_\(imageType.id)_\(size)"
     }
     
     private func optimizeImageSize(_ image: UIImage, requestedSize: Int) -> UIImage? {
@@ -181,5 +176,19 @@ class ReactiveCoverArtService: ObservableObject {
     func clearMemoryCache() {
         persistentCache.clearCache()
         activeRequests.removeAll()
+    }
+    
+    func getCacheStats() -> CacheStats {
+        let persistentStats = persistentCache.getCacheStats()
+        
+        return CacheStats(
+            persistent: persistentStats.diskCount,
+            networkRequests: activeRequests.count
+        )
+    }
+    
+    struct CacheStats {
+        let persistent: Int
+        let networkRequests: Int
     }
 }

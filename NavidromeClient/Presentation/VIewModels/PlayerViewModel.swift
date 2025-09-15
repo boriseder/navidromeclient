@@ -219,12 +219,11 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         // ✅ FIXED: Use the new convenience API instead of direct ImageType
         if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            // Create Album object for the convenience method
-            let album = albumMetadata
-            coverArt = await coverArtService.loadAlbumCover(album, size: 300)
+            coverArt = await coverArtService.loadAlbumCover(albumMetadata, size: 300)
         } else {
-            // Fallback: try to load directly by ID using the unified API
-            coverArt = await coverArtService.loadImage(for: .album(albumId), size: 300)
+            // ✅ GRACEFUL DEGRADATION: Clear cover art instead of forcing load
+            print("⚠️ Album metadata not found for ID: \(albumId), clearing cover art")
+            coverArt = nil
         }
         
         updateNowPlayingInfo()

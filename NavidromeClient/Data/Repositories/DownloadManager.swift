@@ -134,7 +134,7 @@ class DownloadManager: ObservableObject {
         let downloadDate = Date()
 
         // Step 1: Download album cover art
-        await cacheAlbumCoverArt(albumId: albumId, service: service)
+        await cacheAlbumCoverArt(album: albumMetadata, service: service)
         
         // Step 2: Download artist image (if available)
         await cacheArtistImage(for: albumMetadata, service: service)
@@ -228,19 +228,19 @@ class DownloadManager: ObservableObject {
         downloadProgress.removeValue(forKey: albumId)
     }
     
-    // MARK: - ✅ NEW: Cover Art Caching During Download
+    // MARK: - ✅ FIXED: Cover Art Caching During Download
     
-    private func cacheAlbumCoverArt(albumId: String, service: SubsonicService) async {
+    private func cacheAlbumCoverArt(album: Album, service: SubsonicService) async {
         let coverArtService = ReactiveCoverArtService.shared
         
         // Cache album cover in multiple sizes for offline use
         let sizes = [50, 120, 200, 300] // Standard sizes
         
         for size in sizes {
-            _ = await coverArtService.loadImage(for: .album(albumId), size: size)
+            _ = await coverArtService.loadAlbumCover(album, size: size)
         }
         
-        print("✅ Cached album cover art for \(albumId) in \(sizes.count) sizes")
+        print("✅ Cached album cover art for \(album.id) in \(sizes.count) sizes")
     }
     
     private func cacheArtistImage(for album: Album, service: SubsonicService) async {

@@ -63,12 +63,14 @@ class ExploreViewModel: ObservableObject {
     func loadCoverArt(for albumId: String, size: Int = 200) async -> UIImage? {
         guard let coverArtService = coverArtService else { return nil }
         
-        // ✅ NEW: Use convenience method with Album object if possible
+        // ✅ FIXED: Use convenience method with Album object if possible
         if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
             return await coverArtService.loadAlbumCover(albumMetadata, size: size)
         } else {
-            // ✅ FALLBACK: Use direct ImageType API when Album object not available
-            return await coverArtService.loadImage(for: .album(albumId), size: size)
+            // ✅ GRACEFUL DEGRADATION: Return nil instead of creating fallback Album
+            // This encourages proper data flow through AlbumMetadataCache
+            print("⚠️ Album metadata not found for ID: \(albumId)")
+            return nil
         }
     }
     
