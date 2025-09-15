@@ -17,13 +17,22 @@ struct ArtistsView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     
     @State private var searchText = ""
-    @State private var hasLoadedOnce = false
+    
+    // ✅ SIMPLIFIED: No hasLoadedOnce, no task, no onChange
     
     var body: some View {
         NavigationStack {
             Group {
-                if navidromeVM.isLoading {
-                    loadingView()
+                if navidromeVM.isLoading && !navidromeVM.hasLoadedInitialData {
+                    VStack(spacing: 16) {
+                        loadingView()
+                        
+                        if navidromeVM.isLoadingInBackground {
+                            Text(navidromeVM.backgroundLoadingProgress)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 } else if filteredArtists.isEmpty {
                     ArtistsEmptyStateView(
                         isOnline: networkMonitor.canLoadOnlineContent,
@@ -44,48 +53,30 @@ struct ArtistsView: View {
                 
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        Task { await loadArtists() }
+                        Task { await navidromeVM.refreshAllData() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
+                    .disabled(navidromeVM.isLoadingInBackground)
                 }
             }
-            .task {
-                if !hasLoadedOnce {
-                    await loadArtists()
-                    hasLoadedOnce = true
-                }
-            }
+            // ✅ SIMPLIFIED: Only refreshable
             .refreshable {
-                await loadArtists()
-                hasLoadedOnce = true
+                await navidromeVM.refreshAllData()
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(context: .artist(artist))
-            }
-            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
-                if !canLoad {
-                    offlineManager.switchToOfflineMode()
-                } else if canLoad && !offlineManager.isOfflineMode {
-                    Task { await loadArtists() }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
-                offlineManager.switchToOfflineMode()
             }
             .accountToolbar()
         }
     }
 
     private var filteredArtists: [Artist] {
-        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
         let artists: [Artist]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             artists = navidromeVM.artists
         } else {
-            // ✅ DRY: Use centralized offline artists
             artists = offlineManager.offlineArtists
         }
         
@@ -101,7 +92,6 @@ struct ArtistsView: View {
     private var mainContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.s) {
-                // ✅ FIXED: Use LibraryStatusHeader instead of ArtistsStatusHeader
                 if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
                     LibraryStatusHeader.artists(
                         count: filteredArtists.count,
@@ -121,72 +111,5 @@ struct ArtistsView: View {
             .padding(.bottom, Sizes.miniPlayer)
         }
     }
-
-    private func loadArtists() async {
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            await navidromeVM.loadArtistsWithOfflineSupport()
-        }
-    }
 }
 
-// MARK: - Artists Empty State View (Enhanced with DS)
-struct ArtistsEmptyStateView: View {
-    let isOnline: Bool
-    let isOfflineMode: Bool
-    
-    var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: emptyStateIcon)
-                .font(.system(size: 60))
-                .foregroundStyle(TextColor.secondary)
-            
-            VStack(spacing: Spacing.s) {
-                Text(emptyStateTitle)
-                    .font(Typography.title2)
-                
-                Text(emptyStateMessage)
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            if !isOnline && !isOfflineMode {
-                Button("Switch to Downloaded Music") {
-                    OfflineManager.shared.switchToOfflineMode()
-                }
-                .primaryButtonStyle()
-            }
-        }
-        .padding(Padding.xl)
-    }
-    
-    private var emptyStateIcon: String {
-        if !isOnline {
-            return "wifi.slash"
-        } else if isOfflineMode {
-            return "person.2.slash"
-        } else {
-            return "person.2"
-        }
-    }
-    
-    private var emptyStateTitle: String {
-        if !isOnline {
-            return "No Connection"
-        } else if isOfflineMode {
-            return "No Offline Artists"
-        } else {
-            return "No Artists Found"
-        }
-    }
-    
-    private var emptyStateMessage: String {
-        if !isOnline {
-            return "Connect to WiFi or cellular to browse your artists"
-        } else if isOfflineMode {
-            return "Download some albums to see artists offline"
-        } else {
-            return "Your music library appears to have no artists"
-        }
-    }
-}

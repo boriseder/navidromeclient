@@ -17,10 +17,58 @@ struct AlbumsView: View {
     
     @State private var searchText = ""
     @State private var selectedSortType: SubsonicService.AlbumSortType = .alphabetical
-    @State private var isLoading = false
-    @State private var hasLoadedOnce = false
 
-    // Broken up complex expression into simpler computed properties
+    // ✅ SIMPLIFIED: No hasLoadedOnce, no task, no onChange
+    
+    var body: some View {
+        NavigationStack {
+            Group {
+                if navidromeVM.isLoading && !navidromeVM.hasLoadedInitialData {
+                    VStack(spacing: 16) {
+                        loadingView()
+                        
+                        if navidromeVM.isLoadingInBackground {
+                            Text(navidromeVM.backgroundLoadingProgress)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else if displayedAlbums.isEmpty {
+                    albumsEmptyStateView
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
+                                LibraryStatusHeader.albums(
+                                    count: displayedAlbums.count,
+                                    isOnline: networkMonitor.canLoadOnlineContent,
+                                    isOfflineMode: offlineManager.isOfflineMode
+                                )
+                            }
+                            
+                            AlbumGridView(albums: displayedAlbums)
+                        }
+                    }
+                    // ✅ SIMPLIFIED: Only refreshable - no other loading triggers
+                    .refreshable {
+                        await navidromeVM.refreshAllData()
+                    }
+                }
+            }
+            .navigationTitle("Albums")
+            .navigationBarTitleDisplayMode(.large)
+            .searchable(text: $searchText, placement: .automatic, prompt: "Search albums...")
+            .toolbar {
+                toolbarContent
+            }
+            .accountToolbar()
+            .task(id: displayedAlbums.count) {
+                await preloadDisplayedAlbums()
+            }
+        }
+    }
+    
+    // Rest of the computed properties and helper methods remain the same...
     private var displayedAlbums: [Album] {
         let sourceAlbums = getSourceAlbums()
         return filterAlbums(sourceAlbums)
@@ -50,80 +98,6 @@ struct AlbumsView: View {
         }
     }
     
-    private var availableSortTypes: [SubsonicService.AlbumSortType] {
-        let canLoadOnline = networkMonitor.canLoadOnlineContent
-        let isOffline = offlineManager.isOfflineMode
-        
-        if canLoadOnline && !isOffline {
-            return SubsonicService.AlbumSortType.allCases
-        } else {
-            return [.alphabetical, .alphabeticalByArtist]
-        }
-    }
-    
-    var body: some View {
-        NavigationStack {
-            Group {
-                VStack(spacing: 0) {
-                    if isLoading {
-                        Spacer()
-                        loadingView()
-                        Spacer()
-                    } else if displayedAlbums.isEmpty {
-                        Spacer()
-                        albumsEmptyStateView
-                        Spacer()
-                    } else {
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                // ✅ NEW: Added status header for consistency
-                                if !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode {
-                                    LibraryStatusHeader.albums(
-                                        count: displayedAlbums.count,
-                                        isOnline: networkMonitor.canLoadOnlineContent,
-                                        isOfflineMode: offlineManager.isOfflineMode
-                                    )
-                                }
-                                
-                                AlbumGridView(albums: displayedAlbums)
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Albums")
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, placement: .automatic, prompt: "Search albums...")
-            .task {
-                if !hasLoadedOnce {
-                    await loadAlbums()
-                    hasLoadedOnce = true
-                }
-            }
-            .refreshable {
-                await loadAlbums()
-            }
-            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
-                handleNetworkChange(canLoad: canLoad)
-            }
-            .onChange(of: offlineManager.isOfflineMode) { _, _ in
-                // Trigger UI refresh when offline mode changes
-            }
-            .task(id: displayedAlbums.count) {
-                // Preload with delay to avoid publishing during view updates
-                await preloadDisplayedAlbums()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
-                offlineManager.switchToOfflineMode()
-            }
-            .toolbar {
-                toolbarContent
-            }
-            .accountToolbar()
-        }
-    }
-    
-    // Simplified empty state view
     private var albumsEmptyStateView: some View {
         AlbumsEmptyStateView(
             isOnline: networkMonitor.canLoadOnlineContent,
@@ -131,15 +105,14 @@ struct AlbumsView: View {
         )
     }
     
-    // Extracted toolbar content with DS
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
-                ForEach(availableSortTypes, id: \.self) { sortType in
+                ForEach(SubsonicService.AlbumSortType.allCases, id: \.self) { sortType in
                     Button {
                         selectedSortType = sortType
-                        Task { await loadAlbums() }
+                        Task { await navidromeVM.loadAllAlbums(sortBy: sortType) }
                     } label: {
                         HStack {
                             Text(sortType.displayName)
@@ -158,47 +131,22 @@ struct AlbumsView: View {
             OfflineModeToggle()
         }
         
+        // ✅ SIMPLIFIED: Manual refresh button (optional)
         ToolbarItem(placement: .navigationBarLeading) {
             Button {
-                Task {
-                    await loadAlbums()
-                }
+                Task { await navidromeVM.refreshAllData() }
             } label: {
                 Image(systemName: "arrow.clockwise")
             }
-            .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
+            .disabled(navidromeVM.isLoadingInBackground)
         }
-    }
-    
-    // Simplified helper methods
-    private func handleNetworkChange(canLoad: Bool) {
-        if canLoad && !offlineManager.isOfflineMode {
-            Task { await loadAlbums() }
-        } else if !canLoad {
-            offlineManager.switchToOfflineMode()
-        }
-    }
-    
-    private func loadAlbums() async {
-        let canLoadOnline = networkMonitor.canLoadOnlineContent
-        let isOffline = offlineManager.isOfflineMode
-        
-        guard canLoadOnline && !isOffline else {
-            await navidromeVM.loadOfflineAlbums()
-            return
-        }
-        
-        isLoading = true
-        defer { isLoading = false }
-        
-        await navidromeVM.loadAllAlbums(sortBy: selectedSortType)
     }
     
     private func preloadDisplayedAlbums() async {
         let albums = displayedAlbums
         guard !albums.isEmpty else { return }
         
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second delay
+        try? await Task.sleep(nanoseconds: 100_000_000)
         
         Task {
             await coverArtService.preloadAlbums(Array(albums.prefix(20)), size: 200)

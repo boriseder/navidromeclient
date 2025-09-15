@@ -1,9 +1,3 @@
-//
-//  NavidromeClientApp.swift
-//  NavidromeClient
-//
-
-
 import SwiftUI
 
 @main
@@ -48,20 +42,33 @@ struct NavidromeClientApp: App {
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
                 .environmentObject(coverArtService)
-                .onAppear {
-                    setupServices()
-                    setupNetworkMonitoring()
+                .task {
+                    await setupInitialDataLoading()
+                }
+                .onChange(of: networkMonitor.isConnected) { _, isConnected in
+                    Task {
+                        await navidromeVM.handleNetworkChange(isOnline: isConnected)
+                    }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     handleAppBecameActive()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
-                    handleAppWillResignActive()
-                }
         }
     }
     
-    // ✅ FIX: Enhanced setupServices with proper dependency injection
+    // ✅ NEW: Centralized Initial Data Loading
+    private func setupInitialDataLoading() async {
+        guard appConfig.isConfigured else {
+            print("⚠️ App not configured - skipping data loading")
+            return
+        }
+        
+        setupServices()
+        
+        // Load initial data in background
+        await navidromeVM.loadInitialDataIfNeeded()
+    }
+    
     private func setupServices() {
         if let creds = appConfig.getCredentials() {
             let service = SubsonicService(
@@ -70,45 +77,23 @@ struct NavidromeClientApp: App {
                 password: creds.password
             )
             
-            // Configure all services with proper dependencies
             navidromeVM.updateService(service)
             playerVM.updateService(service)
             networkMonitor.setService(service)
-            
-            // ✅ FIX: Configure Cover Art Service
             coverArtService.configure(service: service)
-            
-            // ✅ FIX: Give PlayerViewModel reference to coverArtService
             playerVM.updateCoverArtService(coverArtService)
             
-            print("✅ All services configured with credentials and dependencies")
-        } else {
-            print("⚠️ No credentials available - services not configured")
-        }
-    }
-    
-    private func setupNetworkMonitoring() {
-        print("🌐 Network monitoring active")
-        
-        if networkMonitor.isConnected {
-            Task {
-                await networkMonitor.checkServerConnection()
-            }
+            print("✅ All services configured with credentials")
         }
     }
     
     private func handleAppBecameActive() {
-        print("📱 App became active - refreshing audio session and network status")
-        
-        Task {
-            await networkMonitor.checkServerConnection()
-        }
-    }
-    
-    private func handleAppWillResignActive() {
-        print("📱 App will resign active - ensuring background audio")
-        if playerVM.isPlaying {
-            print("🎵 Music is playing - should continue in background")
+        // Only refresh if data is very stale (1+ hours)
+        if !navidromeVM.isDataFresh {
+            Task {
+                await navidromeVM.handleNetworkChange(isOnline: networkMonitor.isConnected)
+            }
         }
     }
 }
+

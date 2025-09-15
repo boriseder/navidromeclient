@@ -17,13 +17,22 @@ struct GenreView: View {
     @EnvironmentObject var downloadManager: DownloadManager
 
     @State private var searchText = ""
-    @State private var hasLoadedOnce = false
+    
+    // ✅ SIMPLIFIED: No hasLoadedOnce, no task, no onChange
 
     var body: some View {
         NavigationStack {
             Group {
-                if navidromeVM.isLoading {
-                    loadingView()
+                if navidromeVM.isLoading && !navidromeVM.hasLoadedInitialData {
+                    VStack(spacing: 16) {
+                        loadingView()
+                        
+                        if navidromeVM.isLoadingInBackground {
+                            Text(navidromeVM.backgroundLoadingProgress)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 } else if filteredGenres.isEmpty {
                     GenresEmptyStateView(
                         isOnline: networkMonitor.canLoadOnlineContent,
@@ -44,50 +53,30 @@ struct GenreView: View {
                 
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        Task {
-                            await loadGenres()
-                        }
+                        Task { await navidromeVM.refreshAllData() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
-                    .disabled(navidromeVM.isLoading || networkMonitor.shouldForceOfflineMode)
+                    .disabled(navidromeVM.isLoadingInBackground)
                 }
             }
-            .task {
-                if !hasLoadedOnce {
-                    await loadGenres()
-                    hasLoadedOnce = true
-                }
-            }
+            // ✅ SIMPLIFIED: Only refreshable
             .refreshable {
-                await loadGenres()
-                hasLoadedOnce = true
+                await navidromeVM.refreshAllData()
             }
             .navigationDestination(for: Genre.self) { genre in
                 ArtistDetailView(context: .genre(genre))
-            }
-            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
-                if !canLoad {
-                    offlineManager.switchToOfflineMode()
-                } else if canLoad && !offlineManager.isOfflineMode {
-                    Task { await loadGenres() }
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .serverUnreachable)) { _ in
-                offlineManager.switchToOfflineMode()
             }
             .accountToolbar()
         }
     }
     
     private var filteredGenres: [Genre] {
-        // ✅ REFACTORED: Use OfflineManager instead of duplicate logic
         let genres: [Genre]
         
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             genres = navidromeVM.genres
         } else {
-            // ✅ DRY: Use centralized offline genres
             genres = offlineManager.offlineGenres
         }
         
@@ -121,116 +110,6 @@ struct GenreView: View {
             .padding(.bottom, Sizes.miniPlayer)
         }
     }
-    
-    private func loadGenres() async {
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            await navidromeVM.loadGenresWithOfflineSupport()
-        }
-    }
 }
 
-// MARK: - Genre Card (Enhanced with DS)
-struct GenreCard: View {
-    let genre: Genre
 
-    var body: some View {
-        HStack(spacing: Spacing.m) {
-            Circle()
-                .fill(BackgroundColor.medium)
-                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
-                .blur(radius: 1)
-                .overlay(
-                    Image(systemName: "music.note")
-                        .foregroundStyle(TextColor.primary)
-                )
-            
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(genre.value)
-                    .font(Typography.bodyEmphasized)
-                    .foregroundColor(TextColor.primary)
-                    .lineLimit(1)
-
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: "record.circle")
-                        .font(Typography.caption)
-                        .foregroundColor(TextColor.secondary)
-
-                    let count = genre.albumCount
-                    Text("\(count) Album\(count != 1 ? "s" : "")")
-                        .font(Typography.caption)
-                        .foregroundColor(TextColor.secondary)
-                        .lineLimit(1)
-                }
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundStyle(TextColor.tertiary)
-        }
-        .listItemPadding()
-        .materialCardStyle()
-    }
-}
-
-// MARK: - Genres Empty State View (Enhanced with DS)
-struct GenresEmptyStateView: View {
-    let isOnline: Bool
-    let isOfflineMode: Bool
-    
-    var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: emptyStateIcon)
-                .font(.system(size: 60))
-                .foregroundStyle(TextColor.secondary)
-            
-            VStack(spacing: Spacing.s) {
-                Text(emptyStateTitle)
-                    .font(Typography.title2)
-                
-                Text(emptyStateMessage)
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            if !isOnline && !isOfflineMode {
-                Button("Switch to Downloaded Music") {
-                    OfflineManager.shared.switchToOfflineMode()
-                }
-                .primaryButtonStyle()
-            }
-        }
-        .padding(Padding.xl)
-    }
-    
-    private var emptyStateIcon: String {
-        if !isOnline {
-            return "wifi.slash"
-        } else if isOfflineMode {
-            return "music.note.list.slash"
-        } else {
-            return "music.note.list"
-        }
-    }
-    
-    private var emptyStateTitle: String {
-        if !isOnline {
-            return "No Connection"
-        } else if isOfflineMode {
-            return "No Offline Genres"
-        } else {
-            return "No Genres Found"
-        }
-    }
-    
-    private var emptyStateMessage: String {
-        if !isOnline {
-            return "Connect to WiFi or cellular to browse music genres"
-        } else if isOfflineMode {
-            return "Download albums with different genres to see them offline"
-        } else {
-            return "Your music library appears to have no genres"
-        }
-    }
-}

@@ -29,6 +29,7 @@ struct ExploreView: View {
             }
             .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
+            // ✅ EXPLORE VIEW: Handles its own data loading since it's different from library views
             .task {
                 exploreVM.configure(with: navidromeVM, coverArtService: coverArtService)
                 
@@ -73,7 +74,7 @@ struct ExploreView: View {
         await coverArtService.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
     }
     
-    // MARK: - Online Content (Enhanced with DS)
+    // Rest of ExploreView implementation remains the same...
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.xl) {
@@ -82,7 +83,6 @@ struct ExploreView: View {
                     nowPlaying: playerVM.currentSong
                 )
                 
-                // Conditional sections to avoid empty views
                 Group {
                     if !exploreVM.recentAlbums.isEmpty {
                         AlbumSection(
@@ -125,7 +125,6 @@ struct ExploreView: View {
                     }
                 }
                 
-                // Error/Loading states
                 Group {
                     if exploreVM.isLoading {
                         loadingView()
@@ -142,7 +141,6 @@ struct ExploreView: View {
         }
     }
     
-    // MARK: - Offline Content (Enhanced with DS)
     private var offlineContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.xl) {
@@ -199,7 +197,6 @@ struct ExploreView: View {
 }
 
 // MARK: - Offline Components (Enhanced with DS)
-
 struct OfflineWelcomeHeader: View {
     let downloadedAlbums: Int
     let isConnected: Bool
