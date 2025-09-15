@@ -1,9 +1,9 @@
 //
-//  ArtistDetailView.swift - UPDATED for CoverArtManager
+//  ArtistDetailView.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ UPDATED: Uses unified CoverArtManager instead of ReactiveCoverArtService
-//  ✅ SIMPLIFIED: Cleaner image loading integration
+//  ✅ ELIMINATES: ArtistDetailViewModel completely
+//  ✅ CLEAN: Direct manager calls instead of ViewModel wrapper
 //
 
 import SwiftUI
@@ -18,13 +18,17 @@ struct ArtistDetailView: View {
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
     
-    @StateObject private var viewModel = ArtistDetailViewModel()
+    // ✅ DIRECT STATE: No ViewModel wrapper needed
+    @State private var albums: [Album] = []
+    @State private var artistImage: UIImage?
+    @State private var isLoading = false
+    @State private var isLoadingSongs = false
+    @State private var errorMessage: String?
 
     private var artist: Artist? {
         if case .artist(let a) = context { return a }
@@ -44,6 +48,13 @@ struct ArtistDetailView: View {
         }
     }
     
+    private var contextTitle: String {
+        switch context {
+        case .artist(let artist): return artist.name
+        case .genre(let genre): return genre.value
+        }
+    }
+    
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -60,20 +71,62 @@ struct ArtistDetailView: View {
             }
         }
         .scrollIndicators(.hidden)
+        .navigationTitle(contextTitle)
+        .navigationBarTitleDisplayMode(.inline)
         .task {
-            // ✅ UPDATED: Pass CoverArtManager instead of ReactiveCoverArtService
-            await viewModel.loadContent(
-                context: context,
-                navidromeVM: navidromeVM,
-                coverArtManager: coverArtManager,
-                isOfflineMode: isOfflineMode,
-                offlineManager: offlineManager
-            )
+            // ✅ DIRECT CALLS: No ViewModel wrapper
+            await loadContent()
         }
         .accountToolbar()
     }
        
-    // MARK: - Header (Enhanced with DS)
+    // MARK: - ✅ DIRECT LOADING LOGIC
+    
+    private func loadContent() async {
+        isLoading = true
+        errorMessage = nil
+        
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await self.loadAlbums()
+            }
+            group.addTask {
+                await self.loadArtistImage()
+            }
+        }
+        
+        isLoading = false
+    }
+    
+    private func loadAlbums() async {
+        do {
+            if isOfflineMode {
+                // ✅ DIRECT CALL: Use offline manager directly
+                albums = availableOfflineAlbums
+            } else {
+                // ✅ DIRECT CALL: Use music library manager through NavidromeVM
+                albums = try await navidromeVM.loadAlbums(context: context)
+            }
+            
+            print("✅ Loaded \(albums.count) albums for \(contextTitle)")
+        } catch {
+            print("❌ Failed to load albums: \(error)")
+            errorMessage = "Failed to load albums: \(error.localizedDescription)"
+            
+            // Fallback to offline
+            albums = availableOfflineAlbums
+        }
+    }
+    
+    private func loadArtistImage() async {
+        if case .artist(let artist) = context {
+            // ✅ DIRECT CALL: Use cover art manager directly
+            artistImage = await coverArtManager.loadArtistImage(artist: artist, size: 300)
+        }
+    }
+    
+    // MARK: - ✅ UI COMPONENTS (unchanged but inline)
+    
     private var headerView: some View {
         HStack(spacing: Spacing.l) {
             artistAvatar
@@ -90,7 +143,7 @@ struct ArtistDetailView: View {
     
     private var artistAvatar: some View {
         Group {
-            if let image = viewModel.artistImage {
+            if let image = artistImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -112,13 +165,13 @@ struct ArtistDetailView: View {
     
     private var artistInfo: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            Text(viewModel.title(for: context))
+            Text(contextTitle)
                 .font(Typography.title2)
                 .lineLimit(2)
             
             albumCountView
             
-            if !viewModel.albums.isEmpty {
+            if !albums.isEmpty {
                 HStack {
                     shuffleButton
                 }
@@ -130,7 +183,7 @@ struct ArtistDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             if !isOfflineMode {
                 albumCountBadge(
-                    count: viewModel.albums.count,
+                    count: albums.count,
                     label: "Total",
                     color: BrandColor.primary
                 )
@@ -174,7 +227,7 @@ struct ArtistDetailView: View {
                 )
                 .miniShadow()
         }
-        .disabled(viewModel.albums.isEmpty || viewModel.isLoading)
+        .disabled(albums.isEmpty || isLoading)
     }
     
     private var offlineStatusSection: some View {
@@ -222,10 +275,12 @@ struct ArtistDetailView: View {
     
     private var albumsSection: some View {
         VStack(spacing: Spacing.l) {
-            if viewModel.isLoading {
+            if isLoading {
                 loadingView()
+            } else if let error = errorMessage {
+                errorView(error)
             } else {
-                let albumsToShow = isOfflineMode ? availableOfflineAlbums : viewModel.albums
+                let albumsToShow = isOfflineMode ? availableOfflineAlbums : albums
                 
                 if albumsToShow.isEmpty {
                     emptyStateView
@@ -266,13 +321,42 @@ struct ArtistDetailView: View {
         .materialCardStyle()
     }
     
+    private func errorView(_ error: String) -> some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundStyle(BrandColor.error)
+            
+            VStack(spacing: Spacing.s) {
+                Text("Error Loading Content")
+                    .font(Typography.headline)
+                
+                Text(error)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button("Retry") {
+                Task {
+                    await loadContent()
+                }
+            }
+            .primaryButtonStyle()
+        }
+        .padding(Padding.xl)
+        .materialCardStyle()
+    }
+    
+    // MARK: - ✅ SHUFFLE PLAY LOGIC (direct implementation)
+    
     @MainActor
     private func shufflePlayAllAlbums() async {
-        let albumsToPlay = isOfflineMode ? availableOfflineAlbums : viewModel.albums
+        let albumsToPlay = isOfflineMode ? availableOfflineAlbums : albums
         guard !albumsToPlay.isEmpty else { return }
         
-        viewModel.isLoadingSongs = true
-        defer { viewModel.isLoadingSongs = false }
+        isLoadingSongs = true
+        defer { isLoadingSongs = false }
         
         var allSongs: [Song] = []
         
@@ -326,10 +410,12 @@ struct ArtistDetailView: View {
     }
     
     private func loadOfflineSongsForAlbum(_ album: Album) async -> [Song] {
+        // ✅ DIRECT CALL: Use NavidromeVM song cache
         if let cachedSongs = navidromeVM.albumSongs[album.id] {
             return cachedSongs
         }
         
+        // ✅ DIRECT CALL: Use download manager
         guard let downloadedAlbum = downloadManager.downloadedAlbums.first(where: { $0.albumId == album.id }) else {
             return []
         }

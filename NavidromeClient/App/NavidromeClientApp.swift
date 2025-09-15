@@ -13,9 +13,15 @@ struct NavidromeClientApp: App {
     
     // Cover Art Service
     @StateObject private var coverArtManager = CoverArtManager.shared
+    
+    // ✅ NEW: Home Screen Manager
+    @StateObject private var homeScreenManager = HomeScreenManager.shared
+    
+    // ✅ FIXED: MusicLibraryManager as Dependency Injection
+    @StateObject private var musicLibraryManager = MusicLibraryManager()
 
     // App-wide ViewModels
-    @StateObject private var navidromeVM = NavidromeViewModel()
+    @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     
     init() {
@@ -28,6 +34,9 @@ struct NavidromeClientApp: App {
             service = nil
         }
 
+        let tempMusicLibraryManager = MusicLibraryManager()
+        _musicLibraryManager = StateObject(wrappedValue: tempMusicLibraryManager)
+        _navidromeVM = StateObject(wrappedValue: NavidromeViewModel(musicLibraryManager: tempMusicLibraryManager))
         _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
     }
     
@@ -42,12 +51,15 @@ struct NavidromeClientApp: App {
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
                 .environmentObject(coverArtManager)
+                .environmentObject(homeScreenManager) // ✅ NEW
+                .environmentObject(musicLibraryManager) // ✅ FIXED: DI
                 .task {
                     await setupInitialDataLoading()
                 }
                 .onChange(of: networkMonitor.isConnected) { _, isConnected in
                     Task {
                         await navidromeVM.handleNetworkChange(isOnline: isConnected)
+                        await homeScreenManager.handleNetworkChange(isOnline: isConnected) // ✅ NEW
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -56,7 +68,7 @@ struct NavidromeClientApp: App {
         }
     }
     
-    // ✅ NEW: Centralized Initial Data Loading
+    // ✅ UPDATED: Setup with HomeScreenManager
     private func setupInitialDataLoading() async {
         guard appConfig.isConfigured else {
             print("⚠️ App not configured - skipping data loading")
@@ -81,6 +93,7 @@ struct NavidromeClientApp: App {
             playerVM.updateService(service)
             networkMonitor.setService(service)
             coverArtManager.configure(service: service)
+            homeScreenManager.configure(service: service) // ✅ NEW
             playerVM.updateCoverArtService(coverArtManager)
 
             print("✅ All services configured with credentials")
@@ -94,6 +107,10 @@ struct NavidromeClientApp: App {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.isConnected)
             }
         }
+        
+        // ✅ NEW: Refresh home screen if needed
+        Task {
+            await homeScreenManager.refreshIfNeeded()
+        }
     }
 }
-

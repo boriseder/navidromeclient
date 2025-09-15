@@ -3,7 +3,7 @@
 //  NavidromeClient
 //
 //  ✅ CLEAN: Single Responsibility - Music Library Data Loading
-//  ✅ REPLACES: 80% of NavidromeViewModel + ExploreViewModel completely
+//  ✅ FIXED: Dependency Injection instead of Singleton
 //
 
 import Foundation
@@ -11,11 +11,6 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
-    static let shared = MusicLibraryManager()
-    
-    private init() { } // verhindert, dass andere Instanzen erzeugt werden
-
-    
     
     // MARK: - Progressive Library Data
     
@@ -33,14 +28,6 @@ class MusicLibraryManager: ObservableObject {
     @Published private(set) var loadedGenres: [Genre] = []
     @Published private(set) var genreLoadingState: DataLoadingState = .idle
     
-    // MARK: - Home Screen Data (from ExploreViewModel)
-    
-    @Published private(set) var recentAlbums: [Album] = []
-    @Published private(set) var newestAlbums: [Album] = []
-    @Published private(set) var frequentAlbums: [Album] = []
-    @Published private(set) var randomAlbums: [Album] = []
-    @Published private(set) var isLoadingHomeData = false
-    
     // MARK: - State Management
     
     @Published private(set) var hasLoadedInitialData = false
@@ -57,6 +44,9 @@ class MusicLibraryManager: ObservableObject {
         static let genreBatchSize = 30
         static let batchDelay: UInt64 = 200_000_000   // 200ms
     }
+    
+    // MARK: - ✅ FIXED: Normal initialization instead of singleton
+    init() {}
     
     // MARK: - Public API
     
@@ -223,33 +213,6 @@ class MusicLibraryManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ HOME SCREEN DATA (from ExploreViewModel)
-    
-    func loadHomeScreenData() async {
-        guard let service = service else {
-            print("⚠️ Service nicht verfügbar für Home Screen Data")
-            return
-        }
-        
-        isLoadingHomeData = true
-        defer { isLoadingHomeData = false }
-        
-        // Load all home screen data in parallel
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.loadRecentAlbums(service: service) }
-            group.addTask { await self.loadNewestAlbums(service: service) }
-            group.addTask { await self.loadFrequentAlbums(service: service) }
-            group.addTask { await self.loadRandomAlbums(service: service) }
-        }
-        
-        print("✅ Home screen data loaded")
-    }
-    
-    func refreshRandomAlbums() async {
-        guard let service = service else { return }
-        await loadRandomAlbums(service: service)
-    }
-    
     // MARK: - ✅ COORDINATED LOADING
     
     func loadInitialDataIfNeeded() async {
@@ -277,11 +240,6 @@ class MusicLibraryManager: ObservableObject {
                 try? await Task.sleep(nanoseconds: 200_000_000) // 200ms delay
                 await self.loadGenresProgressively(reset: true)
             }
-            
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 300_000_000) // 300ms delay
-                await self.loadHomeScreenData()
-            }
         }
         
         print("✅ Initial progressive data load completed")
@@ -304,9 +262,6 @@ class MusicLibraryManager: ObservableObject {
             }
             group.addTask {
                 await self.loadGenresProgressively(reset: true)
-            }
-            group.addTask {
-                await self.loadHomeScreenData()
             }
         }
         
@@ -345,46 +300,6 @@ class MusicLibraryManager: ObservableObject {
     }
     
     // MARK: - ✅ PRIVATE IMPLEMENTATION
-    
-    private func loadRecentAlbums(service: SubsonicService) async {
-        do {
-            recentAlbums = try await service.getRecentAlbums(size: 10)
-            print("✅ Loaded \(recentAlbums.count) recent albums")
-        } catch {
-            print("⚠️ Failed to load recent albums: \(error)")
-            recentAlbums = []
-        }
-    }
-    
-    private func loadNewestAlbums(service: SubsonicService) async {
-        do {
-            newestAlbums = try await service.getNewestAlbums(size: 10)
-            print("✅ Loaded \(newestAlbums.count) newest albums")
-        } catch {
-            print("⚠️ Failed to load newest albums: \(error)")
-            newestAlbums = []
-        }
-    }
-    
-    private func loadFrequentAlbums(service: SubsonicService) async {
-        do {
-            frequentAlbums = try await service.getFrequentAlbums(size: 10)
-            print("✅ Loaded \(frequentAlbums.count) frequent albums")
-        } catch {
-            print("⚠️ Failed to load frequent albums: \(error)")
-            frequentAlbums = []
-        }
-    }
-    
-    private func loadRandomAlbums(service: SubsonicService) async {
-        do {
-            randomAlbums = try await service.getRandomAlbums(size: 10)
-            print("✅ Loaded \(randomAlbums.count) random albums")
-        } catch {
-            print("⚠️ Failed to load random albums: \(error)")
-            randomAlbums = []
-        }
-    }
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
         print("❌ Failed to load \(dataType): \(error)")
@@ -436,10 +351,6 @@ class MusicLibraryManager: ObservableObject {
         loadedAlbums = []
         loadedArtists = []
         loadedGenres = []
-        recentAlbums = []
-        newestAlbums = []
-        frequentAlbums = []
-        randomAlbums = []
         
         albumLoadingState = .idle
         artistLoadingState = .idle

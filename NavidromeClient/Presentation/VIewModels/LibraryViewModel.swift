@@ -45,8 +45,7 @@ class LibraryViewModel: ObservableObject {
     
     
     
-    // MARK: - ✅ ALBUMS: Data Source + Filtering Logic
-    
+    // MARK: - ALBUMS: Data Source + Filtering Logic
     /// Get filtered and sorted albums for UI
     var displayedAlbums: [Album] {
         let sourceAlbums = getAlbumDataSource()
@@ -86,7 +85,7 @@ class LibraryViewModel: ObservableObject {
         await musicLibraryManager.loadAlbumsProgressively(sortBy: sortBy, reset: true)
     }
     
-    // MARK: - ✅ ARTISTS: Data Source + Filtering Logic
+    // MARK: - ARTISTS: Data Source + Filtering Logic
     
     /// Get filtered artists for UI
     var displayedArtists: [Artist] {
@@ -118,7 +117,7 @@ class LibraryViewModel: ObservableObject {
         return filteredArtists.sorted(by: { $0.name < $1.name })
     }
     
-    // MARK: - ✅ GENRES: Data Source + Filtering Logic
+    // MARK: - GENRES: Data Source + Filtering Logic
     
     /// Get filtered genres for UI
     var displayedGenres: [Genre] {
@@ -390,7 +389,7 @@ extension LibraryViewModel {
     }
 }
 
-// MARK: - ✅ SUPPORTING TYPES
+// MARK: - SUPPORTING TYPES
 
 struct LibraryStatusHeaderData {
     let itemType: LibraryItemType

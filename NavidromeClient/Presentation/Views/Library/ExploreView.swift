@@ -1,8 +1,9 @@
 //
-//  ExploreView.swift - Enhanced with Design System
+//  ExploreView.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//  ✅ CLEAN: All business logic moved to HomeScreenManager
+//  ✅ ELIMINATES: ExploreViewModel dependency completely
 //
 
 import SwiftUI
@@ -13,10 +14,10 @@ struct ExploreView: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtService: CoverArtManager
+    @EnvironmentObject var coverArtManager: CoverArtManager
     
-    @StateObject private var exploreVM = ExploreViewModel()
-    @State private var showRefreshAnimation = false
+    // ✅ NEW: Single source of truth for home screen data
+    @StateObject private var homeScreenManager = HomeScreenManager.shared
     
     var body: some View {
         NavigationStack {
@@ -29,25 +30,19 @@ struct ExploreView: View {
             }
             .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
-            // ✅ EXPLORE VIEW: Handles its own data loading since it's different from library views
             .task {
-                exploreVM.configure(with: navidromeVM, coverArtService: coverArtService)
-                
-                if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-                    await exploreVM.loadHomeScreenData()
-                    await preloadHomeScreenCovers()
-                }
+                // ✅ SINGLE LINE: Manager handles all complexity
+                await setupHomeScreenData()
             }
             .refreshable {
-                if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-                    await exploreVM.loadHomeScreenData()
-                    await preloadHomeScreenCovers()
-                }
+                // ✅ SINGLE LINE: Manager handles refresh logic
+                await homeScreenManager.loadHomeScreenData()
+                await preloadHomeScreenCovers()
             }
             .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
                 if canLoad && !offlineManager.isOfflineMode {
                     Task {
-                        await exploreVM.loadHomeScreenData()
+                        await homeScreenManager.handleNetworkChange(isOnline: true)
                         await preloadHomeScreenCovers()
                     }
                 }
@@ -55,7 +50,7 @@ struct ExploreView: View {
             .onChange(of: offlineManager.isOfflineMode) { _, isOffline in
                 if !isOffline && networkMonitor.canLoadOnlineContent {
                     Task {
-                        await exploreVM.loadHomeScreenData()
+                        await homeScreenManager.loadHomeScreenData()
                         await preloadHomeScreenCovers()
                     }
                 }
@@ -64,17 +59,33 @@ struct ExploreView: View {
         }
     }
     
-    // Smart preloading for Home Screen using ReactiveCoverArtService
-    private func preloadHomeScreenCovers() async {
-        let allAlbums = exploreVM.recentAlbums +
-                       exploreVM.newestAlbums +
-                       exploreVM.frequentAlbums +
-                       exploreVM.randomAlbums
+    // MARK: - ✅ Setup & Configuration
+    
+    private func setupHomeScreenData() async {
+        // Configure manager with service
+        if let service = navidromeVM.getService() {
+            homeScreenManager.configure(service: service)
+        }
         
-        await coverArtService.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
+        // Load data if online
+        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+            await homeScreenManager.loadHomeScreenData()
+            await preloadHomeScreenCovers()
+        }
     }
     
-    // Rest of ExploreView implementation remains the same...
+    // ✅ REACTIVE: Uses manager data directly
+    private func preloadHomeScreenCovers() async {
+        let allAlbums = homeScreenManager.recentAlbums +
+                       homeScreenManager.newestAlbums +
+                       homeScreenManager.frequentAlbums +
+                       homeScreenManager.randomAlbums
+        
+        await coverArtManager.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
+    }
+    
+    // MARK: - ✅ Pure UI Content
+    
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.xl) {
@@ -84,37 +95,38 @@ struct ExploreView: View {
                 )
                 
                 Group {
-                    if !exploreVM.recentAlbums.isEmpty {
+                    // ✅ REACTIVE: Direct access to manager data
+                    if !homeScreenManager.recentAlbums.isEmpty {
                         AlbumSection(
                             title: "Recently played",
-                            albums: exploreVM.recentAlbums,
+                            albums: homeScreenManager.recentAlbums,
                             icon: "clock.fill",
                             accentColor: .orange
                         )
                     }
                     
-                    if !exploreVM.newestAlbums.isEmpty {
+                    if !homeScreenManager.newestAlbums.isEmpty {
                         AlbumSection(
                             title: "Newly added",
-                            albums: exploreVM.newestAlbums,
+                            albums: homeScreenManager.newestAlbums,
                             icon: "sparkles",
                             accentColor: .green
                         )
                     }
                     
-                    if !exploreVM.frequentAlbums.isEmpty {
+                    if !homeScreenManager.frequentAlbums.isEmpty {
                         AlbumSection(
                             title: "Often played",
-                            albums: exploreVM.frequentAlbums,
+                            albums: homeScreenManager.frequentAlbums,
                             icon: "chart.bar.fill",
                             accentColor: .purple
                         )
                     }
                     
-                    if !exploreVM.randomAlbums.isEmpty {
+                    if !homeScreenManager.randomAlbums.isEmpty {
                         AlbumSection(
                             title: "Explore",
-                            albums: exploreVM.randomAlbums,
+                            albums: homeScreenManager.randomAlbums,
                             icon: "dice.fill",
                             accentColor: .blue,
                             showRefreshButton: true,
@@ -126,11 +138,12 @@ struct ExploreView: View {
                 }
                 
                 Group {
-                    if exploreVM.isLoading {
+                    // ✅ REACTIVE: Manager state
+                    if homeScreenManager.isLoadingHomeData {
                         loadingView()
                     }
                     
-                    if let errorMessage = exploreVM.errorMessage {
+                    if let errorMessage = homeScreenManager.homeDataError {
                         ErrorSection(message: errorMessage)
                     }
                 }
@@ -186,24 +199,21 @@ struct ExploreView: View {
         }
     }
     
+    // ✅ SINGLE LINE: Manager handles refresh logic
     private func refreshRandomAlbums() async {
-        showRefreshAnimation = true
-        await exploreVM.refreshRandomAlbums()
-        
-        await coverArtService.preloadAlbums(exploreVM.randomAlbums, size: 200)
-        
-        showRefreshAnimation = false
+        await homeScreenManager.refreshRandomAlbums()
+        await coverArtManager.preloadAlbums(homeScreenManager.randomAlbums, size: 200)
     }
 }
 
-// MARK: - Offline Components (Enhanced with DS)
+// MARK: - Existing Components (unchanged but kept for completeness)
+
 struct OfflineWelcomeHeader: View {
     let downloadedAlbums: Int
     let isConnected: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
-            
             HStack {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Offline Music")
@@ -239,7 +249,6 @@ struct OfflineWelcomeHeader: View {
     }
 }
 
-// MARK: - Album Section (Enhanced with DS)
 struct AlbumSection: View {
     let title: String
     let albums: [Album]
@@ -282,9 +291,10 @@ struct AlbumSection: View {
             // Horizontal Album Scroll
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: Spacing.m) {
-                    ForEach(albums) { album in
+                    ForEach(albums.indices, id: \.self) { index in
+                        let album = albums[index]
                         NavigationLink(destination: AlbumDetailView(album: album)) {
-                            AlbumCard(album: album, accentColor: accentColor)
+                            AlbumCard(album: album, accentColor: accentColor, index: index)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
@@ -295,7 +305,6 @@ struct AlbumSection: View {
     }
 }
 
-// MARK: - Quick Access Components (Enhanced with DS)
 struct QuickAccessCard: View {
     let title: String
     let subtitle: String
@@ -400,7 +409,6 @@ struct NetworkStatusCard: View {
     }
 }
 
-// MARK: - Error Section (Enhanced with DS)
 struct ErrorSection: View {
     let message: String
     

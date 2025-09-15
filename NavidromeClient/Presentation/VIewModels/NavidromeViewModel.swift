@@ -1,9 +1,9 @@
 //
-//  NavidromeViewModel.swift - SIMPLIFIED COORDINATOR
+//  NavidromeViewModel.swift - FINAL CLEAN COORDINATOR
 //  NavidromeClient
 //
-//  ✅ CLEAN: Thin coordinator that delegates to specialized managers
-//  ✅ REMOVES: 80% of existing code, keeps only coordination logic
+//  ✅ CLEAN: Minimal coordinator - delegates everything to managers
+//  ✅ ELIMINATES: All redundant ViewModels dependencies
 //
 
 import Foundation
@@ -12,13 +12,13 @@ import SwiftUI
 @MainActor
 class NavidromeViewModel: ObservableObject {
     
-    // MARK: - Manager Dependencies
+    // MARK: - Manager Dependencies (unchanged)
     private let connectionManager = ConnectionManager()
     let musicLibraryManager = MusicLibraryManager.shared
     private let searchManager = SearchManager()
     private let songManager = SongManager()
     
-    // MARK: - Service Management
+    // MARK: - Service Management (unchanged)
     private var service: SubsonicService? {
         connectionManager.getService()
     }
@@ -27,7 +27,7 @@ class NavidromeViewModel: ObservableObject {
         setupManagerDependencies()
     }
     
-    // MARK: - ✅ DELEGATION: Published Properties
+    // MARK: - ✅ DELEGATION: Published Properties (unchanged)
     
     // Library Data (delegated)
     var albums: [Album] { musicLibraryManager.albums }
@@ -78,10 +78,9 @@ class NavidromeViewModel: ObservableObject {
     // Song Cache (delegated)
     var albumSongs: [String: [Song]] { songManager.albumSongs }
     
-    // MARK: - ✅ COORDINATION: Setup & Configuration
+    // MARK: - ✅ COORDINATION: Setup & Configuration (unchanged)
     
     private func setupManagerDependencies() {
-        // Configure managers when service becomes available
         if let service = service {
             configureManagers(with: service)
         }
@@ -96,8 +95,6 @@ class NavidromeViewModel: ObservableObject {
     func updateService(_ newService: SubsonicService) {
         connectionManager.updateService(newService)
         configureManagers(with: newService)
-        
-        // Force UI update since computed properties changed
         objectWillChange.send()
     }
     
@@ -105,7 +102,7 @@ class NavidromeViewModel: ObservableObject {
         return service
     }
     
-    // MARK: - ✅ DELEGATION: Core Operations
+    // MARK: - ✅ DELEGATION: Core Operations (unchanged)
     
     // Connection Management
     func testConnection() async {
@@ -165,7 +162,7 @@ class NavidromeViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // MARK: - ✅ LEGACY COMPATIBILITY
+    // MARK: - ✅ LEGACY COMPATIBILITY (unchanged)
     
     // Artist/Genre Detail Support
     func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
@@ -195,7 +192,7 @@ class NavidromeViewModel: ObservableObject {
         )
     }
     
-    // MARK: - ✅ RESET (Factory Reset Support)
+    // MARK: - ✅ RESET (Factory Reset Support) (unchanged)
     
     func reset() {
         connectionManager.reset()
@@ -208,7 +205,7 @@ class NavidromeViewModel: ObservableObject {
     }
 }
 
-// MARK: - ✅ LEGACY COMPATIBILITY TYPES
+// MARK: - ✅ LEGACY COMPATIBILITY TYPES (unchanged)
 
 struct SongLoadingStats {
     let totalCachedSongs: Int
@@ -222,7 +219,7 @@ struct SongLoadingStats {
     }
 }
 
-// MARK: - ✅ CONVENIENCE COMPUTED PROPERTIES
+// MARK: - ✅ CONVENIENCE COMPUTED PROPERTIES (unchanged)
 
 extension NavidromeViewModel {
     
