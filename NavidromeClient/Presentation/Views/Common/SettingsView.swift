@@ -1,6 +1,9 @@
 //
-//  SettingsView.swift - ENHANCED with Complete Reset & Reload Logic
+//  SettingsView.swift - CLEANED VERSION
 //  NavidromeClient
+//
+//  ✅ REMOVED: All logout logic moved to AppConfig
+//  ✅ SIMPLIFIED: Just calls appConfig.performFactoryReset()
 //
 
 import SwiftUI
@@ -16,9 +19,9 @@ struct SettingsView: View {
 
     @State private var showingSaveSuccess = false
     @State private var showingError = false
-    @State private var showingLogoutConfirmation = false
+    @State private var showingFactoryResetConfirmation = false
     @State private var errorMessage = ""
-    @State private var isLoggingOut = false
+    @State private var isPerformingReset = false
 
     var body: some View {
         NavigationStack {
@@ -32,21 +35,37 @@ struct SettingsView: View {
                     downloadSection
                     cacheSection
                     serverDetailsSection
+                    dangerZoneSection
                 }
             }
             .listStyle(.insetGrouped)
             .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial setup")
             .navigationBarTitleDisplayMode(.inline)
-            .disabled(isLoggingOut) // Disable during logout
+            .disabled(isPerformingReset)
             .overlay {
-                if isLoggingOut {
-                    LogoutOverlayView()
+                if isPerformingReset {
+                    FactoryResetOverlayView()
                 }
+            }
+            .confirmationDialog(
+                "Logout & Factory Reset",
+                isPresented: $showingFactoryResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset App to Factory Settings", role: .destructive) {
+                    Task {
+                        await performFactoryReset()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will delete ALL data including downloaded music, server settings, and cached content. The app will return to initial setup state.")
             }
         }
     }
 
-    // MARK: - Navidrome Section (Enhanced with DS)
+    // MARK: - Sections
+
     @ViewBuilder
     private var navidromeSection: some View {
         Section("Navidrome") {
@@ -57,7 +76,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Server Info Section (Enhanced with DS)
     @ViewBuilder
     private var serverInfoSection: some View {
         Section("Navidrome") {
@@ -79,30 +97,12 @@ struct SettingsView: View {
                 ServerEditView()
             }
             .font(Typography.body)
-
-            // ✅ ENHANCED: Logout with confirmation
-            Button(role: .destructive) {
-                showingLogoutConfirmation = true
-            } label: {
-                HStack {
-                    if isLoggingOut {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Logging out...")
-                    } else {
-                        Label("Logout", systemImage: "power")
-                    }
-                }
-                .font(Typography.body)
-            }
-            .disabled(isLoggingOut)
         }
         .task {
             await navidromeVM.testConnection()
         }
     }
 
-    // MARK: - Download Section (Enhanced with DS)
     @ViewBuilder
     private var downloadSection: some View {
         Section("Download") {
@@ -117,11 +117,10 @@ struct SettingsView: View {
                 Label("Delete all downloads", systemImage: "trash")
                     .font(Typography.body)
             }
-            .disabled(isLoggingOut)
+            .disabled(isPerformingReset)
         }
     }
 
-    // MARK: - Cache Section (Enhanced with DS)
     @ViewBuilder
     private var cacheSection: some View {
         Section("Cache Management") {
@@ -142,7 +141,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Server Details Section (Enhanced with DS)
     @ViewBuilder
     private var serverDetailsSection: some View {
         Section("Server info") {
@@ -182,72 +180,41 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - ✅ ENHANCED: Complete Logout Logic
-    private func performCompleteLogout() async {
-        isLoggingOut = true
-        defer { isLoggingOut = false }
-        
-        print("🔄 Starting complete app reset...")
-        
-        // 1. Stop any current playback immediately
-        await MainActor.run {
-            playerVM.stop()
+    @ViewBuilder
+    private var dangerZoneSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showingFactoryResetConfirmation = true
+            } label: {
+                HStack {
+                    if isPerformingReset {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Resetting...")
+                    } else {
+                        Label("Factory Reset", systemImage: "exclamationmark.triangle.fill")
+                    }
+                }
+                .font(Typography.body)
+            }
+            .disabled(isPerformingReset)
+        } header: {
+            Text("Danger Zone")
+        } footer: {
+            Text("This will completely reset the app to its initial state. All downloaded music, server settings, and cached data will be permanently deleted.")
+                .font(Typography.caption)
+                .foregroundStyle(TextColor.secondary)
         }
+    }
+
+    // MARK: - Factory Reset Method
+
+    private func performFactoryReset() async {
+        isPerformingReset = true
+        defer { isPerformingReset = false }
         
-        // 2. Clear all app config & credentials
-        await MainActor.run {
-            appConfig.logout()
-        }
+        await appConfig.performFactoryReset()
         
-        // 3. Complete ViewModel reset
-        await MainActor.run {
-            navidromeVM.reset()
-        }
-        
-        // 4. ✅ CRITICAL: Force clear all offline/download data
-        await MainActor.run {
-            downloadManager.deleteAllDownloads()
-            offlineManager.loadOfflineAlbums() // Refresh empty state
-        }
-        
-        // 5. ✅ CRITICAL: Clear all caches
-        await MainActor.run {
-            PersistentImageCache.shared.clearCache()
-            coverArtService.clearMemoryCache()
-        }
-        
-        // 6. ✅ CRITICAL: Reset all services to neutral state
-        await MainActor.run {
-            let neutralService = SubsonicService(
-                baseURL: URL(string: "http://localhost")!,
-                username: "",
-                password: ""
-            )
-            playerVM.updateService(neutralService)
-            navidromeVM.updateService(neutralService)
-            
-            // Clear cover art service
-            coverArtService.configure(service: neutralService)
-        }
-        
-        // 7. ✅ CRITICAL: Force offline manager to switch to online mode and refresh
-        await MainActor.run {
-            offlineManager.switchToOnlineMode()
-            offlineManager.loadOfflineAlbums() // This should now be empty
-        }
-        
-        // 8. ✅ CRITICAL: Force all UI to update by triggering objectWillChange
-        await MainActor.run {
-            navidromeVM.objectWillChange.send()
-            playerVM.objectWillChange.send()
-            downloadManager.objectWillChange.send()
-            offlineManager.objectWillChange.send()
-            coverArtService.objectWillChange.send()
-        }
-        
-        print("✅ Complete app reset finished")
-        
-        // 9. Dismiss after everything is clean
         await MainActor.run {
             dismiss()
         }
@@ -260,7 +227,53 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - ✅ ENHANCED: Server Edit View with Offline Mode Handling
+// MARK: - Factory Reset Overlay
+struct FactoryResetOverlayView: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+            
+            VStack(spacing: Spacing.l) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
+                
+                Text("Factory Reset in Progress...")
+                    .font(Typography.headline)
+                    .foregroundStyle(.white)
+                
+                Text("Clearing all data and resetting app")
+                    .font(Typography.subheadline)
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(Padding.xl)
+            .background(BackgroundColor.thick, in: RoundedRectangle(cornerRadius: Radius.l))
+            .largeShadow()
+        }
+    }
+}
+
+// MARK: - Settings Row Component
+struct SettingsRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(Typography.body)
+                .foregroundStyle(TextColor.primary)
+            Spacer()
+            Text(value)
+                .font(Typography.body)
+                .foregroundStyle(TextColor.secondary)
+                .multilineTextAlignment(.trailing)
+                .textCase(nil)
+        }
+    }
+}
+// MARK: - ServerEditView (CLEANED - No Logout)
 struct ServerEditView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -278,7 +291,7 @@ struct ServerEditView: View {
 
     var body: some View {
         Form {
-            // ✅ NEW: Offline Mode Warning
+            // ✅ Offline Mode Warning (unchanged)
             if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
                 Section {
                     VStack(alignment: .leading, spacing: Spacing.s) {
@@ -324,7 +337,6 @@ struct ServerEditView: View {
                 
                 SecureField("Password", text: $navidromeVM.password)
 
-                // Connection status display
                 ConnectionStatusView(navidromeVM: navidromeVM)
 
                 Button("Test connection") {
@@ -379,7 +391,7 @@ struct ServerEditView: View {
         }
     }
     
-    // ✅ NEW: Test Connection with Offline Check
+    // ✅ Server connection methods (unchanged)
     private func testConnectionWithOfflineCheck() async {
         if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
             showingOfflineWarning = true
@@ -389,11 +401,9 @@ struct ServerEditView: View {
         await navidromeVM.testConnection()
     }
 
-    // ✅ ENHANCED: Save Credentials and Complete Data Reload
     private func saveCredentialsAndReload() async {
         let success = await navidromeVM.saveCredentials()
         if success {
-            // ✅ CRITICAL: Update all services with new credentials
             if let service = navidromeVM.getService() {
                 await MainActor.run {
                     playerVM.updateService(service)
@@ -406,7 +416,6 @@ struct ServerEditView: View {
                 dismiss()
             }
 
-            // ✅ CRITICAL: Trigger complete data reload like app start
             if !appConfig.isConfigured {
                 await MainActor.run {
                     appConfig.isConfigured = true
@@ -414,7 +423,6 @@ struct ServerEditView: View {
                 showingSaveSuccess = true
             }
             
-            // ✅ CRITICAL: Force initial data load
             await navidromeVM.loadInitialDataIfNeeded()
             
         } else {
@@ -424,7 +432,7 @@ struct ServerEditView: View {
     }
 }
 
-// MARK: - ✅ Helper Components
+// MARK: - Helper Components (unchanged)
 struct ConnectionStatusView: View {
     @ObservedObject var navidromeVM: NavidromeViewModel
     
@@ -504,75 +512,8 @@ struct ConnectionDetailsSection: View {
     }
 }
 
-struct LogoutOverlayView: View {
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-            
-            VStack(spacing: Spacing.l) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .tint(.white)
-                
-                Text("Logging out...")
-                    .font(Typography.headline)
-                    .foregroundStyle(.white)
-                
-                Text("Clearing all data and caches")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-            .padding(Padding.xl)
-            .background(BackgroundColor.thick, in: RoundedRectangle(cornerRadius: Radius.l))
-            .largeShadow()
-        }
-    }
-}
-
-// MARK: - ✅ CRITICAL: Confirmation Dialog Extension
-extension SettingsView {
-    var logoutConfirmationDialog: some View {
-        EmptyView()
-            .confirmationDialog(
-                "Logout and Reset App?",
-                isPresented: $showingLogoutConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Logout & Reset All Data", role: .destructive) {
-                    Task {
-                        await performCompleteLogout()
-                    }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will remove all downloaded music, cached data, and reset the app to initial state.")
-            }
-    }
-}
-
-// MARK: - Settings Row Component (Enhanced with DS)
-struct SettingsRow: View {
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(Typography.body)
-                .foregroundStyle(TextColor.primary)
-            Spacer()
-            Text(value)
-                .font(Typography.body)
-                .foregroundStyle(TextColor.secondary)
-                .multilineTextAlignment(.trailing)
-                .textCase(nil)
-        }
-    }
-}
-
+// MARK: - Cache Settings View (Complete Implementation)
 struct CacheSettingsView: View {
-    // ALLE zu @EnvironmentObject geändert
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     

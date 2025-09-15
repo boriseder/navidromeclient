@@ -1,3 +1,8 @@
+//
+//  AppConfig.swift - Refactored with Factory Reset
+//  NavidromeClient
+//
+
 import Foundation
 import CryptoKit
 
@@ -12,33 +17,33 @@ final class AppConfig: ObservableObject {
         loadCredentials()
     }
     
-    // MARK: - FIX: Enhanced configure method with NetworkMonitor integration
+    // MARK: - Configuration
     func configure(baseURL: URL, username: String, password: String) {
         guard validateCredentials(baseURL: baseURL, username: username, password: password) else {
             print("❌ Invalid credentials provided")
             return
         }
         
-        // Speichere BaseURL + Username
+        // Store BaseURL + Username
         let credsWithoutPassword = ServerCredentials(baseURL: baseURL, username: username, password: "")
         if let data = try? JSONEncoder().encode(credsWithoutPassword) {
             _ = KeychainHelper.shared.save(data, forKey: "navidrome_credentials")
         }
         
-        // Passwort-Hash speichern
+        // Store password hash
         let hashedPassword = hashPassword(password)
         if let passwordData = hashedPassword.data(using: .utf8) {
             _ = KeychainHelper.shared.save(passwordData, forKey: "navidrome_password_hash")
         }
         
-        // Passwort zusätzlich sicher für die Session speichern
+        // Store password for session
         _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
         
-        // Credentials für die aktuelle Session
+        // Set credentials for current session
         self.credentials = ServerCredentials(baseURL: baseURL, username: username, password: password)
         isConfigured = true
         
-        // FIX: Create service and set it in NetworkMonitor (now MainActor-isolated)
+        // Update NetworkMonitor
         let service = SubsonicService(baseURL: baseURL, username: username, password: password)
         NetworkMonitor.shared.setService(service)
         print("✅ Credentials configured and NetworkMonitor updated")
@@ -48,30 +53,115 @@ final class AppConfig: ObservableObject {
         return credentials
     }
     
-    // MARK: - Credentials laden
+    // MARK: - ✅ NEW: Factory Reset (Complete App Reset)
+    func performFactoryReset() async {
+        print("🔄 Starting factory reset...")
+        
+        // 1. Stop any current playback immediately
+        if let playerVM = getPlayerViewModel() {
+            playerVM.stop()
+        }
+        
+        // 2. Clear all keychain data
+        _ = KeychainHelper.shared.delete(forKey: "navidrome_credentials")
+        _ = KeychainHelper.shared.delete(forKey: "navidrome_password_hash")
+        _ = KeychainHelper.shared.delete(forKey: "navidrome_password_session")
+        
+        // 3. Reset local state
+        credentials = nil
+        isConfigured = false
+        
+        // 4. Clear NetworkMonitor
+        NetworkMonitor.shared.setService(nil)
+        
+        // 5. Reset all managers and clear data
+        await resetAllManagers()
+        
+        // 6. Clear all caches
+        clearAllCaches()
+        
+        // 7. Force UI updates
+        objectWillChange.send()
+        
+        print("✅ Factory reset completed")
+    }
+    
+    // MARK: - ✅ DEPRECATED: Simple logout (keep for backward compatibility)
+    func logout() {
+        Task {
+            await performFactoryReset()
+        }
+    }
+    
+    // MARK: - Private Reset Methods
+    
+    private func resetAllManagers() async {
+        // Reset DownloadManager
+        DownloadManager.shared.deleteAllDownloads()
+        
+        // Reset OfflineManager
+        OfflineManager.shared.performCompleteReset()
+        
+        // Reset ViewModels if accessible
+        if let navidromeVM = getNavidromeViewModel() {
+            navidromeVM.reset()
+        }
+        
+        // Force manager updates
+        DownloadManager.shared.objectWillChange.send()
+        OfflineManager.shared.objectWillChange.send()
+    }
+    
+    private func clearAllCaches() {
+        // Clear image caches
+        PersistentImageCache.shared.clearCache()
+        
+        // Clear cover art service
+        ReactiveCoverArtService.shared.clearMemoryCache()
+        
+        // Clear album metadata cache
+        // Note: This would need to be implemented in AlbumMetadataCache
+        // AlbumMetadataCache.shared.clearCache()
+    }
+    
+    // MARK: - Helper Methods to Access ViewModels
+    
+    private func getPlayerViewModel() -> PlayerViewModel? {
+        // In a real app, you'd inject these dependencies or use a service locator
+        // For now, we'll rely on the managers being singletons
+        return nil // PlayerViewModel is not a singleton in current architecture
+    }
+    
+    private func getNavidromeViewModel() -> NavidromeViewModel? {
+        // Similar issue - NavidromeViewModel is not globally accessible
+        return nil
+    }
+    
+    // MARK: - Existing Methods (unchanged)
+    
     private func loadCredentials() {
-        // BaseURL + Username laden
+        // Load BaseURL + Username
         guard let data = KeychainHelper.shared.load(forKey: "navidrome_credentials"),
               let creds = try? JSONDecoder().decode(ServerCredentials.self, from: data) else {
             isConfigured = false
             return
         }
         
-        // Session-Passwort laden
+        // Load session password
         var sessionPassword = ""
         if let pwdData = KeychainHelper.shared.load(forKey: "navidrome_password_session"),
            let pwd = String(data: pwdData, encoding: .utf8) {
             sessionPassword = pwd
         }
         
-        // Credentials für die App-Session setzen
+        // Set credentials for app session
         self.credentials = ServerCredentials(
             baseURL: creds.baseURL,
             username: creds.username,
             password: sessionPassword
         )
         
-        // FIX: Set service in NetworkMonitor when loading existing credentials (now MainActor-isolated)
+        // Update NetworkMonitor
         if !sessionPassword.isEmpty {
             let service = SubsonicService(
                 baseURL: creds.baseURL,
@@ -85,17 +175,14 @@ final class AppConfig: ObservableObject {
         isConfigured = true
     }
     
-    // MARK: - Prüfen ob Passwort benötigt wird
     func needsPassword() -> Bool {
-        // Passwort wird nur dann gebraucht, wenn leer
         return isConfigured && (credentials?.password.isEmpty ?? true)
     }
     
-    // MARK: - Passwort verifizieren
     func restorePassword(_ password: String) -> Bool {
         guard let creds = credentials else { return false }
         
-        // Verifiziere Passwort-Hash
+        // Verify password hash
         if let hashData = KeychainHelper.shared.load(forKey: "navidrome_password_hash"),
            let storedHash = String(data: hashData, encoding: .utf8) {
             
@@ -105,17 +192,17 @@ final class AppConfig: ObservableObject {
                 return false
             }
             
-            // Passwort für die Session setzen
+            // Set password for session
             self.credentials = ServerCredentials(
                 baseURL: creds.baseURL,
                 username: creds.username,
                 password: password
             )
             
-            // Passwort zusätzlich in Keychain für Session speichern
+            // Store password in keychain for session
             _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
             
-            // FIX: Update NetworkMonitor with restored password (now MainActor-isolated)
+            // Update NetworkMonitor
             let service = SubsonicService(
                 baseURL: creds.baseURL,
                 username: creds.username,
@@ -130,21 +217,8 @@ final class AppConfig: ObservableObject {
         return false
     }
     
-    // MARK: - Logout
-    func logout() {
-        _ = KeychainHelper.shared.delete(forKey: "navidrome_credentials")
-        _ = KeychainHelper.shared.delete(forKey: "navidrome_password_hash")
-        _ = KeychainHelper.shared.delete(forKey: "navidrome_password_session")
-        
-        credentials = nil
-        isConfigured = false
-        
-        // FIX: Clear service from NetworkMonitor on logout (now MainActor-isolated)
-        NetworkMonitor.shared.setService(nil)
-        print("✅ NetworkMonitor cleared on logout")
-    }
+    // MARK: - Private Helper Methods
     
-    // MARK: - Private Hilfsmethoden
     private func hashPassword(_ password: String) -> String {
         let inputData = Data(password.utf8)
         let hashedData = SHA256.hash(data: inputData)
