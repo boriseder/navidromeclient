@@ -20,23 +20,11 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		A1548F0C2E68FD0500E3CB75 /* Exceptions for "NavidromeClient" folder in "Copy Bundle Resources" phase from "NavidromeClient" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = A1D552D82E5E6BDB00317006 /* Resources */;
-			membershipExceptions = (
-				Core/Utils/md5string.swift,
-				"Data/API/SubsonicService+Artists.swift",
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A1D552DC2E5E6BDB00317006 /* NavidromeClient */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				A1D5531C2E5E746B00317006 /* Exceptions for "NavidromeClient" folder in "NavidromeClient" target */,
-				A1548F0C2E68FD0500E3CB75 /* Exceptions for "NavidromeClient" folder in "Copy Bundle Resources" phase from "NavidromeClient" target */,
 			);
 			path = NavidromeClient;
 			sourceTree = "<group>";
