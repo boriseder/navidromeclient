@@ -135,7 +135,11 @@ class NavidromeViewModel: ObservableObject {
             print("🔍 Connection test via ConnectionService: \(health.statusDescription)")
         }
     }
-       
+    
+    func saveCredentials() async -> Bool {
+        return await connectionManager.saveCredentials()
+    }
+
     // Data Loading (delegated to managers - unchanged)
     func loadInitialDataIfNeeded() async {
         await musicLibraryManager.loadInitialDataIfNeeded()
