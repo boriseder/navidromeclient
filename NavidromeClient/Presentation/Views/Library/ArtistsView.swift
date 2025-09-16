@@ -1,9 +1,9 @@
 //
-//  ArtistsView.swift - REFACTORED to Pure UI
+//  ArtistsView.swift - ELIMINATED LibraryViewModel
 //  NavidromeClient
 //
-//  ✅ CLEAN: All business logic moved to LibraryViewModel
-//  ✅ DRY: No more duplicated filtering/sorting logic
+//  ✅ DIRECT: No unnecessary abstraction layer
+//  ✅ CLEAN: Direct manager access for better performance
 //
 
 import SwiftUI
@@ -13,16 +13,54 @@ struct ArtistsView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var coverArtManager: CoverArtManager
+    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
     
-    // ✅ NEW: Single source of truth for all UI logic
-    @StateObject private var libraryVM = LibraryViewModel()
+    @State private var searchText = ""
+    @StateObject private var debouncer = Debouncer()
+    
+    // MARK: - ✅ DIRECT: Computed Properties
+    
+    private var displayedArtists: [Artist] {
+        let sourceArtists = getArtistDataSource()
+        return filterArtists(sourceArtists)
+    }
+    
+    private var artistCount: Int {
+        return displayedArtists.count
+    }
+    
+    private var isOfflineMode: Bool {
+        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    }
+    
+    private var canLoadOnlineContent: Bool {
+        return networkMonitor.canLoadOnlineContent
+    }
+    
+    private var shouldShowArtistsLoading: Bool {
+        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+    }
+    
+    private var shouldShowArtistsEmptyState: Bool {
+        return !musicLibraryManager.isLoading && displayedArtists.isEmpty
+    }
+    
+    private var isLoadingInBackground: Bool {
+        return musicLibraryManager.isLoadingInBackground
+    }
+    
+    private var backgroundLoadingProgress: String {
+        return musicLibraryManager.backgroundLoadingProgress
+    }
     
     var body: some View {
         NavigationStack {
             Group {
-                if libraryVM.shouldShowArtistsLoading {
+                if shouldShowArtistsLoading {
                     artistsLoadingView
-                } else if libraryVM.shouldShowArtistsEmptyState {
+                } else if shouldShowArtistsEmptyState {
                     artistsEmptyStateView
                 } else {
                     artistsContentView
@@ -31,24 +69,21 @@ struct ArtistsView: View {
             .navigationTitle("Artists")
             .navigationBarTitleDisplayMode(.large)
             .searchable(
-                text: $libraryVM.searchText,
+                text: $searchText,
                 placement: .automatic,
                 prompt: "Search artists..."
             )
-            .onChange(of: libraryVM.searchText) { _, _ in
-                // ✅ REACTIVE: ViewModel handles debouncing
-                libraryVM.handleSearchTextChange()
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
             }
             .toolbar {
                 artistsToolbarContent
             }
             .refreshable {
-                // ✅ SINGLE LINE: ViewModel handles all complexity
-                await libraryVM.refreshAllData()
+                await refreshAllData()
             }
-            .task(id: libraryVM.displayedArtists.count) {
-                // ✅ SINGLE LINE: ViewModel coordinates preloading
-                await libraryVM.preloadArtistImages(libraryVM.displayedArtists, coverArtManager: coverArtManager)
+            .task(id: displayedArtists.count) {
+                await preloadArtistImages()
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(context: .artist(artist))
@@ -57,14 +92,59 @@ struct ArtistsView: View {
         }
     }
     
-    // MARK: - ✅ Pure UI Components
+    // MARK: - ✅ DIRECT: Data Source Logic
+    
+    private func getArtistDataSource() -> [Artist] {
+        if canLoadOnlineContent && !isOfflineMode {
+            return musicLibraryManager.artists
+        } else {
+            return offlineManager.offlineArtists
+        }
+    }
+    
+    private func filterArtists(_ artists: [Artist]) -> [Artist] {
+        let filteredArtists: [Artist]
+        
+        if searchText.isEmpty {
+            filteredArtists = artists
+        } else {
+            filteredArtists = artists.filter { artist in
+                artist.name.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        
+        return filteredArtists.sorted(by: { $0.name < $1.name })
+    }
+    
+    // MARK: - ✅ DIRECT: Actions
+    
+    private func refreshAllData() async {
+        await musicLibraryManager.refreshAllData()
+    }
+    
+    private func preloadArtistImages() async {
+        let artistsToPreload = Array(displayedArtists.prefix(20))
+        await coverArtManager.preloadArtists(artistsToPreload, size: 120)
+    }
+    
+    private func handleSearchTextChange() {
+        debouncer.debounce {
+            // Search filtering happens automatically via computed property
+        }
+    }
+    
+    private func toggleOfflineMode() {
+        offlineManager.toggleOfflineMode()
+    }
+    
+    // MARK: - ✅ UI Components
     
     private var artistsLoadingView: some View {
         VStack(spacing: 16) {
             loadingView()
             
-            if libraryVM.isLoadingInBackground {
-                Text(libraryVM.backgroundLoadingProgress)
+            if isLoadingInBackground {
+                Text(backgroundLoadingProgress)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -73,25 +153,23 @@ struct ArtistsView: View {
     
     private var artistsEmptyStateView: some View {
         ArtistsEmptyStateView(
-            isOnline: libraryVM.canLoadOnlineContent,
-            isOfflineMode: libraryVM.isOfflineMode
+            isOnline: canLoadOnlineContent,
+            isOfflineMode: isOfflineMode
         )
     }
     
     private var artistsContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // ✅ REACTIVE: Show status header based on ViewModel state
-                if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
+                if isOfflineMode || !canLoadOnlineContent {
                     LibraryStatusHeader.artists(
-                        count: libraryVM.artistCount,
-                        isOnline: libraryVM.canLoadOnlineContent,
-                        isOfflineMode: libraryVM.isOfflineMode
+                        count: artistCount,
+                        isOnline: canLoadOnlineContent,
+                        isOfflineMode: isOfflineMode
                     )
                 }
                 
-                // ✅ REACTIVE: Artists automatically filtered by ViewModel
-                ArtistListView(artists: libraryVM.displayedArtists)
+                ArtistListView(artists: displayedArtists)
             }
         }
     }
@@ -109,21 +187,20 @@ struct ArtistsView: View {
     
     private var offlineModeToggle: some View {
         Button {
-            // ✅ SINGLE LINE: ViewModel handles mode switching
-            libraryVM.toggleOfflineMode()
+            toggleOfflineMode()
         } label: {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: libraryVM.isOfflineMode ? "icloud.slash" : "icloud")
+                Image(systemName: isOfflineMode ? "icloud.slash" : "icloud")
                     .font(Typography.caption)
-                Text(libraryVM.isOfflineMode ? "Offline" : "All")
+                Text(isOfflineMode ? "Offline" : "All")
                     .font(Typography.caption)
             }
-            .foregroundStyle(libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+            .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.primary)
             .padding(.horizontal, Padding.s)
             .padding(.vertical, Padding.xs)
             .background(
                 Capsule()
-                    .fill((libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+                    .fill((isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
             )
         }
     }
@@ -131,17 +208,14 @@ struct ArtistsView: View {
     private var refreshButton: some View {
         Button {
             Task {
-                // ✅ SINGLE LINE: ViewModel handles refresh logic
-                await libraryVM.refreshAllData()
+                await refreshAllData()
             }
         } label: {
             Image(systemName: "arrow.clockwise")
         }
-        .disabled(libraryVM.isLoadingInBackground)
+        .disabled(isLoadingInBackground)
     }
 }
-
-// MARK: - ✅ Reusable ArtistListView (extracted from original code)
 
 struct ArtistListView: View {
     let artists: [Artist]
@@ -151,7 +225,6 @@ struct ArtistListView: View {
             ForEach(artists.indices, id: \.self) { index in
                 let artist = artists[index]
                 NavigationLink(value: artist) {
-                    // ✅ PASS INDEX: For staggered loading
                     ArtistCard(artist: artist, index: index)
                 }
             }
@@ -160,3 +233,4 @@ struct ArtistListView: View {
         .padding(.bottom, Sizes.miniPlayer)
     }
 }
+

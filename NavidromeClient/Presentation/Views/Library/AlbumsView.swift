@@ -1,8 +1,9 @@
 //
-//  AlbumsView.swift - FIXED: Proper LibraryViewModel usage
+//  AlbumsView.swift - ELIMINATED LibraryViewModel
 //  NavidromeClient
 //
-//  ✅ FIXED: LibraryViewModel as @StateObject with no arguments
+//  ✅ DIRECT: No unnecessary abstraction layer
+//  ✅ CLEAN: Direct manager access for better performance
 //
 
 import SwiftUI
@@ -12,16 +13,56 @@ struct AlbumsView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var coverArtManager: CoverArtManager
+    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
+    @EnvironmentObject var downloadManager: DownloadManager
     
-    // ✅ FIXED: LibraryViewModel as @StateObject (no arguments needed - uses singletons internally)
-    @StateObject private var libraryVM = LibraryViewModel()
+    @State private var searchText = ""
+    @State private var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
+    @StateObject private var debouncer = Debouncer()
+    
+    // MARK: - ✅ DIRECT: Computed Properties
+    
+    private var displayedAlbums: [Album] {
+        let sourceAlbums = getAlbumDataSource()
+        return filterAlbums(sourceAlbums)
+    }
+    
+    private var albumCount: Int {
+        return displayedAlbums.count
+    }
+    
+    private var isOfflineMode: Bool {
+        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    }
+    
+    private var canLoadOnlineContent: Bool {
+        return networkMonitor.canLoadOnlineContent
+    }
+    
+    private var shouldShowAlbumsLoading: Bool {
+        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+    }
+    
+    private var shouldShowAlbumsEmptyState: Bool {
+        return !musicLibraryManager.isLoading && displayedAlbums.isEmpty
+    }
+    
+    private var isLoadingInBackground: Bool {
+        return musicLibraryManager.isLoadingInBackground
+    }
+    
+    private var backgroundLoadingProgress: String {
+        return musicLibraryManager.backgroundLoadingProgress
+    }
     
     var body: some View {
         NavigationStack {
             Group {
-                if libraryVM.shouldShowAlbumsLoading {
+                if shouldShowAlbumsLoading {
                     albumsLoadingView
-                } else if libraryVM.shouldShowAlbumsEmptyState {
+                } else if shouldShowAlbumsEmptyState {
                     albumsEmptyStateView
                 } else {
                     albumsContentView
@@ -30,34 +71,87 @@ struct AlbumsView: View {
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)
             .searchable(
-                text: $libraryVM.searchText, // ✅ FIXED: Now works
+                text: $searchText,
                 placement: .automatic,
                 prompt: "Search albums..."
             )
-            .onChange(of: libraryVM.searchText) { _, _ in
-                libraryVM.handleSearchTextChange()
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
             }
             .toolbar {
                 albumsToolbarContent
             }
             .refreshable {
-                await libraryVM.refreshAllData()
+                await refreshAllData()
             }
-            .task(id: libraryVM.displayedAlbums.count) {
-                await libraryVM.preloadAlbumImages(libraryVM.displayedAlbums, coverArtManager: coverArtManager)
+            .task(id: displayedAlbums.count) {
+                await preloadAlbumImages()
             }
             .accountToolbar()
         }
     }
     
-    // MARK: - ✅ Pure UI Components (unchanged)
+    // MARK: - ✅ DIRECT: Data Source Logic
+    
+    private func getAlbumDataSource() -> [Album] {
+        if canLoadOnlineContent && !isOfflineMode {
+            return musicLibraryManager.albums
+        } else {
+            let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
+            return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
+        }
+    }
+    
+    private func filterAlbums(_ albums: [Album]) -> [Album] {
+        if searchText.isEmpty {
+            return albums
+        } else {
+            return albums.filter { album in
+                let nameMatches = album.name.localizedCaseInsensitiveContains(searchText)
+                let artistMatches = album.artist.localizedCaseInsensitiveContains(searchText)
+                return nameMatches || artistMatches
+            }
+        }
+    }
+    
+    // MARK: - ✅ DIRECT: Actions
+    
+    private func refreshAllData() async {
+        await musicLibraryManager.refreshAllData()
+    }
+    
+    private func loadAlbums(sortBy: ContentService.AlbumSortType) async {
+        selectedAlbumSort = sortBy
+        await musicLibraryManager.loadAlbumsProgressively(sortBy: sortBy, reset: true)
+    }
+    
+    private func loadMoreAlbumsIfNeeded() async {
+        await musicLibraryManager.loadMoreAlbumsIfNeeded()
+    }
+    
+    private func preloadAlbumImages() async {
+        let albumsToPreload = Array(displayedAlbums.prefix(20))
+        await coverArtManager.preloadAlbums(albumsToPreload, size: 200)
+    }
+    
+    private func handleSearchTextChange() {
+        debouncer.debounce {
+            // Search filtering happens automatically via computed property
+        }
+    }
+    
+    private func toggleOfflineMode() {
+        offlineManager.toggleOfflineMode()
+    }
+    
+    // MARK: - ✅ UI Components (unchanged)
     
     private var albumsLoadingView: some View {
         VStack(spacing: 16) {
             loadingView()
             
-            if libraryVM.isLoadingInBackground {
-                Text(libraryVM.backgroundLoadingProgress)
+            if isLoadingInBackground {
+                Text(backgroundLoadingProgress)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -66,24 +160,24 @@ struct AlbumsView: View {
     
     private var albumsEmptyStateView: some View {
         AlbumsEmptyStateView(
-            isOnline: libraryVM.canLoadOnlineContent,
-            isOfflineMode: libraryVM.isOfflineMode
+            isOnline: canLoadOnlineContent,
+            isOfflineMode: isOfflineMode
         )
     }
     
     private var albumsContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
+                if isOfflineMode || !canLoadOnlineContent {
                     LibraryStatusHeader(
                         itemType: .albums,
-                        count: libraryVM.albumCount,
-                        isOnline: libraryVM.canLoadOnlineContent,
-                        isOfflineMode: libraryVM.isOfflineMode
+                        count: albumCount,
+                        isOnline: canLoadOnlineContent,
+                        isOfflineMode: isOfflineMode
                     )
                 }
                 
-                AlbumGridView(albums: libraryVM.displayedAlbums)
+                AlbumGridView(albums: displayedAlbums)
             }
         }
     }
@@ -105,41 +199,41 @@ struct AlbumsView: View {
     
     private var albumSortMenu: some View {
         Menu {
-            ForEach(libraryVM.availableAlbumSorts, id: \.self) { sortType in
+            ForEach(ContentService.AlbumSortType.allCases, id: \.self) { sortType in
                 Button {
                     Task {
-                        await libraryVM.loadAlbums(sortBy: sortType)
+                        await loadAlbums(sortBy: sortType)
                     }
                 } label: {
                     HStack {
                         Text(sortType.displayName)
-                        if libraryVM.isAlbumSortSelected(sortType) {
+                        if selectedAlbumSort == sortType {
                             Image(systemName: "checkmark")
                         }
                     }
                 }
             }
         } label: {
-            Image(systemName: libraryVM.selectedAlbumSort.icon)
+            Image(systemName: selectedAlbumSort.icon)
         }
     }
     
     private var offlineModeToggle: some View {
         Button {
-            libraryVM.toggleOfflineMode()
+            toggleOfflineMode()
         } label: {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: libraryVM.isOfflineMode ? "icloud.slash" : "icloud")
+                Image(systemName: isOfflineMode ? "icloud.slash" : "icloud")
                     .font(Typography.caption)
-                Text(libraryVM.isOfflineMode ? "Offline" : "All")
+                Text(isOfflineMode ? "Offline" : "All")
                     .font(Typography.caption)
             }
-            .foregroundStyle(libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+            .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.primary)
             .padding(.horizontal, Padding.s)
             .padding(.vertical, Padding.xs)
             .background(
                 Capsule()
-                    .fill((libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+                    .fill((isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
             )
         }
     }
@@ -147,12 +241,12 @@ struct AlbumsView: View {
     private var refreshButton: some View {
         Button {
             Task {
-                await libraryVM.refreshAllData()
+                await refreshAllData()
             }
         } label: {
             Image(systemName: "arrow.clockwise")
         }
-        .disabled(libraryVM.isLoadingInBackground)
+        .disabled(isLoadingInBackground)
     }
 }
 
@@ -163,7 +257,7 @@ struct AlbumGridView: View {
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var libraryVM: LibraryViewModel
+    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
 
     var body: some View {
         ScrollView {
@@ -184,7 +278,7 @@ struct AlbumGridView: View {
                 }
                 .onAppear {
                     if index == albums.count - 5 {
-                        Task { await navidromeVM.loadMoreAlbumsIfNeeded() }
+                        Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
                     }
                 }
             }

@@ -56,6 +56,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(offlineManager)
                 .environmentObject(coverArtManager)
                 .environmentObject(homeScreenManager)
+                .environmentObject(MusicLibraryManager.shared)
                 .task {
                     await setupInitialConfiguration()
                 }

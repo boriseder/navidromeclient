@@ -1,9 +1,9 @@
 //
-//  GenreView.swift - REFACTORED to Pure UI
+//  GenreView.swift - ELIMINATED LibraryViewModel
 //  NavidromeClient
 //
-//  ✅ CLEAN: All business logic moved to LibraryViewModel
-//  ✅ DRY: No more duplicated filtering/sorting logic
+//  ✅ DIRECT: No unnecessary abstraction layer
+//  ✅ CLEAN: Direct manager access for better performance
 //
 
 import SwiftUI
@@ -12,16 +12,54 @@ struct GenreView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
     
-    // ✅ NEW: Single source of truth for all UI logic
-    @StateObject private var libraryVM = LibraryViewModel()
+    @State private var searchText = ""
+    @StateObject private var debouncer = Debouncer()
+    
+    // MARK: - ✅ DIRECT: Computed Properties
+    
+    private var displayedGenres: [Genre] {
+        let sourceGenres = getGenreDataSource()
+        return filterGenres(sourceGenres)
+    }
+    
+    private var genreCount: Int {
+        return displayedGenres.count
+    }
+    
+    private var isOfflineMode: Bool {
+        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    }
+    
+    private var canLoadOnlineContent: Bool {
+        return networkMonitor.canLoadOnlineContent
+    }
+    
+    private var shouldShowGenresLoading: Bool {
+        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+    }
+    
+    private var shouldShowGenresEmptyState: Bool {
+        return !musicLibraryManager.isLoading && displayedGenres.isEmpty
+    }
+    
+    private var isLoadingInBackground: Bool {
+        return musicLibraryManager.isLoadingInBackground
+    }
+    
+    private var backgroundLoadingProgress: String {
+        return musicLibraryManager.backgroundLoadingProgress
+    }
     
     var body: some View {
         NavigationStack {
             Group {
-                if libraryVM.shouldShowGenresLoading {
+                if shouldShowGenresLoading {
                     genresLoadingView
-                } else if libraryVM.shouldShowGenresEmptyState {
+                } else if shouldShowGenresEmptyState {
                     genresEmptyStateView
                 } else {
                     genresContentView
@@ -30,20 +68,18 @@ struct GenreView: View {
             .navigationTitle("Genres")
             .navigationBarTitleDisplayMode(.large)
             .searchable(
-                text: $libraryVM.searchText,
+                text: $searchText,
                 placement: .automatic,
                 prompt: "Search genres..."
             )
-            .onChange(of: libraryVM.searchText) { _, _ in
-                // ✅ REACTIVE: ViewModel handles debouncing
-                libraryVM.handleSearchTextChange()
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
             }
             .toolbar {
                 genresToolbarContent
             }
             .refreshable {
-                // ✅ SINGLE LINE: ViewModel handles all complexity
-                await libraryVM.refreshAllData()
+                await refreshAllData()
             }
             .navigationDestination(for: Genre.self) { genre in
                 ArtistDetailView(context: .genre(genre))
@@ -52,14 +88,54 @@ struct GenreView: View {
         }
     }
     
-    // MARK: - ✅ Pure UI Components
+    // MARK: - ✅ DIRECT: Data Source Logic
+    
+    private func getGenreDataSource() -> [Genre] {
+        if canLoadOnlineContent && !isOfflineMode {
+            return musicLibraryManager.genres
+        } else {
+            return offlineManager.offlineGenres
+        }
+    }
+    
+    private func filterGenres(_ genres: [Genre]) -> [Genre] {
+        let filteredGenres: [Genre]
+        
+        if searchText.isEmpty {
+            filteredGenres = genres
+        } else {
+            filteredGenres = genres.filter { genre in
+                genre.value.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        
+        return filteredGenres.sorted(by: { $0.value < $1.value })
+    }
+    
+    // MARK: - ✅ DIRECT: Actions
+    
+    private func refreshAllData() async {
+        await musicLibraryManager.refreshAllData()
+    }
+    
+    private func handleSearchTextChange() {
+        debouncer.debounce {
+            // Search filtering happens automatically via computed property
+        }
+    }
+    
+    private func toggleOfflineMode() {
+        offlineManager.toggleOfflineMode()
+    }
+    
+    // MARK: - ✅ UI Components
     
     private var genresLoadingView: some View {
         VStack(spacing: 16) {
             loadingView()
             
-            if libraryVM.isLoadingInBackground {
-                Text(libraryVM.backgroundLoadingProgress)
+            if isLoadingInBackground {
+                Text(backgroundLoadingProgress)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -68,25 +144,23 @@ struct GenreView: View {
     
     private var genresEmptyStateView: some View {
         GenresEmptyStateView(
-            isOnline: libraryVM.canLoadOnlineContent,
-            isOfflineMode: libraryVM.isOfflineMode
+            isOnline: canLoadOnlineContent,
+            isOfflineMode: isOfflineMode
         )
     }
     
     private var genresContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // ✅ REACTIVE: Show status header based on ViewModel state
-                if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
+                if isOfflineMode || !canLoadOnlineContent {
                     LibraryStatusHeader.genres(
-                        count: libraryVM.genreCount,
-                        isOnline: libraryVM.canLoadOnlineContent,
-                        isOfflineMode: libraryVM.isOfflineMode
+                        count: genreCount,
+                        isOnline: canLoadOnlineContent,
+                        isOfflineMode: isOfflineMode
                     )
                 }
                 
-                // ✅ REACTIVE: Genres automatically filtered by ViewModel
-                GenreListView(genres: libraryVM.displayedGenres)
+                GenreListView(genres: displayedGenres)
             }
         }
     }
@@ -104,21 +178,20 @@ struct GenreView: View {
     
     private var offlineModeToggle: some View {
         Button {
-            // ✅ SINGLE LINE: ViewModel handles mode switching
-            libraryVM.toggleOfflineMode()
+            toggleOfflineMode()
         } label: {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: libraryVM.isOfflineMode ? "icloud.slash" : "icloud")
+                Image(systemName: isOfflineMode ? "icloud.slash" : "icloud")
                     .font(Typography.caption)
-                Text(libraryVM.isOfflineMode ? "Offline" : "All")
+                Text(isOfflineMode ? "Offline" : "All")
                     .font(Typography.caption)
             }
-            .foregroundStyle(libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary)
+            .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.primary)
             .padding(.horizontal, Padding.s)
             .padding(.vertical, Padding.xs)
             .background(
                 Capsule()
-                    .fill((libraryVM.isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+                    .fill((isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
             )
         }
     }
@@ -126,13 +199,12 @@ struct GenreView: View {
     private var refreshButton: some View {
         Button {
             Task {
-                // ✅ SINGLE LINE: ViewModel handles refresh logic
-                await libraryVM.refreshAllData()
+                await refreshAllData()
             }
         } label: {
             Image(systemName: "arrow.clockwise")
         }
-        .disabled(libraryVM.isLoadingInBackground)
+        .disabled(isLoadingInBackground)
     }
 }
 
