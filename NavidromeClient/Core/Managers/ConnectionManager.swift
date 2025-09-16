@@ -71,11 +71,34 @@ class ConnectionManager: ObservableObject {
         }
     }
     
+    private var _connectionService: ConnectionService?
+
     // MARK: - Initialization
     
     init() {
         loadSavedCredentials()
     }
+    
+    private func getOrCreateConnectionService() -> ConnectionService? {
+        if let existing = _connectionService {
+            return existing
+        }
+        
+        guard let url = buildCurrentURL(),
+              !username.isEmpty,
+              !password.isEmpty else {
+            return nil
+        }
+        
+        let connectionService = ConnectionService(
+            baseURL: url,
+            username: username,
+            password: password
+        )
+        _connectionService = connectionService
+        return connectionService
+    }
+
     
     // MARK: - ✅ SERVICE ACCESS
     
@@ -413,6 +436,9 @@ class ConnectionManager: ObservableObject {
             serverInfo: getServerInfo(),
             connectionHealth: getConnectionHealth(),
             currentURL: buildCurrentURL()?.absoluteString
+            //hasConnectionService: true, // ConnectionManager verwendet immer ConnectionService intern
+            //hasLegacyService: service != nil
+
         )
     }
     
@@ -424,7 +450,9 @@ class ConnectionManager: ObservableObject {
         let serverInfo: ServerInfo?
         let connectionHealth: ConnectionHealth
         let currentURL: String?
-        
+        //let hasConnectionService: Bool
+        //let hasLegacyService: Bool
+
         var summary: String {
             var issues: [String] = []
             
@@ -436,6 +464,12 @@ class ConnectionManager: ObservableObject {
             return issues.isEmpty ? "All systems operational" : "Issues: \(issues.joined(separator: ", "))"
         }
     }
+    
+    // MARK: - ConnectionService Access
+    func getConnectionService() -> ConnectionService? {
+        return getOrCreateConnectionService()
+    }
+
 }
 
 // MARK: - ✅ CONVENIENCE EXTENSIONS

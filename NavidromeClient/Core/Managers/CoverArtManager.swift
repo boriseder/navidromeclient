@@ -115,15 +115,33 @@ class CoverArtManager: ObservableObject {
             return cached
         }
         
-        // Most Navidrome setups don't have artist images, so return placeholder
-        // You could implement actual artist image loading if your setup supports it
+        // ✅ ECHTE IMPLEMENTATION: Load from MediaService
+        guard let service = activeMediaService else {
+            errorStates[stateKey] = "Media service not available"
+            return nil
+        }
         
         loadingStates[stateKey] = true
         defer { loadingStates[stateKey] = false }
         
-        // For now, return nil - artist images aren't typically available in Navidrome
-        print("ℹ️ Artist image requested for \(artist.name) - not implemented")
-        return nil
+        // ✅ STAGGER LOADING: Add delay based on index
+        if staggerIndex > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(staggerIndex * 100_000_000)) // 100ms per index
+        }
+        
+        // ✅ LOAD ARTIST IMAGE via MediaService
+        if let image = await service.getCoverArt(for: artist.id, size: size) {
+            artistImages[stateKey] = image
+            errorStates.removeValue(forKey: stateKey)
+            
+            // Cache persistently
+            persistentCache.store(image, for: cacheKey)
+            
+            return image
+        } else {
+            errorStates[stateKey] = "Failed to load artist image"
+            return nil
+        }
     }
 
     func getArtistImage(for artistId: String) -> UIImage? {
@@ -318,6 +336,10 @@ class CoverArtManager: ObservableObject {
         
         var totalMemoryImages: Int { memoryCount }
         
+        var summary: String {
+            return "Memory: \(totalMemoryImages), Disk: \(diskCount), Active: \(activeRequests), Errors: \(errorCount)"
+        }
+
         var performanceStats: CoverArtPerformanceStats {
             // Calculate realistic performance metrics
             let hitRate = memoryCount > 0 ? Double(memoryCount) / Double(memoryCount + activeRequests) * 100 : 0.0
@@ -376,6 +398,9 @@ struct CoverArtCacheStats {
     
     var totalMemoryImages: Int { memoryCount }
     
+    var summary: String {
+        return "Memory: \(totalMemoryImages), Disk: \(diskCount), Active: \(activeRequests), Errors: \(errorCount)"
+    }
     var performanceStats: CoverArtPerformanceStats {
         // Mock realistic values - you could track these properly
         let hitRate = memoryCount > 0 ? 85.0 : 0.0

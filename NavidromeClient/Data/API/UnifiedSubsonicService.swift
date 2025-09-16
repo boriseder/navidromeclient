@@ -267,7 +267,7 @@ struct ServiceDiagnostics {
         return """
         Connection: \(connectionHealth.statusDescription)
         Media Cache: \(mediaCacheStats.summary)
-        Last Search: \(searchStats.lastSearchQuery.isEmpty ? "None" : searchStats.lastSearchQuery)
+        Last Search: \(searchStats.searchQuery.isEmpty ? "None" : searchStats.searchQuery)
         """
     }
 }

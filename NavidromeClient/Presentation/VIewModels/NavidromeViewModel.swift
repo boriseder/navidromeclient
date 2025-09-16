@@ -257,12 +257,7 @@ class NavidromeViewModel: ObservableObject {
         let health = connectionManager.getConnectionHealth()
         print("🏥 NavidromeViewModel: Health check completed - \(health.statusDescription)")
     }
-    
-    /// Get ConnectionService instance for advanced usage
-    func getConnectionService() -> ConnectionService? {
-        return connectionManager.getConnectionService()
-    }
-    
+       
     // MARK: - ✅ RESET (Enhanced for ConnectionService)
     
     func reset() {
@@ -340,7 +335,7 @@ class NavidromeViewModel: ObservableObject {
         print(diagnostics.architectureSummary)
         
         // Additional ConnectionService specific diagnostics
-        if let connectionService = getConnectionService() {
+        if let connectionService = connectionManager.getConnectionService() {
             let health = getConnectionHealth()
             print("""
             
@@ -404,20 +399,20 @@ extension NavidromeViewModel {
         return String(format: "%.0f ms", health.responseTime * 1000)
     }
 }
-
+/*
 extension ConnectionManager {
     /// Get ConnectionService instance for advanced usage
     func getConnectionService() -> ConnectionService? {
         return connectionService
     }
 }
-
+*/
 extension ConnectionManager.ConnectionDiagnostics {
     var serviceArchitecture: String {
         return """
         🏗️ SERVICE ARCHITECTURE:
-        - ConnectionService: \(hasConnectionService ? "✅" : "❌")
-        - Legacy Service: \(hasLegacyService ? "✅" : "❌")
+        - ConnectionService: \(hasService ? "✅" : "❌")
+        - Legacy Service: \(hasService ? "✅" : "❌")
         - Connection: \(connectionStatus ? "✅" : "❌")
         - Health: \(connectionHealth.statusDescription)
         """
