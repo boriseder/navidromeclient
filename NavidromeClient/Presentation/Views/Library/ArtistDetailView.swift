@@ -276,14 +276,14 @@ struct ArtistDetailView: View {
     private var albumsSection: some View {
         VStack(spacing: Spacing.l) {
             if isLoading {
-                loadingView()
+                LoadingView()
             } else if let error = errorMessage {
                 errorView(error)
             } else {
                 let albumsToShow = isOfflineMode ? availableOfflineAlbums : albums
                 
                 if albumsToShow.isEmpty {
-                    emptyStateView
+                    EmptyStateView.artists()
                 } else {
                     AlbumGridView(albums: albumsToShow)
                 }
@@ -291,36 +291,7 @@ struct ArtistDetailView: View {
         }
         .padding(.bottom, 120)
     }
-    
-    private var emptyStateView: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: isOfflineMode ? "arrow.down.circle.slash" : "music.note.house")
-                .font(.system(size: 60))
-                .foregroundStyle(TextColor.secondary)
-            
-            VStack(spacing: Spacing.s) {
-                Text(isOfflineMode ? "No Downloaded Albums" : "No Albums Found")
-                    .font(Typography.title2)
-                
-                Text(isOfflineMode ?
-                     "Download some albums to enjoy them offline" :
-                     "This artist has no albums in your library")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            if isOfflineMode && networkMonitor.isConnected {
-                Button("Go Online") {
-                    offlineManager.switchToOnlineMode()
-                }
-                .primaryButtonStyle()
-            }
-        }
-        .padding(Padding.xl)
-        .materialCardStyle()
-    }
-    
+        
     private func errorView(_ error: String) -> some View {
         VStack(spacing: Spacing.l) {
             Image(systemName: "exclamationmark.triangle")

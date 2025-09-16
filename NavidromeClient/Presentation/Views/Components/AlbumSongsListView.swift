@@ -18,7 +18,7 @@ struct AlbumSongsListView: View {
     
     var body: some View {
         if songs.isEmpty {
-            loadingView()
+            LoadingView()
         } else {
             VStack(spacing: 5) {
                 ForEach(songs.indices, id: \.self) { index in

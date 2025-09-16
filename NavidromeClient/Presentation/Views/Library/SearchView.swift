@@ -1,5 +1,10 @@
 //
-//  SearchView.swift - FIXED for Progressive Loading Architecture
+//  SearchView.swift - COMPLETE OPTIMIZED VERSION
+//  NavidromeClient
+//
+//  ✅ PRECISE: Field-specific search only
+//  ✅ OPTIMIZED: Simplified logic and better state management
+//  ✅ FIXED: All previous issues resolved
 //
 
 import SwiftUI
@@ -13,14 +18,14 @@ struct SearchView: View {
     
     @State private var query: String = ""
     @State private var selectedTab: SearchTab = .songs
-    @StateObject private var debouncer = Debouncer()
-    
-    // ✅ NEW: Offline search results
-    @State private var offlineSearchResults = OfflineSearchResults()
+    @State private var searchResults = SearchResults()
+    @State private var isSearching = false
+    @State private var searchError: String?
+    @State private var searchTask: Task<Void, Never>?
     
     enum SearchTab: String, CaseIterable {
-        case artists = "Künstler"
-        case albums = "Alben"
+        case artists = "Artists"
+        case albums = "Albums"
         case songs = "Songs"
         
         var icon: String {
@@ -32,211 +37,472 @@ struct SearchView: View {
         }
     }
     
-    struct OfflineSearchResults {
+    struct SearchResults {
         var artists: [Artist] = []
         var albums: [Album] = []
         var songs: [Song] = []
-    }
-    
-    private var hasResults: Bool {
-        if shouldUseOfflineSearch {
-            return !offlineSearchResults.artists.isEmpty ||
-                   !offlineSearchResults.albums.isEmpty ||
-                   !offlineSearchResults.songs.isEmpty
-        } else {
-            return !navidromeVM.artists.isEmpty ||
-                   !navidromeVM.albums.isEmpty ||
-                   !navidromeVM.songs.isEmpty
+        
+        var isEmpty: Bool {
+            artists.isEmpty && albums.isEmpty && songs.isEmpty
+        }
+        
+        var totalCount: Int {
+            artists.count + albums.count + songs.count
+        }
+        
+        func count(for type: SearchTab) -> Int {
+            switch type {
+            case .artists: return artists.count
+            case .albums: return albums.count
+            case .songs: return songs.count
+            }
         }
     }
+    
+    // MARK: - Computed Properties
     
     private var shouldUseOfflineSearch: Bool {
         return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
     }
     
-    private var resultCount: Int {
-        if shouldUseOfflineSearch {
-            switch selectedTab {
-            case .artists: return offlineSearchResults.artists.count
-            case .albums: return offlineSearchResults.albums.count
-            case .songs: return offlineSearchResults.songs.count
-            }
-        } else {
-            switch selectedTab {
-            case .artists: return navidromeVM.artists.count
-            case .albums: return navidromeVM.albums.count
-            case .songs: return navidromeVM.songs.count
-            }
-        }
+    private var hasResults: Bool {
+        return !searchResults.isEmpty
     }
-
+    
+    private var resultCount: Int {
+        return searchResults.count(for: selectedTab)
+    }
+    
+    private var searchModeDescription: String {
+        return shouldUseOfflineSearch ? "Searching in downloaded content" : "Searching online library"
+    }
+    
+    // MARK: - Main View
+    
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // ✅ NEW: Search Mode Indicator
-                SearchModeHeader(isOfflineSearch: shouldUseOfflineSearch)
+                if shouldUseOfflineSearch {
+                    SearchModeHeader()
+                }
                 
                 SearchHeaderView(
                     query: $query,
                     selectedTab: $selectedTab,
                     countForTab: countForTab,
                     onSearch: performSearch,
-                    onClear: clearResults
+                    onClear: clearSearch
                 )
                 
-                SearchContentView(
-                    query: query,
-                    selectedTab: selectedTab,
-                    hasResults: hasResults,
-                    isOfflineSearch: shouldUseOfflineSearch,
-                    navidromeVM: navidromeVM,
-                    offlineSearchResults: offlineSearchResults,
-                    playerVM: playerVM,
-                    onSongTap: handleSongTap
-                )
+                SearchContentView()
                 
                 Spacer()
             }
-            .navigationTitle("Suche")
+            .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
             .accountToolbar()
         }
         .onChange(of: query) { _, newValue in
             handleQueryChange(newValue)
         }
+        .onDisappear {
+            searchTask?.cancel()
+        }
     }
     
-    // ✅ ENHANCED: Smart Search Logic
-    private func performSearch() {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+    // MARK: - ✅ PRECISE Search Logic
+    
+    private func handleQueryChange(_ newValue: String) {
+        searchTask?.cancel()
         
+        let trimmedQuery = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if trimmedQuery.isEmpty {
+            clearResults()
+            return
+        }
+        
+        // Debounce search
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+            
+            if !Task.isCancelled {
+                await MainActor.run {
+                    performSearchInternal(query: trimmedQuery)
+                }
+            }
+        }
+    }
+    
+    private func performSearch() {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return }
+        
+        searchTask?.cancel()
+        performSearchInternal(query: trimmedQuery)
+    }
+    
+    private func performSearchInternal(query: String) {
+        // Clear previous results immediately
+        searchResults = SearchResults()
+        searchError = nil
+        isSearching = true
         
         if shouldUseOfflineSearch {
-            performOfflineSearch(query: trimmedQuery)
+            performOfflineSearch(query: query)
         } else {
-            Task {
-                await navidromeVM.search(query: trimmedQuery)
-            }
+            performOnlineSearch(query: query)
         }
     }
     
-    // ✅ NEW: Offline Search Implementation
+    // MARK: - ✅ OFFLINE SEARCH: Field-specific only
+    
     private func performOfflineSearch(query: String) {
-        let lowercaseQuery = query.lowercased()
-        
-        // Search in offline albums
-        let searchableAlbums = offlineManager.offlineAlbums
-        offlineSearchResults.albums = searchableAlbums.filter { album in
-            album.name.lowercased().contains(lowercaseQuery) ||
-            album.artist.lowercased().contains(lowercaseQuery) ||
-            (album.genre?.lowercased().contains(lowercaseQuery) ?? false)
-        }
-        
-        // Search in offline artists
-        offlineSearchResults.artists = offlineManager.offlineArtists.filter { artist in
-            artist.name.lowercased().contains(lowercaseQuery)
-        }
-        
-        // Search in offline songs
-        offlineSearchResults.songs = searchOfflineSongs(query: lowercaseQuery)
-        
-        print("🔍 Offline search for '\(query)': \(offlineSearchResults.albums.count) albums, \(offlineSearchResults.artists.count) artists, \(offlineSearchResults.songs.count) songs")
-    }
-    
-    // ✅ NEW: Search Songs in Downloaded Albums
-    private func searchOfflineSongs(query: String) -> [Song] {
-        var allSongs: [Song] = []
-        
-        for downloadedAlbum in downloadManager.downloadedAlbums {
-            // Get cached songs for this album
-            if let cachedSongs = navidromeVM.albumSongs[downloadedAlbum.albumId] {
-                allSongs.append(contentsOf: cachedSongs)
-            } else {
-                // Create minimal song objects from downloaded files
-                let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: downloadedAlbum.albumId)
-                let songs = downloadedAlbum.songIds.enumerated().map { index, songId in
-                    Song.createFromDownload(
-                        id: songId,
-                        title: "Track \(index + 1)",
-                        duration: nil,
-                        coverArt: downloadedAlbum.albumId,
-                        artist: albumMetadata?.artist ?? "Unknown Artist",
-                        album: albumMetadata?.name ?? "Unknown Album",
-                        albumId: downloadedAlbum.albumId,
-                        track: index + 1,
-                        year: albumMetadata?.year,
-                        genre: albumMetadata?.genre,
-                        contentType: "audio/mpeg"
+        searchTask = Task {
+            let lowercaseQuery = query.lowercased()
+            
+            // Artists: ONLY search in artist.name
+            let artists = await searchArtistsByName(query: lowercaseQuery)
+            
+            // Albums: ONLY search in album.name
+            let albums = await searchAlbumsByName(query: lowercaseQuery)
+            
+            // Songs: ONLY search in song.title
+            let songs = await searchSongsByTitle(query: lowercaseQuery)
+            
+            if !Task.isCancelled {
+                await MainActor.run {
+                    searchResults = SearchResults(
+                        artists: artists,
+                        albums: albums,
+                        songs: songs
                     )
+                    isSearching = false
+                    print("🎯 Offline search: Artists:\(artists.count), Albums:\(albums.count), Songs:\(songs.count)")
                 }
-                allSongs.append(contentsOf: songs)
             }
         }
-        
-        // Filter songs by query
-        return allSongs.filter { song in
-            song.title.lowercased().contains(query) ||
-            (song.artist?.lowercased().contains(query) ?? false) ||
-            (song.album?.lowercased().contains(query) ?? false)
+    }
+    
+    private func searchArtistsByName(query: String) async -> [Artist] {
+        return await MainActor.run {
+            let matches = offlineManager.offlineArtists.filter { artist in
+                artist.name.lowercased().contains(query)
+            }
+            
+            return sortByRelevance(matches, query: query) { $0.name.lowercased() }
         }
     }
     
-    // ✅ FIXED: Clear results method
-    private func clearResults() {
-        // ✅ FIX: Don't directly assign to computed properties, use the ViewModel's method
-        Task {
-            await navidromeVM.search(query: "")  // Empty search clears results
+    private func searchAlbumsByName(query: String) async -> [Album] {
+        return await MainActor.run {
+            let matches = offlineManager.offlineAlbums.filter { album in
+                album.name.lowercased().contains(query)
+            }
+            
+            return sortByRelevance(matches, query: query) { $0.name.lowercased() }
+        }
+    }
+    
+    private func searchSongsByTitle(query: String) async -> [Song] {
+        return await MainActor.run {
+            var allSongs: [Song] = []
+            
+            // Collect all songs
+            for downloadedAlbum in downloadManager.downloadedAlbums {
+                if let cachedSongs = navidromeVM.albumSongs[downloadedAlbum.albumId] {
+                    allSongs.append(contentsOf: cachedSongs)
+                } else {
+                    let songs = downloadedAlbum.songs.map { $0.toSong() }
+                    allSongs.append(contentsOf: songs)
+                }
+            }
+            
+            // Filter: ONLY song.title contains query
+            let matches = allSongs.filter { song in
+                song.title.lowercased().contains(query)
+            }
+            
+            return sortByRelevance(matches, query: query) { $0.title.lowercased() }
+        }
+    }
+    
+    // MARK: - ✅ ONLINE SEARCH: Field-specific filtering
+    
+    private func performOnlineSearch(query: String) {
+        guard let service = navidromeVM.getService() else {
+            searchError = "Service not available"
+            isSearching = false
+            return
         }
         
-        // ✅ NEW: Clear offline results
-        offlineSearchResults = OfflineSearchResults()
+        searchTask = Task {
+            do {
+                let result = try await service.search(query: query, maxResults: 200)
+                
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        let filteredResults = filterResultsByField(result, query: query.lowercased())
+                        searchResults = filteredResults
+                        isSearching = false
+                        print("🎯 Online search: Artists:\(filteredResults.artists.count), Albums:\(filteredResults.albums.count), Songs:\(filteredResults.songs.count)")
+                    }
+                }
+            } catch {
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        searchError = "Search failed: \(error.localizedDescription)"
+                        searchResults = SearchResults()
+                        isSearching = false
+                    }
+                }
+            }
+        }
+    }
+    
+    private func filterResultsByField(_ result: SearchResult, query: String) -> SearchResults {
+        
+        // Artists: ONLY where artist.name contains query
+        let filteredArtists = result.artists.filter { (artist: Artist) in
+            artist.name.lowercased().contains(query)
+        }
+        let sortedArtists = sortByRelevance(filteredArtists, query: query) { (artist: Artist) in artist.name.lowercased() }
+        
+        // Albums: ONLY where album.name contains query
+        let filteredAlbums = result.albums.filter { (album: Album) in
+            album.name.lowercased().contains(query)
+        }
+        let sortedAlbums = sortByRelevance(filteredAlbums, query: query) { (album: Album) in album.name.lowercased() }
+        
+        // Songs: ONLY where song.title contains query
+        let filteredSongs = result.songs.filter { (song: Song) in
+            song.title.lowercased().contains(query)
+        }
+        let sortedSongs = sortByRelevance(filteredSongs, query: query) { (song: Song) in song.title.lowercased() }
+        
+        return SearchResults(
+            artists: sortedArtists,
+            albums: sortedAlbums,
+            songs: sortedSongs
+        )
+    }
+    
+    // MARK: - ✅ UTILITY: Relevance Sorting
+    
+    private func sortByRelevance<T>(_ items: [T], query: String, keyPath: (T) -> String) -> [T] {
+        return items.sorted { item1, item2 in
+            let text1 = keyPath(item1)
+            let text2 = keyPath(item2)
+            
+            // Exact match first
+            if text1 == query && text2 != query { return true }
+            if text2 == query && text1 != query { return false }
+            
+            // Starts with second
+            let starts1 = text1.hasPrefix(query)
+            let starts2 = text2.hasPrefix(query)
+            if starts1 && !starts2 { return true }
+            if starts2 && !starts1 { return false }
+            
+            // Alphabetical for same match type
+            return text1 < text2
+        }
+    }
+    
+    // MARK: - ✅ STATE Management
+    
+    private func clearResults() {
+        searchTask?.cancel()
+        searchResults = SearchResults()
+        searchError = nil
+        isSearching = false
+    }
+    
+    private func clearSearch() {
+        searchTask?.cancel()
+        query = ""
+        searchResults = SearchResults()
+        searchError = nil
+        isSearching = false
     }
     
     private func countForTab(_ tab: SearchTab) -> Int {
-        if shouldUseOfflineSearch {
-            switch tab {
-            case .artists: return offlineSearchResults.artists.count
-            case .albums: return offlineSearchResults.albums.count
-            case .songs: return offlineSearchResults.songs.count
-            }
-        } else {
-            switch tab {
-            case .artists: return navidromeVM.artists.count
-            case .albums: return navidromeVM.albums.count
-            case .songs: return navidromeVM.songs.count
-            }
-        }
-    }
-    
-    private func handleQueryChange(_ newValue: String) {
-        debouncer.debounce {
-            if !newValue.isEmpty {
-                performSearch()
-            }
-        }
+        return searchResults.count(for: tab)
     }
     
     private func handleSongTap(at index: Int) {
-        let songsToPlay: [Song]
-        
-        if shouldUseOfflineSearch {
-            songsToPlay = offlineSearchResults.songs
-        } else {
-            songsToPlay = navidromeVM.songs
-        }
-        
         Task {
             await playerVM.setPlaylist(
-                songsToPlay,
+                searchResults.songs,
                 startIndex: index,
                 albumId: nil
             )
         }
     }
+    
+    // MARK: - ✅ UI Components
+    
+    @ViewBuilder
+    private func SearchModeHeader() -> some View {
+        HStack(spacing: Spacing.s) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(BrandColor.warning)
+            
+            Text("Searching in downloaded music only")
+                .font(Typography.caption)
+                .foregroundStyle(BrandColor.warning)
+            
+            Spacer()
+        }
+        .listItemPadding()
+        .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
+        .screenPadding()
+        .padding(.top, Spacing.xs)
+    }
+    
+    @ViewBuilder
+    private func SearchContentView() -> some View {
+        Group {
+            if let error = searchError {
+                SearchErrorView(error: error)
+            } else if hasResults {
+                SearchResultsView()
+            } else if !query.isEmpty && !isSearching {
+                SearchEmptyView()
+            } else if query.isEmpty {
+                SearchInitialView()
+            } else if isSearching {
+                SearchLoadingView()
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func SearchResultsView() -> some View {
+        ScrollView {
+            LazyVStack(spacing: Spacing.s) {
+                switch selectedTab {
+                case .artists:
+                    ForEach(searchResults.artists.indices, id: \.self) { index in
+                        SearchResultArtistRow(artist: searchResults.artists[index], index: index)
+                    }
+                    
+                case .albums:
+                    ForEach(searchResults.albums.indices, id: \.self) { index in
+                        SearchResultAlbumRow(album: searchResults.albums[index], index: index)
+                    }
+                    
+                case .songs:
+                    ForEach(searchResults.songs.indices, id: \.self) { index in
+                        let song = searchResults.songs[index]
+                        SearchResultSongRow(
+                            song: song,
+                            index: index + 1,
+                            isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                            action: { handleSongTap(at: index) }
+                        )
+                    }
+                }
+            }
+            .screenPadding()
+            .padding(.bottom, 100)
+        }
+        .id(selectedTab) // Force refresh when tab changes
+    }
+    
+    @ViewBuilder
+    private func SearchErrorView(error: String) -> some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 50))
+                .foregroundStyle(BrandColor.warning)
+            
+            VStack(spacing: Spacing.s) {
+                Text("Search Error")
+                    .font(Typography.headline)
+                
+                Text(error)
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Button("Try Again") {
+                performSearch()
+            }
+            .primaryButtonStyle()
+        }
+        .padding(Spacing.xl)
+        .materialCardStyle()
+    }
+    
+    @ViewBuilder
+    private func SearchEmptyView() -> some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: shouldUseOfflineSearch ? "arrow.down.circle" : "music.note.house")
+                .font(.system(size: 60))
+                .foregroundStyle(TextColor.secondary)
+            
+            VStack(spacing: Spacing.s) {
+                Text("No Results")
+                    .font(Typography.title2)
+                
+                Text(shouldUseOfflineSearch ?
+                     "No downloads found matching your search" :
+                     "Try different search terms")
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(Spacing.xl)
+        .materialCardStyle()
+    }
+    
+    @ViewBuilder
+    private func SearchInitialView() -> some View {
+        VStack(spacing: Spacing.l) {
+            Image(systemName: shouldUseOfflineSearch ? "arrow.down.circle" : "magnifyingglass.circle")
+                .font(.system(size: 80))
+                .foregroundStyle(TextColor.secondary.opacity(0.6))
+            
+            VStack(spacing: Spacing.s) {
+                Text(shouldUseOfflineSearch ? "Search Downloads" : "Search Music")
+                    .font(Typography.title2)
+                
+                Text(shouldUseOfflineSearch ?
+                     "Search through your downloaded albums" :
+                     "Search for artists, albums, or songs")
+                    .font(Typography.subheadline)
+                    .foregroundStyle(TextColor.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(Padding.xl)
+        .materialCardStyle()
+    }
+    
+    @ViewBuilder
+    private func SearchLoadingView() -> some View {
+        VStack(spacing: Spacing.l) {
+            ProgressView()
+                .scaleEffect(1.5)
+            
+            Text("Searching...")
+                .font(Typography.headline)
+                .foregroundStyle(TextColor.primary)
+            
+            Text(searchModeDescription)
+                .font(Typography.caption)
+                .foregroundStyle(TextColor.secondary)
+        }
+        .padding(Spacing.xl)
+        .materialCardStyle()
+    }
 }
 
-// MARK: - SearchHeaderView (Enhanced with DS)
+// MARK: - ✅ Search Header Components
+
 struct SearchHeaderView: View {
     @Binding var query: String
     @Binding var selectedTab: SearchView.SearchTab
@@ -246,79 +512,49 @@ struct SearchHeaderView: View {
     
     var body: some View {
         VStack(spacing: Spacing.m) {
-            SearchBarView(
-                query: $query,
-                onSearch: onSearch,
-                onClear: onClear
-            )
+            // Search Bar
+            HStack(spacing: Spacing.s) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(TextColor.secondary)
+                    .font(Typography.title3)
+                
+                TextField("Search music...", text: $query)
+                    .font(Typography.body)
+                    .submitLabel(.search)
+                    .onSubmit(onSearch)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                
+                if !query.isEmpty {
+                    Button(action: onClear) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(TextColor.secondary)
+                    }
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+            .padding(.horizontal, Padding.m)
+            .padding(.vertical, Padding.s)
+            .background(BackgroundColor.thin, in: RoundedRectangle(cornerRadius: Radius.l))
+            .animation(Animations.ease, value: query.isEmpty)
             
-            SearchTabsView(
-                selectedTab: $selectedTab,
-                countForTab: countForTab
-            )
+            // Search Tabs
+            HStack(spacing: Spacing.s) {
+                ForEach(SearchView.SearchTab.allCases, id: \.self) { tab in
+                    SearchTabButton(
+                        tab: tab,
+                        count: countForTab(tab),
+                        isSelected: selectedTab == tab,
+                        onTap: { selectedTab = tab }
+                    )
+                }
+            }
         }
-        .padding(.top, Spacing.s)
+        .listItemPadding()
         .background(BackgroundColor.thin)
     }
 }
 
-// MARK: - SearchBarView (Enhanced with DS)
-struct SearchBarView: View {
-    @Binding var query: String
-    let onSearch: () -> Void
-    let onClear: () -> Void
-    
-    var body: some View {
-        HStack(spacing: Spacing.s) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(TextColor.secondary)
-                .font(Typography.title3)
-            
-            TextField("Nach Musik suchen...", text: $query)
-                .font(Typography.body)
-                .submitLabel(.search)
-                .onSubmit(onSearch)
-            
-            if !query.isEmpty {
-                Button(action: onClear) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(TextColor.secondary)
-                }
-                .transition(.opacity)
-            }
-        }
-        .padding(.horizontal, Padding.m)
-        .padding(.vertical, Padding.s)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
-                .fill(BackgroundColor.thin)
-                .miniShadow()
-        )
-        .animation(Animations.ease, value: query.isEmpty)
-    }
-}
-
-// MARK: - SearchTabsView (Enhanced with DS)
-struct SearchTabsView: View {
-    @Binding var selectedTab: SearchView.SearchTab
-    let countForTab: (SearchView.SearchTab) -> Int
-    
-    var body: some View {
-        HStack(spacing: Spacing.s) {
-            ForEach(SearchView.SearchTab.allCases, id: \.self) { tab in
-                SearchTabButton(
-                    tab: tab,
-                    count: countForTab(tab),
-                    isSelected: selectedTab == tab,
-                    onTap: { selectedTab = tab }
-                )
-            }
-        }
-        .listItemPadding()
-    }
-}
-
-// MARK: - SearchTabButton (Enhanced with DS)
 struct SearchTabButton: View {
     let tab: SearchView.SearchTab
     let count: Int
@@ -331,238 +567,27 @@ struct SearchTabButton: View {
                 Image(systemName: tab.icon)
                     .font(Typography.caption)
                 
+                Text(tab.rawValue)
+                    .font(Typography.caption)
+                
                 if count > 0 {
                     Text("\(count)")
                         .font(Typography.caption2)
                         .padding(.horizontal, Spacing.xs)
-                        .padding(.vertical, Spacing.xs)
-                        .background(countBackground)
-                        .clipShape(Capsule())
-                        .foregroundStyle(isSelected ? TextColor.onDark : TextColor.primary)
+                        .padding(.vertical, Spacing.xs/2)
+                        .background(Capsule().fill(isSelected ? TextColor.onDark.opacity(0.3) : BackgroundColor.secondary))
+                        .foregroundStyle(isSelected ? TextColor.onDark : TextColor.secondary)
                 }
             }
             .padding(.vertical, Padding.s)
-            .padding(.horizontal, Padding.s)
-            .background(tabBackground)
+            .padding(.horizontal, Padding.m)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.m)
+                    .fill(isSelected ? BrandColor.primary : BackgroundColor.secondary)
+            )
             .foregroundStyle(isSelected ? TextColor.onDark : TextColor.primary)
         }
         .animation(Animations.ease, value: isSelected)
-    }
-    
-    @ViewBuilder
-    private var countBackground: some View {
-        if isSelected {
-            LinearGradient(
-                colors: [BrandColor.primary, BrandColor.secondary],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        } else {
-            BackgroundColor.secondary
-        }
-    }
-    
-    private var tabBackground: some View {
-        RoundedRectangle(cornerRadius: Radius.m, style: .continuous)
-            .fill(
-                isSelected
-                ? AnyShapeStyle(LinearGradient(
-                    colors: [BrandColor.primary, BrandColor.secondary],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ))
-                : AnyShapeStyle(BackgroundColor.secondary)
-            )
-    }
-}
-
-// MARK: - SearchErrorView (Enhanced with DS)
-struct SearchErrorView: View {
-    let error: String
-    
-    var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 50))
-                .foregroundStyle(BrandColor.warning)
-            
-            VStack(spacing: Spacing.s) {
-                Text("Fehler bei der Suche")
-                    .font(Typography.headline)
-                
-                Text(error)
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(Spacing.xl)
-        .materialCardStyle()
-        .largeShadow()
-        .padding(.horizontal, Padding.xl)
-        .padding(.vertical, 60)
-    }
-}
-
-// ✅ NEW: Search Mode Header Component
-struct SearchModeHeader: View {
-    let isOfflineSearch: Bool
-    
-    var body: some View {
-        if isOfflineSearch {
-            HStack(spacing: Spacing.s) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .foregroundStyle(BrandColor.warning)
-                
-                Text("Searching in downloaded music only")
-                    .font(Typography.caption)
-                    .foregroundStyle(BrandColor.warning)
-                
-                Spacer()
-            }
-            .listItemPadding()
-            .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.s)
-                    .stroke(BrandColor.warning.opacity(0.3), lineWidth: 1)
-            )
-            .screenPadding()
-            .padding(.top, Spacing.xs)
-        }
-    }
-}
-
-// ✅ ENHANCED: Search Content View with Offline Support
-struct SearchContentView: View {
-    let query: String
-    let selectedTab: SearchView.SearchTab
-    let hasResults: Bool
-    let isOfflineSearch: Bool
-    let navidromeVM: NavidromeViewModel
-    let offlineSearchResults: SearchView.OfflineSearchResults
-    let playerVM: PlayerViewModel
-    let onSongTap: (Int) -> Void
-    
-    var body: some View {
-        Group {
-            if let error = navidromeVM.errorMessage, !isOfflineSearch {
-                SearchErrorView(error: error)
-            } else if hasResults {
-                SearchResultsView(
-                    selectedTab: selectedTab,
-                    isOfflineSearch: isOfflineSearch,
-                    navidromeVM: navidromeVM,
-                    offlineSearchResults: offlineSearchResults,
-                    playerVM: playerVM,
-                    onSongTap: onSongTap
-                )
-            } else if !query.isEmpty && !navidromeVM.isLoading {
-                SearchEmptyView(isOfflineSearch: isOfflineSearch)
-            } else if query.isEmpty {
-                SearchInitialView(isOfflineSearch: isOfflineSearch)
-            }
-        }
-    }
-}
-
-// ✅ ENHANCED: Search Results View with Offline Support
-struct SearchResultsView: View {
-    let selectedTab: SearchView.SearchTab
-    let isOfflineSearch: Bool
-    let navidromeVM: NavidromeViewModel
-    let offlineSearchResults: SearchView.OfflineSearchResults
-    let playerVM: PlayerViewModel
-    let onSongTap: (Int) -> Void
-    
-    var body: some View {
-        ScrollView {
-            LazyVStack(spacing: Spacing.s) {
-                Section {
-                    switch selectedTab {
-                    case .artists:
-                        let artists = isOfflineSearch ? offlineSearchResults.artists : navidromeVM.artists
-                        ForEach(artists) { artist in
-                            SearchResultArtistRow(artist: artist)
-                        }
-                        
-                    case .albums:
-                        let albums = isOfflineSearch ? offlineSearchResults.albums : navidromeVM.albums
-                        ForEach(albums) { album in
-                            SearchResultAlbumRow(album: album)
-                        }
-                        
-                    case .songs:
-                        let songs = isOfflineSearch ? offlineSearchResults.songs : navidromeVM.songs
-                        ForEach(songs.indices, id: \.self) { index in
-                            let song = songs[index]
-                            SearchResultSongRow(
-                                song: song,
-                                index: index + 1,
-                                isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                                action: { onSongTap(index) }
-                            )
-                        }
-                    }
-                }
-            }
-            .screenPadding()
-            .padding(.bottom, 100)
-        }
-    }
-}
-
-// ✅ ENHANCED: Empty Views with Offline Context
-struct SearchEmptyView: View {
-    let isOfflineSearch: Bool
-    
-    var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: isOfflineSearch ? "arrow.down.circle" : "music.note.house")
-                .font(.system(size: 60))
-                .foregroundStyle(TextColor.secondary)
-            
-            VStack(spacing: Spacing.s) {
-                Text("Keine Ergebnisse")
-                    .font(Typography.title2)
-                
-                Text(isOfflineSearch ?
-                     "Keine Downloads gefunden" :
-                     "Versuchen Sie andere Suchbegriffe")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-            }
-        }
-        .padding(Spacing.xl)
-        .materialCardStyle()
-        .largeShadow()
-        .padding(.vertical, 60)
-    }
-}
-
-struct SearchInitialView: View {
-    let isOfflineSearch: Bool
-    
-    var body: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: isOfflineSearch ? "arrow.down.circle" : "magnifyingglass.circle")
-                .font(.system(size: 80))
-                .foregroundStyle(TextColor.secondary.opacity(0.6))
-            
-            VStack(spacing: Spacing.s) {
-                Text(isOfflineSearch ? "Downloads durchsuchen" : "Musik durchsuchen")
-                    .font(Typography.title2)
-                
-                Text(isOfflineSearch ?
-                     "Suchen Sie in Ihren heruntergeladenen Alben" :
-                     "Suchen Sie nach Künstlern, Alben oder Songs")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(Padding.xl)
-        .materialCardStyle()
-        .largeShadow()
-        .padding(.vertical, 80)
+        .animation(Animations.ease, value: count)
     }
 }

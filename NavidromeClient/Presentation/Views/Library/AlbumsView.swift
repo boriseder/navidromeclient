@@ -61,9 +61,9 @@ struct AlbumsView: View {
         NavigationStack {
             Group {
                 if shouldShowAlbumsLoading {
-                    albumsLoadingView
+                    LoadingView()
                 } else if shouldShowAlbumsEmptyState {
-                    albumsEmptyStateView
+                    EmptyStateView.albums()
                 } else {
                     albumsContentView
                 }
@@ -148,7 +148,7 @@ struct AlbumsView: View {
     
     private var albumsLoadingView: some View {
         VStack(spacing: 16) {
-            loadingView()
+            LoadingView()
             
             if isLoadingInBackground {
                 Text(backgroundLoadingProgress)
@@ -157,14 +157,7 @@ struct AlbumsView: View {
             }
         }
     }
-    
-    private var albumsEmptyStateView: some View {
-        AlbumsEmptyStateView(
-            isOnline: canLoadOnlineContent,
-            isOfflineMode: isOfflineMode
-        )
-    }
-    
+       
     private var albumsContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {

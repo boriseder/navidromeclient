@@ -16,7 +16,7 @@ class NavidromeViewModel: ObservableObject {
     // MARK: - ✅ FIXED: Manager Dependencies with ConnectionService integration
     private let connectionManager = ConnectionManager()
     let musicLibraryManager = MusicLibraryManager.shared
-    private let searchManager = SearchManager()
+    //private let searchManager = SearchManager()
     private let songManager = SongManager()
     
     // MARK: - ✅ FIXED: Service Management
@@ -50,8 +50,8 @@ class NavidromeViewModel: ObservableObject {
     var errorMessage: String? { connectionManager.connectionError }
     
     // Search Results (delegated to SearchManager)
-    var searchResults: SearchManager.SearchResults { searchManager.searchResults }
-    var songs: [Song] { searchResults.songs } // Legacy compatibility
+   // var searchResults: SearchManager.SearchResults { searchManager.searchResults }
+    //var songs: [Song] { searchResults.songs } // Legacy compatibility
     
     // ✅ FIXED: Credential UI Bindings (simplified)
     var scheme: String {
@@ -101,7 +101,7 @@ class NavidromeViewModel: ObservableObject {
     private func configureManagers(with service: UnifiedSubsonicService) {
         // ✅ ENHANCED: Managers now use focused services from UnifiedSubsonicService
         musicLibraryManager.configure(contentService: service.getContentService())
-        searchManager.configure(searchService: service.getSearchService())
+        //searchManager.configure(searchService: service.getSearchService())
         songManager.configure(contentService: service.getContentService())
         
         print("✅ NavidromeViewModel: All managers configured with focused services")
@@ -172,11 +172,11 @@ class NavidromeViewModel: ObservableObject {
     }
     
     // Search (delegated to SearchManager - unchanged)
-    func search(query: String) async {
+    /*func search(query: String) async {
         await searchManager.search(query: query)
         objectWillChange.send()
     }
-    
+    */
     // ✅ FIXED: Network Change Handling
     func handleNetworkChange(isOnline: Bool) async {
         await musicLibraryManager.handleNetworkChange(isOnline: isOnline)
@@ -273,7 +273,7 @@ class NavidromeViewModel: ObservableObject {
     func reset() {
         connectionManager.reset()
         musicLibraryManager.reset()
-        searchManager.reset()
+     //   searchManager.reset()
         songManager.reset()
         service = nil
         
@@ -421,9 +421,11 @@ extension NavidromeViewModel {
     }
     
     /// Search mode description
-    var searchModeDescription: String {
+    /*
+     var searchModeDescription: String {
         return searchManager.searchModeDescription
     }
+    */
     
     /// Enhanced connection quality description
     var connectionQualityDescription: String {

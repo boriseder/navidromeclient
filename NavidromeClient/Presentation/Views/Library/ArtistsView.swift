@@ -59,9 +59,9 @@ struct ArtistsView: View {
         NavigationStack {
             Group {
                 if shouldShowArtistsLoading {
-                    artistsLoadingView
+                    LoadingView()
                 } else if shouldShowArtistsEmptyState {
-                    artistsEmptyStateView
+                    EmptyStateView.artists()
                 } else {
                     artistsContentView
                 }
@@ -138,26 +138,7 @@ struct ArtistsView: View {
     }
     
     // MARK: - ✅ UI Components
-    
-    private var artistsLoadingView: some View {
-        VStack(spacing: 16) {
-            loadingView()
-            
-            if isLoadingInBackground {
-                Text(backgroundLoadingProgress)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-    
-    private var artistsEmptyStateView: some View {
-        ArtistsEmptyStateView(
-            isOnline: canLoadOnlineContent,
-            isOfflineMode: isOfflineMode
-        )
-    }
-    
+        
     private var artistsContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {

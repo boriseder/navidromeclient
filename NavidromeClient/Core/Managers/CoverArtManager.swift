@@ -52,8 +52,8 @@ class CoverArtManager: ObservableObject {
     // MARK: ALBUM Image Loading
     
     func loadAlbumImage(album: Album, size: Int = 200, staggerIndex: Int = 0) async -> UIImage? {
-        let stateKey = album.id
-        
+        let stateKey = "album_\(album.id)"
+
         // Return cached state if available
         if let cached = albumImages[stateKey] {
             return cached

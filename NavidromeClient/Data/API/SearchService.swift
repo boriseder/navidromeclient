@@ -208,18 +208,6 @@ class SearchService {
         }
     }
     
-    func getSearchStats() -> SearchStats {
-        return SearchStats(
-            isOfflineMode: false, // or determine based on network state
-            totalResults: 0, // implement based on last search
-            artistCount: 0,
-            albumCount: 0,
-            songCount: 0,
-            searchQuery: lastSearchQuery,
-            hasError: false
-        )
-    }
-
     private func filterSongs(_ songs: [Song], with filters: SearchFilters) -> [Song] {
         return songs.filter { song in
             // Filter by duration range

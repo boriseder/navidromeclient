@@ -140,7 +140,7 @@ struct ExploreView: View {
                 Group {
                     // ✅ REACTIVE: Manager state
                     if homeScreenManager.isLoadingHomeData {
-                        loadingView()
+                        LoadingView()
                     }
                     
                     if let errorMessage = homeScreenManager.homeDataError {

@@ -215,7 +215,9 @@ class UnifiedSubsonicService: ObservableObject {
     func performHealthCheck() async -> ConnectionHealth {
         return await connectionService.performHealthCheck()
     }
-    
+
+    // BORIS: Simplifying Search
+    /*
     func getServiceDiagnostics() async -> ServiceDiagnostics {
         let connectionHealth = await connectionService.performHealthCheck()
         let mediaCacheStats = mediaService.getCacheStats()
@@ -227,7 +229,7 @@ class UnifiedSubsonicService: ObservableObject {
             searchStats: searchStats
         )
     }
-    
+*/
     func clearAllCaches() {
         mediaService.clearCoverArtCache()
         print("🧹 Cleared all service caches")
@@ -248,6 +250,8 @@ enum AlbumListType: String {
     case byGenre = "byGenre"
 }
 
+// BORIS: Simplifying Search
+/*
 struct ServiceDiagnostics {
     let connectionHealth: ConnectionHealth
     let mediaCacheStats: MediaCacheStats
@@ -271,7 +275,7 @@ struct ServiceDiagnostics {
         """
     }
 }
-
+*/
 // MARK: - ✅ MIGRATION NOTES
 
 /*

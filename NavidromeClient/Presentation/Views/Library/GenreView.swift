@@ -58,9 +58,9 @@ struct GenreView: View {
         NavigationStack {
             Group {
                 if shouldShowGenresLoading {
-                    genresLoadingView
+                    LoadingView()
                 } else if shouldShowGenresEmptyState {
-                    genresEmptyStateView
+                    EmptyStateView.genres()
                 } else {
                     genresContentView
                 }
@@ -132,7 +132,7 @@ struct GenreView: View {
     
     private var genresLoadingView: some View {
         VStack(spacing: 16) {
-            loadingView()
+            LoadingView()
             
             if isLoadingInBackground {
                 Text(backgroundLoadingProgress)
@@ -141,14 +141,7 @@ struct GenreView: View {
             }
         }
     }
-    
-    private var genresEmptyStateView: some View {
-        GenresEmptyStateView(
-            isOnline: canLoadOnlineContent,
-            isOfflineMode: isOfflineMode
-        )
-    }
-    
+      
     private var genresContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
