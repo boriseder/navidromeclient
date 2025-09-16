@@ -1,9 +1,10 @@
 //
-//  NavidromeClientApp.swift - UPDATED for Thematic Service Architecture
+//  NavidromeClientApp.swift - UPDATED for ConnectionService Integration
 //  NavidromeClient
 //
-//  ✅ UPDATED: Works with existing UnifiedSubsonicService
-//  ✅ ENHANCED: Better service configuration and dependency injection
+//  ✅ UPDATED: Complete ConnectionService integration
+//  ✅ ENHANCED: Better service configuration with focused services
+//  ✅ BACKWARDS COMPATIBLE: All existing functionality preserved
 //
 
 import SwiftUI
@@ -21,12 +22,12 @@ struct NavidromeClientApp: App {
     @StateObject private var coverArtManager = CoverArtManager.shared
     @StateObject private var homeScreenManager = HomeScreenManager.shared
     
-    // ✅ UPDATED: ViewModels with proper service integration
+    // ✅ UPDATED: ViewModels with ConnectionService integration
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     
     init() {
-        // ✅ UPDATED: Create ViewModels with UnifiedSubsonicService
+        // ✅ UPDATED: Create ViewModels with enhanced service architecture
         let service: UnifiedSubsonicService?
         if let creds = AppConfig.shared.getCredentials() {
             service = UnifiedSubsonicService(
@@ -68,7 +69,7 @@ struct NavidromeClientApp: App {
         }
     }
     
-    // MARK: - ✅ ENHANCED: Service Configuration
+    // MARK: - ✅ UPDATED: Enhanced Service Configuration with ConnectionService
     
     private func setupInitialConfiguration() async {
         guard appConfig.isConfigured else {
@@ -76,20 +77,24 @@ struct NavidromeClientApp: App {
             return
         }
         
-        // ✅ UPDATED: Configure all services with UnifiedSubsonicService
-        await configureAllServices()
+        // ✅ UPDATED: Configure all services with ConnectionService integration
+        await configureAllServicesWithConnectionService()
         
         // Load initial data
         await navidromeVM.loadInitialDataIfNeeded()
+        
+        // ✅ NEW: Perform initial health check via ConnectionService
+        await performInitialHealthCheck()
     }
     
-    private func configureAllServices() async {
+    /// ✅ NEW: Enhanced service configuration with ConnectionService
+    private func configureAllServicesWithConnectionService() async {
         guard let creds = appConfig.getCredentials() else {
             print("❌ No credentials available for service configuration")
             return
         }
         
-        // ✅ NEW: Create UnifiedSubsonicService (thematic architecture)
+        // ✅ UPDATED: Create UnifiedSubsonicService (includes ConnectionService internally)
         let unifiedService = UnifiedSubsonicService(
             baseURL: creds.baseURL,
             username: creds.username,
@@ -97,154 +102,218 @@ struct NavidromeClientApp: App {
         )
         
         // ✅ UPDATED: Configure all managers with focused services
-        await configureManagers(with: unifiedService)
+        await configureManagersWithFocusedServices(unifiedService: unifiedService)
         
-        print("✅ All services configured with thematic architecture")
+        print("✅ All services configured with ConnectionService integration")
     }
     
-    private func configureManagers(with service: UnifiedSubsonicService) async {
-        // ✅ BACKWARDS COMPATIBLE: NavidromeViewModel still uses unified service
-        navidromeVM.updateService(service)
-        
-        // ✅ BACKWARDS COMPATIBLE: PlayerViewModel still uses unified service
-        playerVM.updateService(service)
-        
-        // ✅ ENHANCED: Configure managers with focused services
+    /// ✅ UPDATED: Configure managers with focused services from UnifiedSubsonicService
+    private func configureManagersWithFocusedServices(unifiedService: UnifiedSubsonicService) async {
         await MainActor.run {
-            // NetworkMonitor still uses unified service for backwards compatibility
-            networkMonitor.setService(service)
+            // ✅ UPDATED: NavidromeViewModel now handles ConnectionManager internally
+            navidromeVM.updateService(unifiedService)
             
-            // ✅ NEW: CoverArtManager can use focused MediaService
-            let mediaService = service.getMediaService()
+            // ✅ UPDATED: PlayerViewModel uses MediaService from UnifiedSubsonicService
+            playerVM.updateService(unifiedService)
+            
+            // ✅ ENHANCED: Configure managers with focused services
+            let mediaService = unifiedService.getMediaService()
             coverArtManager.configure(mediaService: mediaService)
             
-            // ✅ NEW: HomeScreenManager can use focused DiscoveryService
-            let discoveryService = service.getDiscoveryService()
+            let discoveryService = unifiedService.getDiscoveryService()
             homeScreenManager.configure(discoveryService: discoveryService)
             
-            // ✅ FUTURE: Other managers can be updated to use focused services
-            // searchManager.configure(searchService: service.getSearchService())
-            // songManager.configure(contentService: service.getContentService())
+            // ✅ NOTE: NetworkMonitor is now configured by NavidromeViewModel
+            // This ensures proper ConnectionManager integration
+            
+            print("✅ All managers configured with focused services from UnifiedSubsonicService")
         }
         
         // ✅ ENHANCED: Update PlayerViewModel with focused CoverArtManager
         playerVM.updateCoverArtService(coverArtManager)
     }
     
-    // MARK: - ✅ ENHANCED: Network State Management
+    /// ✅ NEW: Initial health check via ConnectionService
+    private func performInitialHealthCheck() async {
+        print("🏥 Performing initial ConnectionService health check...")
+        
+        await navidromeVM.performConnectionHealthCheck()
+        
+        let health = navidromeVM.getConnectionHealth()
+        let diagnostics = navidromeVM.getConnectionDiagnostics()
+        
+        print("""
+        📊 INITIAL HEALTH CHECK RESULTS:
+        - Status: \(health.statusDescription)
+        - Health Score: \(String(format: "%.1f", health.healthScore * 100))%
+        - Architecture: \(diagnostics.summary)
+        """)
+    }
+    
+    // MARK: - ✅ ENHANCED: Network State Management with ConnectionService
     
     private func handleNetworkChange(isConnected: Bool) async {
         print("🌐 Network state changed: \(isConnected ? "Connected" : "Disconnected")")
         
         if isConnected {
-            // Reconfigure services when network is restored
-            await configureAllServices()
+            // ✅ UPDATED: Reconfigure services and perform health check
+            await configureAllServicesWithConnectionService()
+            await navidromeVM.performConnectionHealthCheck()
         }
         
-        // Notify managers about network change
+        // ✅ ENHANCED: Notify managers about network change
         await navidromeVM.handleNetworkChange(isOnline: isConnected)
         await homeScreenManager.handleNetworkChange(isOnline: isConnected)
+        
+        // ✅ NEW: Update NetworkMonitor diagnostics
+        let networkDiag = networkMonitor.getNetworkDiagnostics()
+        print("📊 Network diagnostics: \(networkDiag.summary)")
     }
     
     private func handleAppBecameActive() {
-        print("📱 App became active")
+        print("📱 App became active - checking services...")
         
-        // Refresh data if needed
-        if !navidromeVM.isDataFresh {
-            Task {
+        Task {
+            // ✅ ENHANCED: Comprehensive health check on app activation
+            await performAppActivationHealthCheck()
+            
+            // Refresh data if needed
+            if !navidromeVM.isDataFresh {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.isConnected)
             }
-        }
-        
-        // Refresh home screen if needed
-        Task {
+            
+            // Refresh home screen if needed
             await homeScreenManager.refreshIfNeeded()
         }
+    }
+    
+    /// ✅ NEW: Comprehensive health check when app becomes active
+    private func performAppActivationHealthCheck() async {
+        print("🔄 App activation health check...")
         
-        // Perform health checks
+        // Force NetworkMonitor server health check
+        await networkMonitor.forceServerHealthCheck()
+        
+        // NavidromeViewModel connection health check
+        await navidromeVM.performConnectionHealthCheck()
+        
+        // Get comprehensive diagnostics
+        let serviceDiag = navidromeVM.getServiceArchitectureDiagnostics()
+        print("📋 App activation diagnostics: \(serviceDiag.overallHealth)")
+        
+        #if DEBUG
+        // Print full diagnostics in debug builds
+        navidromeVM.printServiceDiagnostics()
+        #endif
+    }
+    
+    // MARK: - ✅ NEW: Advanced Service Features
+    
+    /// Get comprehensive service health for troubleshooting
+    func getComprehensiveServiceHealth() async -> ComprehensiveServiceHealth {
+        let connectionHealth = navidromeVM.getConnectionHealth()
+        let networkDiag = networkMonitor.getNetworkDiagnostics()
+        let serviceDiag = navidromeVM.getServiceArchitectureDiagnostics()
+        
+        return ComprehensiveServiceHealth(
+            connectionHealth: connectionHealth,
+            networkDiagnostics: networkDiag,
+            serviceArchitectureDiagnostics: serviceDiag
+        )
+    }
+    
+    struct ComprehensiveServiceHealth {
+        let connectionHealth: ConnectionManager.ConnectionHealth
+        let networkDiagnostics: NetworkMonitor.NetworkDiagnostics
+        let serviceArchitectureDiagnostics: NavidromeViewModel.ServiceArchitectureDiagnostics
+        
+        var overallHealthScore: Double {
+            let connectionScore = connectionHealth.healthScore
+            let networkScore = networkDiagnostics.canLoadContent ? 1.0 : 0.0
+            
+            return (connectionScore + networkScore) / 2.0
+        }
+        
+        var healthSummary: String {
+            let score = overallHealthScore * 100
+            
+            if score >= 80 {
+                return "✅ Excellent (\(String(format: "%.0f", score))%)"
+            } else if score >= 60 {
+                return "⚠️ Good (\(String(format: "%.0f", score))%)"
+            } else if score >= 40 {
+                return "⚠️ Poor (\(String(format: "%.0f", score))%)"
+            } else {
+                return "❌ Critical (\(String(format: "%.0f", score))%)"
+            }
+        }
+        
+        var detailedReport: String {
+            return """
+            🏥 COMPREHENSIVE SERVICE HEALTH REPORT
+            Overall: \(healthSummary)
+            
+            \(serviceArchitectureDiagnostics.architectureSummary)
+            
+            Performance Metrics:
+            - Connection: \(connectionHealth.statusDescription)
+            - Network: \(networkDiagnostics.summary)
+            """
+        }
+    }
+    
+    // MARK: - ✅ DEBUG HELPERS
+    
+    #if DEBUG
+    /// Print comprehensive service diagnostics for debugging
+    func printComprehensiveServiceDiagnostics() {
         Task {
-            if let service = navidromeVM.getService() {
-                let health = await service.performHealthCheck()
-                print("🏥 Service health: \(health.statusDescription)")
-            }
+            let health = await getComprehensiveServiceHealth()
+            print(health.detailedReport)
         }
     }
-}
-
-// MARK: - ✅ ENHANCED: Service Health Monitoring
-
-extension NavidromeClientApp {
     
-    /// Get comprehensive service diagnostics
-    private func getServiceDiagnostics() async -> String {
-        guard let service = navidromeVM.getService() else {
-            return "❌ No service configured"
-        }
-        
-        let diagnostics = await service.getServiceDiagnostics()
-        return diagnostics.overallHealth
-    }
-    
-    /// Perform periodic health checks (optional)
-    private func startPeriodicHealthChecks() {
-        Timer.scheduledTimer(withTimeInterval: 300.0, repeats: true) { _ in // 5 minutes
-            Task {
-                let health = await getServiceDiagnostics()
-                print("🔄 Periodic health check: \(health)")
-            }
+    /// Force service reconfiguration (debug only)
+    func debugForceServiceReconfiguration() {
+        Task {
+            print("🔄 DEBUG: Forcing service reconfiguration...")
+            await configureAllServicesWithConnectionService()
+            await performInitialHealthCheck()
         }
     }
+    #endif
 }
 
-// MARK: - ✅ DEBUGGING HELPERS
-
-#if DEBUG
-extension NavidromeClientApp {
-    
-    private func printServiceConfiguration() {
-        guard let service = navidromeVM.getService() else { return }
-        
-        print("""
-        🔧 SERVICE CONFIGURATION:
-        - Connection Service: ✅
-        - Content Service: ✅ 
-        - Media Service: ✅
-        - Discovery Service: ✅
-        - Search Service: ✅
-        - Unified Interface: ✅
-        
-        📊 MANAGER CONFIGURATION:
-        - NavidromeVM: \(navidromeVM.isConnectedAndHealthy ? "✅" : "❌")
-        - PlayerVM: \(playerVM.currentSong != nil ? "🎵" : "⏸️")
-        - CoverArtManager: ✅
-        - HomeScreenManager: ✅
-        - NetworkMonitor: \(networkMonitor.isConnected ? "🌐" : "📵")
-        """)
-    }
-}
-#endif
-
-// MARK: - ✅ MIGRATION NOTES
+// MARK: - ✅ MIGRATION NOTES & DOCUMENTATION
 
 /*
-THEMATIC SERVICE ARCHITECTURE - FULLY IMPLEMENTED! 🎉
+CONNECTIONSERVICE INTEGRATION COMPLETE! 🎉
 
-✅ CURRENT STATE:
-- All focused services exist (Connection, Content, Media, Discovery, Search)
-- UnifiedSubsonicService provides backwards compatibility
-- Managers can use either unified or focused services
+✅ MIGRATION SUMMARY:
+1. ConnectionManager now uses ConnectionService internally
+2. NavidromeViewModel updated to use enhanced ConnectionManager
+3. NetworkMonitor migrated to use ConnectionManager instead of direct service calls
+4. App-level integration updated with comprehensive health monitoring
+5. All existing APIs preserved for backwards compatibility
 
-✅ BENEFITS ACHIEVED:
-- Better separation of concerns
-- Focused testing and optimization
-- Advanced features (recommendations, batch operations)
-- Backwards compatibility maintained
+✅ NEW CAPABILITIES:
+- Advanced connection health monitoring via ConnectionService
+- Enhanced service diagnostics and troubleshooting
+- Better separation of concerns: UI binding vs connection logic
+- Comprehensive health checks and performance monitoring
+- Enhanced error handling and recovery
 
-✅ NEXT STEPS:
-1. Update individual managers to use focused services
-2. Enable advanced features (batch operations, recommendations)
-3. Add performance monitoring per service
-4. Remove old service extensions when ready
+✅ ARCHITECTURE:
+App -> NavidromeViewModel -> ConnectionManager -> ConnectionService
+                          -> NetworkMonitor --^
+                          -> Managers -> Focused Services
 
-The architecture is future-proof and allows gradual migration! 🚀
+✅ PERFORMANCE IMPROVEMENTS:
+- More accurate connection quality assessment
+- Better error handling with specific error types
+- Enhanced monitoring and diagnostics
+- Cleaner service coordination and configuration
+
+The migration maintains full backwards compatibility while providing
+enhanced connection management via the focused ConnectionService architecture!
 */
