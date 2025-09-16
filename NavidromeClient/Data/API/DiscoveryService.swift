@@ -1,12 +1,4 @@
 //
-//  DiscoveryService.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 16.09.25.
-//
-
-
-//
 //  DiscoveryService.swift - Home Screen & Recommendations
 //  NavidromeClient
 //
@@ -58,6 +50,23 @@ class DiscoveryService {
         if sameArtistAlbums.count < limit {
             genreAlbums = try await getSimilarByGenre(
                 from: sameArtistAlbums.first,
+                limit: limit - sameArtistAlbums.count
+            )
+        }
+        
+        return Array((sameArtistAlbums + genreAlbums).prefix(limit))
+    }
+    
+    func getRecommendationsFor(album: Album, limit: Int = 10) async throws -> [Album] {
+        // Get other albums by same artist
+        let sameArtistAlbums = try await getSimilarByArtist(artistId: album.artistId, limit: limit / 2)
+            .filter { $0.id != album.id } // Exclude the current album
+        
+        // Get albums from same genre
+        var genreAlbums: [Album] = []
+        if sameArtistAlbums.count < limit {
+            genreAlbums = try await getSimilarByGenre(
+                from: album,
                 limit: limit - sameArtistAlbums.count
             )
         }
@@ -278,21 +287,4 @@ struct DiscoveryMix {
 struct GenreWithAlbumCount {
     let genre: String
     let albumCount: Int
-}rtistAlbums + genreAlbums).prefix(limit))
-    }
-    
-    func getRecommendationsFor(album: Album, limit: Int = 10) async throws -> [Album] {
-        // Get other albums by same artist
-        let sameArtistAlbums = try await getSimilarByArtist(artistId: album.artistId, limit: limit / 2)
-            .filter { $0.id != album.id } // Exclude the current album
-        
-        // Get albums from same genre
-        var genreAlbums: [Album] = []
-        if sameArtistAlbums.count < limit {
-            genreAlbums = try await getSimilarByGenre(
-                from: album,
-                limit: limit - sameArtistAlbums.count
-            )
-        }
-        
-        return Array((sameA
+}

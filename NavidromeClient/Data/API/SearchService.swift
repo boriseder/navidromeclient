@@ -1,12 +1,4 @@
 //
-//  SearchService.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 16.09.25.
-//
-
-
-//
 //  SearchService.swift - Search & Filtering Operations
 //  NavidromeClient
 //
@@ -279,13 +271,10 @@ class SearchService {
         }
     }
     
-    // MARK: - ✅ SEARCH ANALYTICS
+    // MARK: - ✅ SEARCH STATE ACCESS
     
-    func getSearchStats() -> SearchStats {
-        return SearchStats(
-            lastSearchQuery: lastSearchQuery,
-            isSearching: isSearching
-        )
+    var currentSearchQuery: String {
+        return lastSearchQuery
     }
 }
 
@@ -310,9 +299,4 @@ struct SearchFilters {
         minAlbumCount: nil,
         durationRange: nil
     )
-}
-
-struct SearchStats {
-    let lastSearchQuery: String
-    let isSearching: Bool
 }
