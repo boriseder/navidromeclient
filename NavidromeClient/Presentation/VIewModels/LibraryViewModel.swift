@@ -22,7 +22,7 @@ class LibraryViewModel: ObservableObject {
     
     // MARK: - Search & Filter State
     @Published var searchText: String = ""
-    @Published var selectedAlbumSort: SubsonicService.AlbumSortType = .alphabetical
+    @Published var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
     
     // ✅ FIXED: All dependencies use .shared (consistent singleton pattern)
     private let musicLibraryManager = MusicLibraryManager.shared
@@ -66,7 +66,7 @@ class LibraryViewModel: ObservableObject {
     }
     
     /// Load albums with specific sorting
-    func loadAlbums(sortBy: SubsonicService.AlbumSortType) async {
+    func loadAlbums(sortBy: ContentService.AlbumSortType) async {
         selectedAlbumSort = sortBy
         await musicLibraryManager.loadAlbumsProgressively(sortBy: sortBy, reset: true)
     }
@@ -281,12 +281,12 @@ class LibraryViewModel: ObservableObject {
     // MARK: - ✅ SORTING: Album Sort Options
     
     /// Get all available album sort options
-    var availableAlbumSorts: [SubsonicService.AlbumSortType] {
-        return SubsonicService.AlbumSortType.allCases
+    var availableAlbumSorts: [ContentService.AlbumSortType] {
+        return ContentService.AlbumSortType.allCases
     }
     
     /// Check if a sort type is currently selected
-    func isAlbumSortSelected(_ sortType: SubsonicService.AlbumSortType) -> Bool {
+    func isAlbumSortSelected(_ sortType: ContentService.AlbumSortType) -> Bool {
         return selectedAlbumSort == sortType
     }
     

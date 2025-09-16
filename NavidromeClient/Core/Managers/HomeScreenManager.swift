@@ -222,3 +222,28 @@ class HomeScreenManager: ObservableObject {
         )
     }
 }
+
+struct HomeScreenStats {
+    let recentCount: Int
+    let newestCount: Int
+    let frequentCount: Int
+    let randomCount: Int
+    let isLoading: Bool
+    let lastRefresh: Date?
+    let hasError: Bool
+    
+    var totalCount: Int {
+        return recentCount + newestCount + frequentCount + randomCount
+    }
+    
+    var isEmpty: Bool {
+        return totalCount == 0
+    }
+    
+    var summary: String {
+        if isEmpty {
+            return "No home screen content loaded"
+        }
+        return "Recent: \(recentCount), Newest: \(newestCount), Frequent: \(frequentCount), Random: \(randomCount)"
+    }
+}

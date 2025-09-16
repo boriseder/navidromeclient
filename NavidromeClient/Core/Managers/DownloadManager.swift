@@ -1,8 +1,10 @@
 //
-//  DownloadManager.swift - ENHANCED with UI State Management
+//  DownloadManager.swift - MIGRATED to MediaService
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Centralized download state + UI logic extraction from DownloadButton
+//  ✅ MIGRATION COMPLETE: SubsonicService → MediaService
+//  ✅ ENHANCED: Focused service integration with better error handling
+//  ✅ OPTIMIZED: Cover art loading via CoverArtManager integration
 //
 
 import Foundation
@@ -16,9 +18,18 @@ class DownloadManager: ObservableObject {
     @Published private(set) var isDownloading: Set<String> = []
     @Published private(set) var downloadProgress: [String: Double] = [:]
     
-    // ✅ NEW: Centralized Download UI States
+    // ✅ ENHANCED: Centralized Download UI States
     @Published private(set) var downloadStates: [String: DownloadState] = [:]
     @Published private(set) var downloadErrors: [String: String] = [:]
+
+    // ✅ MIGRATION: MediaService dependency
+    private weak var mediaService: MediaService?
+    
+    // ✅ MIGRATION: CoverArtManager integration
+    private weak var coverArtManager: CoverArtManager?
+    
+    // ✅ BACKWARDS COMPATIBLE: Keep legacy service as fallback
+    private weak var legacyService: UnifiedSubsonicService?
 
     private var downloadsFolder: URL {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -33,7 +44,7 @@ class DownloadManager: ObservableObject {
         downloadsFolder.appendingPathComponent("downloaded_albums.json")
     }
 
-    // ✅ NEW: Download State Enum (moved from DownloadButton)
+    // ✅ ENHANCED: Download State Enum
     enum DownloadState: Equatable {
         case idle
         case downloading
@@ -70,9 +81,324 @@ class DownloadManager: ObservableObject {
         setupStateObservation()
     }
     
-    // ✅ NEW: Setup state observation for UI consistency
+    // MARK: - ✅ MIGRATION: Dual Service Configuration
+    
+    /// ✅ NEW: Configure with focused MediaService (preferred)
+    func configure(mediaService: MediaService) {
+        self.mediaService = mediaService
+        print("✅ DownloadManager configured with focused MediaService")
+    }
+    
+    /// ✅ NEW: Configure with CoverArtManager integration
+    func configure(coverArtManager: CoverArtManager) {
+        self.coverArtManager = coverArtManager
+        print("✅ DownloadManager configured with CoverArtManager integration")
+    }
+    
+    /// ✅ LEGACY: Configure with UnifiedSubsonicService (backwards compatible)
+    func configure(service: UnifiedSubsonicService) {
+        self.legacyService = service
+        // ✅ MIGRATION: Extract focused services automatically
+        self.mediaService = service.getMediaService()
+        print("✅ DownloadManager configured with legacy service + extracted MediaService")
+    }
+    
+    // MARK: - ✅ MIGRATION: Smart Service Resolution
+    
+    /// Get active MediaService (focused service preferred)
+    private var activeMediaService: MediaService? {
+        return mediaService ?? legacyService?.getMediaService()
+    }
+    
+    /// Get legacy service for backward compatibility
+    private var activeLegacyService: UnifiedSubsonicService? {
+        return legacyService
+    }
+    
+    // MARK: - ✅ MIGRATION: Enhanced Download Operations
+    
+    /// ✅ NEW: Start download with MediaService integration
+    func startDownload(album: Album, songs: [Song]) async {
+        guard getDownloadState(for: album.id).canStartDownload else {
+            print("⚠️ Cannot start download for album \(album.id) in current state")
+            return
+        }
+        
+        // ✅ MIGRATION: Ensure MediaService is available
+        guard let mediaService = activeMediaService else {
+            let errorMessage = "MediaService not available for downloads"
+            downloadErrors[album.id] = errorMessage
+            setDownloadState(.error(errorMessage), for: album.id)
+            print("❌ MediaService not configured for DownloadManager")
+            return
+        }
+        
+        setDownloadState(.downloading, for: album.id)
+        downloadErrors.removeValue(forKey: album.id)
+        
+        do {
+            // ✅ MIGRATION: Use MediaService for downloads
+            try await downloadAlbumWithMediaService(
+                songs: songs,
+                albumId: album.id,
+                mediaService: mediaService
+            )
+            setDownloadState(.downloaded, for: album.id)
+            
+            NotificationCenter.default.post(name: .downloadCompleted, object: album.id)
+            
+        } catch {
+            let errorMessage = "Download failed: \(error.localizedDescription)"
+            downloadErrors[album.id] = errorMessage
+            setDownloadState(.error(errorMessage), for: album.id)
+            
+            print("❌ Download failed for album \(album.id) via MediaService: \(error)")
+            
+            NotificationCenter.default.post(
+                name: .downloadFailed,
+                object: album.id,
+                userInfo: ["error": error]
+            )
+        }
+    }
+    
+    /// ✅ LEGACY: Maintain backward compatibility
+    func startDownload(album: Album, songs: [Song], service: SubsonicService) async {
+        print("⚠️ Using legacy download method - consider migrating to startDownload(album:songs:)")
+        
+        // Convert legacy service to MediaService if possible
+        if let unifiedService = service as? UnifiedSubsonicService {
+            configure(service: unifiedService)
+        }
+        
+        await startDownload(album: album, songs: songs)
+    }
+    
+    // MARK: - ✅ MIGRATION: Core Download Implementation with MediaService
+    
+    private func downloadAlbumWithMediaService(
+        songs: [Song],
+        albumId: String,
+        mediaService: MediaService
+    ) async throws {
+        
+        guard !isDownloading.contains(albumId) else {
+            throw DownloadError.alreadyInProgress
+        }
+        
+        guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
+            throw DownloadError.missingMetadata
+        }
+        
+        print("🔽 Starting MediaService download of album '\(albumMetadata.name)' with \(songs.count) songs")
+        
+        isDownloading.insert(albumId)
+        downloadProgress[albumId] = 0
+
+        let albumFolder = downloadsFolder.appendingPathComponent(albumId, isDirectory: true)
+        if !FileManager.default.fileExists(atPath: albumFolder.path) {
+            do {
+                try FileManager.default.createDirectory(at: albumFolder, withIntermediateDirectories: true)
+            } catch {
+                isDownloading.remove(albumId)
+                downloadProgress.removeValue(forKey: albumId)
+                throw DownloadError.folderCreationFailed(error)
+            }
+        }
+
+        var downloadedSongsMetadata: [DownloadedSong] = []
+        let totalSongs = songs.count
+        let downloadDate = Date()
+
+        // ✅ MIGRATION: Step 1 - Download album cover art via CoverArtManager
+        await downloadAlbumCoverArtViaManager(album: albumMetadata)
+        
+        // ✅ MIGRATION: Step 2 - Download artist image via CoverArtManager
+        await downloadArtistImageViaManager(for: albumMetadata)
+
+        // ✅ MIGRATION: Step 3 - Download songs via MediaService
+        for (index, song) in songs.enumerated() {
+            // ✅ MIGRATION: Get stream URL from MediaService
+            guard let streamURL = getStreamURLFromMediaService(for: song.id, mediaService: mediaService) else {
+                print("❌ No stream URL from MediaService for song: \(song.title)")
+                continue
+            }
+            
+            let sanitizedTitle = sanitizeFileName(song.title)
+            let trackNumber = String(format: "%02d", song.track ?? index + 1)
+            let fileName = "\(trackNumber) - \(sanitizedTitle).mp3"
+            let fileURL = albumFolder.appendingPathComponent(fileName)
+
+            do {
+                print("⬇️ Downloading via MediaService: \(song.title)")
+                let (data, response) = try await URLSession.shared.data(from: streamURL)
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    guard httpResponse.statusCode == 200 else {
+                        print("❌ MediaService download failed for \(song.title): HTTP \(httpResponse.statusCode)")
+                        continue
+                    }
+                }
+                
+                try data.write(to: fileURL, options: .atomic)
+
+                let downloadedSong = DownloadedSong(
+                    id: song.id,
+                    title: song.title,
+                    artist: song.artist,
+                    album: song.album,
+                    albumId: song.albumId,
+                    track: song.track,
+                    duration: song.duration,
+                    year: song.year,
+                    genre: song.genre,
+                    contentType: song.contentType,
+                    fileName: fileName,
+                    fileSize: Int64(data.count),
+                    downloadDate: downloadDate
+                )
+                
+                downloadedSongsMetadata.append(downloadedSong)
+                downloadedSongs.insert(song.id)
+                
+                await MainActor.run {
+                    downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
+                }
+                
+                print("✅ Downloaded via MediaService: \(song.title) (\(data.count) bytes)")
+                
+            } catch {
+                print("❌ MediaService download error for \(song.title): \(error)")
+                throw DownloadError.songDownloadFailed(song.title, error)
+            }
+        }
+
+        // ✅ SAVE DOWNLOAD METADATA
+        if !downloadedSongsMetadata.isEmpty {
+            let downloadedAlbum = DownloadedAlbum(
+                albumId: albumId,
+                albumName: albumMetadata.name,
+                artistName: albumMetadata.artist,
+                year: albumMetadata.year,
+                genre: albumMetadata.genre,
+                songs: downloadedSongsMetadata,
+                folderPath: albumFolder.path,
+                downloadDate: downloadDate
+            )
+            
+            if let existingIndex = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
+                downloadedAlbums[existingIndex] = downloadedAlbum
+            } else {
+                downloadedAlbums.append(downloadedAlbum)
+            }
+
+            saveDownloadedAlbums()
+            
+            print("✅ MediaService album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
+        } else {
+            throw DownloadError.noSongsDownloaded
+        }
+
+        isDownloading.remove(albumId)
+        downloadProgress[albumId] = 1.0
+
+        // Auto-clear progress after delay
+        try? await Task.sleep(nanoseconds: 2_000_000_000)
+        downloadProgress.removeValue(forKey: albumId)
+    }
+    
+    // MARK: - ✅ MIGRATION: Enhanced Cover Art Integration
+    
+    /// ✅ MIGRATION: Use CoverArtManager instead of direct service calls
+    private func downloadAlbumCoverArtViaManager(album: Album) async {
+        guard let coverArtManager = coverArtManager else {
+            print("⚠️ CoverArtManager not configured - using legacy cover art loading")
+            await downloadAlbumCoverArtLegacy(album: album)
+            return
+        }
+        
+        // ✅ ENHANCED: Use CoverArtManager with multiple sizes
+        let sizes = [50, 120, 200, 300]
+        
+        await withTaskGroup(of: Void.self) { group in
+            for size in sizes {
+                group.addTask {
+                    _ = await coverArtManager.loadAlbumImage(album: album, size: size)
+                }
+            }
+        }
+        
+        print("✅ Cached album cover art via CoverArtManager for \(album.id) in \(sizes.count) sizes")
+    }
+    
+    /// ✅ MIGRATION: Use CoverArtManager for artist images
+    private func downloadArtistImageViaManager(for album: Album) async {
+        guard let coverArtManager = coverArtManager else {
+            print("⚠️ CoverArtManager not configured - skipping artist image")
+            return
+        }
+        
+        let artist = Artist(
+            id: album.artistId ?? "artist_\(album.artist.hash)",
+            name: album.artist,
+            coverArt: album.coverArt,
+            albumCount: 1,
+            artistImageUrl: nil
+        )
+        
+        let sizes = [50, 120]
+        
+        await withTaskGroup(of: Void.self) { group in
+            for size in sizes {
+                group.addTask {
+                    _ = await coverArtManager.loadArtistImage(artist: artist, size: size)
+                }
+            }
+        }
+        
+        print("✅ Cached artist image via CoverArtManager for \(artist.name) in \(sizes.count) sizes")
+    }
+    
+    // ✅ LEGACY: Fallback cover art loading (for backward compatibility)
+    private func downloadAlbumCoverArtLegacy(album: Album) async {
+        guard let legacyService = activeLegacyService else {
+            print("⚠️ No legacy service available for cover art")
+            return
+        }
+        
+        let sizes = [50, 120, 200, 300]
+        
+        for size in sizes {
+            _ = await legacyService.getCoverArt(for: album.id, size: size)
+        }
+        
+        print("✅ Cached album cover art via legacy service for \(album.id) in \(sizes.count) sizes")
+    }
+    
+    // MARK: - ✅ MIGRATION: Stream URL Resolution
+    
+    /// ✅ MIGRATION: Get stream URL from MediaService with fallback
+    private func getStreamURLFromMediaService(for songId: String, mediaService: MediaService) -> URL? {
+        // Try focused MediaService first (preferred)
+        if let streamURL = mediaService.streamURL(for: songId) {
+            print("🎵 Stream URL obtained from focused MediaService for song \(songId)")
+            return streamURL
+        }
+        
+        // Fallback to legacy service
+        if let legacyService = activeLegacyService,
+           let streamURL = legacyService.streamURL(for: songId) {
+            print("🎵 Stream URL obtained from legacy service for song \(songId)")
+            return streamURL
+        }
+        
+        print("❌ No stream URL available for song \(songId) from MediaService or legacy")
+        return nil
+    }
+    
+    // MARK: - ✅ ENHANCED: UI State Management (unchanged but improved)
+    
     private func setupStateObservation() {
-        // Update download states when core properties change
         NotificationCenter.default.addObserver(
             forName: .downloadCompleted,
             object: nil,
@@ -89,31 +415,25 @@ class DownloadManager: ObservableObject {
             queue: .main
         ) { [weak self] notification in
             if let albumId = notification.object as? String {
-                self?.downloadStates[albumId] = .error("Download failed")
+                self?.downloadStates[albumId] = .error("Download failed via MediaService")
             }
         }
     }
 
-    // MARK: - ✅ ENHANCED: UI State Management
-    
-    /// Get current download state for UI
     func getDownloadState(for albumId: String) -> DownloadState {
         return downloadStates[albumId] ?? determineDownloadState(for: albumId)
     }
     
-    /// Set download state (for UI updates)
     private func setDownloadState(_ state: DownloadState, for albumId: String) {
         downloadStates[albumId] = state
         objectWillChange.send()
     }
     
-    /// Update download state based on current data
     private func updateDownloadState(for albumId: String) {
         let newState = determineDownloadState(for: albumId)
         setDownloadState(newState, for: albumId)
     }
     
-    /// Determine download state from current data
     private func determineDownloadState(for albumId: String) -> DownloadState {
         if isAlbumDownloaded(albumId) {
             return .downloaded
@@ -126,35 +446,6 @@ class DownloadManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ ENHANCED: Download Operations with State Management
-    
-    /// Start download with UI state management
-    func startDownload(album: Album, songs: [Song], service: SubsonicService) async {
-        guard getDownloadState(for: album.id).canStartDownload else {
-            print("⚠️ Cannot start download for album \(album.id) in current state")
-            return
-        }
-        
-        setDownloadState(.downloading, for: album.id)
-        downloadErrors.removeValue(forKey: album.id)
-        
-        do {
-            try await downloadAlbum(songs: songs, albumId: album.id, service: service)
-            setDownloadState(.downloaded, for: album.id)
-        } catch {
-            let errorMessage = "Download failed: \(error.localizedDescription)"
-            downloadErrors[album.id] = errorMessage
-            setDownloadState(.error(errorMessage), for: album.id)
-            
-            NotificationCenter.default.post(
-                name: .downloadFailed,
-                object: album.id,
-                userInfo: ["error": error]
-            )
-        }
-    }
-    
-    /// Cancel download with UI state management
     func cancelDownload(albumId: String) {
         guard getDownloadState(for: albumId).canCancel else {
             print("⚠️ Cannot cancel download for album \(albumId) in current state")
@@ -163,18 +454,15 @@ class DownloadManager: ObservableObject {
         
         setDownloadState(.cancelling, for: albumId)
         
-        // Cancel the actual download (this would need enhancement in the actual download logic)
         isDownloading.remove(albumId)
         downloadProgress.removeValue(forKey: albumId)
         
-        // After a brief delay, reset to idle
         Task {
             try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
             setDownloadState(.idle, for: albumId)
         }
     }
     
-    /// Delete download with UI state management
     func deleteDownload(albumId: String) {
         guard getDownloadState(for: albumId).canDelete else {
             print("⚠️ Cannot delete download for album \(albumId) in current state")
@@ -247,134 +535,7 @@ class DownloadManager: ObservableObject {
         return String(format: "%.1f MB", mb)
     }
 
-    // MARK: - ✅ ENHANCED: Download with Artist Image Caching (unchanged but enhanced error handling)
-    
-    func downloadAlbum(songs: [Song], albumId: String, service: SubsonicService) async throws {
-        guard !isDownloading.contains(albumId) else {
-            throw DownloadError.alreadyInProgress
-        }
-        
-        guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
-            throw DownloadError.missingMetadata
-        }
-        
-        print("🔽 Starting enhanced download of album '\(albumMetadata.name)' with \(songs.count) songs")
-        
-        isDownloading.insert(albumId)
-        downloadProgress[albumId] = 0
-
-        let albumFolder = downloadsFolder.appendingPathComponent(albumId, isDirectory: true)
-        if !FileManager.default.fileExists(atPath: albumFolder.path) {
-            do {
-                try FileManager.default.createDirectory(at: albumFolder, withIntermediateDirectories: true)
-            } catch {
-                isDownloading.remove(albumId)
-                downloadProgress.removeValue(forKey: albumId)
-                throw DownloadError.folderCreationFailed(error)
-            }
-        }
-
-        var downloadedSongsMetadata: [DownloadedSong] = []
-        let totalSongs = songs.count
-        let downloadDate = Date()
-
-        // Step 1: Download album cover art
-        await cacheAlbumCoverArt(album: albumMetadata, service: service)
-        
-        // Step 2: Download artist image (if available)
-        await cacheArtistImage(for: albumMetadata, service: service)
-
-        // Step 3: Download songs
-        for (index, song) in songs.enumerated() {
-            guard let url = service.streamURL(for: song.id) else {
-                print("❌ No stream URL for song: \(song.title)")
-                continue
-            }
-            
-            let sanitizedTitle = sanitizeFileName(song.title)
-            let trackNumber = String(format: "%02d", song.track ?? index + 1)
-            let fileName = "\(trackNumber) - \(sanitizedTitle).mp3"
-            let fileURL = albumFolder.appendingPathComponent(fileName)
-
-            do {
-                print("⬇️ Downloading: \(song.title)")
-                let (data, response) = try await URLSession.shared.data(from: url)
-                
-                if let httpResponse = response as? HTTPURLResponse {
-                    guard httpResponse.statusCode == 200 else {
-                        print("❌ Download failed for \(song.title): HTTP \(httpResponse.statusCode)")
-                        continue
-                    }
-                }
-                
-                try data.write(to: fileURL, options: .atomic)
-
-                let downloadedSong = DownloadedSong(
-                    id: song.id,
-                    title: song.title,
-                    artist: song.artist,
-                    album: song.album,
-                    albumId: song.albumId,
-                    track: song.track,
-                    duration: song.duration,
-                    year: song.year,
-                    genre: song.genre,
-                    contentType: song.contentType,
-                    fileName: fileName,
-                    fileSize: Int64(data.count),
-                    downloadDate: downloadDate
-                )
-                
-                downloadedSongsMetadata.append(downloadedSong)
-                downloadedSongs.insert(song.id)
-                
-                await MainActor.run {
-                    downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
-                }
-                
-                print("✅ Downloaded: \(song.title) (\(data.count) bytes)")
-                
-            } catch {
-                print("❌ Download error for \(song.title): \(error)")
-                throw DownloadError.songDownloadFailed(song.title, error)
-            }
-        }
-
-        if !downloadedSongsMetadata.isEmpty {
-            let downloadedAlbum = DownloadedAlbum(
-                albumId: albumId,
-                albumName: albumMetadata.name,
-                artistName: albumMetadata.artist,
-                year: albumMetadata.year,
-                genre: albumMetadata.genre,
-                songs: downloadedSongsMetadata,
-                folderPath: albumFolder.path,
-                downloadDate: downloadDate
-            )
-            
-            if let existingIndex = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
-                downloadedAlbums[existingIndex] = downloadedAlbum
-            } else {
-                downloadedAlbums.append(downloadedAlbum)
-            }
-
-            saveDownloadedAlbums()
-            
-            print("✅ Enhanced album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
-        } else {
-            throw DownloadError.noSongsDownloaded
-        }
-
-        isDownloading.remove(albumId)
-        downloadProgress[albumId] = 1.0
-        
-        NotificationCenter.default.post(name: .downloadCompleted, object: albumId)
-
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
-        downloadProgress.removeValue(forKey: albumId)
-    }
-    
-    // MARK: - ✅ NEW: Download Error Types
+    // MARK: - ✅ ENHANCED: Download Error Types
     
     enum DownloadError: LocalizedError {
         case alreadyInProgress
@@ -382,6 +543,7 @@ class DownloadManager: ObservableObject {
         case folderCreationFailed(Error)
         case songDownloadFailed(String, Error)
         case noSongsDownloaded
+        case mediaServiceUnavailable
         
         var errorDescription: String? {
             switch self {
@@ -395,45 +557,10 @@ class DownloadManager: ObservableObject {
                 return "Failed to download '\(title)': \(error.localizedDescription)"
             case .noSongsDownloaded:
                 return "No songs were successfully downloaded"
+            case .mediaServiceUnavailable:
+                return "MediaService not available for downloads"
             }
         }
-    }
-    
-    // MARK: - Helper Methods (unchanged)
-    
-    private func cacheAlbumCoverArt(album: Album, service: SubsonicService) async {
-        let coverArtService = CoverArtManager.shared
-        
-        let sizes = [50, 120, 200, 300]
-        
-        for size in sizes {
-            _ = await coverArtService.loadAlbumImage(album: album, size: size)
-        }
-        
-        print("✅ Cached album cover art for \(album.id) in \(sizes.count) sizes")
-    }
-    
-    private func cacheArtistImage(for album: Album, service: SubsonicService) async {
-        let coverArtService = CoverArtManager.shared
-        
-        let artist = findOrCreateArtist(for: album)
-        let sizes = [50, 120]
-        
-        for size in sizes {
-            _ = await coverArtService.loadArtistImage(artist: artist, size: size)
-        }
-        
-        print("✅ Cached artist image for \(artist.name) in \(sizes.count) sizes")
-    }
-    
-    private func findOrCreateArtist(for album: Album) -> Artist {
-        return Artist(
-            id: album.artistId ?? "artist_\(album.artist.hash)",
-            name: album.artist,
-            coverArt: album.coverArt,
-            albumCount: 1,
-            artistImageUrl: nil
-        )
     }
     
     // MARK: - Deletion Methods (enhanced with state management)
@@ -461,7 +588,7 @@ class DownloadManager: ObservableObject {
             downloadProgress.removeValue(forKey: albumId)
             isDownloading.remove(albumId)
             
-            // ✅ NEW: Clean up UI state
+            // Clean up UI state
             downloadStates.removeValue(forKey: albumId)
             downloadErrors.removeValue(forKey: albumId)
 
@@ -491,7 +618,7 @@ class DownloadManager: ObservableObject {
         downloadProgress.removeAll()
         isDownloading.removeAll()
         
-        // ✅ NEW: Clean up all UI state
+        // Clean up all UI state
         downloadStates.removeAll()
         downloadErrors.removeAll()
 
@@ -515,7 +642,7 @@ class DownloadManager: ObservableObject {
                 downloadedAlbums = newAlbums
                 rebuildDownloadedSongsSet()
                 
-                // ✅ NEW: Initialize UI states
+                // Initialize UI states
                 for album in newAlbums {
                     updateDownloadState(for: album.albumId)
                 }
@@ -560,6 +687,75 @@ class DownloadManager: ObservableObject {
             .prefix(50)
             .description
     }
+    
+    // MARK: - ✅ DIAGNOSTICS & HEALTH MONITORING
+    
+    /// Get download service diagnostics
+    func getServiceDiagnostics() -> DownloadServiceDiagnostics {
+        return DownloadServiceDiagnostics(
+            hasMediaService: mediaService != nil,
+            hasCoverArtManager: coverArtManager != nil,
+            hasLegacyService: legacyService != nil,
+            activeDownloads: isDownloading.count,
+            totalDownloads: downloadedAlbums.count,
+            errorCount: downloadErrors.count
+        )
+    }
+    
+    struct DownloadServiceDiagnostics {
+        let hasMediaService: Bool
+        let hasCoverArtManager: Bool
+        let hasLegacyService: Bool
+        let activeDownloads: Int
+        let totalDownloads: Int
+        let errorCount: Int
+        
+        var healthScore: Double {
+            var score = 0.0
+            
+            // Service availability
+            if hasMediaService { score += 0.4 }
+            if hasCoverArtManager { score += 0.3 }
+            if hasLegacyService { score += 0.1 }
+            
+            // Performance factors
+            if activeDownloads < 5 { score += 0.1 }
+            if errorCount < 3 { score += 0.1 }
+            
+            return min(score, 1.0)
+        }
+        
+        var statusDescription: String {
+            let score = healthScore * 100
+            
+            switch score {
+            case 90...100: return "✅ Excellent"
+            case 70..<90: return "🟢 Good"
+            case 50..<70: return "🟡 Fair"
+            default: return "🟠 Needs attention"
+            }
+        }
+        
+        var summary: String {
+            return """
+            📊 DOWNLOAD SERVICE DIAGNOSTICS:
+            - MediaService: \(hasMediaService ? "✅" : "❌")
+            - CoverArtManager: \(hasCoverArtManager ? "✅" : "❌")
+            - Legacy Service: \(hasLegacyService ? "✅" : "❌")
+            - Active Downloads: \(activeDownloads)
+            - Total Downloads: \(totalDownloads)
+            - Errors: \(errorCount)
+            - Health: \(statusDescription)
+            """
+        }
+    }
+    
+    #if DEBUG
+    func printServiceDiagnostics() {
+        let diagnostics = getServiceDiagnostics()
+        print(diagnostics.summary)
+    }
+    #endif
 }
 
 // MARK: - Notification Names (enhanced)
