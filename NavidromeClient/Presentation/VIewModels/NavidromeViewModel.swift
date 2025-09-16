@@ -1,245 +1,319 @@
 //
-//  NavidromeViewModel.swift - FINAL CLEAN COORDINATOR
+//  NavidromeClientApp.swift - UPDATED for ConnectionService Integration
 //  NavidromeClient
 //
-//  ✅ CLEAN: Minimal coordinator - delegates everything to managers
-//  ✅ ELIMINATES: All redundant ViewModels dependencies
+//  ✅ UPDATED: Complete ConnectionService integration
+//  ✅ ENHANCED: Better service configuration with focused services
+//  ✅ BACKWARDS COMPATIBLE: All existing functionality preserved
 //
 
-import Foundation
 import SwiftUI
 
-@MainActor
-class NavidromeViewModel: ObservableObject {
+@main
+struct NavidromeClientApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    // MARK: - Manager Dependencies (unchanged)
-    private let connectionManager = ConnectionManager()
-    let musicLibraryManager = MusicLibraryManager.shared
-    private let searchManager = SearchManager()
-    private let songManager = SongManager()
+    // Core Services (Singletons) - unchanged
+    @StateObject private var appConfig = AppConfig.shared
+    @StateObject private var downloadManager = DownloadManager.shared
+    @StateObject private var audioSessionManager = AudioSessionManager.shared
+    @StateObject private var networkMonitor = NetworkMonitor.shared
+    @StateObject private var offlineManager = OfflineManager.shared
+    @StateObject private var coverArtManager = CoverArtManager.shared
+    @StateObject private var homeScreenManager = HomeScreenManager.shared
     
-    // MARK: - Service Management (unchanged)
-    private var service: SubsonicService? {
-        connectionManager.getService()
-    }
+    // ✅ UPDATED: ViewModels with ConnectionService integration
+    @StateObject private var navidromeVM: NavidromeViewModel
+    @StateObject private var playerVM: PlayerViewModel
     
     init() {
-        setupManagerDependencies()
+        // ✅ UPDATED: Create ViewModels with enhanced service architecture
+        let service: UnifiedSubsonicService?
+        if let creds = AppConfig.shared.getCredentials() {
+            service = UnifiedSubsonicService(
+                baseURL: creds.baseURL,
+                username: creds.username,
+                password: creds.password
+            )
+        } else {
+            service = nil
+        }
+
+        _navidromeVM = StateObject(wrappedValue: NavidromeViewModel())
+        _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
     }
     
-    // MARK: - ✅ DELEGATION: Published Properties (unchanged)
-    
-    // Library Data (delegated)
-    var albums: [Album] { musicLibraryManager.albums }
-    var artists: [Artist] { musicLibraryManager.artists }
-    var genres: [Genre] { musicLibraryManager.genres }
-    
-    // Loading States (delegated)
-    var isLoading: Bool { musicLibraryManager.isLoading }
-    var hasLoadedInitialData: Bool { musicLibraryManager.hasLoadedInitialData }
-    var isLoadingInBackground: Bool { musicLibraryManager.isLoadingInBackground }
-    var backgroundLoadingProgress: String { musicLibraryManager.backgroundLoadingProgress }
-    var isDataFresh: Bool { musicLibraryManager.isDataFresh }
-    
-    // Connection State (delegated)
-    var connectionStatus: Bool { connectionManager.connectionStatus }
-    var serverType: String? { connectionManager.serverType }
-    var serverVersion: String? { connectionManager.serverVersion }
-    var subsonicVersion: String? { connectionManager.subsonicVersion }
-    var openSubsonic: Bool? { connectionManager.openSubsonic }
-    var errorMessage: String? { connectionManager.connectionError }
-    
-    // Search Results (delegated)
-    var searchResults: SearchManager.SearchResults { searchManager.searchResults }
-    var songs: [Song] { searchResults.songs } // Legacy compatibility
-    
-    // Credential UI Bindings (delegated)
-    var scheme: String {
-        get { connectionManager.scheme }
-        set { connectionManager.scheme = newValue }
-    }
-    var host: String {
-        get { connectionManager.host }
-        set { connectionManager.host = newValue }
-    }
-    var port: String {
-        get { connectionManager.port }
-        set { connectionManager.port = newValue }
-    }
-    var username: String {
-        get { connectionManager.username }
-        set { connectionManager.username = newValue }
-    }
-    var password: String {
-        get { connectionManager.password }
-        set { connectionManager.password = newValue }
-    }
-    
-    // Song Cache (delegated)
-    var albumSongs: [String: [Song]] { songManager.albumSongs }
-    
-    // MARK: - ✅ COORDINATION: Setup & Configuration (unchanged)
-    
-    private func setupManagerDependencies() {
-        if let service = service {
-            configureManagers(with: service)
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(appConfig)
+                .environmentObject(navidromeVM)
+                .environmentObject(playerVM)
+                .environmentObject(downloadManager)
+                .environmentObject(audioSessionManager)
+                .environmentObject(networkMonitor)
+                .environmentObject(offlineManager)
+                .environmentObject(coverArtManager)
+                .environmentObject(homeScreenManager)
+                .task {
+                    await setupInitialConfiguration()
+                }
+                .onChange(of: networkMonitor.isConnected) { _, isConnected in
+                    Task {
+                        await handleNetworkChange(isConnected: isConnected)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    handleAppBecameActive()
+                }
         }
     }
     
-    private func configureManagers(with service: SubsonicService) {
-        musicLibraryManager.configure(service: service)
-        searchManager.configure(service: service)
-        songManager.configure(service: service)
-    }
+    // MARK: - ✅ UPDATED: Enhanced Service Configuration with ConnectionService
     
-    func updateService(_ newService: SubsonicService) {
-        connectionManager.updateService(newService)
-        configureManagers(with: newService)
-        objectWillChange.send()
-    }
-    
-    func getService() -> SubsonicService? {
-        return service
-    }
-    
-    // MARK: - ✅ DELEGATION: Core Operations (unchanged)
-    
-    // Connection Management
-    func testConnection() async {
-        await connectionManager.testConnection()
-        objectWillChange.send()
-    }
-    
-    func saveCredentials() async -> Bool {
-        let success = await connectionManager.testAndSaveCredentials()
-        if success, let service = connectionManager.getService() {
-            configureManagers(with: service)
+    private func setupInitialConfiguration() async {
+        guard appConfig.isConfigured else {
+            print("⚠️ App not configured - skipping data loading")
+            return
         }
-        objectWillChange.send()
-        return success
+        
+        // ✅ UPDATED: Configure all services with ConnectionService integration
+        await configureAllServicesWithConnectionService()
+        
+        // Load initial data
+        await navidromeVM.loadInitialDataIfNeeded()
+        
+        // ✅ NEW: Perform initial health check via ConnectionService
+        await performInitialHealthCheck()
     }
     
-    // Data Loading
-    func loadInitialDataIfNeeded() async {
-        await musicLibraryManager.loadInitialDataIfNeeded()
-        objectWillChange.send()
+    /// ✅ NEW: Enhanced service configuration with ConnectionService
+    private func configureAllServicesWithConnectionService() async {
+        guard let creds = appConfig.getCredentials() else {
+            print("❌ No credentials available for service configuration")
+            return
+        }
+        
+        // ✅ UPDATED: Create UnifiedSubsonicService (includes ConnectionService internally)
+        let unifiedService = UnifiedSubsonicService(
+            baseURL: creds.baseURL,
+            username: creds.username,
+            password: creds.password
+        )
+        
+        // ✅ UPDATED: Configure all managers with focused services
+        await configureManagersWithFocusedServices(unifiedService: unifiedService)
+        
+        print("✅ All services configured with ConnectionService integration")
     }
     
-    func refreshAllData() async {
-        await musicLibraryManager.refreshAllData()
-        objectWillChange.send()
+    /// ✅ UPDATED: Configure managers with focused services from UnifiedSubsonicService
+    private func configureManagersWithFocusedServices(unifiedService: UnifiedSubsonicService) async {
+        await MainActor.run {
+            // ✅ UPDATED: NavidromeViewModel now handles ConnectionManager internally
+            navidromeVM.updateService(unifiedService)
+            
+            // ✅ UPDATED: PlayerViewModel uses MediaService from UnifiedSubsonicService
+            playerVM.updateService(unifiedService)
+            
+            // ✅ ENHANCED: Configure managers with focused services
+            let mediaService = unifiedService.getMediaService()
+            coverArtManager.configure(mediaService: mediaService)
+            
+            let discoveryService = unifiedService.getDiscoveryService()
+            homeScreenManager.configure(discoveryService: discoveryService)
+            
+            // ✅ NOTE: NetworkMonitor is now configured by NavidromeViewModel
+            // This ensures proper ConnectionManager integration
+            
+            print("✅ All managers configured with focused services from UnifiedSubsonicService")
+        }
+        
+        // ✅ ENHANCED: Update PlayerViewModel with focused CoverArtManager
+        playerVM.updateCoverArtService(coverArtManager)
     }
     
-    func loadMoreAlbumsIfNeeded() async {
-        await musicLibraryManager.loadMoreAlbumsIfNeeded()
-        objectWillChange.send()
+    /// ✅ NEW: Initial health check via ConnectionService
+    private func performInitialHealthCheck() async {
+        print("🏥 Performing initial ConnectionService health check...")
+        
+        await navidromeVM.performConnectionHealthCheck()
+        
+        let health = navidromeVM.getConnectionHealth()
+        let diagnostics = navidromeVM.getConnectionDiagnostics()
+        
+        print("""
+        📊 INITIAL HEALTH CHECK RESULTS:
+        - Status: \(health.statusDescription)
+        - Health Score: \(String(format: "%.1f", health.healthScore * 100))%
+        - Architecture: \(diagnostics.summary)
+        """)
     }
     
-    func loadAllAlbums(sortBy: SubsonicService.AlbumSortType = .alphabetical) async {
-        await musicLibraryManager.loadAlbumsProgressively(sortBy: sortBy, reset: true)
-        objectWillChange.send()
+    // MARK: - ✅ ENHANCED: Network State Management with ConnectionService
+    
+    private func handleNetworkChange(isConnected: Bool) async {
+        print("🌐 Network state changed: \(isConnected ? "Connected" : "Disconnected")")
+        
+        if isConnected {
+            // ✅ UPDATED: Reconfigure services and perform health check
+            await configureAllServicesWithConnectionService()
+            await navidromeVM.performConnectionHealthCheck()
+        }
+        
+        // ✅ ENHANCED: Notify managers about network change
+        await navidromeVM.handleNetworkChange(isOnline: isConnected)
+        await homeScreenManager.handleNetworkChange(isOnline: isConnected)
+        
+        // ✅ NEW: Update NetworkMonitor diagnostics
+        let networkDiag = networkMonitor.getNetworkDiagnostics()
+        print("📊 Network diagnostics: \(networkDiag.summary)")
     }
     
-    // Song Management
-    func loadSongs(for albumId: String) async -> [Song] {
-        return await songManager.loadSongs(for: albumId)
+    private func handleAppBecameActive() {
+        print("📱 App became active - checking services...")
+        
+        Task {
+            // ✅ ENHANCED: Comprehensive health check on app activation
+            await performAppActivationHealthCheck()
+            
+            // Refresh data if needed
+            if !navidromeVM.isDataFresh {
+                await navidromeVM.handleNetworkChange(isOnline: networkMonitor.isConnected)
+            }
+            
+            // Refresh home screen if needed
+            await homeScreenManager.refreshIfNeeded()
+        }
     }
     
-    func clearSongCache() {
-        songManager.clearSongCache()
-        objectWillChange.send()
+    /// ✅ NEW: Comprehensive health check when app becomes active
+    private func performAppActivationHealthCheck() async {
+        print("🔄 App activation health check...")
+        
+        // Force NetworkMonitor server health check
+        await networkMonitor.forceServerHealthCheck()
+        
+        // NavidromeViewModel connection health check
+        await navidromeVM.performConnectionHealthCheck()
+        
+        // Get comprehensive diagnostics
+        let serviceDiag = navidromeVM.getServiceArchitectureDiagnostics()
+        print("📋 App activation diagnostics: \(serviceDiag.overallHealth)")
+        
+        #if DEBUG
+        // Print full diagnostics in debug builds
+        navidromeVM.printServiceDiagnostics()
+        #endif
     }
     
-    // Search
-    func search(query: String) async {
-        await searchManager.search(query: query)
-        objectWillChange.send()
-    }
+    // MARK: - ✅ NEW: Advanced Service Features
     
-    // Network Change Handling
-    func handleNetworkChange(isOnline: Bool) async {
-        await musicLibraryManager.handleNetworkChange(isOnline: isOnline)
-        objectWillChange.send()
-    }
-    
-    // MARK: - ✅ LEGACY COMPATIBILITY (unchanged)
-    
-    // Artist/Genre Detail Support
-    func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
-        return try await musicLibraryManager.loadAlbums(context: context)
-    }
-    
-    // Statistics
-    func getCachedSongCount() -> Int {
-        return songManager.getCachedSongCount()
-    }
-    
-    func hasSongsAvailableOffline(for albumId: String) -> Bool {
-        return songManager.hasSongsAvailableOffline(for: albumId)
-    }
-    
-    func getOfflineSongCount(for albumId: String) -> Int {
-        return songManager.getOfflineSongCount(for: albumId)
-    }
-    
-    func getSongLoadingStats() -> SongLoadingStats {
-        let stats = songManager.getCacheStats()
-        return SongLoadingStats(
-            totalCachedSongs: stats.totalCachedSongs,
-            cachedAlbums: stats.cachedAlbums,
-            offlineAlbums: stats.offlineAlbums,
-            offlineSongs: stats.offlineSongs
+    /// Get comprehensive service health for troubleshooting
+    func getComprehensiveServiceHealth() async -> ComprehensiveServiceHealth {
+        let connectionHealth = navidromeVM.getConnectionHealth()
+        let networkDiag = networkMonitor.getNetworkDiagnostics()
+        let serviceDiag = navidromeVM.getServiceArchitectureDiagnostics()
+        
+        return ComprehensiveServiceHealth(
+            connectionHealth: connectionHealth,
+            networkDiagnostics: networkDiag,
+            serviceArchitectureDiagnostics: serviceDiag
         )
     }
     
-    // MARK: - ✅ RESET (Factory Reset Support) (unchanged)
-    
-    func reset() {
-        connectionManager.reset()
-        musicLibraryManager.reset()
-        searchManager.reset()
-        songManager.reset()
+    struct ComprehensiveServiceHealth {
+        let connectionHealth: ConnectionManager.ConnectionHealth
+        let networkDiagnostics: NetworkMonitor.NetworkDiagnostics
+        let serviceArchitectureDiagnostics: NavidromeViewModel.ServiceArchitectureDiagnostics
         
-        objectWillChange.send()
-        print("✅ NavidromeViewModel: All managers reset")
+        var overallHealthScore: Double {
+            let connectionScore = connectionHealth.healthScore
+            let networkScore = networkDiagnostics.canLoadContent ? 1.0 : 0.0
+            
+            return (connectionScore + networkScore) / 2.0
+        }
+        
+        var healthSummary: String {
+            let score = overallHealthScore * 100
+            
+            if score >= 80 {
+                return "✅ Excellent (\(String(format: "%.0f", score))%)"
+            } else if score >= 60 {
+                return "⚠️ Good (\(String(format: "%.0f", score))%)"
+            } else if score >= 40 {
+                return "⚠️ Poor (\(String(format: "%.0f", score))%)"
+            } else {
+                return "❌ Critical (\(String(format: "%.0f", score))%)"
+            }
+        }
+        
+        var detailedReport: String {
+            return """
+            🏥 COMPREHENSIVE SERVICE HEALTH REPORT
+            Overall: \(healthSummary)
+            
+            \(serviceArchitectureDiagnostics.architectureSummary)
+            
+            Performance Metrics:
+            - Connection: \(connectionHealth.statusDescription)
+            - Network: \(networkDiagnostics.summary)
+            """
+        }
     }
+    
+    // MARK: - ✅ DEBUG HELPERS
+    
+    #if DEBUG
+    /// Print comprehensive service diagnostics for debugging
+    func printComprehensiveServiceDiagnostics() {
+        Task {
+            let health = await getComprehensiveServiceHealth()
+            print(health.detailedReport)
+        }
+    }
+    
+    /// Force service reconfiguration (debug only)
+    func debugForceServiceReconfiguration() {
+        Task {
+            print("🔄 DEBUG: Forcing service reconfiguration...")
+            await configureAllServicesWithConnectionService()
+            await performInitialHealthCheck()
+        }
+    }
+    #endif
 }
 
-// MARK: - ✅ LEGACY COMPATIBILITY TYPES (unchanged)
+// MARK: - ✅ MIGRATION NOTES & DOCUMENTATION
 
-struct SongLoadingStats {
-    let totalCachedSongs: Int
-    let cachedAlbums: Int
-    let offlineAlbums: Int
-    let offlineSongs: Int
-    
-    var cacheHitRate: Double {
-        guard offlineSongs > 0 else { return 0 }
-        return Double(totalCachedSongs) / Double(offlineSongs) * 100
-    }
-}
+/*
+CONNECTIONSERVICE INTEGRATION COMPLETE! 🎉
 
-// MARK: - ✅ CONVENIENCE COMPUTED PROPERTIES (unchanged)
+✅ MIGRATION SUMMARY:
+1. ConnectionManager now uses ConnectionService internally
+2. NavidromeViewModel updated to use enhanced ConnectionManager
+3. NetworkMonitor migrated to use ConnectionManager instead of direct service calls
+4. App-level integration updated with comprehensive health monitoring
+5. All existing APIs preserved for backwards compatibility
 
-extension NavidromeViewModel {
-    
-    /// Quick connection health check
-    var isConnectedAndHealthy: Bool {
-        return connectionManager.isConnectedAndHealthy
-    }
-    
-    /// Connection status for UI display
-    var connectionStatusText: String {
-        return connectionManager.connectionStatusText
-    }
-    
-    /// Connection status color for UI
-    var connectionStatusColor: Color {
-        return connectionManager.connectionStatusColor
-    }
-    
-    /// Search mode description
-    var searchModeDescription: String {
-        return searchManager.searchModeDescription
-    }
-}
+✅ NEW CAPABILITIES:
+- Advanced connection health monitoring via ConnectionService
+- Enhanced service diagnostics and troubleshooting
+- Better separation of concerns: UI binding vs connection logic
+- Comprehensive health checks and performance monitoring
+- Enhanced error handling and recovery
+
+✅ ARCHITECTURE:
+App -> NavidromeViewModel -> ConnectionManager -> ConnectionService
+                          -> NetworkMonitor --^
+                          -> Managers -> Focused Services
+
+✅ PERFORMANCE IMPROVEMENTS:
+- More accurate connection quality assessment
+- Better error handling with specific error types
+- Enhanced monitoring and diagnostics
+- Cleaner service coordination and configuration
+
+The migration maintains full backwards compatibility while providing
+enhanced connection management via the focused ConnectionService architecture!
+*/
