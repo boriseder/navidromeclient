@@ -157,8 +157,7 @@ struct NavidromeClientApp: App {
         
         if isConnected {
             // ✅ UPDATED: Reconfigure services and perform health check
-            await configureAllServicesWithConnectionService()
-            await navidromeVM.performConnectionHealthCheck()
+            await setupSimplifiedServices()
         }
         
         // ✅ ENHANCED: Notify managers about network change
@@ -170,6 +169,21 @@ struct NavidromeClientApp: App {
         print("📊 Network diagnostics: \(networkDiag.summary)")
     }
     
+    private func setupSimplifiedServices() async {
+        guard let creds = appConfig.getCredentials() else { return }
+        
+        let unifiedService = UnifiedSubsonicService(
+            baseURL: creds.baseURL,
+            username: creds.username,
+            password: creds.password
+        )
+        
+        await MainActor.run {
+            navidromeVM.updateService(unifiedService)
+            playerVM.updateService(unifiedService)
+        }
+    }
+
     private func handleAppBecameActive() {
         print("📱 App became active - checking services...")
         

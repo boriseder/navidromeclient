@@ -1,9 +1,9 @@
 //
-//  NetworkMonitor.swift - MIGRATED to ConnectionManager/ConnectionService
+//  NetworkMonitor.swift - FIXED: ConnectionManager/ConnectionService Integration
 //  NavidromeClient
 //
-//  ✅ MIGRATION COMPLETE: SubsonicService → ConnectionManager → ConnectionService
-//  ✅ ENHANCED: Better health monitoring via ConnectionService
+//  ✅ FIXED: Direct ConnectionService access for detailed monitoring
+//  ✅ FIXED: Simplified ConnectionManager usage for UI state
 //  ✅ BACKWARDS COMPATIBLE: All existing API calls unchanged
 //
 
@@ -19,7 +19,7 @@ class NetworkMonitor: ObservableObject {
     @Published var isConnected = true
     @Published var connectionType: NetworkConnectionType = .unknown
     
-    // ✅ MIGRATION: Enhanced server connection status via ConnectionService
+    // ✅ FIXED: Enhanced server connection status via ConnectionService
     @Published var isServerReachable = true
     @Published var lastServerCheck: Date?
     @Published var serverConnectionQuality: ConnectionQuality = .unknown
@@ -27,7 +27,7 @@ class NetworkMonitor: ObservableObject {
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
     
-    // ✅ MIGRATION: ConnectionManager instead of direct service
+    // ✅ FIXED: ConnectionManager instead of direct service
     private var serverCheckTimer: Timer?
     private weak var connectionManager: ConnectionManager?
     
@@ -35,7 +35,7 @@ class NetworkMonitor: ObservableObject {
         case wifi, cellular, ethernet, unknown
     }
     
-    // ✅ MIGRATION: Map ConnectionManager.ConnectionQuality
+    // ✅ FIXED: Simplified ConnectionQuality (no longer from ConnectionManager)
     enum ConnectionQuality {
         case unknown, excellent, good, poor, timeout
         
@@ -95,9 +95,9 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ MIGRATION: Enhanced Server Monitoring via ConnectionManager
+    // MARK: - ✅ FIXED: Enhanced Server Monitoring via ConnectionManager/ConnectionService
     
-    /// MIGRATED: Now accepts ConnectionManager instead of SubsonicService
+    /// FIXED: Now accepts ConnectionManager instead of SubsonicService
     func setConnectionManager(_ manager: ConnectionManager?) {
         self.connectionManager = manager
         
@@ -128,7 +128,7 @@ class NetworkMonitor: ObservableObject {
     }
     
     private func startServerMonitoring() {
-        // ✅ MIGRATION: Enhanced monitoring with ConnectionService integration
+        // ✅ FIXED: Enhanced monitoring with ConnectionService integration
         serverCheckTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.checkServerConnection()
         }
@@ -155,27 +155,36 @@ class NetworkMonitor: ObservableObject {
         
         let wasReachable = isServerReachable
         
-        // ✅ MIGRATION: Use ConnectionManager.pingServer() instead of direct service.ping()
-        let serverReachable = await connectionManager.pingServer()
+        // ✅ FIXED: Use ConnectionManager simplified API
+        await connectionManager.performQuickHealthCheck()
+        let serverReachable = connectionManager.isConnected
         
-        // ✅ MIGRATION: Get connection quality from ConnectionManager
-        let connectionHealth = connectionManager.getConnectionHealth()
+        // ✅ FIXED: Get connection quality from ConnectionService if available
+        var connectionQuality: ConnectionQuality = .unknown
+        
+        if let connectionService = connectionManager.getConnectionService() {
+            let health = await connectionService.performHealthCheck()
+            connectionQuality = mapConnectionServiceQuality(health.quality)
+        } else {
+            // Fallback to basic quality assessment
+            connectionQuality = serverReachable ? .good : .timeout
+        }
         
         isServerReachable = serverReachable
-        serverConnectionQuality = mapConnectionQuality(connectionHealth.quality)
+        serverConnectionQuality = connectionQuality
         lastServerCheck = Date()
         
         // Enhanced logging with ConnectionService data
         if wasReachable != serverReachable {
             if serverReachable {
-                print("🟢 NetworkMonitor: Server reachable via ConnectionService (\(connectionHealth.statusDescription))")
+                print("🟢 NetworkMonitor: Server reachable via ConnectionService (\(connectionQuality.description))")
             } else {
                 print("🔴 NetworkMonitor: Server unreachable via ConnectionService - switching to offline mode")
                 // Post notification for automatic offline switch
                 NotificationCenter.default.post(name: .serverUnreachable, object: nil)
             }
         } else if serverReachable {
-            print("🔄 NetworkMonitor: Server health check (\(connectionHealth.statusDescription))")
+            print("🔄 NetworkMonitor: Server health check (\(connectionQuality.description))")
         }
     }
     
@@ -185,7 +194,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ MIGRATION: Enhanced Computed Properties with ConnectionService data
+    // MARK: - ✅ FIXED: Enhanced Computed Properties with ConnectionService data
     
     /// True if both internet AND server are reachable via ConnectionService
     var canLoadOnlineContent: Bool {
@@ -250,7 +259,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ MIGRATION: Enhanced Server Health Features
+    // MARK: - ✅ FIXED: Enhanced Server Health Features
     
     /// Force immediate server health check via ConnectionService
     func forceServerHealthCheck() async {
@@ -260,13 +269,22 @@ class NetworkMonitor: ObservableObject {
         }
         
         print("🏥 NetworkMonitor: Forcing server health check via ConnectionService...")
-        await connectionManager.performHealthCheck()
+        await connectionManager.performQuickHealthCheck()
         
         // Update our state based on ConnectionManager results
-        let health = connectionManager.getConnectionHealth()
+        let isReachable = connectionManager.isConnected
+        var quality: ConnectionQuality = .unknown
+        
+        if let connectionService = connectionManager.getConnectionService() {
+            let health = await connectionService.performHealthCheck()
+            quality = mapConnectionServiceQuality(health.quality)
+        } else {
+            quality = isReachable ? .good : .timeout
+        }
+        
         await MainActor.run {
-            self.isServerReachable = health.isConnected
-            self.serverConnectionQuality = mapConnectionQuality(health.quality)
+            self.isServerReachable = isReachable
+            self.serverConnectionQuality = quality
             self.lastServerCheck = Date()
         }
     }
@@ -284,11 +302,11 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ MIGRATION: Private Helper Methods
+    // MARK: - ✅ FIXED: Private Helper Methods
     
-    /// Map ConnectionManager.ConnectionQuality to local enum
-    private func mapConnectionQuality(_ managerQuality: ConnectionManager.ConnectionQuality) -> ConnectionQuality {
-        switch managerQuality {
+    /// Map ConnectionService.ConnectionQuality to local enum
+    private func mapConnectionServiceQuality(_ serviceQuality: ConnectionService.ConnectionQuality) -> ConnectionQuality {
+        switch serviceQuality {
         case .unknown: return .unknown
         case .excellent: return .excellent
         case .good: return .good
@@ -297,7 +315,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ MIGRATION: Reset & Cleanup
+    // MARK: - ✅ FIXED: Reset & Cleanup
     
     func reset() {
         connectionManager = nil
@@ -312,18 +330,38 @@ class NetworkMonitor: ObservableObject {
     
     #if DEBUG
     func printDiagnostics() {
-        let diagnostics = getNetworkDiagnostics()
-        print("""
-        🌐 NETWORKMONITOR DIAGNOSTICS:
-        \(diagnostics.summary)
-        
-        Connection Architecture:
-        - Network Monitor: ✅
-        - ConnectionManager: \(connectionManager != nil ? "✅" : "❌")
-        - ConnectionService: \(connectionManager?.getConnectionService() != nil ? "✅" : "❌")
-        
-        Health Score: \(String(format: "%.1f", serverHealthScore * 100))%
-        """)
+        Task {
+            let diagnostics = getNetworkDiagnostics()
+            
+            var connectionServiceStatus = "❌"
+            var healthDetails = "Not available"
+            
+            if let connectionManager = connectionManager,
+               let connectionService = connectionManager.getConnectionService() {
+                connectionServiceStatus = "✅"
+                let health = await connectionService.performHealthCheck()
+                healthDetails = """
+                Quality: \(health.quality.description)
+                Response Time: \(String(format: "%.0f", health.responseTime * 1000))ms
+                Health Score: \(String(format: "%.1f", health.healthScore * 100))%
+                """
+            }
+            
+            print("""
+            🌐 NETWORKMONITOR DIAGNOSTICS:
+            \(diagnostics.summary)
+            
+            Connection Architecture:
+            - Network Monitor: ✅
+            - ConnectionManager: \(connectionManager != nil ? "✅" : "❌")
+            - ConnectionService: \(connectionServiceStatus)
+            
+            ConnectionService Details:
+            \(healthDetails)
+            
+            Health Score: \(String(format: "%.1f", serverHealthScore * 100))%
+            """)
+        }
     }
     #endif
 }

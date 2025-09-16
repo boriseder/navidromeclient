@@ -70,10 +70,7 @@ struct SettingsView: View {
 
     private var ServerDetailsSection: some View {
         Section {
-            SettingsRow(title: "Type:", value: navidromeVM.serverType ?? "-")
-            SettingsRow(title: "Navidrome:", value: navidromeVM.serverVersion ?? "-")
-            SettingsRow(title: "Subsonic:", value: navidromeVM.subsonicVersion ?? "-")
-            SettingsRow(title: "OpenSubsonic:", value: navidromeVM.openSubsonic.map { $0 ? "Yes" : "No" } ?? "-")
+            SettingsRow(title: "Status:", value: navidromeVM.connectionStatus ? "Connected" : "Disconnected")
         } header: {
             Text("Server Info")
         }
