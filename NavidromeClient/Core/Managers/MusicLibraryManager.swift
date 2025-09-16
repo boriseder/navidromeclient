@@ -1,9 +1,9 @@
 //
-//  MusicLibraryManager.swift - Core Music Data Operations
+//  MusicLibraryManager.swift - MIGRATED to ContentService
 //  NavidromeClient
 //
-//  ✅ CLEAN: Single Responsibility - Music Library Data Loading
-//  ✅ FIXED: Dependency Injection instead of Singleton
+//  ✅ MIGRATION COMPLETE: SubsonicService → ContentService
+//  ✅ ALL SERVICE CALLS UPDATED
 //
 
 import Foundation
@@ -11,10 +11,10 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
-    // ✅ ADDED: Singleton pattern like all other managers
+    // ✅ SINGLETON PATTERN (unchanged)
     static let shared = MusicLibraryManager()
     
-    // MARK: - Progressive Library Data (unchanged)
+    // ✅ PROGRESSIVE LIBRARY DATA (unchanged)
     @Published private(set) var loadedAlbums: [Album] = []
     @Published private(set) var totalAlbumCount: Int = 0
     @Published private(set) var albumLoadingState: DataLoadingState = .idle
@@ -26,15 +26,15 @@ class MusicLibraryManager: ObservableObject {
     @Published private(set) var loadedGenres: [Genre] = []
     @Published private(set) var genreLoadingState: DataLoadingState = .idle
     
-    // MARK: - State Management (unchanged)
+    // ✅ STATE MANAGEMENT (unchanged)
     @Published private(set) var hasLoadedInitialData = false
     @Published private(set) var lastRefreshDate: Date?
     @Published private(set) var backgroundLoadingProgress: String = ""
     
-    // Dependencies (unchanged)
-    private weak var service: SubsonicService?
+    // ✅ MIGRATION: ContentService dependency
+    private weak var contentService: ContentService?
     
-    // Configuration (unchanged)
+    // ✅ CONFIGURATION (unchanged)
     private struct LoadingConfig {
         static let albumBatchSize = 20
         static let artistBatchSize = 25
@@ -42,10 +42,10 @@ class MusicLibraryManager: ObservableObject {
         static let batchDelay: UInt64 = 200_000_000   // 200ms
     }
     
-    // ✅ CHANGED: Made init private for singleton pattern
+    // ✅ SINGLETON INIT (unchanged)
     private init() {}
     
-    // MARK: - Public API (unchanged)
+    // MARK: - ✅ PUBLIC API (unchanged)
     var albums: [Album] { loadedAlbums }
     var artists: [Artist] { loadedArtists }
     var genres: [Genre] { loadedGenres }
@@ -64,15 +64,16 @@ class MusicLibraryManager: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) < freshnessDuration
     }
     
-    // Configuration (unchanged)
-    func configure(service: SubsonicService) {
-        self.service = service
+    // ✅ MIGRATION: New configuration method
+    func configure(contentService: ContentService) {
+        self.contentService = contentService
+        print("✅ MusicLibraryManager configured with ContentService")
     }
     
-    // MARK: - ✅ PROGRESSIVE ALBUMS LOADING
+    // MARK: - ✅ MIGRATION: Albums Loading with ContentService
     
     func loadAlbumsProgressively(
-        sortBy: SubsonicService.AlbumSortType = .alphabetical,
+        sortBy: ContentService.AlbumSortType = .alphabetical,
         reset: Bool = false
     ) async {
         
@@ -83,8 +84,11 @@ class MusicLibraryManager: ObservableObject {
         }
         
         guard albumLoadingState.canLoadMore else { return }
-        guard let service = service else {
-            albumLoadingState = .error("Service nicht verfügbar")
+        
+        // ✅ MIGRATION: ContentService guard
+        guard let contentService = contentService else {
+            albumLoadingState = .error("ContentService not available")
+            print("❌ ContentService not configured")
             return
         }
         
@@ -100,7 +104,8 @@ class MusicLibraryManager: ObservableObject {
                 try await Task.sleep(nanoseconds: LoadingConfig.batchDelay)
             }
             
-            let newAlbums = try await service.getAllAlbums(
+            // ✅ MIGRATION: ContentService call
+            let newAlbums = try await contentService.getAllAlbums(
                 sortBy: sortBy,
                 size: batchSize,
                 offset: offset
@@ -112,13 +117,13 @@ class MusicLibraryManager: ObservableObject {
                 return
             }
             
-            // Cache albums for offline use
+            // Cache albums for offline use (unchanged)
             AlbumMetadataCache.shared.cacheAlbums(newAlbums)
             
-            // Update UI progressively
+            // Update UI progressively (unchanged)
             loadedAlbums.append(contentsOf: newAlbums)
             
-            // Determine if we have more to load
+            // Determine if we have more to load (unchanged)
             if newAlbums.count < batchSize {
                 albumLoadingState = .completed
                 totalAlbumCount = loadedAlbums.count
@@ -126,7 +131,7 @@ class MusicLibraryManager: ObservableObject {
                 albumLoadingState = .idle
             }
             
-            // Update initial data flag
+            // Update initial data flag (unchanged)
             if !hasLoadedInitialData && loadedAlbums.count >= LoadingConfig.albumBatchSize {
                 hasLoadedInitialData = true
                 lastRefreshDate = Date()
@@ -134,14 +139,14 @@ class MusicLibraryManager: ObservableObject {
             
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
+            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count)) via ContentService")
             
         } catch {
             await handleLoadingError(error, for: "albums")
         }
     }
     
-    // MARK: - ✅ PROGRESSIVE ARTISTS LOADING
+    // MARK: - ✅ MIGRATION: Artists Loading with ContentService
     
     func loadArtistsProgressively(reset: Bool = false) async {
         
@@ -152,8 +157,11 @@ class MusicLibraryManager: ObservableObject {
         }
         
         guard artistLoadingState.canLoadMore else { return }
-        guard let service = service else {
-            artistLoadingState = .error("Service nicht verfügbar")
+        
+        // ✅ MIGRATION: ContentService guard
+        guard let contentService = contentService else {
+            artistLoadingState = .error("ContentService not available")
+            print("❌ ContentService not configured")
             return
         }
         
@@ -161,21 +169,22 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading artists..."
         
         do {
-            let allArtists = try await service.getArtists()
+            // ✅ MIGRATION: ContentService call
+            let allArtists = try await contentService.getArtists()
             
             loadedArtists = allArtists
             totalArtistCount = allArtists.count
             artistLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded artists: \(allArtists.count)")
+            print("✅ Loaded artists: \(allArtists.count) via ContentService")
             
         } catch {
             await handleLoadingError(error, for: "artists")
         }
     }
     
-    // MARK: - ✅ PROGRESSIVE GENRES LOADING
+    // MARK: - ✅ MIGRATION: Genres Loading with ContentService
     
     func loadGenresProgressively(reset: Bool = false) async {
         
@@ -185,8 +194,11 @@ class MusicLibraryManager: ObservableObject {
         }
         
         guard genreLoadingState.canLoadMore else { return }
-        guard let service = service else {
-            genreLoadingState = .error("Service nicht verfügbar")
+        
+        // ✅ MIGRATION: ContentService guard
+        guard let contentService = contentService else {
+            genreLoadingState = .error("ContentService not available")
+            print("❌ ContentService not configured")
             return
         }
         
@@ -194,32 +206,33 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading genres..."
         
         do {
-            let allGenres = try await service.getGenres()
+            // ✅ MIGRATION: ContentService call
+            let allGenres = try await contentService.getGenres()
             
             loadedGenres = allGenres
             genreLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded genres: \(allGenres.count)")
+            print("✅ Loaded genres: \(allGenres.count) via ContentService")
             
         } catch {
             await handleLoadingError(error, for: "genres")
         }
     }
     
-    // MARK: - ✅ COORDINATED LOADING
+    // MARK: - ✅ COORDINATED LOADING (unchanged logic, updated service calls)
     
     func loadInitialDataIfNeeded() async {
         guard !hasLoadedInitialData,
-              let service = service,
+              let contentService = contentService,
               NetworkMonitor.shared.canLoadOnlineContent else {
-            print("⚠️ Skipping initial data load")
+            print("⚠️ Skipping initial data load - ContentService: \(contentService != nil), Network: \(NetworkMonitor.shared.canLoadOnlineContent)")
             return
         }
         
-        print("🚀 Starting progressive initial data load...")
+        print("🚀 Starting progressive initial data load via ContentService...")
         
-        // Load first batch of each type with staggered timing
+        // Load first batch of each type with staggered timing (unchanged)
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
                 await self.loadAlbumsProgressively(reset: true)
@@ -236,7 +249,7 @@ class MusicLibraryManager: ObservableObject {
             }
         }
         
-        print("✅ Initial progressive data load completed")
+        print("✅ Initial progressive data load completed via ContentService")
     }
     
     func loadMoreAlbumsIfNeeded() async {
@@ -244,9 +257,9 @@ class MusicLibraryManager: ObservableObject {
     }
     
     func refreshAllData() async {
-        print("🔄 Starting progressive data refresh...")
+        print("🔄 Starting progressive data refresh via ContentService...")
         
-        // Reset all states and reload
+        // Reset all states and reload (unchanged)
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
                 await self.loadAlbumsProgressively(reset: true)
@@ -260,43 +273,49 @@ class MusicLibraryManager: ObservableObject {
         }
         
         lastRefreshDate = Date()
-        print("✅ Progressive data refresh completed")
+        print("✅ Progressive data refresh completed via ContentService")
     }
     
-    // MARK: - ✅ NETWORK STATE HANDLING
+    // MARK: - ✅ NETWORK STATE HANDLING (unchanged)
     
     func handleNetworkChange(isOnline: Bool) async {
         guard isOnline,
               !OfflineManager.shared.isOfflineMode,
-              let service = service else {
+              let contentService = contentService else {
             return
         }
         
         if !isDataFresh {
-            print("🌐 Network restored - refreshing stale data")
+            print("🌐 Network restored - refreshing stale data via ContentService")
             await refreshAllData()
         } else {
             print("🌐 Network restored - data is fresh, skipping refresh")
         }
     }
     
-    // MARK: - ✅ ARTIST/GENRE DETAIL SUPPORT
+    // MARK: - ✅ MIGRATION: Artist/Genre Detail Support with ContentService
     
     func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
-        guard let service else { throw URLError(.networkConnectionLost) }
+        // ✅ MIGRATION: ContentService guard
+        guard let contentService = contentService else {
+            print("❌ ContentService not available for context loading")
+            throw URLError(.networkConnectionLost)
+        }
         
         switch context {
         case .artist(let artist):
-            return try await service.getAlbumsByArtist(artistId: artist.id)
+            // ✅ MIGRATION: ContentService call
+            return try await contentService.getAlbumsByArtist(artistId: artist.id)
         case .genre(let genre):
-            return try await service.getAlbumsByGenre(genre: genre.value)
+            // ✅ MIGRATION: ContentService call
+            return try await contentService.getAlbumsByGenre(genre: genre.value)
         }
     }
     
-    // MARK: - ✅ PRIVATE IMPLEMENTATION
+    // MARK: - ✅ PRIVATE IMPLEMENTATION (unchanged logic, updated error messages)
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
-        print("❌ Failed to load \(dataType): \(error)")
+        print("❌ Failed to load \(dataType) via ContentService: \(error)")
         
         let errorMessage: String
         if let subsonicError = error as? SubsonicError {
@@ -314,7 +333,7 @@ class MusicLibraryManager: ObservableObject {
             errorMessage = error.localizedDescription
         }
         
-        // Update appropriate loading state
+        // Update appropriate loading state (unchanged)
         switch dataType {
         case "albums":
             albumLoadingState = .error(errorMessage)
@@ -339,7 +358,7 @@ class MusicLibraryManager: ObservableObject {
         OfflineManager.shared.switchToOfflineMode()
     }
     
-    // MARK: - ✅ RESET (for logout/factory reset)
+    // MARK: - ✅ RESET (unchanged)
     
     func reset() {
         loadedAlbums = []
@@ -360,7 +379,7 @@ class MusicLibraryManager: ObservableObject {
     }
 }
 
-// MARK: - ✅ DATA LOADING STATE (Shared)
+// MARK: - ✅ DATA LOADING STATE (unchanged)
 
 enum DataLoadingState: Equatable {
     case idle

@@ -1,9 +1,9 @@
 //
-//  SearchManager.swift - Search Operations Specialist
+//  SearchManager.swift - MIGRATED to SearchService
 //  NavidromeClient
 //
-//  ✅ CLEAN: Single Responsibility - Search Logic & Results Management
-//  ✅ EXTRACTS: All search-related logic from NavidromeViewModel + SearchView
+//  ✅ MIGRATION COMPLETE: SubsonicService → SearchService
+//  ✅ ALL SERVICE CALLS UPDATED
 //
 
 import Foundation
@@ -12,22 +12,22 @@ import SwiftUI
 @MainActor
 class SearchManager: ObservableObject {
     
-    // MARK: - Search State
+    // MARK: - ✅ SEARCH STATE (unchanged)
     
     @Published private(set) var searchResults = SearchResults()
     @Published private(set) var isSearching = false
     @Published private(set) var searchError: String?
     @Published private(set) var lastSearchQuery: String = ""
     
-    // Dependencies
-    private weak var service: SubsonicService?
+    // ✅ MIGRATION: SearchService dependency
+    private weak var searchService: SearchService?
     private let offlineManager: OfflineManager
     private let downloadManager: DownloadManager
     
     /// Debounced search for real-time search as user types
     private var searchTask: Task<Void, Never>?
 
-    // MARK: - Search Results Model
+    // MARK: - ✅ SEARCH RESULTS MODEL (unchanged)
     
     struct SearchResults {
         var artists: [Artist] = []
@@ -53,7 +53,7 @@ class SearchManager: ObservableObject {
     
     enum SearchResultType: String, CaseIterable {
         case artists = "Artists"
-        case albums = "Albums" 
+        case albums = "Albums"
         case songs = "Songs"
         
         var icon: String {
@@ -65,27 +65,28 @@ class SearchManager: ObservableObject {
         }
     }
     
-    // MARK: - Initialization
+    // MARK: - ✅ INITIALIZATION (unchanged)
     
-    init(offlineManager: OfflineManager = OfflineManager.shared, 
+    init(offlineManager: OfflineManager = OfflineManager.shared,
          downloadManager: DownloadManager = DownloadManager.shared) {
         self.offlineManager = offlineManager
         self.downloadManager = downloadManager
     }
     
-    // MARK: - Configuration
+    // MARK: - ✅ MIGRATION: New configuration method
     
-    func configure(service: SubsonicService) {
-        self.service = service
+    func configure(searchService: SearchService) {
+        self.searchService = searchService
+        print("✅ SearchManager configured with SearchService")
     }
     
-    // MARK: - ✅ PRIMARY API: Smart Search
+    // MARK: - ✅ PRIMARY API: Smart Search (unchanged logic, updated service calls)
     
     /// Perform search with automatic online/offline detection
     func search(query: String) async {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Clear results for empty query
+        // Clear results for empty query (unchanged)
         guard !trimmedQuery.isEmpty else {
             clearSearch()
             return
@@ -97,7 +98,7 @@ class SearchManager: ObservableObject {
         
         defer { isSearching = false }
         
-        // Determine search mode
+        // Determine search mode (unchanged)
         let shouldUseOffline = !NetworkMonitor.shared.canLoadOnlineContent || offlineManager.isOfflineMode
         
         do {
@@ -105,20 +106,20 @@ class SearchManager: ObservableObject {
                 print("🔍 Performing offline search for: '\(trimmedQuery)'")
                 searchResults = await performOfflineSearch(query: trimmedQuery)
             } else {
-                print("🔍 Performing online search for: '\(trimmedQuery)'")
+                print("🔍 Performing online search for: '\(trimmedQuery)' via SearchService")
                 searchResults = try await performOnlineSearch(query: trimmedQuery)
             }
             
             print("✅ Search completed: \(searchResults.totalCount) results")
             
         } catch {
-            print("❌ Search failed: \(error)")
+            print("❌ Search failed via SearchService: \(error)")
             searchError = handleSearchError(error)
             searchResults = SearchResults() // Clear results on error
         }
     }
     
-    /// Clear search results and state
+    /// Clear search results and state (unchanged)
     func clearSearch() {
         searchResults = SearchResults()
         searchError = nil
@@ -126,21 +127,25 @@ class SearchManager: ObservableObject {
         print("🧹 Search cleared")
     }
     
-    /// Refresh current search if query exists
+    /// Refresh current search if query exists (unchanged)
     func refreshSearch() async {
         guard !lastSearchQuery.isEmpty else { return }
         await search(query: lastSearchQuery)
     }
     
-    // MARK: - ✅ ONLINE SEARCH IMPLEMENTATION
+    // MARK: - ✅ MIGRATION: Online search with SearchService
     
     private func performOnlineSearch(query: String) async throws -> SearchResults {
-        guard let service = service else {
+        // ✅ MIGRATION: SearchService guard
+        guard let searchService = searchService else {
+            print("❌ SearchService not available for online search")
             throw SearchError.serviceUnavailable
         }
         
-        // Use existing Subsonic API
-        let result = try await service.search(query: query, maxResults: 50)
+        // ✅ MIGRATION: SearchService call
+        let result = try await searchService.search(query: query, maxResults: 50)
+        
+        print("✅ Online search completed via SearchService: \(result.artists.count) artists, \(result.albums.count) albums, \(result.songs.count) songs")
         
         return SearchResults(
             artists: result.artists,
@@ -149,7 +154,7 @@ class SearchManager: ObservableObject {
         )
     }
     
-    // MARK: - ✅ OFFLINE SEARCH IMPLEMENTATION
+    // MARK: - ✅ OFFLINE SEARCH IMPLEMENTATION (unchanged - no service calls)
     
     private func performOfflineSearch(query: String) async -> SearchResults {
         let lowercaseQuery = query.lowercased()
@@ -169,14 +174,14 @@ class SearchManager: ObservableObject {
         return results
     }
     
-    /// Search in offline artists
+    /// Search in offline artists (unchanged)
     private func searchOfflineArtists(query: String) async -> [Artist] {
         return offlineManager.offlineArtists.filter { artist in
             artist.name.lowercased().contains(query)
         }.sorted { $0.name < $1.name }
     }
     
-    /// Search in offline albums
+    /// Search in offline albums (unchanged)
     private func searchOfflineAlbums(query: String) async -> [Album] {
         return offlineManager.offlineAlbums.filter { album in
             album.name.lowercased().contains(query) ||
@@ -185,13 +190,13 @@ class SearchManager: ObservableObject {
         }.sorted { $0.name < $1.name }
     }
     
-    /// Search in offline songs (cached or downloaded)
+    /// Search in offline songs (cached or downloaded) (unchanged)
     private func searchOfflineSongs(query: String) async -> [Song] {
         var allSongs: [Song] = []
         
-        // Search in downloaded albums
+        // Search in downloaded albums (unchanged)
         for downloadedAlbum in downloadManager.downloadedAlbums {
-            // Try to get songs from album metadata if available
+            // Try to get songs from album metadata if available (unchanged)
             let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: downloadedAlbum.albumId)
             
             let songs = downloadedAlbum.songs.map { downloadedSong in
@@ -201,7 +206,7 @@ class SearchManager: ObservableObject {
             allSongs.append(contentsOf: songs)
         }
         
-        // Filter songs by query
+        // Filter songs by query (unchanged)
         return allSongs.filter { song in
             song.title.lowercased().contains(query) ||
             (song.artist?.lowercased().contains(query) ?? false) ||
@@ -209,7 +214,7 @@ class SearchManager: ObservableObject {
         }.sorted { $0.title < $1.title }
     }
     
-    // MARK: - ✅ SEARCH SUGGESTIONS & AUTOCOMPLETION
+    // MARK: - ✅ SEARCH SUGGESTIONS & AUTOCOMPLETION (unchanged - no service calls)
     
     /// Get search suggestions based on offline content
     func getSearchSuggestions(for partialQuery: String) -> [String] {
@@ -218,14 +223,14 @@ class SearchManager: ObservableObject {
         
         var suggestions: Set<String> = []
         
-        // Artist name suggestions
+        // Artist name suggestions (unchanged)
         for artist in offlineManager.offlineArtists {
             if artist.name.lowercased().hasPrefix(query) {
                 suggestions.insert(artist.name)
             }
         }
         
-        // Album name suggestions
+        // Album name suggestions (unchanged)
         for album in offlineManager.offlineAlbums {
             if album.name.lowercased().hasPrefix(query) {
                 suggestions.insert(album.name)
@@ -238,13 +243,13 @@ class SearchManager: ObservableObject {
         return Array(suggestions).sorted().prefix(5).map { $0 }
     }
     
-    /// Get recent search queries (could be extended with persistence)
+    /// Get recent search queries (could be extended with persistence) (unchanged)
     func getRecentSearches() -> [String] {
         // For now, return last search if available
         return lastSearchQuery.isEmpty ? [] : [lastSearchQuery]
     }
     
-    // MARK: - ✅ SEARCH FILTERING & SORTING
+    // MARK: - ✅ SEARCH FILTERING & SORTING (unchanged)
     
     /// Filter current results by type
     func filterResults(by type: SearchResultType) -> SearchResults {
@@ -258,11 +263,11 @@ class SearchManager: ObservableObject {
         }
     }
     
-    /// Sort results by relevance (name match priority)
+    /// Sort results by relevance (name match priority) (unchanged)
     func sortByRelevance(query: String) {
         let lowercaseQuery = query.lowercased()
         
-        // Sort artists by relevance
+        // Sort artists by relevance (unchanged)
         searchResults.artists.sort { a, b in
             let aStarts = a.name.lowercased().hasPrefix(lowercaseQuery)
             let bStarts = b.name.lowercased().hasPrefix(lowercaseQuery)
@@ -272,7 +277,7 @@ class SearchManager: ObservableObject {
             return a.name < b.name
         }
         
-        // Sort albums by relevance
+        // Sort albums by relevance (unchanged)
         searchResults.albums.sort { a, b in
             let aNameStarts = a.name.lowercased().hasPrefix(lowercaseQuery)
             let bNameStarts = b.name.lowercased().hasPrefix(lowercaseQuery)
@@ -286,7 +291,7 @@ class SearchManager: ObservableObject {
             return a.name < b.name
         }
         
-        // Sort songs by relevance
+        // Sort songs by relevance (unchanged)
         searchResults.songs.sort { a, b in
             let aTitleStarts = a.title.lowercased().hasPrefix(lowercaseQuery)
             let bTitleStarts = b.title.lowercased().hasPrefix(lowercaseQuery)
@@ -303,12 +308,12 @@ class SearchManager: ObservableObject {
         objectWillChange.send()
     }
     
-    // MARK: - ✅ SEARCH STATISTICS
+    // MARK: - ✅ SEARCH STATISTICS (updated for SearchService context)
     
     /// Get search mode description
     var searchModeDescription: String {
         let isOffline = !NetworkMonitor.shared.canLoadOnlineContent || offlineManager.isOfflineMode
-        return isOffline ? "Searching in downloaded content" : "Searching online library"
+        return isOffline ? "Searching in downloaded content" : "Searching online library via SearchService"
     }
     
     /// Get search statistics
@@ -324,21 +329,21 @@ class SearchManager: ObservableObject {
         )
     }
     
-    // MARK: - ✅ ERROR HANDLING
+    // MARK: - ✅ ERROR HANDLING (updated for SearchService context)
     
     private func handleSearchError(_ error: Error) -> String {
         if let subsonicError = error as? SubsonicError {
             switch subsonicError {
             case .timeout:
-                return "Search timed out. Check your connection."
+                return "Search timed out via SearchService. Check your connection."
             case .network:
-                return "Network error. Switching to offline search."
+                return "Network error via SearchService. Switching to offline search."
             case .unauthorized:
                 return "Authentication failed. Please check your credentials."
             case .emptyResponse:
                 return "No results found."
             default:
-                return "Search failed: \(subsonicError.localizedDescription)"
+                return "Search failed via SearchService: \(subsonicError.localizedDescription)"
             }
         } else if let searchError = error as? SearchError {
             return searchError.localizedDescription
@@ -347,7 +352,7 @@ class SearchManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ RESET (for logout/factory reset)
+    // MARK: - ✅ RESET (unchanged)
     
     func reset() {
         searchResults = SearchResults()
@@ -358,7 +363,7 @@ class SearchManager: ObservableObject {
     }
 }
 
-// MARK: - ✅ SUPPORTING TYPES
+// MARK: - ✅ SUPPORTING TYPES (unchanged)
 
 enum SearchError: LocalizedError {
     case serviceUnavailable
@@ -368,7 +373,7 @@ enum SearchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .serviceUnavailable:
-            return "Search service is not available"
+            return "SearchService is not available"
         case .invalidQuery:
             return "Invalid search query"
         case .noResults:
@@ -400,10 +405,9 @@ struct SearchStats {
     }
 }
 
-// MARK: - ✅ SEARCH PERFORMANCE HELPERS
+// MARK: - ✅ SEARCH PERFORMANCE HELPERS (unchanged)
 
 extension SearchManager {
-    
     
     func searchWithDebounce(query: String, delay: TimeInterval = 0.5) {
         searchTask?.cancel()
