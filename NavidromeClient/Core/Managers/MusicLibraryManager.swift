@@ -113,9 +113,11 @@ class MusicLibraryManager: ObservableObject {
             
             if newAlbums.isEmpty {
                 albumLoadingState = .completed
+                totalAlbumCount = loadedAlbums.count
                 backgroundLoadingProgress = ""
-                return
+                return  // ← Wichtig: Früher Return
             }
+
             
             // Cache albums for offline use (unchanged)
             AlbumMetadataCache.shared.cacheAlbums(newAlbums)
@@ -397,8 +399,8 @@ enum DataLoadingState: Equatable {
     
     var canLoadMore: Bool {
         switch self {
-        case .idle, .completed: return true
-        case .loading, .loadingMore, .error: return false
+        case .idle: return true
+        case .loading,.completed, .loadingMore, .error: return false
         }
     }
 }

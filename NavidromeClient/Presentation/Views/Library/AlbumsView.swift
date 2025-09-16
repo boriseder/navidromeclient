@@ -163,7 +163,8 @@ struct AlbumGridView: View {
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
-    
+    @EnvironmentObject var libraryVM: LibraryViewModel
+
     var body: some View {
         ScrollView {
             albumsGrid
@@ -180,6 +181,11 @@ struct AlbumGridView: View {
                     AlbumDetailView(album: album)
                 } label: {
                     AlbumCard(album: album, accentColor: .primary, index: index)
+                }
+                .onAppear {
+                    if index == albums.count - 5 {
+                        Task { await navidromeVM.loadMoreAlbumsIfNeeded() }
+                    }
                 }
             }
         }
