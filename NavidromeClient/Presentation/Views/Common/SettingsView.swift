@@ -1,279 +1,113 @@
-//
-//  SettingsView.swift - CLEANED VERSION
-//  NavidromeClient
-//
-//  ✅ REMOVED: All logout logic moved to AppConfig
-//  ✅ SIMPLIFIED: Just calls appConfig.performFactoryReset()
-//
-
 import SwiftUI
 
+// MARK: - SettingsView
 struct SettingsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var coverArtService: CoverArtManager
     @Environment(\.dismiss) private var dismiss
 
-    @State private var showingSaveSuccess = false
-    @State private var showingError = false
     @State private var showingFactoryResetConfirmation = false
-    @State private var errorMessage = ""
     @State private var isPerformingReset = false
 
     var body: some View {
         NavigationStack {
             List {
-                if !appConfig.isConfigured {
-                    navidromeSection
-                }
-
+                NavidromeSection
                 if appConfig.isConfigured {
-                    serverInfoSection
-                    downloadSection
-                    cacheSection
-                    serverDetailsSection
-                    dangerZoneSection
+                    CacheSection
+                    ServerDetailsSection
+                    DangerZoneSection
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial setup")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial Setup")
             .disabled(isPerformingReset)
-            .overlay {
-                if isPerformingReset {
-                    FactoryResetOverlayView()
-                }
-            }
+            .overlay { if isPerformingReset { FactoryResetOverlayView() } }
             .confirmationDialog(
                 "Logout & Factory Reset",
-                isPresented: $showingFactoryResetConfirmation,
-                titleVisibility: .visible
+                isPresented: $showingFactoryResetConfirmation
             ) {
-                Button("Reset App to Factory Settings", role: .destructive) {
-                    Task {
-                        await performFactoryReset()
-                    }
+                Button("Reset App", role: .destructive) {
+                    Task { await performFactoryReset() }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("This will delete ALL data including downloaded music, server settings, and cached content. The app will return to initial setup state.")
+                Text("This will delete ALL data including downloads, server settings and cache.")
             }
         }
     }
 
     // MARK: - Sections
 
-    @ViewBuilder
-    private var navidromeSection: some View {
-        Section("Navidrome") {
-            NavigationLink("Edit server") {
-                ServerEditView()
-            }
-            .font(Typography.body)
-        }
-    }
-
-    @ViewBuilder
-    private var serverInfoSection: some View {
-        Section("Navidrome") {
+    private var NavidromeSection: some View {
+        Section {
             if let creds = AppConfig.shared.getCredentials() {
-                let portPart = creds.baseURL.port.map { ":\($0)" } ?? ""
-
-                SettingsRow(
-                    title: "Server:",
-                    value: "\(creds.baseURL.scheme ?? "http")://\(creds.baseURL.host ?? "-")\(portPart)"
-                )
-
-                SettingsRow(
-                    title: "User:",
-                    value: creds.username
-                )
+                SettingsRow(title: "Server:", value: creds.baseURL.absoluteString)
+                SettingsRow(title: "User:", value: creds.username)
             }
-            
-            NavigationLink("Edit server") {
-                ServerEditView()
-            }
-            .font(Typography.body)
+            NavigationLink("Edit Server") { ServerEditView() }
+        } header: {
+            Text("Navidrome Server Settings")
+        } footer: {
+            Text("Your (self-)hosted Navidrome server. Don't forget to add port (usually 4533).")
         }
-        .task {
-            await navidromeVM.testConnection()
+        .task { await navidromeVM.testConnection() }
+    }
+
+    private var CacheSection: some View {
+        Section {
+            NavigationLink("Cache Settings") { CacheSettingsView() }
+            SettingsRow(title: "Cover Art Cache", value: PersistentImageCache.shared.getCacheStats().diskSizeFormatted)
+            SettingsRow(title: "Download Cache", value: downloadManager.totalDownloadSize())
+        } header: {
+            Text("Cache & Downloads")
         }
     }
 
-    @ViewBuilder
-    private var downloadSection: some View {
-        Section("Download") {
-            SettingsRow(
-                title: "Downloaded music",
-                value: downloadManager.totalDownloadSize()
-            )
-
-            Button(role: .destructive) {
-                downloadManager.deleteAllDownloads()
-            } label: {
-                Label("Delete all downloads", systemImage: "trash")
-                    .font(Typography.body)
-            }
-            .disabled(isPerformingReset)
+    private var ServerDetailsSection: some View {
+        Section {
+            SettingsRow(title: "Type:", value: navidromeVM.serverType ?? "-")
+            SettingsRow(title: "Navidrome:", value: navidromeVM.serverVersion ?? "-")
+            SettingsRow(title: "Subsonic:", value: navidromeVM.subsonicVersion ?? "-")
+            SettingsRow(title: "OpenSubsonic:", value: navidromeVM.openSubsonic.map { $0 ? "Yes" : "No" } ?? "-")
+        } header: {
+            Text("Server Info")
         }
+        .task { await navidromeVM.testConnection() }
     }
 
-    @ViewBuilder
-    private var cacheSection: some View {
-        Section("Cache Management") {
-            NavigationLink("Cache Settings") {
-                CacheSettingsView()
-            }
-            .font(Typography.body)
-            
-            SettingsRow(
-                title: "Cover Art Cache",
-                value: getCoverCacheSize()
-            )
-            
-            SettingsRow(
-                title: "Download Cache",
-                value: downloadManager.totalDownloadSize()
-            )
-        }
-    }
-
-    @ViewBuilder
-    private var serverDetailsSection: some View {
-        Section("Server info") {
-            SettingsRow(
-                title: "Type:",
-                value: navidromeVM.serverType ?? "-"
-            )
-
-            SettingsRow(
-                title: "Navidrome-Version:",
-                value: navidromeVM.serverVersion ?? "-"
-            )
-
-            SettingsRow(
-                title: "Subsonic-Version:",
-                value: navidromeVM.subsonicVersion ?? "-"
-            )
-
-            HStack {
-                Text("OpenSubsonic:")
-                    .font(Typography.body)
-                    .foregroundStyle(TextColor.primary)
-                Spacer()
-                if let open = navidromeVM.openSubsonic {
-                    Text(open ? "Yes" : "No")
-                        .font(Typography.body)
-                        .foregroundStyle(TextColor.secondary)
-                } else {
-                    Text("-")
-                        .font(Typography.body)
-                        .foregroundStyle(TextColor.secondary)
-                }
-            }
-        }
-        .task {
-            await navidromeVM.testConnection()
-        }
-    }
-
-    @ViewBuilder
-    private var dangerZoneSection: some View {
+    private var DangerZoneSection: some View {
         Section {
             Button(role: .destructive) {
                 showingFactoryResetConfirmation = true
             } label: {
-                HStack {
-                    if isPerformingReset {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Resetting...")
-                    } else {
-                        Label("Factory Reset", systemImage: "exclamationmark.triangle.fill")
-                    }
-                }
-                .font(Typography.body)
+                Label("Logout & Factory Reset", systemImage: "exclamationmark.triangle.fill")
             }
             .disabled(isPerformingReset)
         } header: {
             Text("Danger Zone")
         } footer: {
-            Text("This will completely reset the app to its initial state. All downloaded music, server settings, and cached data will be permanently deleted.")
-                .font(Typography.caption)
-                .foregroundStyle(TextColor.secondary)
+            Text("This will reset the app to its initial state. All local data will be lost.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
-    // MARK: - Factory Reset Method
+    // MARK: - Actions
 
     private func performFactoryReset() async {
         isPerformingReset = true
         defer { isPerformingReset = false }
-        
         await appConfig.performFactoryReset()
-        
-        await MainActor.run {
-            dismiss()
-        }
-    }
-
-    // MARK: - Helper Methods
-    private func getCoverCacheSize() -> String {
-        let stats = PersistentImageCache.shared.getCacheStats()
-        return stats.diskSizeFormatted
+        await MainActor.run { dismiss() }
     }
 }
 
-// MARK: - Factory Reset Overlay
-struct FactoryResetOverlayView: View {
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.3)
-                .ignoresSafeArea()
-            
-            VStack(spacing: Spacing.l) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .tint(.white)
-                
-                Text("Factory Reset in Progress...")
-                    .font(Typography.headline)
-                    .foregroundStyle(.white)
-                
-                Text("Clearing all data and resetting app")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-            .padding(Padding.xl)
-            .background(BackgroundColor.thick, in: RoundedRectangle(cornerRadius: Radius.l))
-            .largeShadow()
-        }
-    }
-}
-
-// MARK: - Settings Row Component
-struct SettingsRow: View {
-    let title: String
-    let value: String
-    
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(Typography.body)
-                .foregroundStyle(TextColor.primary)
-            Spacer()
-            Text(value)
-                .font(Typography.body)
-                .foregroundStyle(TextColor.secondary)
-                .multilineTextAlignment(.trailing)
-                .textCase(nil)
-        }
-    }
-}
-// MARK: - ServerEditView (CLEANED - No Logout)
+// MARK: - ServerEditView
 struct ServerEditView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -291,55 +125,29 @@ struct ServerEditView: View {
 
     var body: some View {
         Form {
-            // ✅ Offline Mode Warning (unchanged)
             if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
-                Section {
-                    VStack(alignment: .leading, spacing: Spacing.s) {
-                        HStack {
-                            Image(systemName: "wifi.slash")
-                                .foregroundStyle(BrandColor.warning)
-                            Text("Offline Mode Active")
-                                .font(Typography.headline)
-                                .foregroundStyle(BrandColor.warning)
-                        }
-                        
-                        Text("To test server connection, please switch to online mode first.")
-                            .font(Typography.subheadline)
-                            .foregroundStyle(TextColor.secondary)
-                        
-                        Button("Switch to Online Mode") {
-                            offlineManager.switchToOnlineMode()
-                        }
-                        .secondaryButtonStyle()
-                    }
-                    .listItemPadding()
-                    .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
-                }
+                OfflineWarningSection
             }
 
             Section("Server & Login") {
                 Picker("Protocol", selection: $navidromeVM.scheme) {
                     Text("http").tag("http")
                     Text("https").tag("https")
-                }
-                .pickerStyle(.segmented)
+                }.pickerStyle(.segmented)
 
                 TextField("Host", text: $navidromeVM.host)
                     .textInputAutocapitalization(.none)
                     .disableAutocorrection(true)
-
                 TextField("Port", text: $navidromeVM.port)
                     .keyboardType(.numberPad)
-
                 TextField("Username", text: $navidromeVM.username)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
-                
                 SecureField("Password", text: $navidromeVM.password)
 
                 ConnectionStatusView(navidromeVM: navidromeVM)
 
-                Button("Test connection") {
+                Button("Test Connection") {
                     Task { await testConnectionWithOfflineCheck() }
                 }
                 .disabled(
@@ -353,51 +161,61 @@ struct ServerEditView: View {
 
             Section {
                 Button("Save & Continue") {
-                    Task {
-                        await saveCredentialsAndReload()
-                    }
+                    Task { await saveCredentialsAndReload() }
                 }
                 .disabled(navidromeVM.isLoading || !navidromeVM.connectionStatus)
             }
-            
+
             if navidromeVM.connectionStatus {
                 ConnectionDetailsSection(navidromeVM: navidromeVM)
             }
         }
-        .navigationTitle(appConfig.isConfigured ? "Edit server" : "Initial setup")
+        .navigationTitle(appConfig.isConfigured ? "Edit Server" : "Initial Setup")
         .onAppear {
             if !navidromeVM.host.isEmpty && !navidromeVM.username.isEmpty && !navidromeVM.password.isEmpty {
                 Task { await testConnectionWithOfflineCheck() }
             }
         }
-        .alert("Success", isPresented: $showingSaveSuccess) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Configuration saved successfully")
-        }
-        .alert("Error", isPresented: $showingError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage)
-        }
+        .alert("Success", isPresented: $showingSaveSuccess) { Button("OK", role: .cancel) {} } message: { Text("Configuration saved successfully") }
+        .alert("Error", isPresented: $showingError) { Button("OK", role: .cancel) {} } message: { Text(errorMessage) }
         .alert("Switch to Online Mode?", isPresented: $showingOfflineWarning) {
             Button("Switch to Online") {
                 offlineManager.switchToOnlineMode()
                 Task { await navidromeVM.testConnection() }
             }
             Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("You need to be in online mode to test the server connection.")
+        } message: { Text("You need to be in online mode to test the server connection.") }
+    }
+
+    // MARK: - Subviews
+
+    private var OfflineWarningSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "wifi.slash")
+                        .foregroundStyle(.yellow)
+                    Text("Offline Mode Active")
+                        .foregroundStyle(.yellow)
+                        .font(.headline)
+                }
+                Text("To test server connection, please switch to online mode first.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Button("Switch to Online Mode") {
+                    offlineManager.switchToOnlineMode()
+                }
+            }
         }
     }
-    
-    // ✅ Server connection methods (unchanged)
+
+    // MARK: - Actions
+
     private func testConnectionWithOfflineCheck() async {
         if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
             showingOfflineWarning = true
             return
         }
-        
         await navidromeVM.testConnection()
     }
 
@@ -411,20 +229,12 @@ struct ServerEditView: View {
                     networkMonitor.setService(service)
                 }
             }
-
-            await MainActor.run {
-                dismiss()
-            }
-
+            await MainActor.run { dismiss() }
             if !appConfig.isConfigured {
-                await MainActor.run {
-                    appConfig.isConfigured = true
-                }
+                await MainActor.run { appConfig.isConfigured = true }
                 showingSaveSuccess = true
             }
-            
             await navidromeVM.loadInitialDataIfNeeded()
-            
         } else {
             errorMessage = navidromeVM.errorMessage ?? "Fehler beim Speichern"
             showingError = true
@@ -432,55 +242,34 @@ struct ServerEditView: View {
     }
 }
 
-// MARK: - Helper Components (unchanged)
+// MARK: - Helper Components
+
+struct SettingsRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+}
+
 struct ConnectionStatusView: View {
     @ObservedObject var navidromeVM: NavidromeViewModel
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Connection:")
-                Spacer()
-                
-                if navidromeVM.isLoading {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                        .frame(width: 20, height: 20)
-                } else {
-                    Image(systemName: navidromeVM.connectionStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
-                }
-                
-                if navidromeVM.isLoading {
-                    Text("Testing...")
-                        .foregroundColor(.blue)
-                } else {
-                    Text(navidromeVM.connectionStatus ? "Success" : "Error")
-                        .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
-                }
-            }
-            
-            if !navidromeVM.connectionStatus, let error = navidromeVM.errorMessage, !navidromeVM.isLoading {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.red)
-                    .padding(.top, 4)
-                    .multilineTextAlignment(.leading)
-            }
-            
-            if navidromeVM.connectionStatus, let serverType = navidromeVM.serverType {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Server: \(serverType)")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                    
-                    if let version = navidromeVM.serverVersion {
-                        Text("Version: \(version)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(.top, 4)
+        HStack {
+            Text("Connection:")
+            Spacer()
+            if navidromeVM.isLoading { ProgressView() }
+            else {
+                Image(systemName: navidromeVM.connectionStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
             }
         }
     }
@@ -488,207 +277,88 @@ struct ConnectionStatusView: View {
 
 struct ConnectionDetailsSection: View {
     @ObservedObject var navidromeVM: NavidromeViewModel
-    
+
     var body: some View {
         Section("Connection Details") {
             if let subsonicVersion = navidromeVM.subsonicVersion {
-                HStack {
-                    Text("Subsonic API:")
-                    Spacer()
-                    Text(subsonicVersion)
-                        .foregroundStyle(.secondary)
-                }
+                HStack { Text("Subsonic API:"); Spacer(); Text(subsonicVersion).foregroundStyle(.secondary) }
             }
-            
             if let openSubsonic = navidromeVM.openSubsonic {
-                HStack {
-                    Text("OpenSubsonic:")
-                    Spacer()
-                    Text(openSubsonic ? "Yes" : "No")
-                        .foregroundStyle(.secondary)
-                }
+                HStack { Text("OpenSubsonic:"); Spacer(); Text(openSubsonic ? "Yes" : "No").foregroundStyle(.secondary) }
             }
         }
     }
 }
 
-// MARK: - Cache Settings View (Complete Implementation)
+struct FactoryResetOverlayView: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.3).ignoresSafeArea()
+            VStack(spacing: 16) {
+                ProgressView().scaleEffect(1.5).tint(.white)
+                Text("Factory Reset in Progress...").foregroundStyle(.white)
+                Text("Clearing all data and resetting app").foregroundStyle(.white.opacity(0.8))
+            }
+            .padding()
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+}
+
+// MARK: - CacheSettingsView
 struct CacheSettingsView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var navidromeVM: NavidromeViewModel
-    
-    @State private var cacheStats = PersistentImageCache.CacheStats(
-        memoryCount: 0, diskCount: 0, diskSize: 0, maxSize: 0
-    )
+    @EnvironmentObject var coverArtService: CoverArtManager
+
+    @State private var cacheStats = PersistentImageCache.shared.getCacheStats()
     @State private var showingClearConfirmation = false
     @State private var showingClearSuccess = false
-    
+
     var body: some View {
         List {
             Section("Cover Art Cache") {
-                VStack(spacing: 12) {
-                    CacheStatsRow(
-                        title: "Cached Images",
-                        value: "\(cacheStats.diskCount)",
-                        icon: "photo.stack"
-                    )
-                    
-                    CacheStatsRow(
-                        title: "Cache Size",
-                        value: cacheStats.diskSizeFormatted,
-                        icon: "internaldrive"
-                    )
-                    
-                    CacheStatsRow(
-                        title: "Usage",
-                        value: String(format: "%.1f%%", cacheStats.usagePercentage),
-                        icon: "chart.pie"
-                    )
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Storage Usage")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(cacheStats.maxSizeFormatted)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        
-                        ProgressView(value: cacheStats.usagePercentage, total: 100)
-                            .progressViewStyle(LinearProgressViewStyle(tint: progressColor))
-                    }
-                }
-                .padding(.vertical, 8)
-                
+                CacheStatsRow(title: "Cached Images", value: "\(cacheStats.diskCount)", icon: "photo.stack")
+                CacheStatsRow(title: "Cache Size", value: cacheStats.diskSizeFormatted, icon: "internaldrive")
+                CacheStatsRow(title: "Usage", value: String(format: "%.1f%%", cacheStats.usagePercentage), icon: "chart.pie")
+
                 Button(role: .destructive) {
                     showingClearConfirmation = true
                 } label: {
                     Label("Clear Cover Art Cache", systemImage: "trash")
                 }
             }
-            
+
             Section("Download Cache") {
-                HStack {
-                    Text("Downloaded Music")
-                    Spacer()
-                    Text(downloadManager.totalDownloadSize())
-                        .foregroundStyle(.secondary)
-                }
-                
-                Button(role: .destructive) {
-                    downloadManager.deleteAllDownloads()
-                } label: {
-                    Label("Delete All Downloads", systemImage: "trash")
-                }
-            }
-            
-            Section("Advanced") {
-                Button {
-                    Task {
-                        await PersistentImageCache.shared.performMaintenanceCleanup()
-                        updateCacheStats()
-                    }
-                } label: {
-                    Label("Optimize Cache", systemImage: "gearshape.2")
-                }
-                
-                Button {
-                    Task {
-                        await preloadCurrentAlbums()
-                        updateCacheStats()
-                    }
-                } label: {
-                    Label("Preload Current Albums", systemImage: "square.and.arrow.down")
-                }
-            }
-            
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Cache automatically manages storage and removes old images when space is needed.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    
-                    Text("• Images expire after 30 days")
-                    Text("• Maximum cache size: 100 MB")
-                    Text("• Automatic cleanup on app start")
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                HStack { Text("Downloaded Music"); Spacer(); Text(downloadManager.totalDownloadSize()).foregroundStyle(.secondary) }
+                Button(role: .destructive) { downloadManager.deleteAllDownloads() } label: { Label("Delete ALL Music", systemImage: "trash") }
             }
         }
         .navigationTitle("Cache Management")
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            updateCacheStats()
-        }
-        .refreshable {
-            updateCacheStats()
-        }
-        .confirmationDialog(
-            "Clear Cover Art Cache?",
-            isPresented: $showingClearConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Clear Cache", role: .destructive) {
-                clearCoverArtCache()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This will remove all cached cover art images.")
-        }
-        .alert("Cache Cleared", isPresented: $showingClearSuccess) {
-            Button("OK") { }
-        } message: {
-            Text("Cover art cache has been successfully cleared.")
-        }
+        .confirmationDialog("Clear Cover Art Cache?", isPresented: $showingClearConfirmation) {
+            Button("Clear Cache", role: .destructive) { clearCoverArtCache() }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("This will remove all cached cover art images.") }
+        .alert("Cache Cleared", isPresented: $showingClearSuccess) { Button("OK") {} } message: { Text("Cover art cache has been successfully cleared.") }
+        .task { updateCacheStats() }
+        .refreshable { updateCacheStats() }
     }
-    
-    private var progressColor: Color {
-        switch cacheStats.usagePercentage {
-        case 0..<60: return .green
-        case 60..<80: return .yellow
-        default: return .red
-        }
-    }
-    
-    private func updateCacheStats() {
-        cacheStats = PersistentImageCache.shared.getCacheStats()
-    }
-    
-    private func clearCoverArtCache() {
-        PersistentImageCache.shared.clearCache()
-        updateCacheStats()
-        showingClearSuccess = true
-    }
-    
-    private func preloadCurrentAlbums() async {
-        guard let service = navidromeVM.getService() else { return }
-        await service.preloadCoverArt(for: navidromeVM.albums, size: 200)
-    }
+
+    private func updateCacheStats() { cacheStats = PersistentImageCache.shared.getCacheStats() }
+    private func clearCoverArtCache() { PersistentImageCache.shared.clearCache(); updateCacheStats(); showingClearSuccess = true }
 }
 
-// MARK: - Cache Stats Row
 struct CacheStatsRow: View {
     let title: String
     let value: String
     let icon: String
-    
+
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(.blue)
-                .frame(width: 20)
-            
+        HStack {
+            Image(systemName: icon).frame(width: 20)
             Text(title)
-                .foregroundStyle(.primary)
-            
             Spacer()
-            
-            Text(value)
-                .foregroundStyle(.secondary)
-                .fontWeight(.medium)
+            Text(value).foregroundStyle(.secondary)
         }
     }
 }

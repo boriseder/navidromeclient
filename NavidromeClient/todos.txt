@@ -1,2 +1,0 @@
-view
-* Implement shuffle play in ArtistDetail
