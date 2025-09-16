@@ -1,30 +1,34 @@
+//
+//  NavidromeClientApp.swift - FIXED: ViewModel init
+//  NavidromeClient
+//
+//  ✅ FIXED: ViewModels use singletons internally, no arguments needed
+//
+
 import SwiftUI
 
 @main
 struct NavidromeClientApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    // Core Services (Singletons)
+    // Core Services (Singletons) - unchanged
     @StateObject private var appConfig = AppConfig.shared
     @StateObject private var downloadManager = DownloadManager.shared
     @StateObject private var audioSessionManager = AudioSessionManager.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @StateObject private var offlineManager = OfflineManager.shared
-    
-    // Cover Art Service
     @StateObject private var coverArtManager = CoverArtManager.shared
-    
-    // ✅ NEW: Home Screen Manager
     @StateObject private var homeScreenManager = HomeScreenManager.shared
     
-    // ✅ FIXED: MusicLibraryManager as Dependency Injection
-    @StateObject private var musicLibraryManager = MusicLibraryManager()
+    // ✅ REMOVED: No longer needed as EnvironmentObject since it's a singleton
+    // @StateObject private var musicLibraryManager = MusicLibraryManager.shared
 
-    // App-wide ViewModels
+    // ✅ FIXED: App-wide ViewModels with proper initialization
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     
     init() {
+        // ✅ FIXED: Create ViewModels with proper dependencies
         let service: SubsonicService?
         if let creds = AppConfig.shared.getCredentials() {
             service = SubsonicService(baseURL: creds.baseURL,
@@ -34,9 +38,7 @@ struct NavidromeClientApp: App {
             service = nil
         }
 
-        let tempMusicLibraryManager = MusicLibraryManager()
-        _musicLibraryManager = StateObject(wrappedValue: tempMusicLibraryManager)
-        _navidromeVM = StateObject(wrappedValue: NavidromeViewModel(musicLibraryManager: tempMusicLibraryManager))
+        _navidromeVM = StateObject(wrappedValue: NavidromeViewModel())
         _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
     }
     
@@ -51,15 +53,15 @@ struct NavidromeClientApp: App {
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
                 .environmentObject(coverArtManager)
-                .environmentObject(homeScreenManager) // ✅ NEW
-                .environmentObject(musicLibraryManager) // ✅ FIXED: DI
+                .environmentObject(homeScreenManager)
+                // ✅ REMOVED: musicLibraryManager (not needed as EnvironmentObject)
                 .task {
                     await setupInitialDataLoading()
                 }
                 .onChange(of: networkMonitor.isConnected) { _, isConnected in
                     Task {
                         await navidromeVM.handleNetworkChange(isOnline: isConnected)
-                        await homeScreenManager.handleNetworkChange(isOnline: isConnected) // ✅ NEW
+                        await homeScreenManager.handleNetworkChange(isOnline: isConnected)
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
@@ -68,7 +70,6 @@ struct NavidromeClientApp: App {
         }
     }
     
-    // ✅ UPDATED: Setup with HomeScreenManager
     private func setupInitialDataLoading() async {
         guard appConfig.isConfigured else {
             print("⚠️ App not configured - skipping data loading")
@@ -76,8 +77,6 @@ struct NavidromeClientApp: App {
         }
         
         setupServices()
-        
-        // Load initial data in background
         await navidromeVM.loadInitialDataIfNeeded()
     }
     
@@ -93,7 +92,7 @@ struct NavidromeClientApp: App {
             playerVM.updateService(service)
             networkMonitor.setService(service)
             coverArtManager.configure(service: service)
-            homeScreenManager.configure(service: service) // ✅ NEW
+            homeScreenManager.configure(service: service)
             playerVM.updateCoverArtService(coverArtManager)
 
             print("✅ All services configured with credentials")
@@ -101,14 +100,12 @@ struct NavidromeClientApp: App {
     }
     
     private func handleAppBecameActive() {
-        // Only refresh if data is very stale (1+ hours)
         if !navidromeVM.isDataFresh {
             Task {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.isConnected)
             }
         }
         
-        // ✅ NEW: Refresh home screen if needed
         Task {
             await homeScreenManager.refreshIfNeeded()
         }

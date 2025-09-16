@@ -1,8 +1,8 @@
 //
-//  PlayerViewModel.swift - FIXED for New Image API
+//  PlayerViewModel.swift - FIXED: MainActor for UI Updates
 //  NavidromeClient
 //
-//  ✅ FIXED: Updated loadCoverArt method to use new convenience API
+//  ✅ CRITICAL FIX: All UI state changes must be on MainActor
 //
 
 import Foundation
@@ -229,55 +229,91 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Playback Control Methods (unchanged)
     
     private func playCurrent() async {
-        // FIX: Cancel any pending play operation
+        print("🎵 playCurrent called")
+        
+        // Cancel any pending play operation
         currentPlayTask?.cancel()
         
         currentPlayTask = Task {
-            // Check cancellation before starting
             guard !Task.isCancelled else { return }
-            
             guard let song = playlistManager.currentSong else {
-                stop()
+                await MainActor.run { stop() }
                 return
             }
             
-            currentSong = song
-            currentAlbumId = song.albumId
-            duration = Double(song.duration ?? 0)
-            currentTime = 0
-            isLoading = true
+            await MainActor.run {
+                currentSong = song
+                currentAlbumId = song.albumId
+                duration = Double(song.duration ?? 0)
+                currentTime = 0
+                isLoading = true
+                objectWillChange.send()
+            }
             
-            // FIX: Ensure clean state before new playback
-            cleanupPlayer()
+            print("🎵 Playing song: \(song.title)")
             
-            // Check again after cleanup
+            // ✅ Clean up old player safely
+            await MainActor.run {
+                if let observer = timeObserver {
+                    player?.removeTimeObserver(observer)
+                    timeObserver = nil
+                }
+                
+                if let token = playerItemEndObserver {
+                    NotificationCenter.default.removeObserver(token)
+                    playerItemEndObserver = nil
+                }
+                
+                player?.pause()
+                player?.replaceCurrentItem(with: nil)
+                player = nil
+            }
+            
             guard !Task.isCancelled else {
-                isLoading = false
+                await MainActor.run {
+                    isLoading = false
+                    objectWillChange.send()
+                }
                 return
             }
             
-            // Try local file first
+            print("➡️ Reached playback decision for song \(song.id)")
+            
             if let localURL = downloadManager.getLocalFileURL(for: song.id) {
+                print("🎵 Playing from local file: \(localURL)")
                 await playFromURL(localURL)
             } else if let service = service, let url = service.streamURL(for: song.id) {
+                print("🎵 Playing from stream: \(url)")
                 await playFromURL(url)
             } else {
-                errorMessage = "Keine URL zum Abspielen gefunden"
-                isLoading = false
+                await MainActor.run {
+                    errorMessage = "Keine URL zum Abspielen gefunden"
+                    print("Keine URL zum Abspielen gefunden")
+                    isLoading = false
+                    objectWillChange.send()
+                }
             }
         }
     }
-    
+
     private func playFromURL(_ url: URL) async {
+        print("🎵 playFromURL called: \(url)")
+        
         // FIX: Check task cancellation
         guard currentPlayTask?.isCancelled == false else { return }
         
         let item = AVPlayerItem(url: url)
         player = AVPlayer(playerItem: item)
         player?.volume = volume
-        player?.play()
+        
+        // ✅ CRITICAL: Update UI state BEFORE playing
         isPlaying = true
         isLoading = false
+        objectWillChange.send()
+        
+        player?.play()
+        
+        print("✅ Player created and started, isPlaying: \(isPlaying)")
         
         // FIX: Clean observer management
         if let existingObserver = playerItemEndObserver {
@@ -287,7 +323,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         playerItemEndObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,  // Important: observe specific item
+            object: item,
             queue: .main
         ) { [weak self] _ in
             Task { [weak self] in
@@ -300,32 +336,47 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     func togglePlayPause() {
-        guard let player = player else { return }
+        guard let player = player else {
+            print("❌ No player available for togglePlayPause")
+            return
+        }
+        
+        print("🎵 togglePlayPause called - current isPlaying: \(isPlaying)")
         
         if isPlaying {
             player.pause()
             isPlaying = false
+            print("⏸️ Player paused")
         } else {
             player.play()
             isPlaying = true
+            print("▶️ Player playing")
         }
         
         updateNowPlayingInfo()
+        
+        // ✅ FORCE UI UPDATE
+        objectWillChange.send()
     }
-    
+
     func pause() {
+        print("⏸️ Pause called")
         player?.pause()
         isPlaying = false
         updateNowPlayingInfo()
+        objectWillChange.send()
     }
     
     func resume() {
+        print("▶️ Resume called")
         player?.play()
         isPlaying = true
         updateNowPlayingInfo()
+        objectWillChange.send()
     }
     
     func stop() {
+        print("⏹️ Stop called")
         cleanupPlayer()
         currentSong = nil
         currentTime = 0
@@ -333,8 +384,9 @@ class PlayerViewModel: NSObject, ObservableObject {
         playbackProgress = 0
         errorMessage = nil
         audioSessionManager.clearNowPlayingInfo()
+        objectWillChange.send()
     }
-    
+
     func seek(to time: TimeInterval) {
         guard let player = player, duration > 0 else { return }
         let clampedTime = max(0, min(time, duration))
@@ -346,19 +398,19 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     func playNext() async {
-        // FIX: Cancel current before next
+        print("⏭️ playNext called")
         currentPlayTask?.cancel()
         playlistManager.advanceToNext()
         await playCurrent()
     }
     
     func playPrevious() async {
-        // FIX: Cancel current before previous
+        print("⏮️ playPrevious called")
         currentPlayTask?.cancel()
         playlistManager.moveToPrevious(currentTime: currentTime)
         await playCurrent()
     }
-    
+
     func skipForward(seconds: TimeInterval = 15) {
         let newTime = currentTime + seconds
         seek(to: newTime)

@@ -11,33 +11,30 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
+    // ✅ ADDED: Singleton pattern like all other managers
+    static let shared = MusicLibraryManager()
     
-    // MARK: - Progressive Library Data
-    
-    // Albums
+    // MARK: - Progressive Library Data (unchanged)
     @Published private(set) var loadedAlbums: [Album] = []
     @Published private(set) var totalAlbumCount: Int = 0
     @Published private(set) var albumLoadingState: DataLoadingState = .idle
     
-    // Artists
     @Published private(set) var loadedArtists: [Artist] = []
     @Published private(set) var totalArtistCount: Int = 0
     @Published private(set) var artistLoadingState: DataLoadingState = .idle
     
-    // Genres
     @Published private(set) var loadedGenres: [Genre] = []
     @Published private(set) var genreLoadingState: DataLoadingState = .idle
     
-    // MARK: - State Management
-    
+    // MARK: - State Management (unchanged)
     @Published private(set) var hasLoadedInitialData = false
     @Published private(set) var lastRefreshDate: Date?
     @Published private(set) var backgroundLoadingProgress: String = ""
     
-    // Dependencies
+    // Dependencies (unchanged)
     private weak var service: SubsonicService?
     
-    // Configuration
+    // Configuration (unchanged)
     private struct LoadingConfig {
         static let albumBatchSize = 20
         static let artistBatchSize = 25
@@ -45,12 +42,10 @@ class MusicLibraryManager: ObservableObject {
         static let batchDelay: UInt64 = 200_000_000   // 200ms
     }
     
-    // MARK: - ✅ FIXED: Normal initialization instead of singleton
-    init() {}
+    // ✅ CHANGED: Made init private for singleton pattern
+    private init() {}
     
-    // MARK: - Public API
-    
-    // Computed properties for backward compatibility
+    // MARK: - Public API (unchanged)
     var albums: [Album] { loadedAlbums }
     var artists: [Artist] { loadedArtists }
     var genres: [Genre] { loadedGenres }
@@ -69,8 +64,7 @@ class MusicLibraryManager: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) < freshnessDuration
     }
     
-    // MARK: - Configuration
-    
+    // Configuration (unchanged)
     func configure(service: SubsonicService) {
         self.service = service
     }

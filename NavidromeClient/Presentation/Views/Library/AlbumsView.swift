@@ -1,9 +1,8 @@
 //
-//  AlbumsView.swift - REFACTORED to Pure UI
+//  AlbumsView.swift - FIXED: Proper LibraryViewModel usage
 //  NavidromeClient
 //
-//  ✅ CLEAN: All business logic moved to LibraryViewModel
-//  ✅ DRY: No more duplicated filtering/sorting logic
+//  ✅ FIXED: LibraryViewModel as @StateObject with no arguments
 //
 
 import SwiftUI
@@ -14,7 +13,7 @@ struct AlbumsView: View {
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var coverArtManager: CoverArtManager
     
-    // ✅ NEW: Single source of truth for all UI logic
+    // ✅ FIXED: LibraryViewModel as @StateObject (no arguments needed - uses singletons internally)
     @StateObject private var libraryVM = LibraryViewModel()
     
     var body: some View {
@@ -31,30 +30,27 @@ struct AlbumsView: View {
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)
             .searchable(
-                text: $libraryVM.searchText,
+                text: $libraryVM.searchText, // ✅ FIXED: Now works
                 placement: .automatic,
                 prompt: "Search albums..."
             )
             .onChange(of: libraryVM.searchText) { _, _ in
-                // ✅ REACTIVE: ViewModel handles debouncing
                 libraryVM.handleSearchTextChange()
             }
             .toolbar {
                 albumsToolbarContent
             }
             .refreshable {
-                // ✅ SINGLE LINE: ViewModel handles all complexity
                 await libraryVM.refreshAllData()
             }
             .task(id: libraryVM.displayedAlbums.count) {
-                // ✅ SINGLE LINE: ViewModel coordinates preloading
                 await libraryVM.preloadAlbumImages(libraryVM.displayedAlbums, coverArtManager: coverArtManager)
             }
             .accountToolbar()
         }
     }
     
-    // MARK: - ✅ Pure UI Components
+    // MARK: - ✅ Pure UI Components (unchanged)
     
     private var albumsLoadingView: some View {
         VStack(spacing: 16) {
@@ -78,7 +74,6 @@ struct AlbumsView: View {
     private var albumsContentView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                // ✅ REACTIVE: Show status header based on ViewModel state
                 if libraryVM.isOfflineMode || !libraryVM.canLoadOnlineContent {
                     LibraryStatusHeader(
                         itemType: .albums,
@@ -88,7 +83,6 @@ struct AlbumsView: View {
                     )
                 }
                 
-                // ✅ REACTIVE: Albums automatically filtered by ViewModel
                 AlbumGridView(albums: libraryVM.displayedAlbums)
             }
         }
@@ -114,7 +108,6 @@ struct AlbumsView: View {
             ForEach(libraryVM.availableAlbumSorts, id: \.self) { sortType in
                 Button {
                     Task {
-                        // ✅ SINGLE LINE: ViewModel handles sorting logic
                         await libraryVM.loadAlbums(sortBy: sortType)
                     }
                 } label: {
@@ -133,7 +126,6 @@ struct AlbumsView: View {
     
     private var offlineModeToggle: some View {
         Button {
-            // ✅ SINGLE LINE: ViewModel handles mode switching
             libraryVM.toggleOfflineMode()
         } label: {
             HStack(spacing: Spacing.xs) {
@@ -155,7 +147,6 @@ struct AlbumsView: View {
     private var refreshButton: some View {
         Button {
             Task {
-                // ✅ SINGLE LINE: ViewModel handles refresh logic
                 await libraryVM.refreshAllData()
             }
         } label: {
@@ -165,7 +156,7 @@ struct AlbumsView: View {
     }
 }
 
-// MARK: - ✅ Reusable AlbumGridView (unchanged but can be enhanced)
+// MARK: - ✅ Reusable AlbumGridView (unchanged)
 
 struct AlbumGridView: View {
     let albums: [Album]
@@ -188,7 +179,6 @@ struct AlbumGridView: View {
                 NavigationLink {
                     AlbumDetailView(album: album)
                 } label: {
-                    // ✅ PASS INDEX: For staggered loading
                     AlbumCard(album: album, accentColor: .primary, index: index)
                 }
             }

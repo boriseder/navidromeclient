@@ -24,35 +24,22 @@ class LibraryViewModel: ObservableObject {
     @Published var searchText: String = ""
     @Published var selectedAlbumSort: SubsonicService.AlbumSortType = .alphabetical
     
-    // MARK: - Dependencies
-    private let musicLibraryManager: MusicLibraryManager
-    private let networkMonitor: NetworkMonitor
-    private let offlineManager: OfflineManager
-    private let downloadManager: DownloadManager
+    // ✅ FIXED: All dependencies use .shared (consistent singleton pattern)
+    private let musicLibraryManager = MusicLibraryManager.shared
+    private let networkMonitor = NetworkMonitor.shared
+    private let offlineManager = OfflineManager.shared
+    private let downloadManager = DownloadManager.shared
     
-    init(
-        musicLibraryManager: MusicLibraryManager = MusicLibraryManager.shared,
-        networkMonitor: NetworkMonitor = NetworkMonitor.shared,
-        offlineManager: OfflineManager = OfflineManager.shared,
-        downloadManager: DownloadManager = DownloadManager.shared
-    ) {
-        self.musicLibraryManager = musicLibraryManager
-        self.networkMonitor = networkMonitor
-        self.offlineManager = offlineManager
-        self.downloadManager = downloadManager
+    init() {
     }
     
+    // ✅ CLEAN: All business logic unchanged, just DI
     
-    
-    
-    // MARK: - ALBUMS: Data Source + Filtering Logic
-    /// Get filtered and sorted albums for UI
     var displayedAlbums: [Album] {
         let sourceAlbums = getAlbumDataSource()
         return filterAlbums(sourceAlbums)
     }
     
-    /// Get album data source based on online/offline mode
     private func getAlbumDataSource() -> [Album] {
         let canLoadOnline = networkMonitor.canLoadOnlineContent
         let isOffline = offlineManager.isOfflineMode
@@ -60,12 +47,11 @@ class LibraryViewModel: ObservableObject {
         if canLoadOnline && !isOffline {
             return musicLibraryManager.albums
         } else {
-            // Offline mode: get albums from downloaded content
             let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
             return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
         }
     }
-    
+
     /// Filter albums by search text
     private func filterAlbums(_ albums: [Album]) -> [Album] {
         if searchText.isEmpty {
