@@ -22,7 +22,7 @@ struct FullScreenPlayerView: View {
         ZStack {
             BackgroundView(image: playerVM.coverArt)
 
-            VStack(spacing: Spacing.l) {
+            VStack(spacing: DSLayout.sectionGap) {
                 PlayerTopBar(
                     dismiss: dismiss,
                     showingQueue: $showingQueue,
@@ -33,7 +33,7 @@ struct FullScreenPlayerView: View {
                 Spacer()
 
                 CoverArtView(cover: playerVM.coverArt)
-                    .frame(width: Sizes.cover, height: Sizes.cover)
+                    .frame(width: DSLayout.detailCover, height: DSLayout.detailCover)
                     .scaleEffect(isDragging ? 0.95 : 1.0)
                     .animation(Animations.spring, value: isDragging)
 
@@ -43,27 +43,21 @@ struct FullScreenPlayerView: View {
                         isPlaying: playerVM.isPlaying,
                         isLoading: playerVM.isLoading
                     )
-                    .maxContentWidth()
-                    .multilineTextAlignment(.center)
                 }
 
                 PlayerProgressView(playerVM: playerVM)
-                    .maxContentWidth()
 
                 PlaybackControls(playerVM: playerVM)
-                    .maxContentWidth()
-
+                
                 VolumeSlider(playerVM: playerVM)
-                    .maxContentWidth()
-
+                
                 Spacer()
 
                 // ✅ ENHANCED: Bottom controls with Audio Route Picker
                 EnhancedBottomControls(playerVM: playerVM)
-                    .maxContentWidth()
-                    .padding(.bottom, Padding.xl)
+                    .padding(.bottom, DSLayout.screenPadding)
             }
-            .padding(.top, Spacing.l)
+            .padding(.top, DSLayout.sectionGap)
             .screenPadding()
         }
         .statusBarHidden()
@@ -127,14 +121,14 @@ struct EnhancedBottomControls: View {
             
             // Shuffle Button
             Button { playerVM.toggleShuffle() } label: {
-                VStack(spacing: Spacing.xs) {
+                VStack(spacing: DSLayout.tightGap) {
                     Image(systemName: "shuffle")
-                        .font(Typography.title3)
-                        .foregroundStyle(playerVM.isShuffling ? BrandColor.primary : TextColor.onDarkSecondary)
+                        .font(DSText.sectionTitle)
+                        .foregroundStyle(playerVM.isShuffling ? DSColor.accent : DSColor.onDarkSecondary)
                     
                     Text("Shuffle")
-                        .font(Typography.caption2)
-                        .foregroundStyle(playerVM.isShuffling ? BrandColor.primary : TextColor.onDarkSecondary)
+                        .font(DSText.body)
+                        .foregroundStyle(playerVM.isShuffling ? DSColor.accent : DSColor.onDarkSecondary)
                 }
             }
 
@@ -143,13 +137,13 @@ struct EnhancedBottomControls: View {
             
             // Repeat Button
             Button { playerVM.toggleRepeat() } label: {
-                VStack(spacing: Spacing.xs) {
+                VStack(spacing: DSLayout.tightGap) {
                     Image(systemName: repeatIcon)
-                        .font(Typography.title3)
+                        .font(DSText.sectionTitle)
                         .foregroundStyle(repeatColor)
                     
                     Text(repeatText)
-                        .font(Typography.caption2)
+                        .font(DSText.body)
                         .foregroundStyle(repeatColor)
                 }
             }
@@ -166,8 +160,8 @@ struct EnhancedBottomControls: View {
 
     private var repeatColor: Color {
         switch playerVM.repeatMode {
-        case .off: return TextColor.onDarkSecondary
-        case .all, .one: return BrandColor.primary
+        case .off: return DSColor.onDarkSecondary
+        case .all, .one: return DSColor.accent
         }
     }
     
@@ -192,13 +186,13 @@ struct AudioRoutePickerButton: View {
                 .opacity(0.001) // Nearly invisible but still interactive
             
             // Custom UI Button
-            VStack(spacing: Spacing.xs) {
+            VStack(spacing: DSLayout.tightGap) {
                 Image(systemName: audioRouteIcon)
-                    .font(Typography.title3)
+                    .font(DSText.sectionTitle)
                     .foregroundStyle(audioRouteColor)
                 
                 Text(audioRouteText)
-                    .font(Typography.caption2)
+                    .font(DSText.body)
                     .foregroundStyle(audioRouteColor)
             }
         }
@@ -220,9 +214,9 @@ struct AudioRoutePickerButton: View {
         if audioSessionManager.isHeadphonesConnected ||
            audioSessionManager.audioRoute.contains("Bluetooth") ||
            audioSessionManager.audioRoute.contains("AirPlay") {
-            return BrandColor.primary
+            return DSColor.accent
         } else {
-            return TextColor.onDarkSecondary
+            return DSColor.onDarkSecondary
         }
     }
     
@@ -275,28 +269,28 @@ struct PlayerTopBar: View {
             
             Spacer()
             
-            VStack(spacing: Spacing.xs) {
+            VStack(spacing: DSLayout.tightGap) {
                 Text("Playing from")
-                    .font(Typography.caption)
-                    .foregroundStyle(TextColor.onDarkSecondary)
+                    .font(DSText.metadata)
+                    .foregroundStyle(DSColor.onDarkSecondary)
                 
-                HStack(spacing: Spacing.xs) {
+                HStack(spacing: DSLayout.tightGap) {
                     // Audio Route Indicator
                     if audioSessionManager.isHeadphonesConnected {
                         Image(systemName: audioRouteIcon)
-                            .font(Typography.caption2)
-                            .foregroundStyle(TextColor.onDark.opacity(0.8))
+                            .font(DSText.body)
+                            .foregroundStyle(DSColor.onDark.opacity(0.8))
                     }
                     
                     Text(audioRouteText)
-                        .font(Typography.caption.weight(.semibold))
-                        .foregroundStyle(TextColor.onDark)
+                        .font(DSText.metadata.weight(.semibold))
+                        .foregroundStyle(DSColor.onDark)
                 }
             }
             
             Spacer()
             
-            HStack(spacing: Spacing.s) {
+            HStack(spacing: DSLayout.elementGap) {
                 CircleButton(icon: "list.bullet") {
                     showingQueue = true
                 }
@@ -340,19 +334,19 @@ struct CoverArtView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             } else {
-                RoundedRectangle(cornerRadius: Radius.l)
-                    .fill(BackgroundColor.thin)
+                RoundedRectangle(cornerRadius: DSCorners.comfortable)
+                    .fill(DSColor.background)
                     .overlay(
                         Image(systemName: "music.note")
                             .font(.system(size: 80))
-                            .foregroundStyle(TextColor.onDark.opacity(0.6))
+                            .foregroundStyle(DSColor.onDark.opacity(0.6))
                     )
                     .aspectRatio(1, contentMode: .fit)
             }
         }
         .coverStyle()
         .overlay(
-            RoundedRectangle(cornerRadius: Radius.l)
+            RoundedRectangle(cornerRadius: DSCorners.comfortable)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
     }
@@ -365,44 +359,44 @@ struct PlayerSongInfoView: View {
     let isLoading: Bool
 
     var body: some View {
-        VStack(spacing: Spacing.s) {
+        VStack(spacing: DSLayout.elementGap) {
             HStack {
                 Text(song.title)
-                    .font(isPlaying ? Typography.title2 : Typography.title3)
-                    .foregroundStyle(isPlaying ? BrandColor.playing : TextColor.onDark)
+                    .font(isPlaying ? DSText.sectionTitle : DSText.sectionTitle)
+                    .foregroundStyle(isPlaying ? DSColor.playing : DSColor.onDark)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                 
                 if isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: TextColor.onDark))
+                        .progressViewStyle(CircularProgressViewStyle(tint: DSColor.onDark))
                         .scaleEffect(0.8)
-                        .frame(width: Sizes.iconLarge, height: Sizes.iconLarge)
+                        .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
                 }
             }
 
             if let artist = song.artist {
                 Text(artist)
-                    .font(Typography.title3)
-                    .foregroundStyle(TextColor.onDarkSecondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundStyle(DSColor.onDarkSecondary)
                     .lineLimit(1)
             }
             
             // Additional metadata
-            HStack(spacing: Spacing.s) {
+            HStack(spacing: DSLayout.elementGap) {
                 if let album = song.album {
                     Text(album)
-                        .font(Typography.caption)
-                        .foregroundStyle(TextColor.onDark.opacity(0.6))
+                        .font(DSText.metadata)
+                        .foregroundStyle(DSColor.onDark.opacity(0.6))
                         .lineLimit(1)
                 }
                 
                 if let year = song.year {
                     Text("•")
-                        .foregroundStyle(TextColor.onDark.opacity(0.4))
+                        .foregroundStyle(DSColor.onDark.opacity(0.4))
                     Text(String(year))
-                        .font(Typography.caption)
-                        .foregroundStyle(TextColor.onDark.opacity(0.6))
+                        .font(DSText.metadata)
+                        .foregroundStyle(DSColor.onDark.opacity(0.6))
                 }
             }
         }
@@ -416,34 +410,33 @@ struct PlayerProgressView: View {
     @State private var dragValue: Double = 0
 
     var body: some View {
-        VStack(spacing: Spacing.s) {
+        VStack(spacing: DSLayout.elementGap) {
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: Radius.xs)
-                    .fill(TextColor.onDark.opacity(0.3))
+                RoundedRectangle(cornerRadius: DSCorners.tight)
+                    .fill(DSColor.onDark.opacity(0.3))
                     .frame(height: 4)
                 
-                RoundedRectangle(cornerRadius: Radius.xs)
-                    .fill(TextColor.onDark)
+                RoundedRectangle(cornerRadius: DSCorners.tight)
+                    .fill(DSColor.onDark)
                     .frame(width: progressWidth, height: 4)
                 
                 Circle()
-                    .fill(TextColor.onDark)
+                    .fill(DSColor.onDark)
                     .frame(width: 12, height: 12)
                     .offset(x: progressWidth - 6)
-                    .miniShadow()
             }
             .gesture(progressDragGesture)
 
             HStack {
                 Text(formatTime(isDragging ? dragValue * playerVM.duration : playerVM.currentTime))
-                    .foregroundStyle(isDragging ? BrandColor.primary : TextColor.onDarkSecondary)
+                    .foregroundStyle(isDragging ? DSColor.accent : DSColor.onDarkSecondary)
                 
                 Spacer()
                 
                 Text(formatTime(playerVM.duration))
-                    .foregroundStyle(TextColor.onDarkSecondary)
+                    .foregroundStyle(DSColor.onDarkSecondary)
             }
-            .font(Typography.monospacedNumbers)
+            .font(DSText.numbers)
             .animation(Animations.easeQuick, value: isDragging)
         }
     }
@@ -487,13 +480,13 @@ struct PlaybackControls: View {
     @ObservedObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: Padding.xl) {
+        HStack(spacing: DSLayout.screenPadding) {
             Button {
                 Task { await playerVM.playPrevious() }
             } label: {
                 Image(systemName: "backward.end.fill")
-                    .font(.system(size: Sizes.icon))
-                    .foregroundStyle(TextColor.onDark)
+                    .font(.system(size: DSLayout.icon))
+                    .foregroundStyle(DSColor.onDark)
             }
             .disabled(playerVM.isLoading)
 
@@ -502,18 +495,17 @@ struct PlaybackControls: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(TextColor.onDark)
+                        .fill(DSColor.onDark)
                         .frame(width: 80, height: 80)
-                        .largeShadow()
                     
                     if playerVM.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: TextColor.onLight))
+                            .progressViewStyle(CircularProgressViewStyle(tint: DSColor.onLight))
                             .scaleEffect(1.2)
                     } else {
                         Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 28))
-                            .foregroundStyle(TextColor.onLight)
+                            .foregroundStyle(DSColor.onLight)
                     }
                 }
             }
@@ -523,8 +515,8 @@ struct PlaybackControls: View {
                 Task { await playerVM.playNext() }
             } label: {
                 Image(systemName: "forward.end.fill")
-                    .font(.system(size: Sizes.icon))
-                    .foregroundStyle(TextColor.onDark)
+                    .font(.system(size: DSLayout.icon))
+                    .foregroundStyle(DSColor.onDark)
             }
             .disabled(playerVM.isLoading)
         }
@@ -536,9 +528,9 @@ struct VolumeSlider: View {
     @ObservedObject var playerVM: PlayerViewModel
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: DSLayout.elementGap) {
             Image(systemName: "speaker.fill")
-                .foregroundStyle(TextColor.onDarkSecondary)
+                .foregroundStyle(DSColor.onDarkSecondary)
 
             Slider(
                 value: Binding(
@@ -550,10 +542,10 @@ struct VolumeSlider: View {
                 ),
                 in: 0...1
             )
-            .tint(TextColor.onDark)
+            .tint(DSColor.onDark)
 
             Image(systemName: "speaker.wave.3.fill")
-                .foregroundStyle(TextColor.onDarkSecondary)
+                .foregroundStyle(DSColor.onDarkSecondary)
         }
     }
 }
@@ -573,7 +565,7 @@ struct BackgroundView: View {
                     .scaleEffect(1.2)
             }
             Rectangle()
-                .fill(BackgroundColor.overlay)
+                .fill(DSColor.overlay)
                 .ignoresSafeArea()
         }
     }
@@ -587,10 +579,10 @@ struct CircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(Typography.title2)
-                .foregroundStyle(TextColor.onDark)
-                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
-                .background(BackgroundColor.thin)
+                .font(DSText.sectionTitle)
+                .foregroundStyle(DSColor.onDark)
+                .frame(width: DSLayout.buttonHeight, height: DSLayout.buttonHeight)
+                .background(DSColor.background)
                 .clipShape(Circle())
         }
     }
@@ -599,8 +591,7 @@ struct CircleButton: View {
 // Style Extension (unchanged)
 extension View {
     func coverStyle() -> some View {
-        self.clipShape(RoundedRectangle(cornerRadius: Radius.l))
-            .largeShadow()
+        self.clipShape(RoundedRectangle(cornerRadius: DSCorners.comfortable))
     }
 }
 

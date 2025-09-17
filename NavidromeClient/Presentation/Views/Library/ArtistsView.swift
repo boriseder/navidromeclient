@@ -170,18 +170,18 @@ struct ArtistsView: View {
         Button {
             toggleOfflineMode()
         } label: {
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: isOfflineMode ? "icloud.slash" : "icloud")
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
                 Text(isOfflineMode ? "Offline" : "All")
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
             }
-            .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.primary)
-            .padding(.horizontal, Padding.s)
-            .padding(.vertical, Padding.xs)
+            .foregroundStyle(isOfflineMode ? DSColor.warning : DSColor.accent)
+            .padding(.horizontal, DSLayout.elementPadding)
+            .padding(.vertical, DSLayout.tightPadding)
             .background(
                 Capsule()
-                    .fill((isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+                    .fill((isOfflineMode ? DSColor.warning : DSColor.accent).opacity(0.1))
             )
         }
     }
@@ -202,7 +202,7 @@ struct ArtistListView: View {
     let artists: [Artist]
     
     var body: some View {
-        LazyVStack(spacing: Spacing.s) {
+        LazyVStack(spacing: DSLayout.elementGap) {
             ForEach(artists.indices, id: \.self) { index in
                 let artist = artists[index]
                 NavigationLink(value: artist) {
@@ -211,7 +211,7 @@ struct ArtistListView: View {
             }
         }
         .screenPadding()
-        .padding(.bottom, Sizes.miniPlayer)
+        .padding(.bottom, DSLayout.miniPlayerHeight)
     }
 }
 

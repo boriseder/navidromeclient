@@ -17,7 +17,7 @@ struct SongRow: View {
     @State private var showPlayIndicator = false
     
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: DSLayout.elementGap) {
             trackNumberView
             songInfoView
             Spacer()
@@ -32,7 +32,7 @@ struct SongRow: View {
         }
         .scaleEffect(isPlaying ? 1.02 : 1.0)
         .animation(Animations.ease, value: isPlaying)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+        .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
         .shadow(color: .black.opacity(isPlaying ? 0.08 : 0.03), radius: 3, x: 0, y: 2)
         .onAppear {
             if isPlaying {
@@ -58,7 +58,7 @@ struct SongRow: View {
             } label: {
                 Label("More", systemImage: "ellipsis")
             }
-            .tint(BrandColor.primary)
+            .tint(DSColor.accent)
         }
     }
 
@@ -70,12 +70,12 @@ struct SongRow: View {
                     .transition(.opacity.combined(with: .scale))
             } else {
                 Text("\(index)")
-                    .font(Typography.caption2.weight(.medium))
-                    .foregroundStyle(TextColor.onLight)
-                    .frame(width: 28, height: 28) // Approx. DS applied - könnte Sizes.iconLarge + 4 sein
+                    .font(DSText.body.weight(.medium))
+                    .foregroundStyle(DSColor.onLight)
+                    .frame(width: 28, height: 28) // Approx. DS applied - könnte DSLayout.iconLarge + 4 sein
                     .background(
                         Circle()
-                            .fill(BackgroundColor.primary.opacity(0.9))
+                            .fill(DSColor.background.opacity(0.9))
                             .overlay(
                                 Circle().stroke(Color.white.opacity(0.5), lineWidth: 1)
                             )
@@ -89,10 +89,10 @@ struct SongRow: View {
 
     // MARK: - Song Info (Enhanced)
     private var songInfoView: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
+        VStack(alignment: .leading, spacing: DSLayout.tightGap) {
             Text(song.title)
-                .font(isPlaying ? Typography.bodyEmphasized : Typography.body)
-                .foregroundStyle(isPlaying ? BrandColor.playing : TextColor.primary)
+                .font(isPlaying ? DSText.emphasized : DSText.body)
+                .foregroundStyle(isPlaying ? DSColor.playing : DSColor.primary)
                 .lineLimit(1)
                 .transition(.opacity.combined(with: .slide))
                 .animation(Animations.ease, value: isPlaying)
@@ -104,8 +104,8 @@ struct SongRow: View {
         Group {
             if let duration = song.duration, duration > 0 {
                 Text(formatDuration(duration))
-                    .font(Typography.monospacedNumbers)
-                    .foregroundStyle(TextColor.onLight)
+                    .font(DSText.numbers)
+                    .foregroundStyle(DSColor.onLight)
                     .monospacedDigit()
             } else {
                 EmptyView()
@@ -115,11 +115,11 @@ struct SongRow: View {
 
     // MARK: - Background (Enhanced)
     private var backgroundView: some View {
-        RoundedRectangle(cornerRadius: Radius.s)
-            .fill(isPlaying ? BrandColor.playing.opacity(0.15) : BackgroundColor.primary.opacity(0.3))
+        RoundedRectangle(cornerRadius: DSCorners.element)
+            .fill(isPlaying ? DSColor.playing.opacity(0.15) : DSColor.background.opacity(0.3))
             .overlay(
-                RoundedRectangle(cornerRadius: Radius.xs) // Approx. DS applied
-                    .stroke(isPlaying ? BrandColor.playing.opacity(0.1) : Color.white.opacity(0.1), lineWidth: 1)
+                RoundedRectangle(cornerRadius: DSCorners.tight) // Approx. DS applied
+                    .stroke(isPlaying ? DSColor.playing.opacity(0.1) : Color.white.opacity(0.1), lineWidth: 1)
             )
             .animation(Animations.ease, value: isPlaying)
     }
@@ -128,7 +128,7 @@ struct SongRow: View {
     private var separatorLine: some View {
         Rectangle()
             .frame(height: 0.5)
-            .foregroundColor(TextColor.quaternary)
+            .foregroundColor(DSColor.quaternary)
     }
 
     // MARK: - Helper (unchanged but using DS)
@@ -150,7 +150,7 @@ struct EqualizerBars: View {
         HStack(spacing: 2) {
             ForEach(0..<3, id: \.self) { index in
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(TextColor.onLight)
+                    .fill(DSColor.onLight)
                     .frame(width: 3, height: 12)
                     .scaleEffect(y: barScales[index], anchor: .bottom)
                     .animation(.interpolatingSpring(stiffness: 80, damping: 10), value: barScales[index])
@@ -159,7 +159,7 @@ struct EqualizerBars: View {
         .frame(width: 28, height: 28) // Konsistent mit trackNumberView
         .background(
             Circle()
-                .fill(BackgroundColor.primary.opacity(0.9))
+                .fill(DSColor.background.opacity(0.9))
                 .overlay(
                     Circle().stroke(Color.white.opacity(0.5), lineWidth: 1)
                 )

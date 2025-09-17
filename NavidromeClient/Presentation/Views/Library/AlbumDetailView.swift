@@ -27,7 +27,7 @@ struct AlbumDetailView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: Spacing.xl) {
+            VStack(spacing: DSLayout.screenGap) {
                 AlbumHeaderView(
                     album: album,
                     cover: coverArt,
@@ -67,7 +67,7 @@ struct AlbumDetailView: View {
                 }
             }
             .screenPadding()
-            .padding(.bottom, miniPlayerVisible ? Sizes.miniPlayer : 50)
+            .padding(.bottom, miniPlayerVisible ? DSLayout.miniPlayerHeight : DSLayout.contentGap)
             .navigationTitle(album.name)
             .navigationBarTitleDisplayMode(.inline)
             .task {
@@ -82,7 +82,7 @@ struct AlbumDetailView: View {
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
         // ✅ BESTEHENDE INTEGRATION: CoverArtManager
-        coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(Sizes.coverFull))
+        coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(DSLayout.fullCover))
         
         // ✅ BESTEHENDE INTEGRATION: NavidromeViewModel für Songs
         songs = await navidromeVM.loadSongs(for: album.id)
@@ -102,30 +102,30 @@ struct AlbumHeaderView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     
     var body: some View {
-        HStack(spacing: Spacing.l) {
+        HStack(spacing: DSLayout.sectionGap) {
             AlbumCoverView(cover: cover)
-                .frame(width: Sizes.card, height: Sizes.card)
-                .cardShadow()
+                .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
+                .cardStyle()
             
-            VStack(alignment: .leading, spacing: Spacing.s) {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: DSLayout.elementGap) {
+                VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                     Text(album.name)
-                        .font(Typography.title3)
+                        .font(DSText.sectionTitle)
                         .lineLimit(2)
-                        .foregroundColor(TextColor.primary)
+                        .foregroundColor(DSColor.primary)
                     
                     Text(album.artist)
-                        .font(Typography.bodyEmphasized)
-                        .foregroundColor(TextColor.secondary)
+                        .font(DSText.emphasized)
+                        .foregroundColor(DSColor.secondary)
                         .lineLimit(1)
                 }
                 
                 Text(buildMetadataString())
-                    .font(Typography.caption)
-                    .foregroundColor(TextColor.tertiary)
+                    .font(DSText.metadata)
+                    .foregroundColor(DSColor.tertiary)
                     .lineLimit(1)
                 
-                HStack(spacing: Spacing.s) {
+                HStack(spacing: DSLayout.elementGap) {
                     CompactPlayButton(album: album, songs: songs)
                     ShuffleButton(album: album, songs: songs)
                     
@@ -141,8 +141,8 @@ struct AlbumHeaderView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, Spacing.xl)
-        .materialCardStyle()
+        .padding(.vertical, DSLayout.screenGap)
+        .cardStyle()
     }
     
     private func buildMetadataString() -> String {
@@ -179,18 +179,18 @@ struct CompactPlayButton: View {
         Button {
             Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
         } label: {
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: "play.fill")
-                    .font(.system(size: Sizes.iconSmall, weight: .semibold))
+                    .font(.system(size: DSLayout.smallIcon, weight: .semibold))
                 Text("Play")
-                    .font(Typography.caption.weight(.semibold))
+                    .font(DSText.metadata.weight(.semibold))
             }
-            .foregroundColor(TextColor.onDark)
-            .padding(.horizontal, Padding.s)
-            .padding(.vertical, Padding.xs)
+            .foregroundColor(DSColor.onDark)
+            .padding(.horizontal, DSLayout.elementPadding)
+            .padding(.vertical, DSLayout.tightPadding)
             .background(
                 Capsule()
-                    .fill(BrandColor.primary)
+                    .fill(DSColor.accent)
             )
         }
     }
@@ -205,18 +205,18 @@ struct AlbumCoverView: View {
                 Image(uiImage: cover)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: Sizes.card, height: Sizes.card)
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.xs))
-                    .cardShadow()
+                    .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
+                    .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
             } else {
-                RoundedRectangle(cornerRadius: Radius.xs)
-                    .fill(BackgroundColor.secondary)
-                    .frame(width: Sizes.card, height: Sizes.card)
+                RoundedRectangle(cornerRadius: DSCorners.tight)
+                    .fill(DSColor.surface)
+                    .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
                     .overlay(
                         Image(systemName: "record.circle.fill")
-                            .font(.system(size: Sizes.iconLarge))
-                            .foregroundStyle(TextColor.tertiary)
+                            .font(.system(size: DSLayout.largeIcon))
+                            .foregroundStyle(DSColor.tertiary)
                     )
+
             }
         }
     }
@@ -234,8 +234,8 @@ struct ShuffleButton: View {
             Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
                 .resizable()
                 .scaledToFit()
-                .frame(width: Sizes.icon, height: Sizes.icon)
-                .foregroundColor(TextColor.secondary)
+                .frame(width: DSLayout.icon, height: DSLayout.icon)
+                .foregroundColor(DSColor.secondary)
         }
     }
 }

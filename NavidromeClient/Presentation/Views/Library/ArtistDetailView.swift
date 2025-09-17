@@ -71,7 +71,7 @@ struct ArtistDetailView: View {
     
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.xl) {
+            LazyVStack(spacing: DSLayout.screenGap) {
                 headerView
                     .screenPadding()
                 
@@ -89,7 +89,7 @@ struct ArtistDetailView: View {
                     AlbumGridView(albums: displayAlbums)
                 }
                 
-                Color.clear.frame(height: Sizes.miniPlayer)
+                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
         }
         .navigationTitle(contextTitle)
@@ -106,13 +106,13 @@ struct ArtistDetailView: View {
     // MARK: - ✅ HEADER VIEW
     
     private var headerView: some View {
-        VStack(spacing: Spacing.l) {
-            HStack(spacing: Spacing.l) {
-                artistAvatar
+        VStack(spacing: DSLayout.sectionGap) {
+            HStack(spacing: DSLayout.sectionGap) {
+                artistAvatar()
                 
-                VStack(alignment: .leading, spacing: Spacing.s) {
+                VStack(alignment: .leading, spacing: DSLayout.elementGap) {
                     Text(contextTitle)
-                        .font(Typography.title2)
+                        .font(DSText.sectionTitle)
                         .lineLimit(2)
                     
                     albumCountView
@@ -133,16 +133,16 @@ struct ArtistDetailView: View {
                 )
             }
         }
-        .materialCardStyle()
+        .cardStyle()
     }
     
-    private var artistAvatar: some View {
+    private func artistAvatar() -> some View {
         Group {
             if let image = artistImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
+                    .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
                     .clipShape(Circle())
             } else {
                 Circle()
@@ -153,15 +153,15 @@ struct ArtistDetailView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
+                    .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
                     .overlay(
                         Image(systemName: contextIcon)
-                            .font(.system(size: Sizes.iconLarge))
-                            .foregroundStyle(TextColor.onDark)
+                            .font(.system(size: DSLayout.largeIcon))
+                            .foregroundStyle(DSColor.onDark)
                     )
             }
         }
-        .avatarStyle()
+        .cardStyle()
     }
     
     private var contextIcon: String {
@@ -172,12 +172,12 @@ struct ArtistDetailView: View {
     }
     
     private var albumCountView: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
+        VStack(alignment: .leading, spacing: DSLayout.tightGap) {
             if !isOfflineMode && !albums.isEmpty {
                 AlbumCountBadge(
                     count: albums.count,
                     label: "Total",
-                    color: BrandColor.primary
+                    color: DSColor.accent
                 )
             }
             
@@ -185,7 +185,7 @@ struct ArtistDetailView: View {
                 AlbumCountBadge(
                     count: availableOfflineAlbums.count,
                     label: "Downloaded",
-                    color: BrandColor.success
+                    color: DSColor.success
                 )
             }
         }
@@ -195,16 +195,16 @@ struct ArtistDetailView: View {
         Button {
             Task { await shufflePlayAllAlbums() }
         } label: {
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: "shuffle")
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
                 Text("Shuffle All")
-                    .font(Typography.caption.weight(.semibold))
+                    .font(DSText.metadata.weight(.semibold))
             }
-            .foregroundStyle(TextColor.onDark)
-            .padding(.horizontal, Padding.m)
-            .padding(.vertical, Padding.s)
-            .background(BrandColor.primary, in: Capsule())
+            .foregroundStyle(DSColor.onDark)
+            .padding(.horizontal, DSLayout.contentPadding)
+            .padding(.vertical, DSLayout.elementPadding)
+            .background(DSColor.accent, in: Capsule())
         }
     }
     
@@ -253,7 +253,7 @@ struct ArtistDetailView: View {
         if case .artist(let artist) = context {
             artistImage = await coverArtManager.loadArtistImage(
                 artist: artist,
-                size: Int(Sizes.avatarLarge)
+                size: Int(DSLayout.smallAvatar)
             )
         }
     }
@@ -297,10 +297,10 @@ struct AlbumCountBadge: View {
     
     var body: some View {
         Text("\(count) \(label) Album\(count != 1 ? "s" : "")")
-            .font(Typography.caption)
+            .font(DSText.metadata)
             .foregroundStyle(color)
-            .padding(.horizontal, Padding.s)
-            .padding(.vertical, Padding.xs)
+            .padding(.horizontal, DSLayout.elementPadding)
+            .padding(.vertical, DSLayout.tightPadding)
             .background(color.opacity(0.1), in: Capsule())
             .overlay(
                 Capsule().stroke(color.opacity(0.3), lineWidth: 1)

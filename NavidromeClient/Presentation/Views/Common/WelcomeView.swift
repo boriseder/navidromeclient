@@ -11,25 +11,25 @@ struct WelcomeView: View {
     let onGetStarted: () -> Void
     
     var body: some View {
-        VStack(spacing: Spacing.xl) {
+        VStack(spacing: DSLayout.screenGap) {
             Image(systemName: "music.note.house")
                 .font(.system(size: 80)) // Approx. DS applied
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [BrandColor.primary, BrandColor.secondary],
+                        colors: [DSColor.accent, DSColor.secondary],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
             
-            VStack(spacing: Spacing.m) {
+            VStack(spacing: DSLayout.contentGap) {
                 Text("Welcome to Navidrome Client")
-                    .font(Typography.largeTitle)
+                    .font(DSText.pageTitle)
                     .multilineTextAlignment(.center)
                 
                 Text("Connect to your Navidrome server to start listening to your music library")
-                    .font(Typography.body)
-                    .foregroundStyle(TextColor.secondary)
+                    .font(DSText.body)
+                    .foregroundStyle(DSColor.secondary)
                     .multilineTextAlignment(.center)
                     .screenPadding()
             }
@@ -37,9 +37,8 @@ struct WelcomeView: View {
             Button("Get Started") {
                 onGetStarted()
             }
-            .primaryButtonStyle()
-            .font(Typography.buttonLarge)
+            .font(DSText.largeButton)
         }
-        .padding(Padding.xl)
+        .padding(DSLayout.screenPadding)
     }
 }

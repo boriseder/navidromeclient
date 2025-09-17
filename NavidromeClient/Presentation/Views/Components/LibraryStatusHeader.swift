@@ -29,8 +29,8 @@ struct LibraryStatusHeader: View {
             Spacer()
             
             Text(countText)
-                .font(Typography.caption)
-                .foregroundStyle(TextColor.secondary)
+                .font(DSText.metadata)
+                .foregroundStyle(DSColor.secondary)
             
             Spacer()
             
@@ -39,9 +39,9 @@ struct LibraryStatusHeader: View {
             }
         }
         .listItemPadding()
-        .glassCardStyle()
+        .cardStyle()
         .screenPadding()
-        .padding(.bottom, Spacing.s)
+        .padding(.bottom, DSLayout.elementGap)
     }
     
     private var countText: String {
@@ -138,15 +138,15 @@ struct NetworkStatusIndicator: View {
     }
     
     var body: some View {
-        HStack(spacing: Spacing.xs) {
+        HStack(spacing: DSLayout.tightGap) {
             Image(systemName: networkMonitor.isConnected ? "wifi" : "wifi.slash")
-                .foregroundStyle(networkMonitor.isConnected ? BrandColor.success : BrandColor.error)
-                .font(Typography.caption)
+                .foregroundStyle(networkMonitor.isConnected ? DSColor.success : DSColor.error)
+                .font(DSText.metadata)
             
             if showText {
                 Text(networkMonitor.isConnected ? "Online" : "Offline")
-                    .font(Typography.caption)
-                    .foregroundStyle(networkMonitor.isConnected ? BrandColor.success : BrandColor.error)
+                    .font(DSText.metadata)
+                    .foregroundStyle(networkMonitor.isConnected ? DSColor.success : DSColor.error)
             }
         }
     }
@@ -162,18 +162,18 @@ struct OfflineModeToggle: View {
             Button(action: {
                 offlineManager.toggleOfflineMode()
             }) {
-                HStack(spacing: Spacing.xs) {
+                HStack(spacing: DSLayout.tightGap) {
                     Image(systemName: offlineManager.isOfflineMode ? "icloud.slash" : "icloud")
-                        .font(Typography.caption)
+                        .font(DSText.metadata)
                     Text(offlineManager.isOfflineMode ? "Offline" : "All")
-                        .font(Typography.caption)
+                        .font(DSText.metadata)
                 }
-                .foregroundStyle(offlineManager.isOfflineMode ? BrandColor.warning : BrandColor.primary)
-                .padding(.horizontal, Padding.s)
-                .padding(.vertical, Padding.xs)
+                .foregroundStyle(offlineManager.isOfflineMode ? DSColor.warning : DSColor.accent)
+                .padding(.horizontal, DSLayout.elementPadding)
+                .padding(.vertical, DSLayout.tightPadding)
                 .background(
                     Capsule()
-                        .fill(offlineManager.isOfflineMode ? BrandColor.warning.opacity(0.1) : BrandColor.primary.opacity(0.1))
+                        .fill(offlineManager.isOfflineMode ? DSColor.warning.opacity(0.1) : DSColor.accent.opacity(0.1))
                 )
             }
         }
@@ -186,19 +186,19 @@ struct OfflineStatusBadge: View {
     @StateObject private var downloadManager = DownloadManager.shared
     
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: DSLayout.elementGap) {
             Image(systemName: downloadManager.isAlbumDownloaded(album.id) ? "checkmark.circle.fill" : "icloud.slash")
-                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? BrandColor.success : BrandColor.warning)
+                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? DSColor.success : DSColor.warning)
             
             Text(downloadManager.isAlbumDownloaded(album.id) ? "Downloaded" : "Not Available Offline")
-                .font(Typography.caption)
-                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? BrandColor.success : BrandColor.warning)
+                .font(DSText.metadata)
+                .foregroundStyle(downloadManager.isAlbumDownloaded(album.id) ? DSColor.success : DSColor.warning)
         }
-        .padding(.horizontal, Padding.s)
-        .padding(.vertical, Padding.xs)
+        .padding(.horizontal, DSLayout.elementPadding)
+        .padding(.vertical, DSLayout.tightPadding)
         .background(
             Capsule()
-                .fill(downloadManager.isAlbumDownloaded(album.id) ? BrandColor.success.opacity(0.1) : BrandColor.warning.opacity(0.1))
+                .fill(downloadManager.isAlbumDownloaded(album.id) ? DSColor.success.opacity(0.1) : DSColor.warning.opacity(0.1))
         )
     }
 }
@@ -208,7 +208,7 @@ struct DownloadProgressRing: View {
     let progress: Double
     let size: CGFloat
     
-    init(progress: Double, size: CGFloat = Sizes.icon) {
+    init(progress: Double, size: CGFloat = DSLayout.icon) {
         self.progress = progress
         self.size = size
     }
@@ -216,12 +216,12 @@ struct DownloadProgressRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(BrandColor.primary.opacity(0.3), lineWidth: 2)
+                .stroke(DSColor.accent.opacity(0.3), lineWidth: 2)
                 .frame(width: size, height: size)
             
             Circle()
                 .trim(from: 0, to: progress)
-                .stroke(BrandColor.primary, lineWidth: 2)
+                .stroke(DSColor.accent, lineWidth: 2)
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
                 .animation(Animations.ease, value: progress)
@@ -230,11 +230,11 @@ struct DownloadProgressRing: View {
                 Text("\(Int(progress * 100))%")
                     .font(.system(size: size * 0.3))
                     .fontWeight(.bold)
-                    .foregroundStyle(BrandColor.primary)
+                    .foregroundStyle(DSColor.accent)
             } else if progress >= 1 {
                 Image(systemName: "checkmark")
                     .font(.system(size: size * 0.4))
-                    .foregroundStyle(BrandColor.success)
+                    .foregroundStyle(DSColor.success)
             }
         }
     }

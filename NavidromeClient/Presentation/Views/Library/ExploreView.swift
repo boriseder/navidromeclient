@@ -78,7 +78,7 @@ struct ExploreView: View {
     
     private var onlineContent: some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.xl) {
+            LazyVStack(spacing: DSLayout.screenGap) {
                 WelcomeHeader(
                     username: "User", // falls du keinen navidromeVM mehr hast
                     nowPlaying: playerVM.currentSong
@@ -132,9 +132,9 @@ struct ExploreView: View {
                     ErrorSection(message: errorMessage)
                 }
                 
-                Color.clear.frame(height: Sizes.miniPlayer)
+                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
-            .padding(.top, Spacing.s)
+            .padding(.top, DSLayout.elementGap)
         }
     }
     
@@ -142,7 +142,7 @@ struct ExploreView: View {
     
     private var offlineContent: some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.xl) {
+            LazyVStack(spacing: DSLayout.screenGap) {
                 OfflineWelcomeHeader(
                     downloadedAlbums: downloadManager.downloadedAlbums.count,
                     isConnected: networkMonitor.isConnected
@@ -179,9 +179,9 @@ struct ExploreView: View {
                         .screenPadding()
                 }
                 
-                Color.clear.frame(height: Sizes.miniPlayer)
+                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
-            .padding(.top, Spacing.s)
+            .padding(.top, DSLayout.elementGap)
         }
     }
     
@@ -197,28 +197,28 @@ struct OfflineWelcomeHeader: View {
     let isConnected: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
+        VStack(alignment: .leading, spacing: DSLayout.elementGap) {
             HStack {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
+                VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                     Text("Offline Music")
-                        .font(Typography.title2)
-                        .foregroundColor(TextColor.primary)
+                        .font(DSText.sectionTitle)
+                        .foregroundColor(DSColor.primary)
                     
                     Text(statusText)
-                        .font(Typography.subheadline)
-                        .foregroundColor(TextColor.secondary)
+                        .font(DSText.body)
+                        .foregroundColor(DSColor.secondary)
                 }
                 
                 Spacer()
                 
-                VStack(spacing: Spacing.xs) {
+                VStack(spacing: DSLayout.tightGap) {
                     Image(systemName: isConnected ? "wifi" : "wifi.slash")
-                        .font(Typography.title3)
-                        .foregroundColor(isConnected ? BrandColor.success : BrandColor.warning)
+                        .font(DSText.sectionTitle)
+                        .foregroundColor(isConnected ? DSColor.success : DSColor.warning)
                     
                     Text(isConnected ? "Online" : "Offline")
-                        .font(Typography.caption2)
-                        .foregroundColor(isConnected ? BrandColor.success : BrandColor.warning)
+                        .font(DSText.body)
+                        .foregroundColor(isConnected ? DSColor.success : DSColor.warning)
                 }
             }
         }
@@ -244,12 +244,12 @@ struct AlbumSection: View {
     @State private var isRefreshing = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
+        VStack(alignment: .leading, spacing: DSLayout.contentGap) {
             // Section Header
             HStack {
                 Label(title, systemImage: icon)
-                    .font(Typography.headline)
-                    .foregroundColor(TextColor.primary)
+                    .font(DSText.prominent)
+                    .foregroundColor(DSColor.primary)
                 
                 Spacer()
                 
@@ -262,7 +262,7 @@ struct AlbumSection: View {
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .font(Typography.subheadline)
+                            .font(DSText.sectionTitle)
                             .foregroundColor(accentColor)
                             .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
                             .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
@@ -274,7 +274,7 @@ struct AlbumSection: View {
             
             // Horizontal Album Scroll
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: Spacing.m) {
+                LazyHStack(spacing: DSLayout.contentGap) {
                     ForEach(albums.indices, id: \.self) { index in
                         let album = albums[index]
                         NavigationLink(destination: AlbumDetailView(album: album)) {
@@ -283,7 +283,7 @@ struct AlbumSection: View {
                         .buttonStyle(PlainButtonStyle())
                     }
                 }
-                .padding(.horizontal, Sizes.screenPadding)
+                .padding(.horizontal, DSLayout.screenPadding)
             }
         }
     }
@@ -296,32 +296,32 @@ struct QuickAccessCard: View {
     let color: Color
     
     var body: some View {
-        HStack(spacing: Spacing.m) {
+        HStack(spacing: DSLayout.contentGap) {
             Image(systemName: icon)
-                .font(Typography.title2)
+                .font(DSText.sectionTitle)
                 .foregroundColor(color)
-                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
+                .frame(width: DSLayout.buttonHeight, height: DSLayout.buttonHeight)
                 .background(color.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
             
-            VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text(title)
-                    .font(Typography.headline)
-                    .foregroundColor(TextColor.primary)
+                    .font(DSText.prominent)
+                    .foregroundColor(DSColor.primary)
                 
                 Text(subtitle)
-                    .font(Typography.subheadline)
-                    .foregroundColor(TextColor.secondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundColor(DSColor.secondary)
             }
             
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(Typography.caption.weight(.semibold))
-                .foregroundColor(TextColor.tertiary)
+                .font(DSText.metadata.weight(.semibold))
+                .foregroundColor(DSColor.tertiary)
         }
         .listItemPadding()
-        .materialCardStyle()
+        .cardStyle()
     }
 }
 
@@ -330,65 +330,65 @@ struct StorageInfoCard: View {
     let albumCount: Int
     
     var body: some View {
-        VStack(spacing: Spacing.m) {
+        VStack(spacing: DSLayout.contentGap) {
             HStack {
                 Label("Storage Used", systemImage: "internaldrive")
-                    .font(Typography.headline)
-                    .foregroundColor(TextColor.primary)
+                    .font(DSText.prominent)
+                    .foregroundColor(DSColor.primary)
                 
                 Spacer()
             }
             
             HStack {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
+                VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                     Text(totalSize)
-                        .font(Typography.title2)
-                        .foregroundColor(BrandColor.primary)
+                        .font(DSText.sectionTitle)
+                        .foregroundColor(DSColor.accent)
                     
                     Text("\(albumCount) albums downloaded")
-                        .font(Typography.caption)
-                        .foregroundColor(TextColor.secondary)
+                        .font(DSText.metadata)
+                        .foregroundColor(DSColor.secondary)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "chart.pie.fill")
-                    .font(Typography.title)
-                    .foregroundColor(BrandColor.primary.opacity(0.6))
+                    .font(DSText.sectionTitle)
+                    .foregroundColor(DSColor.accent.opacity(0.6))
             }
         }
         .listItemPadding()
-        .materialCardStyle()
+        .cardStyle()
     }
 }
 
 struct NetworkStatusCard: View {
     var body: some View {
-        HStack(spacing: Spacing.m) {
+        HStack(spacing: DSLayout.contentGap) {
             Image(systemName: "wifi.slash")
-                .font(Typography.title2)
-                .foregroundColor(BrandColor.warning)
-                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
-                .background(BrandColor.warning.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: Radius.s))
+                .font(DSText.sectionTitle)
+                .foregroundColor(DSColor.warning)
+                .frame(width: DSLayout.buttonHeight, height: DSLayout.buttonHeight)
+                .background(DSColor.warning.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
             
-            VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text("No Connection")
-                    .font(Typography.headline)
-                    .foregroundColor(TextColor.primary)
+                    .font(DSText.prominent)
+                    .foregroundColor(DSColor.primary)
                 
                 Text("Playing from downloaded music only")
-                    .font(Typography.subheadline)
-                    .foregroundColor(TextColor.secondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundColor(DSColor.secondary)
             }
             
             Spacer()
         }
         .listItemPadding()
-        .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.m))
+        .background(DSColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: DSCorners.content))
         .overlay(
-            RoundedRectangle(cornerRadius: Radius.m)
-                .stroke(BrandColor.warning.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DSCorners.content)
+                .stroke(DSColor.warning.opacity(0.3), lineWidth: 1)
         )
     }
 }
@@ -397,19 +397,19 @@ struct ErrorSection: View {
     let message: String
     
     var body: some View {
-        VStack(spacing: Spacing.s) {
+        VStack(spacing: DSLayout.elementGap) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: Sizes.icon))
-                .foregroundColor(BrandColor.warning)
+                .font(.system(size: DSLayout.icon))
+                .foregroundColor(DSColor.warning)
             
             Text(message)
-                .font(Typography.subheadline)
-                .foregroundColor(TextColor.secondary)
+                .font(DSText.sectionTitle)
+                .foregroundColor(DSColor.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding(Padding.m)
-        .background(BrandColor.warning.opacity(0.1))
-        .cornerRadius(Radius.s)
+        .padding(DSLayout.contentPadding)
+        .background(DSColor.warning.opacity(0.1))
+        .cornerRadius(DSCorners.element)
         .screenPadding()
     }
 }

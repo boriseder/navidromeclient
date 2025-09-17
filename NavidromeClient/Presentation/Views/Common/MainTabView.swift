@@ -41,7 +41,7 @@ struct MainTabView: View {
             VStack {
                 Spacer()
                 MiniPlayerView()
-                    .frame(height: Sizes.miniPlayer)
+                    .frame(height: DSLayout.miniPlayerHeight)
             }
         }
         .tabItem {
@@ -55,23 +55,23 @@ struct MainTabView: View {
         if !networkMonitor.isConnected {
             HStack {
                 Image(systemName: "wifi.slash")
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
                 Text("Offline Mode")
-                    .font(Typography.caption.weight(.medium))
+                    .font(DSText.metadata.weight(.medium))
                 Spacer()
                 if downloadManager.downloadedAlbums.count > 0 {
                     Button("Downloaded Music") {
                         offlineManager.switchToOfflineMode()
                     }
-                    .font(Typography.caption)
-                    .foregroundStyle(BrandColor.primary)
+                    .font(DSText.metadata)
+                    .foregroundStyle(DSColor.accent)
                 }
             }
-            .padding(.horizontal, Spacing.m)
-            .padding(.vertical, Spacing.s)
-            .padding(.top, Spacing.s)
-            .background(BrandColor.warning.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.s))
-            .foregroundStyle(TextColor.onDark)
+            .padding(.horizontal, DSLayout.contentGap)
+            .padding(.vertical, DSLayout.elementGap)
+            .padding(.top, DSLayout.elementGap)
+            .background(DSColor.warning.opacity(0.9), in: RoundedRectangle(cornerRadius: DSCorners.element))
+            .foregroundStyle(DSColor.onDark)
             .screenPadding()
             .transition(.move(edge: .top).combined(with: .opacity))
             .animation(Animations.ease, value: networkMonitor.isConnected)

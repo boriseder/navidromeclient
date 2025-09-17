@@ -10,30 +10,30 @@ struct OfflineStatusBanner: View {
     @EnvironmentObject private var offlineManager: OfflineManager
     
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: DSLayout.elementGap) {
             Image(systemName: "wifi.slash")
-                .foregroundStyle(BrandColor.warning)
+                .foregroundStyle(DSColor.warning)
             
             Text("Showing downloaded content only")
-                .font(Typography.caption)
-                .foregroundStyle(BrandColor.warning)
+                .font(DSText.metadata)
+                .foregroundStyle(DSColor.warning)
             
             Spacer()
             
             Button("Go Online") {
                 offlineManager.switchToOnlineMode()
             }
-            .font(Typography.caption)
-            .foregroundStyle(BrandColor.primary)
+            .font(DSText.metadata)
+            .foregroundStyle(DSColor.accent)
         }
         .listItemPadding()
         .background(
-            BrandColor.warning.opacity(0.1),
-            in: RoundedRectangle(cornerRadius: Radius.s)
+            DSColor.warning.opacity(0.1),
+            in: RoundedRectangle(cornerRadius: DSCorners.element)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: Radius.s)
-                .stroke(BrandColor.warning.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DSCorners.element)
+                .stroke(DSColor.warning.opacity(0.3), lineWidth: 1)
         )
     }
 }

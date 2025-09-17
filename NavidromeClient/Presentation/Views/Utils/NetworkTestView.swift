@@ -12,27 +12,27 @@ struct NetworkTestView: View {
     @StateObject private var offlineManager = OfflineManager.shared
     
     var body: some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             Text("Network Testing")
-                .font(Typography.title)
+                .font(DSText.sectionTitle)
             
             HStack {
                 Circle()
-                    .fill(networkMonitor.isConnected ? BrandColor.success : BrandColor.error)
-                    .frame(width: Sizes.iconLarge, height: Sizes.iconLarge)
+                    .fill(networkMonitor.isConnected ? DSColor.success : DSColor.error)
+                    .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
                 
                 Text(networkMonitor.isConnected ? "Online" : "Offline")
-                    .font(Typography.headline)
+                    .font(DSText.prominent)
             }
             
             Text("Connection: \(networkMonitor.connectionType)")
-                .font(Typography.caption)
+                .font(DSText.metadata)
             
             Divider()
             
             VStack {
                 Text("Offline Manager")
-                    .font(Typography.headline)
+                    .font(DSText.prominent)
                 
                 Text("Mode: \(offlineManager.isOfflineMode ? "Offline" : "Online")")
                 Text("Offline Albums: \(offlineManager.offlineAlbums.count)")
@@ -40,12 +40,11 @@ struct NetworkTestView: View {
                 Button("Toggle Offline Mode") {
                     offlineManager.toggleOfflineMode()
                 }
-                .secondaryButtonStyle()
             }
             
             Spacer()
         }
-        .padding(Padding.xl)
+        .padding(DSLayout.screenPadding)
     }
 }
 #endif

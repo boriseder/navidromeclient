@@ -336,20 +336,20 @@ struct SearchView: View {
     
     @ViewBuilder
     private func SearchModeHeader() -> some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: DSLayout.elementGap) {
             Image(systemName: "arrow.down.circle.fill")
-                .foregroundStyle(BrandColor.warning)
+                .foregroundStyle(DSColor.warning)
             
             Text("Searching in downloaded music only")
-                .font(Typography.caption)
-                .foregroundStyle(BrandColor.warning)
+                .font(DSText.metadata)
+                .foregroundStyle(DSColor.warning)
             
             Spacer()
         }
         .listItemPadding()
-        .background(BrandColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
+        .background(DSColor.warning.opacity(0.1), in: RoundedRectangle(cornerRadius: DSCorners.element))
         .screenPadding()
-        .padding(.top, Spacing.xs)
+        .padding(.top, DSLayout.tightGap)
     }
     
     @ViewBuilder
@@ -372,7 +372,7 @@ struct SearchView: View {
     @ViewBuilder
     private func SearchResultsView() -> some View {
         ScrollView {
-            LazyVStack(spacing: Spacing.s) {
+            LazyVStack(spacing: DSLayout.elementGap) {
                 switch selectedTab {
                 case .artists:
                     ForEach(searchResults.artists.indices, id: \.self) { index in
@@ -397,102 +397,101 @@ struct SearchView: View {
                 }
             }
             .screenPadding()
-            .padding(.bottom, Sizes.miniPlayer)
+            .padding(.bottom, DSLayout.miniPlayerHeight)
         }
-        .id(selectedTab) // Force refresh when tab changes
+        .id(selectedTab) // Force refresh when tab changes 
     }
     
     @ViewBuilder
     private func SearchErrorView(error: String) -> some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 50))
-                .foregroundStyle(BrandColor.warning)
+                .foregroundStyle(DSColor.warning)
             
-            VStack(spacing: Spacing.s) {
+            VStack(spacing: DSLayout.elementGap) {
                 Text("Search Error")
-                    .font(Typography.headline)
+                    .font(DSText.prominent)
                 
                 Text(error)
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundStyle(DSColor.secondary)
                     .multilineTextAlignment(.center)
             }
             
             Button("Try Again") {
                 performSearch()
             }
-            .primaryButtonStyle()
         }
-        .padding(Spacing.xl)
-        .materialCardStyle()
+        .padding(DSLayout.screenGap)
+        .cardStyle()
         .screenPadding()
     }
     
     @ViewBuilder
     private func SearchEmptyView() -> some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             Image(systemName: shouldUseOfflineSearch ? "arrow.down.circle" : "music.note.house")
                 .font(.system(size: 60))
-                .foregroundStyle(TextColor.secondary)
+                .foregroundStyle(DSColor.secondary)
             
-            VStack(spacing: Spacing.s) {
+            VStack(spacing: DSLayout.elementGap) {
                 Text("No Results")
-                    .font(Typography.title2)
+                    .font(DSText.sectionTitle)
                 
                 Text(shouldUseOfflineSearch ?
                      "No downloads found matching your search" :
                      "Try different search terms")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundStyle(DSColor.secondary)
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(Spacing.xl)
-        .materialCardStyle()
+        .padding(DSLayout.screenGap)
+        .cardStyle()
         .screenPadding()
     }
     
     @ViewBuilder
     private func SearchInitialView() -> some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             Image(systemName: shouldUseOfflineSearch ? "arrow.down.circle" : "magnifyingglass.circle")
                 .font(.system(size: 80))
-                .foregroundStyle(TextColor.secondary.opacity(0.6))
+                .foregroundStyle(DSColor.secondary.opacity(0.6))
             
-            VStack(spacing: Spacing.s) {
+            VStack(spacing: DSLayout.elementGap) {
                 Text(shouldUseOfflineSearch ? "Search Downloads" : "Search Music")
-                    .font(Typography.title2)
+                    .font(DSText.sectionTitle)
                 
                 Text(shouldUseOfflineSearch ?
                      "Search through your downloaded albums" :
                      "Search for artists, albums, or songs")
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundStyle(DSColor.secondary)
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(Padding.xl)
-        .materialCardStyle()
+        .padding(DSLayout.screenPadding)
+        .cardStyle()
         .screenPadding()
     }
     
     @ViewBuilder
     private func SearchLoadingView() -> some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             ProgressView()
                 .scaleEffect(1.5)
             
             Text("Searching...")
-                .font(Typography.headline)
-                .foregroundStyle(TextColor.primary)
+                .font(DSText.prominent)
+                .foregroundStyle(DSColor.primary)
             
             Text(searchModeDescription)
-                .font(Typography.caption)
-                .foregroundStyle(TextColor.secondary)
+                .font(DSText.metadata)
+                .foregroundStyle(DSColor.secondary)
         }
-        .padding(Spacing.xl)
-        .materialCardStyle()
+        .padding(DSLayout.screenGap)
+        .cardStyle()
         .screenPadding()
     }
 }
@@ -507,15 +506,15 @@ struct SearchHeaderView: View {
     let onClear: () -> Void
     
     var body: some View {
-        VStack(spacing: Spacing.m) {
+        VStack(spacing: DSLayout.contentGap) {
             // Search Bar
-            HStack(spacing: Spacing.s) {
+            HStack(spacing: DSLayout.elementGap) {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(TextColor.secondary)
-                    .font(Typography.title3)
+                    .foregroundStyle(DSColor.secondary)
+                    .font(DSText.sectionTitle)
                 
                 TextField("Search music...", text: $query)
-                    .font(Typography.body)
+                    .font(DSText.body)
                     .submitLabel(.search)
                     .onSubmit(onSearch)
                     .textInputAutocapitalization(.never)
@@ -524,18 +523,18 @@ struct SearchHeaderView: View {
                 if !query.isEmpty {
                     Button(action: onClear) {
                         Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(TextColor.secondary)
+                            .foregroundStyle(DSColor.secondary)
                     }
                     .transition(.opacity.combined(with: .scale))
                 }
             }
-            .padding(.horizontal, Padding.m)
-            .padding(.vertical, Padding.s)
-            .background(BackgroundColor.thin, in: RoundedRectangle(cornerRadius: Radius.l))
+            .padding(.horizontal, DSLayout.contentPadding)
+            .padding(.vertical, DSLayout.elementPadding)
+            .background(DSColor.background, in: RoundedRectangle(cornerRadius: DSCorners.comfortable))
             .animation(Animations.ease, value: query.isEmpty)
             
             // Search Tabs
-            HStack(spacing: Spacing.s) {
+            HStack(spacing: DSLayout.elementGap) {
                 ForEach(SearchView.SearchTab.allCases, id: \.self) { tab in
                     SearchTabButton(
                         tab: tab,
@@ -547,7 +546,7 @@ struct SearchHeaderView: View {
             }
         }
         .listItemPadding()
-        .background(BackgroundColor.thin)
+        .background(DSColor.background)
     }
 }
 
@@ -559,29 +558,29 @@ struct SearchTabButton: View {
     
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: tab.icon)
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
                 
                 Text(tab.rawValue)
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
                 
                 if count > 0 {
                     Text("\(count)")
-                        .font(Typography.caption2)
-                        .padding(.horizontal, Spacing.xs)
-                        .padding(.vertical, Spacing.xs/2)
-                        .background(Capsule().fill(isSelected ? TextColor.onDark.opacity(0.3) : BackgroundColor.secondary))
-                        .foregroundStyle(isSelected ? TextColor.onDark : TextColor.secondary)
+                        .font(DSText.body)
+                        .padding(.horizontal, DSLayout.tightGap)
+                        .padding(.vertical, DSLayout.tightGap/2)
+                        .background(Capsule().fill(isSelected ? DSColor.onDark.opacity(0.3) : DSColor.surface))
+                        .foregroundStyle(isSelected ? DSColor.onDark : DSColor.secondary)
                 }
             }
-            .padding(.vertical, Padding.s)
-            .padding(.horizontal, Padding.m)
+            .padding(.vertical, DSLayout.elementPadding)
+            .padding(.horizontal, DSLayout.contentPadding)
             .background(
-                RoundedRectangle(cornerRadius: Radius.m)
-                    .fill(isSelected ? BrandColor.primary : BackgroundColor.secondary)
+                RoundedRectangle(cornerRadius: DSCorners.content)
+                    .fill(isSelected ? DSColor.accent : DSColor.surface)
             )
-            .foregroundStyle(isSelected ? TextColor.onDark : TextColor.primary)
+            .foregroundStyle(isSelected ? DSColor.onDark : DSColor.primary)
         }
         .animation(Animations.ease, value: isSelected)
         .animation(Animations.ease, value: count)

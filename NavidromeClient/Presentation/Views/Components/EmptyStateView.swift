@@ -22,12 +22,12 @@ struct LoadingView: View {
     }
     
     var body: some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             // Animated loading circles
-            HStack(spacing: Spacing.s) {
+            HStack(spacing: DSLayout.elementGap) {
                 ForEach(0..<3) { index in
                     Circle()
-                        .fill(BrandColor.primary)
+                        .fill(DSColor.accent)
                         .frame(width: 12, height: 12)
                         .scaleEffect(isAnimating ? 1.0 : 0.5)
                         .animation(
@@ -39,21 +39,21 @@ struct LoadingView: View {
                 }
             }
             
-            VStack(spacing: Spacing.s) {
+            VStack(spacing: DSLayout.elementGap) {
                 Text(title)
-                    .font(Typography.headline)
-                    .foregroundStyle(TextColor.primary)
+                    .font(DSText.prominent)
+                    .foregroundStyle(DSColor.primary)
                 
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(Typography.caption)
-                        .foregroundStyle(TextColor.secondary)
+                        .font(DSText.metadata)
+                        .foregroundStyle(DSColor.secondary)
                         .multilineTextAlignment(.center)
                 }
             }
         }
-        .padding(Spacing.xl)
-        .materialCardStyle()
+        .padding(DSLayout.screenGap)
+        .cardStyle()
         .onAppear {
             isAnimating = true
         }
@@ -90,43 +90,40 @@ struct EmptyStateView: View {
     }
     
     var body: some View {
-        VStack(spacing: Spacing.l) {
+        VStack(spacing: DSLayout.sectionGap) {
             Image(systemName: iconName)
                 .font(.system(size: 60))
-                .foregroundStyle(TextColor.secondary)
+                .foregroundStyle(DSColor.secondary)
             
-            VStack(spacing: Spacing.s) {
+            VStack(spacing: DSLayout.elementGap) {
                 Text(titleText)
-                    .font(Typography.title2)
-                    .foregroundStyle(TextColor.primary)
+                    .font(DSText.itemTitle)
+                    .foregroundStyle(DSColor.primary)
                 
                 Text(messageText)
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
+                    .font(DSText.sectionTitle)
+                    .foregroundStyle(DSColor.secondary)
                     .multilineTextAlignment(.center)
             }
             
             // Action buttons
-            VStack(spacing: Spacing.m) {
+            VStack(spacing: DSLayout.contentGap) {
                 if let primaryAction = primaryAction {
                     Button(primaryAction.title, action: primaryAction.action)
-                        .primaryButtonStyle()
                 } else if !isOnline && !isOfflineMode {
                     // Auto-generated action for offline scenarios
                     Button("Switch to Downloaded Music") {
                         offlineManager.switchToOfflineMode()
                     }
-                    .primaryButtonStyle()
                 }
                 
                 if let secondaryAction = secondaryAction {
                     Button(secondaryAction.title, action: secondaryAction.action)
-                        .secondaryButtonStyle()
                 }
             }
         }
-        .padding(Spacing.xl)
-        .materialCardStyle()
+        .padding(DSLayout.screenGap)
+        .cardStyle()
     }
     
     // MARK: - Computed Properties

@@ -173,18 +173,18 @@ struct GenreView: View {
         Button {
             toggleOfflineMode()
         } label: {
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: isOfflineMode ? "icloud.slash" : "icloud")
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
                 Text(isOfflineMode ? "Offline" : "All")
-                    .font(Typography.caption)
+                    .font(DSText.metadata)
             }
-            .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.primary)
-            .padding(.horizontal, Padding.s)
-            .padding(.vertical, Padding.xs)
+            .foregroundStyle(isOfflineMode ? DSColor.warning : DSColor.accent)
+            .padding(.horizontal, DSLayout.elementPadding)
+            .padding(.vertical, DSLayout.tightPadding)
             .background(
                 Capsule()
-                    .fill((isOfflineMode ? BrandColor.warning : BrandColor.primary).opacity(0.1))
+                    .fill((isOfflineMode ? DSColor.warning : DSColor.accent).opacity(0.1))
             )
         }
     }
@@ -207,7 +207,7 @@ struct GenreListView: View {
     let genres: [Genre]
     
     var body: some View {
-        LazyVStack(spacing: Spacing.s) {
+        LazyVStack(spacing: DSLayout.elementGap) {
             ForEach(genres, id: \.id) { genre in
                 NavigationLink(value: genre) {
                     GenreCard(genre: genre)
@@ -215,6 +215,6 @@ struct GenreListView: View {
             }
         }
         .screenPadding()
-        .padding(.bottom, Sizes.miniPlayer)
+        .padding(.bottom, DSLayout.miniPlayerHeight)
     }
 }

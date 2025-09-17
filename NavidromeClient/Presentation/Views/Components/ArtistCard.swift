@@ -16,14 +16,14 @@ struct ArtistCard: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
-        HStack(spacing: Spacing.m) {
+        HStack(spacing: DSLayout.contentGap) {
             // Artist Avatar - ✅ PURE UI
             artistAvatarView
                 .task(id: artist.id) {
                     // ✅ SINGLE LINE: Manager handles staggering, caching, state
                     await coverArtManager.loadArtistImage(
                         artist: artist,
-                        size: Int(Sizes.avatarLarge),
+                        size: Int(DSLayout.smallAvatar),
                         staggerIndex: index
                     )
                 }
@@ -34,11 +34,11 @@ struct ArtistCard: View {
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(Typography.caption.weight(.semibold))
-                .foregroundStyle(TextColor.tertiary)
+                .font(DSText.metadata.weight(.semibold))
+                .foregroundStyle(DSColor.tertiary)
         }
         .listItemPadding()
-        .materialCardStyle()
+        .cardStyle()
     }
     
     // MARK: - ✅ Pure UI Components
@@ -48,8 +48,8 @@ struct ArtistCard: View {
         ZStack {
             // Background blur
             Circle()
-                .fill(BackgroundColor.secondary)
-                .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
+                .fill(DSColor.surface)
+                .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
                 .blur(radius: 1)
             
             // Avatar content
@@ -59,7 +59,7 @@ struct ArtistCard: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
+                        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
                         .clipShape(Circle())
                         .transition(.opacity.animation(.easeInOut(duration: 0.3)))
                 } else {
@@ -72,7 +72,7 @@ struct ArtistCard: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: Sizes.avatar, height: Sizes.avatar)
+                        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
                         .overlay(avatarOverlay)
                 }
             }
@@ -89,31 +89,31 @@ struct ArtistCard: View {
         } else if let error = coverArtManager.getImageError(for: artist.id) {
             // ✅ NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: Sizes.icon))
+                .font(.system(size: DSLayout.icon))
                 .foregroundStyle(.orange)
         } else {
             Image(systemName: "music.mic")
-                .font(.system(size: Sizes.icon))
-                .foregroundStyle(TextColor.onDark)
+                .font(.system(size: DSLayout.icon))
+                .foregroundStyle(DSColor.onDark)
         }
     }
     
     private var artistInfoView: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
+        VStack(alignment: .leading, spacing: DSLayout.tightGap) {
             Text(artist.name)
-                .font(Typography.bodyEmphasized)
-                .foregroundColor(TextColor.primary)
+                .font(DSText.emphasized)
+                .foregroundColor(DSColor.primary)
                 .lineLimit(1)
 
-            HStack(spacing: Spacing.xs) {
+            HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: "record.circle")
-                    .font(Typography.caption)
-                    .foregroundColor(TextColor.secondary)
+                    .font(DSText.metadata)
+                    .foregroundColor(DSColor.secondary)
 
                 if let count = artist.albumCount {
                     Text("\(count) Album\(count != 1 ? "s" : "")")
-                        .font(Typography.caption)
-                        .foregroundColor(TextColor.secondary)
+                        .font(DSText.metadata)
+                        .foregroundColor(DSColor.secondary)
                         .lineLimit(1)
                 }
             }

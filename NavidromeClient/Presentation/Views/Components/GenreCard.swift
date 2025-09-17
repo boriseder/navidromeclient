@@ -11,30 +11,30 @@ struct GenreCard: View {
     let genre: Genre
 
     var body: some View {
-        HStack(spacing: Spacing.m) {
+        HStack(spacing: DSLayout.contentGap) {
             Circle()
-                .fill(BackgroundColor.light)
-                .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
+                .fill(DSColor.background)
+                .frame(width: DSLayout.buttonHeight, height: DSLayout.buttonHeight)
                 .blur(radius: 1)
                 .overlay(
                     Image(systemName: "music.note")
                         .foregroundColor(.primary)
                 )
             
-            VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text(genre.value)
-                    .font(Typography.bodyEmphasized)
+                    .font(DSText.emphasized)
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
-                HStack(spacing: Spacing.xs) {
+                HStack(spacing: DSLayout.tightGap) {
                     Image(systemName: "record.circle")
-                        .font(Typography.caption)
+                        .font(DSText.metadata)
                         .foregroundColor(.secondary)
 
                     let count = genre.albumCount
                     Text("\(count) Album\(count != 1 ? "s" : "")")
-                        .font(Typography.caption)
+                        .font(DSText.metadata)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -46,6 +46,6 @@ struct GenreCard: View {
                 .foregroundColor(.secondary)
         }
         .listItemPadding()
-        .materialCardStyle()
+        .cardStyle()
     }
 }

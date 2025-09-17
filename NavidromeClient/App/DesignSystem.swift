@@ -129,6 +129,26 @@ enum DSColor {
     static let overlayHeavy = SwiftUI.Color.black.opacity(0.6)
 }
 
+enum Animations {
+    static let spring = Animation.spring(response: 0.4, dampingFraction: 0.8)
+    static let springSnappy = Animation.spring(response: 0.3, dampingFraction: 0.7)
+    static let ease = Animation.easeInOut(duration: 0.2)
+    static let easeQuick = Animation.easeInOut(duration: 0.1)
+    static let easeSlow = Animation.easeInOut(duration: 0.4)
+    
+    // Interactive
+    static let interactive = Animation.interactiveSpring()
+    static let bounce = Animation.spring(response: 0.6, dampingFraction: 0.6)
+}
+
+// MARK: - Grid Helpers
+enum GridColumns {
+    static let two = Array(repeating: GridItem(.flexible(), spacing: DSLayout.contentGap), count: 2)
+    static let three = Array(repeating: GridItem(.flexible(), spacing: DSLayout.elementGap), count: 3)
+    static let four = Array(repeating: GridItem(.flexible(), spacing: DSLayout.elementGap), count: 4)
+}
+
+
 // MARK: - Semantic Extensions (Deine bestehenden, umbenannt)
 
 extension View {
@@ -156,6 +176,12 @@ extension View {
     func elementPadding() -> some View {
         padding(DSLayout.elementPadding)
     }
+    
+    func listItemPadding() -> some View {
+        self.padding(.horizontal, DSLayout.contentPadding)
+            .padding(.vertical, DSLayout.elementPadding)
+    }
+
     
     // MARK: Shapes
     func elementCorners() -> some View {
