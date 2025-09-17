@@ -190,65 +190,65 @@ extension View {
 ERSETZEN:
 
 // Spacing
-Spacing.xs → Layout.tightGap
-Spacing.s → Layout.elementGap
-Spacing.m → Layout.contentGap
-Spacing.l → Layout.sectionGap
-Spacing.xl → Layout.screenGap
-Spacing.xxl → Layout.largeGap
+Spacing.xs → DSLayout.tightGap
+Spacing.s → DSLayout.elementGap
+Spacing.m → DSLayout.contentGap
+Spacing.l → DSLayout.sectionGap
+Spacing.xl → DSLayout.screenGap
+Spacing.xxl → DSLayout.largeGap
 
 // Padding
-Padding.xs → Layout.tightPadding
-Padding.s → Layout.elementPadding
-Padding.m → Layout.contentPadding
-Padding.l → Layout.comfortPadding
-Padding.xl → Layout.screenPadding
+Padding.xs → DSLayout.tightPadding
+Padding.s → DSLayout.elementPadding
+Padding.m → DSLayout.contentPadding
+Padding.l → DSLayout.comfortPadding
+Padding.xl → DSLayout.screenPadding
 
 // Sizes
-Sizes.iconSmall → Layout.smallIcon
-Sizes.icon → Layout.icon
-Sizes.iconLarge → Layout.largeIcon
-Sizes.coverMini → Layout.miniCover
-Sizes.coverSmall → Layout.listCover
-Sizes.card → Layout.cardCover
-Sizes.cover → Layout.detailCover
-Sizes.avatar → Layout.smallAvatar
+Sizes.iconSmall → DSLayout.smallIcon
+Sizes.icon → DSLayout.icon
+Sizes.iconLarge → DSLayout.largeIcon
+Sizes.coverMini → DSLayout.miniCover
+Sizes.coverSmall → DSLayout.listCover
+Sizes.card → DSLayout.cardCover
+Sizes.cover → DSLayout.detailCover
+Sizes.avatar → DSLayout.smallAvatar
 
 // Radius
-Radius.xs → Corners.tight
-Radius.s → Corners.element
-Radius.m → Corners.content
-Radius.l → Corners.comfortable
+Radius.xs → DSCorners.tight
+Radius.s → DSCorners.element
+Radius.m → DSCorners.content
+Radius.l → DSCorners.comfortable
 
 // Typography
-Typography.largeTitle → Text.pageTitle
-Typography.title → Text.sectionTitle
-Typography.title2 → Text.subsectionTitle
-Typography.title3 → Text.itemTitle
-Typography.headline → Text.prominent
-Typography.bodyEmphasized → Text.emphasized
-Typography.body → Text.body
-Typography.callout → Text.detail
-Typography.caption → Text.metadata
-Typography.caption2 → Text.fine
-Typography.button → Text.button
-Typography.monospacedNumbers → Text.numbers
+Typography.largeTitle → DSText.pageTitle
+Typography.title → DSText.sectionTitle
+Typography.title2 → DSText.subsectionTitle
+Typography.title3 → DSText.itemTitle
+Typography.headline → DSText.prominent
+Typography.bodyEmphasized → DSText.emphasized
+Typography.body → DSText.body
+Typography.callout → DSText.detail
+Typography.caption → DSText.metadata
+Typography.caption2 → DSText.fine
+Typography.button → DSText.button
+Typography.monospacedNumbers → DSText.numbers
 
 // TextColor
-TextColor.primary → Color.primary
-TextColor.secondary → Color.secondary
-TextColor.tertiary → Color.tertiary
-TextColor.onDark → Color.onDark
+TextColor.primary → DSColor.primary
+TextColor.secondary → DSColor.secondary
+TextColor.tertiary → DSColor.tertiary
+TextColor.onDark → DSColor.onDark
 
 // BrandColor
-BrandColor.primary → Color.accent
-BrandColor.success → Color.success
-BrandColor.warning → Color.warning
-BrandColor.error → Color.error
-BrandColor.playing → Color.playing
+BrandColor.primary → DSColor.accent
+BrandColor.success → DSColor.success
+BrandColor.warning → DSColor.warning
+BrandColor.error → DSColor.error
+BrandColor.playing → DSColor.playing
 
 // BackgroundColor
-BackgroundColor.primary → Color.background
-BackgroundColor.secondary → Color.surface
-BackgroundColor.tertiary → Color.surfaceSecondary
+BackgroundColor.primary → DSColor.background
+BackgroundColor.secondary → DSColor.surface
+BackgroundColor.tertiary → DSColor.surfaceSecondary
 */
