@@ -1,9 +1,10 @@
 //
-//  MusicLibraryManager.swift - MIGRATED to ContentService
+//  MusicLibraryManager.swift - SIMPLIFIED: Direct UnifiedSubsonicService
 //  NavidromeClient
 //
-//  ✅ MIGRATION COMPLETE: SubsonicService → ContentService
-//  ✅ ALL SERVICE CALLS UPDATED
+//  ✅ REMOVED: ContentService dependency, legacy compatibility
+//  ✅ SIMPLIFIED: Single service dependency via UnifiedSubsonicService
+//  ✅ CLEAN: Direct access to service.contentService
 //
 
 import Foundation
@@ -31,8 +32,8 @@ class MusicLibraryManager: ObservableObject {
     @Published private(set) var lastRefreshDate: Date?
     @Published private(set) var backgroundLoadingProgress: String = ""
     
-    // ✅ MIGRATION: ContentService dependency
-    private weak var contentService: ContentService?
+    // ✅ SINGLE SERVICE DEPENDENCY
+    private weak var service: UnifiedSubsonicService?
     
     // ✅ CONFIGURATION (unchanged)
     private struct LoadingConfig {
@@ -64,13 +65,13 @@ class MusicLibraryManager: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) < freshnessDuration
     }
     
-    // ✅ MIGRATION: New configuration method
-    func configure(contentService: ContentService) {
-        self.contentService = contentService
-        print("✅ MusicLibraryManager configured with ContentService")
+    // ✅ SIMPLIFIED: Single configuration method
+    func configure(service: UnifiedSubsonicService) {
+        self.service = service
+        print("✅ MusicLibraryManager configured with UnifiedSubsonicService")
     }
     
-    // MARK: - ✅ MIGRATION: Albums Loading with ContentService
+    // MARK: - ✅ ALBUMS LOADING with Direct Service Access
     
     func loadAlbumsProgressively(
         sortBy: ContentService.AlbumSortType = .alphabetical,
@@ -85,10 +86,10 @@ class MusicLibraryManager: ObservableObject {
         
         guard albumLoadingState.canLoadMore else { return }
         
-        // ✅ MIGRATION: ContentService guard
-        guard let contentService = contentService else {
-            albumLoadingState = .error("ContentService not available")
-            print("❌ ContentService not configured")
+        // ✅ DIRECT SERVICE ACCESS
+        guard let service = service else {
+            albumLoadingState = .error("Service not available")
+            print("❌ UnifiedSubsonicService not configured")
             return
         }
         
@@ -104,8 +105,8 @@ class MusicLibraryManager: ObservableObject {
                 try await Task.sleep(nanoseconds: LoadingConfig.batchDelay)
             }
             
-            // ✅ MIGRATION: ContentService call
-            let newAlbums = try await contentService.getAllAlbums(
+            // ✅ DIRECT ACCESS: service.contentService
+            let newAlbums = try await service.contentService.getAllAlbums(
                 sortBy: sortBy,
                 size: batchSize,
                 offset: offset
@@ -115,9 +116,8 @@ class MusicLibraryManager: ObservableObject {
                 albumLoadingState = .completed
                 totalAlbumCount = loadedAlbums.count
                 backgroundLoadingProgress = ""
-                return  // ← Wichtig: Früher Return
+                return
             }
-
             
             // Cache albums for offline use (unchanged)
             AlbumMetadataCache.shared.cacheAlbums(newAlbums)
@@ -141,14 +141,14 @@ class MusicLibraryManager: ObservableObject {
             
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count)) via ContentService")
+            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
             
         } catch {
             await handleLoadingError(error, for: "albums")
         }
     }
     
-    // MARK: - ✅ MIGRATION: Artists Loading with ContentService
+    // MARK: - ✅ ARTISTS LOADING with Direct Service Access
     
     func loadArtistsProgressively(reset: Bool = false) async {
         
@@ -160,10 +160,10 @@ class MusicLibraryManager: ObservableObject {
         
         guard artistLoadingState.canLoadMore else { return }
         
-        // ✅ MIGRATION: ContentService guard
-        guard let contentService = contentService else {
-            artistLoadingState = .error("ContentService not available")
-            print("❌ ContentService not configured")
+        // ✅ DIRECT SERVICE ACCESS
+        guard let service = service else {
+            artistLoadingState = .error("Service not available")
+            print("❌ UnifiedSubsonicService not configured")
             return
         }
         
@@ -171,22 +171,22 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading artists..."
         
         do {
-            // ✅ MIGRATION: ContentService call
-            let allArtists = try await contentService.getArtists()
+            // ✅ DIRECT ACCESS: service.contentService
+            let allArtists = try await service.contentService.getArtists()
             
             loadedArtists = allArtists
             totalArtistCount = allArtists.count
             artistLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded artists: \(allArtists.count) via ContentService")
+            print("✅ Loaded artists: \(allArtists.count)")
             
         } catch {
             await handleLoadingError(error, for: "artists")
         }
     }
     
-    // MARK: - ✅ MIGRATION: Genres Loading with ContentService
+    // MARK: - ✅ GENRES LOADING with Direct Service Access
     
     func loadGenresProgressively(reset: Bool = false) async {
         
@@ -197,10 +197,10 @@ class MusicLibraryManager: ObservableObject {
         
         guard genreLoadingState.canLoadMore else { return }
         
-        // ✅ MIGRATION: ContentService guard
-        guard let contentService = contentService else {
-            genreLoadingState = .error("ContentService not available")
-            print("❌ ContentService not configured")
+        // ✅ DIRECT SERVICE ACCESS
+        guard let service = service else {
+            genreLoadingState = .error("Service not available")
+            print("❌ UnifiedSubsonicService not configured")
             return
         }
         
@@ -208,31 +208,31 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading genres..."
         
         do {
-            // ✅ MIGRATION: ContentService call
-            let allGenres = try await contentService.getGenres()
+            // ✅ DIRECT ACCESS: service.contentService
+            let allGenres = try await service.contentService.getGenres()
             
             loadedGenres = allGenres
             genreLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded genres: \(allGenres.count) via ContentService")
+            print("✅ Loaded genres: \(allGenres.count)")
             
         } catch {
             await handleLoadingError(error, for: "genres")
         }
     }
     
-    // MARK: - ✅ COORDINATED LOADING (unchanged logic, updated service calls)
+    // MARK: - ✅ COORDINATED LOADING (simplified logic, direct service calls)
     
     func loadInitialDataIfNeeded() async {
         guard !hasLoadedInitialData,
-              let contentService = contentService,
+              let service = service,
               NetworkMonitor.shared.canLoadOnlineContent else {
-            print("⚠️ Skipping initial data load - ContentService: \(contentService != nil), Network: \(NetworkMonitor.shared.canLoadOnlineContent)")
+            print("⚠️ Skipping initial data load - Service: \(service != nil), Network: \(NetworkMonitor.shared.canLoadOnlineContent)")
             return
         }
         
-        print("🚀 Starting progressive initial data load via ContentService...")
+        print("🚀 Starting progressive initial data load...")
         
         // Load first batch of each type with staggered timing (unchanged)
         await withTaskGroup(of: Void.self) { group in
@@ -251,7 +251,7 @@ class MusicLibraryManager: ObservableObject {
             }
         }
         
-        print("✅ Initial progressive data load completed via ContentService")
+        print("✅ Initial progressive data load completed")
     }
     
     func loadMoreAlbumsIfNeeded() async {
@@ -259,7 +259,7 @@ class MusicLibraryManager: ObservableObject {
     }
     
     func refreshAllData() async {
-        print("🔄 Starting progressive data refresh via ContentService...")
+        print("🔄 Starting progressive data refresh...")
         
         // Reset all states and reload (unchanged)
         await withTaskGroup(of: Void.self) { group in
@@ -275,7 +275,7 @@ class MusicLibraryManager: ObservableObject {
         }
         
         lastRefreshDate = Date()
-        print("✅ Progressive data refresh completed via ContentService")
+        print("✅ Progressive data refresh completed")
     }
     
     // MARK: - ✅ NETWORK STATE HANDLING (unchanged)
@@ -283,41 +283,41 @@ class MusicLibraryManager: ObservableObject {
     func handleNetworkChange(isOnline: Bool) async {
         guard isOnline,
               !OfflineManager.shared.isOfflineMode,
-              let contentService = contentService else {
+              let service = service else {
             return
         }
         
         if !isDataFresh {
-            print("🌐 Network restored - refreshing stale data via ContentService")
+            print("🌐 Network restored - refreshing stale data")
             await refreshAllData()
         } else {
             print("🌐 Network restored - data is fresh, skipping refresh")
         }
     }
     
-    // MARK: - ✅ MIGRATION: Artist/Genre Detail Support with ContentService
+    // MARK: - ✅ ARTIST/GENRE DETAIL SUPPORT with Direct Service Access
     
     func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
-        // ✅ MIGRATION: ContentService guard
-        guard let contentService = contentService else {
-            print("❌ ContentService not available for context loading")
+        // ✅ DIRECT SERVICE ACCESS
+        guard let service = service else {
+            print("❌ UnifiedSubsonicService not available for context loading")
             throw URLError(.networkConnectionLost)
         }
         
         switch context {
         case .artist(let artist):
-            // ✅ MIGRATION: ContentService call
-            return try await contentService.getAlbumsByArtist(artistId: artist.id)
+            // ✅ DIRECT ACCESS: service.contentService
+            return try await service.contentService.getAlbumsByArtist(artistId: artist.id)
         case .genre(let genre):
-            // ✅ MIGRATION: ContentService call
-            return try await contentService.getAlbumsByGenre(genre: genre.value)
+            // ✅ DIRECT ACCESS: service.contentService
+            return try await service.contentService.getAlbumsByGenre(genre: genre.value)
         }
     }
     
-    // MARK: - ✅ PRIVATE IMPLEMENTATION (unchanged logic, updated error messages)
+    // MARK: - ✅ PRIVATE IMPLEMENTATION (simplified error messages)
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
-        print("❌ Failed to load \(dataType) via ContentService: \(error)")
+        print("❌ Failed to load \(dataType): \(error)")
         
         let errorMessage: String
         if let subsonicError = error as? SubsonicError {

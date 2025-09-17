@@ -14,11 +14,11 @@ import UIKit
 class UnifiedSubsonicService: ObservableObject {
     
     // MARK: - ✅ THEMATIC SERVICES (Private)
-    private let connectionService: ConnectionService
-    private let contentService: ContentService
-    private let mediaService: MediaService
-    private let discoveryService: DiscoveryService
-    private let searchService: SearchService
+    internal let connectionService: ConnectionService
+    internal let contentService: ContentService
+    internal let mediaService: MediaService
+    internal let discoveryService: DiscoveryService
+    internal let searchService: SearchService
     
     // MARK: - ✅ SERVICE FACTORY PATTERN
     

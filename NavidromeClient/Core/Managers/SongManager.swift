@@ -28,12 +28,19 @@ class SongManager: ObservableObject {
     }
     
     // MARK: - ✅ MIGRATION: New configuration method
-    
+    /**
     func configure(contentService: ContentService) {
         self.contentService = contentService
         print("✅ SongManager configured with ContentService")
     }
-    
+     */
+    // ✅ Single service access via UnifiedSubsonicService
+    private weak var service: UnifiedSubsonicService?
+
+    func configure(service: UnifiedSubsonicService) {
+        self.service = service
+    }
+
     // MARK: - ✅ PRIMARY API: Smart Song Loading (unchanged logic, updated service calls)
     
     /// Load songs for album with intelligent offline/online fallback
