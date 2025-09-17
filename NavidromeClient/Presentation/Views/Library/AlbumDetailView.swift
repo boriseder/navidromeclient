@@ -11,20 +11,19 @@ import SwiftUI
 struct AlbumDetailView: View {
     let album: Album
     @State private var scrollOffset: CGFloat = 0
-
+    
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
-
+    
     @State private var songs: [Song] = []
     @State private var miniPlayerVisible = false
     @State private var coverArt: UIImage?
     @State private var isOfflineAlbum = false
-
+    
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.xl) {
@@ -35,7 +34,6 @@ struct AlbumDetailView: View {
                     isOfflineAlbum: isOfflineAlbum
                 )
                 
-                // Enhanced: Offline Status Banner
                 if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
                     OfflineStatusBanner(
                         isDownloaded: downloadManager.isAlbumDownloaded(album.id),
@@ -59,19 +57,20 @@ struct AlbumDetailView: View {
             .accountToolbar()
         }
     }
-
-    // ✅ UPDATED: Smart Album Data Loading with CoverArtManager
+    
     @MainActor
     private func loadAlbumData() async {
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
-        // ✅ UPDATED: Load cover art using CoverArtManager
+        // ✅ ROUTE: Through CoverArtManager (no direct service calls)
         coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(Sizes.coverFull))
         
-        // Load songs using NavidromeViewModel's smart loading method
+        // ✅ ROUTE: Through NavidromeViewModel (handles service internally)
         songs = await navidromeVM.loadSongs(for: album.id)
     }
+
 }
+
 
 // Enhanced: Offline Status Banner Component (unchanged)
 struct OfflineStatusBanner: View {
@@ -144,9 +143,6 @@ struct AlbumHeaderView: View {
             AlbumCoverView(cover: cover)
                 .frame(width: Sizes.card, height: Sizes.card)
                 .cardShadow()
-                .scaleEffect(playerVM.currentAlbumId == album.id ? 1.02 : 1.0)
-                .animation(Animations.spring, value: playerVM.currentAlbumId)
-                .padding(.leading, 15)
             
             VStack(alignment: .leading, spacing: Spacing.s) {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -170,7 +166,7 @@ struct AlbumHeaderView: View {
                     CompactPlayButton(album: album, songs: songs)
                     ShuffleButton(album: album, songs: songs)
                     
-                    // Conditional: Only show download button if online
+                    // ✅ ROUTE: Through DownloadManager (no direct service access)
                     if !isOfflineAlbum {
                         DownloadButton(
                             album: album,
@@ -185,6 +181,7 @@ struct AlbumHeaderView: View {
         .padding(.vertical, Spacing.xl)
         .materialCardStyle()
     }
+
     
     private func buildMetadataString() -> String {
         var parts: [String] = []

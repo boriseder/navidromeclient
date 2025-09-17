@@ -36,14 +36,10 @@ class PlayerViewModel: NSObject, ObservableObject {
     var currentPlaylist: [Song] { playlistManager.currentPlaylist }
     var currentIndex: Int { playlistManager.currentIndex }
     
-    // MARK: - ✅ MIGRATION: Dual Service Dependencies
     
     // ✅ NEW: Primary MediaService for streaming
     private weak var mediaService: MediaService?
-    
-    // ✅ BACKWARDS COMPATIBLE: Keep legacy service for non-media operations
-    var legacyService: SubsonicService?
-    
+        
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
     private weak var coverArtManager: CoverArtManager?
@@ -58,23 +54,14 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var lastUpdateTime: Double = 0
 
     // MARK: - ✅ MIGRATION: Enhanced Initialization
-    init(service: SubsonicService? = nil, downloadManager: DownloadManager? = nil) {
-        // ✅ MIGRATION: Extract MediaService from legacy service
-        if let service = service {
-            self.legacyService = service
-            self.mediaService = service.getMediaService()
-        } else {
-            self.legacyService = nil
-            self.mediaService = nil
-        }
-        
+    init(downloadManager: DownloadManager? = nil) {
         self.downloadManager = downloadManager ?? DownloadManager.shared
         super.init()
         
         setupNotifications()
         configureAudioSession()
     }
-    
+
     // MARK: - Thread-safe deinit (unchanged but enhanced logging)
     deinit {
         currentPlayTask?.cancel()
@@ -103,26 +90,20 @@ class PlayerViewModel: NSObject, ObservableObject {
 
     // MARK: - ✅ MIGRATION: Enhanced Service Management
     
-    /// ✅ LEGACY: Update legacy service (backwards compatible)
-    func updateService(_ newService: SubsonicService) {
-        self.legacyService = newService
-        // ✅ MIGRATION: Extract MediaService automatically
-        self.mediaService = newService.getMediaService()
-        print("✅ PlayerViewModel: Updated with legacy service + extracted MediaService")
+    /// ✅ NEW: Configure with focused MediaService (preferred)
+    func configure(service: UnifiedSubsonicService) {
+        self.mediaService = service.getMediaService()
+        print("✅ PlayerViewModel: Configured with UnifiedSubsonicService only")
     }
     
-    /// ✅ NEW: Configure with focused MediaService (preferred)
+    /// ✅ FOCUSED: Configure with MediaService directly
     func configure(mediaService: MediaService) {
         self.mediaService = mediaService
-        print("✅ PlayerViewModel: Configured with focused MediaService")
+        print("✅ PlayerViewModel: Configured with focused MediaService directly")
     }
-    
+
     /// ✅ NEW: Get optimal stream URL based on connection quality
     func getOptimalStreamURL(for songId: String) -> URL? {
-        guard let mediaService = activeMediaService else {
-            print("❌ MediaService not available for streaming")
-            return nil
-        }
         
         // Get connection quality from AudioSessionManager or NetworkMonitor
         let connectionQuality: ConnectionService.ConnectionQuality = .good // Default
@@ -133,12 +114,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             connectionQuality: connectionQuality
         )
     }
-    
-    /// ✅ ENHANCED: Smart service resolution
-    private var activeMediaService: MediaService? {
-        return mediaService ?? legacyService?.getMediaService()
-    }
-    
+        
     // MARK: - Cover Art Management (unchanged)
     func updateCoverArtService(_ newCoverArtManager: CoverArtManager) {
         self.coverArtManager = newCoverArtManager
@@ -235,13 +211,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             print("🎵 Getting stream URL via focused MediaService")
             return mediaService.streamURL(for: song.id)
         }
-        
-        // Fallback to legacy service
-        if let legacyService = legacyService {
-            print("🎵 Fallback: Getting stream URL via legacy service")
-            return legacyService.streamURL(for: song.id)
-        }
-        
+                
         print("❌ No MediaService or legacy service available for streaming")
         return nil
     }
@@ -338,7 +308,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     /// ✅ NEW: Get media information for current song
     func getCurrentMediaInfo() async -> MediaInfo? {
         guard let song = currentSong,
-              let mediaService = activeMediaService else { return nil }
+              let mediaService = mediaService else { return nil }
         
         do {
             return try await mediaService.getMediaInfo(for: song.id)
@@ -352,7 +322,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     /// ✅ NEW: Get media service diagnostics
     func getMediaServiceDiagnostics() -> String {
-        guard let mediaService = activeMediaService else {
+        guard let mediaService = mediaService else {
             return "❌ No MediaService configured"
         }
         
@@ -362,7 +332,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         - Service: ✅ Available
         - Cache: \(stats.summary)
         - Stream Quality: Adaptive
-        - Connection: \(activeMediaService != nil ? "Ready" : "Unavailable")
+        - Connection: \(mediaService != nil ? "Ready" : "Unavailable")
         """
     }
     

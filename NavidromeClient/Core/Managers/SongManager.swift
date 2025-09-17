@@ -1,9 +1,10 @@
 //
-//  SongManager.swift - MIGRATED to ContentService
+//  SongManager.swift - COMPLETE FOCUSED SERVICE MIGRATION
 //  NavidromeClient
 //
-//  ✅ MIGRATION COMPLETE: SubsonicService → ContentService
-//  ✅ ALL SERVICE CALLS UPDATED
+//  ✅ ELIMINATED: All legacy service patterns
+//  ✅ MIGRATED: To focused ContentService only
+//  ✅ REMOVED: Dual service dependencies
 //
 
 import Foundation
@@ -17,7 +18,7 @@ class SongManager: ObservableObject {
     @Published private(set) var albumSongs: [String: [Song]] = [:]
     @Published private(set) var isLoadingSongs: [String: Bool] = [:]
     
-    // ✅ MIGRATION: ContentService dependency
+    // ✅ FOCUSED: Single ContentService dependency only
     private weak var contentService: ContentService?
     private let downloadManager: DownloadManager
     
@@ -27,21 +28,19 @@ class SongManager: ObservableObject {
         self.downloadManager = downloadManager
     }
     
-    // MARK: - ✅ MIGRATION: New configuration method
-    /**
-    func configure(contentService: ContentService) {
-        self.contentService = contentService
-        print("✅ SongManager configured with ContentService")
-    }
-     */
-    // ✅ Single service access via UnifiedSubsonicService
-    private weak var service: UnifiedSubsonicService?
-
+    // MARK: - ✅ PURE FOCUSED SERVICE CONFIGURATION
+    
     func configure(service: UnifiedSubsonicService) {
-        self.service = service
+        // ✅ FOCUSED: Extract ContentService directly
+        self.contentService = service.getContentService()
+        print("✅ SongManager configured with focused ContentService")
     }
-
-    // MARK: - ✅ PRIMARY API: Smart Song Loading (unchanged logic, updated service calls)
+    
+    // ❌ REMOVED: All legacy service configurations
+    // ❌ REMOVED: Dual service pattern support
+    // ❌ REMOVED: Optional service fallbacks
+    
+    // MARK: - ✅ PRIMARY API: Smart Song Loading (focused service only)
     
     /// Load songs for album with intelligent offline/online fallback
     func loadSongs(for albumId: String) async -> [Song] {
@@ -73,10 +72,10 @@ class SongManager: ObservableObject {
             }
         }
         
-        // Try online if available (unchanged logic, updated service call)
+        // ✅ FOCUSED: Try online via ContentService only
         if NetworkMonitor.shared.canLoadOnlineContent && !OfflineManager.shared.isOfflineMode {
-            print("🌐 Loading online songs for album \(albumId)")
-            let onlineSongs = await loadOnlineSongs(for: albumId)
+            print("🌐 Loading online songs for album \(albumId) via ContentService")
+            let onlineSongs = await loadOnlineSongsViaContentService(for: albumId)
             if !onlineSongs.isEmpty {
                 albumSongs[albumId] = onlineSongs
                 return onlineSongs
@@ -163,20 +162,18 @@ class SongManager: ObservableObject {
         return downloadManager.getDownloadedSongs(for: albumId).count
     }
     
-    // MARK: - ✅ MIGRATION: Online song loading with ContentService
+    // MARK: - ✅ FOCUSED: Online song loading via ContentService only
     
-    /// Load songs from online service
-    private func loadOnlineSongs(for albumId: String) async -> [Song] {
-        // ✅ MIGRATION: ContentService guard
+    /// Load songs from ContentService (no legacy fallback)
+    private func loadOnlineSongsViaContentService(for albumId: String) async -> [Song] {
         guard let contentService = contentService else {
             print("❌ ContentService not available for online song loading")
             return []
         }
         
         do {
-            // ✅ MIGRATION: ContentService call
             let songs = try await contentService.getSongs(for: albumId)
-            print("✅ Loaded \(songs.count) online songs for album \(albumId) via ContentService")
+            print("✅ Loaded \(songs.count) online songs for album \(albumId) via focused ContentService")
             return songs
         } catch {
             print("⚠️ Failed to load online songs for album \(albumId) via ContentService: \(error)")
@@ -255,8 +252,66 @@ class SongManager: ObservableObject {
     func reset() {
         albumSongs.removeAll()
         isLoadingSongs.removeAll()
+        contentService = nil
         print("✅ SongManager reset completed")
     }
+    
+    // MARK: - ✅ DIAGNOSTICS
+    
+    func getServiceDiagnostics() -> SongManagerDiagnostics {
+        return SongManagerDiagnostics(
+            hasContentService: contentService != nil,
+            cachedAlbums: albumSongs.count,
+            totalCachedSongs: getCachedSongCount(),
+            activeLoading: isLoadingSongs.count
+        )
+    }
+    
+    struct SongManagerDiagnostics {
+        let hasContentService: Bool
+        let cachedAlbums: Int
+        let totalCachedSongs: Int
+        let activeLoading: Int
+        
+        var healthScore: Double {
+            var score = 0.0
+            
+            if hasContentService { score += 0.5 }
+            if activeLoading < 5 { score += 0.3 }
+            if cachedAlbums > 0 { score += 0.2 }
+            
+            return min(score, 1.0)
+        }
+        
+        var statusDescription: String {
+            let score = healthScore * 100
+            
+            switch score {
+            case 90...100: return "✅ Excellent"
+            case 70..<90: return "🟢 Good"
+            case 50..<70: return "🟡 Fair"
+            default: return "🟠 Needs ContentService"
+            }
+        }
+        
+        var summary: String {
+            return """
+            📊 SONGMANAGER FOCUSED SERVICE DIAGNOSTICS:
+            - ContentService: \(hasContentService ? "✅" : "❌")
+            - Cached Albums: \(cachedAlbums)
+            - Cached Songs: \(totalCachedSongs)
+            - Active Loading: \(activeLoading)
+            - Health: \(statusDescription)
+            """
+        }
+    }
+    
+    #if DEBUG
+    func printServiceDiagnostics() {
+        let diagnostics = getServiceDiagnostics()
+        print(diagnostics.summary)
+    }
+    #endif
 }
 
 // MARK: - ✅ SUPPORTING TYPES (unchanged)
@@ -285,22 +340,54 @@ extension Character {
     }
 }
 
-// MARK: - ✅ BATCH OPERATIONS SUPPORT (unchanged - no direct service calls)
+// MARK: - ✅ BATCH OPERATIONS SUPPORT (focused service only)
 
 extension SongManager {
     
-    /// Load songs for artist (all albums)
+    /// Load songs for artist (via ContentService only)
     func loadSongsForArtist(_ artist: Artist) async -> [Song] {
-        // This would need MusicLibraryManager to get artist's albums
-        // For now, return empty - will be handled in coordination layer
-        return []
+        guard let contentService = contentService else {
+            print("❌ ContentService not available for artist songs")
+            return []
+        }
+        
+        do {
+            let albums = try await contentService.getAlbumsByArtist(artistId: artist.id)
+            var allSongs: [Song] = []
+            
+            for album in albums.prefix(10) { // Limit to prevent overload
+                let songs = await loadSongs(for: album.id)
+                allSongs.append(contentsOf: songs)
+            }
+            
+            return allSongs
+        } catch {
+            print("❌ Failed to load songs for artist via ContentService: \(error)")
+            return []
+        }
     }
     
-    /// Load songs for genre (all albums in genre)
+    /// Load songs for genre (via ContentService only)
     func loadSongsForGenre(_ genre: Genre) async -> [Song] {
-        // This would need MusicLibraryManager to get genre's albums
-        // For now, return empty - will be handled in coordination layer
-        return []
+        guard let contentService = contentService else {
+            print("❌ ContentService not available for genre songs")
+            return []
+        }
+        
+        do {
+            let albums = try await contentService.getAlbumsByGenre(genre: genre.value)
+            var allSongs: [Song] = []
+            
+            for album in albums.prefix(10) { // Limit to prevent overload
+                let songs = await loadSongs(for: album.id)
+                allSongs.append(contentsOf: songs)
+            }
+            
+            return allSongs
+        } catch {
+            print("❌ Failed to load songs for genre via ContentService: \(error)")
+            return []
+        }
     }
     
     /// Warm up cache for visible albums

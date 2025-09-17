@@ -9,14 +9,12 @@
 import SwiftUI
 
 struct ExploreView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var coverArtManager: CoverArtManager
     
-    // ✅ NEW: Single source of truth for home screen data
     @StateObject private var homeScreenManager = HomeScreenManager.shared
     
     var body: some View {
@@ -31,11 +29,9 @@ struct ExploreView: View {
             .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
             .task {
-                // ✅ SINGLE LINE: Manager handles all complexity
                 await setupHomeScreenData()
             }
             .refreshable {
-                // ✅ SINGLE LINE: Manager handles refresh logic
                 await homeScreenManager.loadHomeScreenData()
                 await preloadHomeScreenCovers()
             }
@@ -59,22 +55,16 @@ struct ExploreView: View {
         }
     }
     
-    // MARK: - ✅ Setup & Configuration
+    // MARK: - Setup
     
     private func setupHomeScreenData() async {
-        // Configure manager with service
-        if let service = navidromeVM.getService() {
-            homeScreenManager.configure(service: service)
-        }
-        
-        // Load data if online
+        // Keine Service-Übergabe mehr nötig
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
             await homeScreenManager.loadHomeScreenData()
             await preloadHomeScreenCovers()
         }
     }
     
-    // ✅ REACTIVE: Uses manager data directly
     private func preloadHomeScreenCovers() async {
         let allAlbums = homeScreenManager.recentAlbums +
                        homeScreenManager.newestAlbums +
@@ -84,68 +74,62 @@ struct ExploreView: View {
         await coverArtManager.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
     }
     
-    // MARK: - ✅ Pure UI Content
+    // MARK: - Online Content
     
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: Spacing.xl) {
                 WelcomeHeader(
-                    username: AppConfig.shared.getCredentials()?.username ?? "User",
+                    username: "User", // falls du keinen navidromeVM mehr hast
                     nowPlaying: playerVM.currentSong
                 )
                 
-                Group {
-                    // ✅ REACTIVE: Direct access to manager data
-                    if !homeScreenManager.recentAlbums.isEmpty {
-                        AlbumSection(
-                            title: "Recently played",
-                            albums: homeScreenManager.recentAlbums,
-                            icon: "clock.fill",
-                            accentColor: .orange
-                        )
-                    }
-                    
-                    if !homeScreenManager.newestAlbums.isEmpty {
-                        AlbumSection(
-                            title: "Newly added",
-                            albums: homeScreenManager.newestAlbums,
-                            icon: "sparkles",
-                            accentColor: .green
-                        )
-                    }
-                    
-                    if !homeScreenManager.frequentAlbums.isEmpty {
-                        AlbumSection(
-                            title: "Often played",
-                            albums: homeScreenManager.frequentAlbums,
-                            icon: "chart.bar.fill",
-                            accentColor: .purple
-                        )
-                    }
-                    
-                    if !homeScreenManager.randomAlbums.isEmpty {
-                        AlbumSection(
-                            title: "Explore",
-                            albums: homeScreenManager.randomAlbums,
-                            icon: "dice.fill",
-                            accentColor: .blue,
-                            showRefreshButton: true,
-                            refreshAction: {
-                                await refreshRandomAlbums()
-                            }
-                        )
-                    }
+                if !homeScreenManager.recentAlbums.isEmpty {
+                    AlbumSection(
+                        title: "Recently played",
+                        albums: homeScreenManager.recentAlbums,
+                        icon: "clock.fill",
+                        accentColor: .orange
+                    )
                 }
                 
-                Group {
-                    // ✅ REACTIVE: Manager state
-                    if homeScreenManager.isLoadingHomeData {
-                        LoadingView()
-                    }
-                    
-                    if let errorMessage = homeScreenManager.homeDataError {
-                        ErrorSection(message: errorMessage)
-                    }
+                if !homeScreenManager.newestAlbums.isEmpty {
+                    AlbumSection(
+                        title: "Newly added",
+                        albums: homeScreenManager.newestAlbums,
+                        icon: "sparkles",
+                        accentColor: .green
+                    )
+                }
+                
+                if !homeScreenManager.frequentAlbums.isEmpty {
+                    AlbumSection(
+                        title: "Often played",
+                        albums: homeScreenManager.frequentAlbums,
+                        icon: "chart.bar.fill",
+                        accentColor: .purple
+                    )
+                }
+                
+                if !homeScreenManager.randomAlbums.isEmpty {
+                    AlbumSection(
+                        title: "Explore",
+                        albums: homeScreenManager.randomAlbums,
+                        icon: "dice.fill",
+                        accentColor: .blue,
+                        showRefreshButton: true,
+                        refreshAction: {
+                            await refreshRandomAlbums()
+                        }
+                    )
+                }
+                
+                if homeScreenManager.isLoadingHomeData {
+                    LoadingView()
+                }
+                
+                if let errorMessage = homeScreenManager.homeDataError {
+                    ErrorSection(message: errorMessage)
                 }
                 
                 Color.clear.frame(height: Sizes.miniPlayer)
@@ -153,6 +137,8 @@ struct ExploreView: View {
             .padding(.top, Spacing.s)
         }
     }
+    
+    // MARK: - Offline Content
     
     private var offlineContent: some View {
         ScrollView {
@@ -199,13 +185,11 @@ struct ExploreView: View {
         }
     }
     
-    // ✅ SINGLE LINE: Manager handles refresh logic
     private func refreshRandomAlbums() async {
         await homeScreenManager.refreshRandomAlbums()
         await coverArtManager.preloadAlbums(homeScreenManager.randomAlbums, size: 200)
     }
 }
-
 // MARK: - Existing Components (unchanged but kept for completeness)
 
 struct OfflineWelcomeHeader: View {

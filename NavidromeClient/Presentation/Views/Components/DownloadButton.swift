@@ -18,7 +18,6 @@ struct DownloadButton: View {
     
     private let buttonSize: CGFloat = 24
     
-    // ✅ REACTIVE: Get state from manager instead of local @State
     private var downloadState: DownloadManager.DownloadState {
         downloadManager.getDownloadState(for: album.id)
     }
@@ -39,7 +38,6 @@ struct DownloadButton: View {
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                // ✅ SINGLE LINE: Manager handles all logic
                 downloadManager.deleteDownload(albumId: album.id)
             }
             Button("Cancel", role: .cancel) { }
@@ -127,39 +125,22 @@ struct DownloadButton: View {
         case .downloaded:
             showingDeleteConfirmation = true
         case .cancelling:
-            break // No action during cancelling
+            break
         }
     }
     
+    // ✅ FOCUSED: Route through DownloadManager only (no direct service access)
     private func startDownload() {
-        guard let service = navidromeVM.getService() else {
-            print("❌ No service available for download")
-            return
-        }
-        
-        // ✅ SINGLE LINE: Manager handles all complexity
+        // ✅ ROUTE: DownloadManager handles service access internally
         Task {
             await downloadManager.startDownload(
                 album: album,
-                songs: songs,
-                service: service
+                songs: songs
             )
         }
     }
     
     private func cancelDownload() {
-        // ✅ SINGLE LINE: Manager handles all logic
         downloadManager.cancelDownload(albumId: album.id)
-    }
-}
-
-// MARK: - ✅ Preview Helper
-
-extension DownloadButton {
-    /// Convenience initializer for simpler usage
-    init(album: Album, songs: [Song], navidromeVM: NavidromeViewModel) {
-        self.album = album
-        self.songs = songs
-        self.navidromeVM = navidromeVM
     }
 }
