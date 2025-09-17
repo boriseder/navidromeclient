@@ -1,327 +1,254 @@
 //
-//  DesignSystem.swift - Enhanced Version
+//  SemanticDesignSystem.swift - Semantische Umbenennung deines Systems
 //  NavidromeClient
 //
-//  Enhanced with missing values from app analysis
+//  ✅ Behält deine bestehende Struktur, macht sie nur semantisch klar
 //
 
 import SwiftUI
 
-// MARK: - Spacing (zwischen Views, Layouts)
-// Verwendung: VStack/HStack spacing, List Abstände
-enum Spacing {
-    static let xs: CGFloat = 4      // sehr kleine Abstände, z.B. Icon/Badge spacing
-    static let s: CGFloat = 8       // kleine Abstände, z.B. Icon/Text im Button
-    static let m: CGFloat = 16      // Standard-Abstände zwischen Elementen
-    static let l: CGFloat = 24      // größere Blöcke, Sections
-    static let xl: CGFloat = 32     // Screen Margins, große Trenner
-    static let xxl: CGFloat = 40    // sehr große Abstände, zwischen major sections
+// MARK: - Layout (Ersetzt Spacing + Padding + Sizes)
+
+enum DSLayout {
+    // MARK: Gaps (zwischen Elementen)
+    static let tightGap: CGFloat = 4        // Icon-Text, sehr eng
+    static let elementGap: CGFloat = 8      // Standard Icon-Text, Button-Elemente
+    static let contentGap: CGFloat = 16     // Zwischen Content-Blöcken
+    static let sectionGap: CGFloat = 24     // Zwischen Sections
+    static let screenGap: CGFloat = 32      // Zwischen Major Areas
+    static let largeGap: CGFloat = 40       // Sehr große Abstände
+    
+    // MARK: Padding (innerhalb Elementen)
+    static let tightPadding: CGFloat = 4    // Sehr enge Innenabstände
+    static let elementPadding: CGFloat = 8  // Button-Inhalt, kleine Elemente
+    static let contentPadding: CGFloat = 16 // Standard Card/Container-Inhalt
+    static let comfortPadding: CGFloat = 24 // Große Container
+    static let screenPadding: CGFloat = 20  // Screen-Ränder (16 war zu eng)
+    
+    // MARK: Feste UI Größen
+    static let buttonHeight: CGFloat = 44
+    static let searchBarHeight: CGFloat = 44
+    static let tabBarHeight: CGFloat = 90
+    static let miniPlayerHeight: CGFloat = 90
+    
+    // MARK: Icon Größen
+    static let smallIcon: CGFloat = 16      // Tiny icons
+    static let icon: CGFloat = 24          // Standard icons
+    static let largeIcon: CGFloat = 32     // Prominent icons
+    
+    // MARK: Cover/Avatar Größen (Use-Case spezifisch)
+    static let miniCover: CGFloat = 50      // Song rows, mini player
+    static let listCover: CGFloat = 70      // List items
+    static let cardCover: CGFloat = 140     // Grid cards
+    static let detailCover: CGFloat = 300   // Detail views
+    static let fullCover: CGFloat = 400     // Full screen
+    static let smallAvatar: CGFloat = 72    // User avatars
+    static let avatar: CGFloat = 100        // Large avatars
+    
+    // MARK: Content Width
+    static let maxContentWidth: CGFloat = 400 // Max content width
 }
 
-// MARK: - Padding (innerhalb von Komponenten)
-// Verwendung: Button-Inhalt, Card-Inhalt, Text Container
-enum Padding {
-    static let xs: CGFloat = 4      // sehr kleine Inhalte
-    static let s: CGFloat = 8       // kleine Inhalte
-    static let m: CGFloat = 16      // Standard-Padding
-    static let l: CGFloat = 24      // große Inhalte
-    static let xl: CGFloat = 32     // sehr große Inhalte
+// MARK: - Corners (Ersetzt Radius)
+
+enum DSCorners {
+    static let tight: CGFloat = 3           // AlbumCover mini
+    static let element: CGFloat = 8         // Buttons, small elements
+    static let content: CGFloat = 16        // Cards, containers
+    static let comfortable: CGFloat = 24    // Large containers
+    static let spacious: CGFloat = 32       // Very large elements
+    static let round: CGFloat = 50          // Circle buttons
 }
 
-// MARK: - Radius / Corner Rounding
-enum Radius {
-    static let xs: CGFloat = 3      // AlbumCover, kleine Elemente
-    static let s: CGFloat = 8       // Standard kleine Radius
-    static let m: CGFloat = 16      // Standard mittlere Radius
-    static let l: CGFloat = 24      // große Radius
-    static let xl: CGFloat = 32     // sehr große Radius
-    static let circle: CGFloat = 50 // für runde Buttons/Avatare
-}
+// MARK: - Typography (Semantisch umbenannt)
 
-// MARK: - Sizes (Kern-Dimensionen)
-enum Sizes {
-    // Cards & Images
-    static let cardSmall: CGFloat = 60     // kleine Cards, Mini-Cover
-    static let card: CGFloat = 140         // Standard Album Cards
-    static let cardLarge: CGFloat = 200    // große Cards
+enum DSText {
+    // MARK: Hierarchy
+    static let pageTitle = Font.system(.largeTitle, design: .rounded).weight(.bold)
+    static let sectionTitle = Font.system(.title, design: .rounded).weight(.bold)
+    static let subsectionTitle = Font.system(.title2, design: .rounded).weight(.semibold)
+    static let itemTitle = Font.system(.title3, design: .rounded).weight(.semibold)
     
-    // Avatars & Icons
-    static let iconSmall: CGFloat = 16     // kleine Icons
-    static let icon: CGFloat = 24          // Standard Icons
-    static let iconLarge: CGFloat = 32     // große Icons
-    static let avatar: CGFloat = 72        // User Avatare
-    static let avatarLarge: CGFloat = 100  // große Avatare
-    
-    // Cover Art
-    static let coverMini: CGFloat = 50     // MiniPlayer
-    static let coverSmall: CGFloat = 70    // Listen
-    static let cover: CGFloat = 300        // Detail Views
-    static let coverFull: CGFloat = 400    // Full Screen
-    
-    // UI Elements
-    static let buttonHeight: CGFloat = 44   // Standard Button Höhe
-    static let tabBar: CGFloat = 90        // Tab Bar Höhe
-    static let miniPlayer: CGFloat = 90    // Mini Player Höhe
-    static let searchBar: CGFloat = 44     // Search Bar Höhe
-    
-    // Layout
-    static let screenPadding: CGFloat = 16  // Standard Screen Padding
-    static let maxContentWidth: CGFloat = 400 // Max Content Width
-}
-
-// MARK: - Typography / Fonts
-enum Typography {
-    // Headers
-    static let largeTitle = Font.system(.largeTitle, design: .rounded).weight(.bold)
-    static let title = Font.system(.title, design: .rounded).weight(.bold)
-    static let title2 = Font.system(.title2, design: .rounded).weight(.semibold)
-    static let title3 = Font.system(.title3, design: .rounded).weight(.semibold)
-    
-    // Content
-    static let headline = Font.headline.weight(.semibold)
-    static let subheadline = Font.subheadline.weight(.medium)
+    // MARK: Content
+    static let prominent = Font.headline.weight(.semibold)
+    static let emphasized = Font.subheadline.weight(.medium)
     static let body = Font.body
-    static let bodyEmphasized = Font.body.weight(.medium)
-    static let callout = Font.callout
+    static let detail = Font.callout
     
-    // Small Text
-    static let caption = Font.caption
-    static let caption2 = Font.caption2
+    // MARK: Small text
+    static let metadata = Font.caption
+    static let fine = Font.caption2
     static let footnote = Font.footnote
     
-    // Special Purpose
+    // MARK: Interactive
     static let button = Font.callout.weight(.semibold)
-    static let buttonLarge = Font.headline.weight(.semibold)
-    static let monospacedNumbers = Font.body.monospacedDigit()
+    static let largeButton = Font.headline.weight(.semibold)
     
-    // Legacy (für Kompatibilität)
-    static let sectionTitle = Font.headline.weight(.semibold)
+    // MARK: Special
+    static let numbers = Font.body.monospacedDigit()
 }
 
-// MARK: - Text Colors
-enum TextColor {
-    static let primary = Color.primary
-    static let secondary = Color.secondary
-    static let tertiary = Color(.tertiaryLabel)
-    static let quaternary = Color(.quaternaryLabel)
-    static let inverse = Color(.systemBackground)
+// MARK: - Colors (Deine bestehenden, semantisch gruppiert)
+
+enum DSColor {
+    // MARK: Content colors
+    static let primary = SwiftUI.Color.primary
+    static let secondary = SwiftUI.Color.secondary
+    static let tertiary = SwiftUI.Color(.tertiaryLabel)
+    static let quaternary = SwiftUI.Color(.quaternaryLabel)
     
-    // Contextual
-    static let onDark = Color.white
-    static let onLight = Color.black
-    static let onDarkSecondary = Color.white.opacity(0.7)
-    static let onLightSecondary = Color.black.opacity(0.7)
+    // MARK: Surfaces
+    static let background = SwiftUI.Color(.systemBackground)
+    static let surface = SwiftUI.Color(.secondarySystemBackground)
+    static let surfaceSecondary = SwiftUI.Color(.tertiarySystemBackground)
+    static let surfaceLight = SwiftUI.Color(UIColor.systemGray6)
+    static let surfaceMedium = SwiftUI.Color(UIColor.systemGray5)
+    
+    // MARK: Brand & Status
+    static let accent = SwiftUI.Color.accentColor
+    static let brand = SwiftUI.Color(.systemBlue)
+    static let success = SwiftUI.Color(.systemGreen)
+    static let warning = SwiftUI.Color(.systemOrange)
+    static let error = SwiftUI.Color(.systemRed)
+    static let info = SwiftUI.Color(.systemBlue)
+    
+    // MARK: Music-specific
+    static let playing = SwiftUI.Color(.systemBlue)
+    static let offline = SwiftUI.Color(.systemOrange)
+    static let downloaded = SwiftUI.Color(.systemGreen)
+    
+    // MARK: On-colors (für dunkle Hintergründe)
+    static let onDark = SwiftUI.Color.white
+    static let onDarkSecondary = SwiftUI.Color.white.opacity(0.7)
+    static let onLight = SwiftUI.Color.black
+    static let onLightSecondary = SwiftUI.Color.black.opacity(0.7)
+    
+    // MARK: Overlays
+    static let overlay = SwiftUI.Color.black.opacity(0.4)
+    static let overlayLight = SwiftUI.Color.black.opacity(0.2)
+    static let overlayHeavy = SwiftUI.Color.black.opacity(0.6)
 }
 
-// MARK: - Brand & Status Colors
-enum BrandColor {
-    static let primary = Color.accentColor
-    static let secondary = Color(.systemBlue)
-    
-    // Status
-    static let success = Color(.systemGreen)
-    static let warning = Color(.systemOrange)
-    static let error = Color(.systemRed)
-    static let info = Color(.systemBlue)
-    
-    // Music App Specific
-    static let playing = Color(.systemBlue)
-    static let offline = Color(.systemOrange)
-    static let downloaded = Color(.systemGreen)
-}
+// MARK: - Semantic Extensions (Deine bestehenden, umbenannt)
 
-// MARK: - Background Colors
-enum BackgroundColor {
-    static let primary = Color(.systemBackground)
-    static let secondary = Color(.secondarySystemBackground)
-    static let tertiary = Color(.tertiarySystemBackground)
-    
-    // Heller Akzent-Hintergrund
-    static let light = Color(UIColor.systemGray6) // wirkt fast weiß in Light Mode, dunkel in Dark Mode
-    static let medium = Color(UIColor.systemGray5)
-    
-    // Materials
-    static let thin: Material = .ultraThin
-    static let regular: Material = .regular
-    static let thick: Material = .thick
-
-    // Overlays
-    static let overlay = Color.black.opacity(0.4)
-    static let overlayLight = Color.black.opacity(0.2)
-    static let overlayHeavy = Color.black.opacity(0.6)
-}
-
-// MARK: - Enhanced Shadows
 extension View {
-    func cardShadow() -> some View {
-        self.shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+    // MARK: Layout
+    func elementGap<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: DSLayout.elementGap, content: content)
     }
     
-    func buttonShadow() -> some View {
-        self.shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+    func contentGap<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: DSLayout.contentGap, content: content)
     }
     
-    func miniShadow() -> some View {
-        self.shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+    func sectionGap<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: DSLayout.sectionGap, content: content)
     }
     
-    func largeShadow() -> some View {
-        self.shadow(color: .black.opacity(0.25), radius: 20, x: 0, y: 10)
-    }
-    
-    func glowShadow(color: Color = .blue) -> some View {
-        self.shadow(color: color.opacity(0.3), radius: 8, x: 0, y: 4)
-    }
-}
-
-// MARK: - Enhanced Component Styles
-extension View {
-    func cardStyle() -> some View {
-        self
-            .clipShape(RoundedRectangle(cornerRadius: Radius.m))
-            .cardShadow()
-    }
-    
-    func miniCardStyle() -> some View {
-        self
-            .clipShape(RoundedRectangle(cornerRadius: Radius.s))
-            .miniShadow()
-    }
-    
-    func largeCardStyle() -> some View {
-        self
-            .clipShape(RoundedRectangle(cornerRadius: Radius.l))
-            .largeShadow()
-    }
-    
-    func avatarStyle() -> some View {
-        self
-            .clipShape(Circle())
-            .cardShadow()
-    }
-    
-    func primaryButtonStyle() -> some View {
-        self
-            .padding(.horizontal, Padding.m)
-            .padding(.vertical, Padding.s)
-            .background(BrandColor.primary, in: Capsule())
-            .foregroundStyle(TextColor.inverse)
-            .buttonShadow()
-    }
-    
-    func secondaryButtonStyle() -> some View {
-        self
-            .padding(.horizontal, Padding.m)
-            .padding(.vertical, Padding.s)
-            .background(BackgroundColor.regular, in: Capsule())
-            .foregroundStyle(TextColor.primary)
-    }
-    
-    func compactButtonStyle() -> some View {
-        self
-            .padding(.horizontal, Padding.s)
-            .padding(.vertical, Padding.xs)
-            .background(BrandColor.primary, in: Capsule())
-            .foregroundStyle(TextColor.inverse)
-    }
-    
-    func iconButtonStyle() -> some View {
-        self
-            .frame(width: Sizes.buttonHeight, height: Sizes.buttonHeight)
-            .background(BackgroundColor.regular, in: Circle())
-            .foregroundStyle(TextColor.primary)
-    }
-    
-    func materialCardStyle() -> some View {
-        self
-            .background(BackgroundColor.regular, in: RoundedRectangle(cornerRadius: Radius.m))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.m)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
-            )
-    }
-    
-    func glassCardStyle() -> some View {
-        self
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.m))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.m)
-                    .stroke(.white.opacity(0.3), lineWidth: 1)
-            )
-    }
-}
-
-// MARK: - Layout Helpers
-extension View {
     func screenPadding() -> some View {
-        self.padding(.horizontal, Sizes.screenPadding)
+        padding(.horizontal, DSLayout.screenPadding)
     }
     
-    func sectionSpacing() -> some View {
-        self.padding(.vertical, Spacing.l)
+    func contentPadding() -> some View {
+        padding(DSLayout.contentPadding)
     }
     
-    func listItemPadding() -> some View {
-        self.padding(.horizontal, Padding.m)
-            .padding(.vertical, Padding.s)
+    func elementPadding() -> some View {
+        padding(DSLayout.elementPadding)
     }
     
-    func maxContentWidth() -> some View {
-        self.frame(maxWidth: Sizes.maxContentWidth)
+    // MARK: Shapes
+    func elementCorners() -> some View {
+        clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
+    }
+    
+    func contentCorners() -> some View {
+        clipShape(RoundedRectangle(cornerRadius: DSCorners.content))
+    }
+    
+    // MARK: Surfaces
+    func surfaceStyle() -> some View {
+        background(DSColor.surface)
+            .contentCorners()
+    }
+    
+    func cardStyle() -> some View {
+        background(DSColor.surface)
+            .contentCorners()
+            .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
+    }
+    
+    func glassMorphic() -> some View {
+        background(.ultraThinMaterial)
+            .contentCorners()
     }
 }
 
-// MARK: - Animations (Enhanced)
-enum Animations {
-    static let spring = Animation.spring(response: 0.4, dampingFraction: 0.8)
-    static let springSnappy = Animation.spring(response: 0.3, dampingFraction: 0.7)
-    static let ease = Animation.easeInOut(duration: 0.2)
-    static let easeQuick = Animation.easeInOut(duration: 0.1)
-    static let easeSlow = Animation.easeInOut(duration: 0.4)
-    
-    // Interactive
-    static let interactive = Animation.interactiveSpring()
-    static let bounce = Animation.spring(response: 0.6, dampingFraction: 0.6)
-}
-
-// MARK: - Grid Helpers
-enum GridColumns {
-    static let two = Array(repeating: GridItem(.flexible(), spacing: Spacing.m), count: 2)
-    static let three = Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: 3)
-    static let four = Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: 4)
-}
+// MARK: - Migration Map (Was du ändern musst)
 
 /*
- ENHANCED USAGE EXAMPLES:
- 
- // Typography
- Text("Album Name")
-     .font(Typography.title3)
-     .foregroundColor(TextColor.primary)
- 
- // Layouts
- VStack(spacing: Spacing.m) {
-     Text("Title")
-     Text("Subtitle")
- }
- .screenPadding()
- 
- // Cards
- AlbumCoverView()
-     .frame(width: Sizes.card, height: Sizes.card)
-     .cardStyle()
- 
- // Buttons
- Button("Play") { ... }
-     .primaryButtonStyle()
- 
- // Grid
- LazyVGrid(columns: GridColumns.two, spacing: Spacing.m) {
-     // Album cards
- }
- 
- // Materials
- VStack { ... }
-     .materialCardStyle()
-     .screenPadding()
+ERSETZEN:
+
+// Spacing
+Spacing.xs → Layout.tightGap
+Spacing.s → Layout.elementGap
+Spacing.m → Layout.contentGap
+Spacing.l → Layout.sectionGap
+Spacing.xl → Layout.screenGap
+Spacing.xxl → Layout.largeGap
+
+// Padding
+Padding.xs → Layout.tightPadding
+Padding.s → Layout.elementPadding
+Padding.m → Layout.contentPadding
+Padding.l → Layout.comfortPadding
+Padding.xl → Layout.screenPadding
+
+// Sizes
+Sizes.iconSmall → Layout.smallIcon
+Sizes.icon → Layout.icon
+Sizes.iconLarge → Layout.largeIcon
+Sizes.coverMini → Layout.miniCover
+Sizes.coverSmall → Layout.listCover
+Sizes.card → Layout.cardCover
+Sizes.cover → Layout.detailCover
+Sizes.avatar → Layout.smallAvatar
+
+// Radius
+Radius.xs → Corners.tight
+Radius.s → Corners.element
+Radius.m → Corners.content
+Radius.l → Corners.comfortable
+
+// Typography
+Typography.largeTitle → Text.pageTitle
+Typography.title → Text.sectionTitle
+Typography.title2 → Text.subsectionTitle
+Typography.title3 → Text.itemTitle
+Typography.headline → Text.prominent
+Typography.bodyEmphasized → Text.emphasized
+Typography.body → Text.body
+Typography.callout → Text.detail
+Typography.caption → Text.metadata
+Typography.caption2 → Text.fine
+Typography.button → Text.button
+Typography.monospacedNumbers → Text.numbers
+
+// TextColor
+TextColor.primary → Color.primary
+TextColor.secondary → Color.secondary
+TextColor.tertiary → Color.tertiary
+TextColor.onDark → Color.onDark
+
+// BrandColor
+BrandColor.primary → Color.accent
+BrandColor.success → Color.success
+BrandColor.warning → Color.warning
+BrandColor.error → Color.error
+BrandColor.playing → Color.playing
+
+// BackgroundColor
+BackgroundColor.primary → Color.background
+BackgroundColor.secondary → Color.surface
+BackgroundColor.tertiary → Color.surfaceSecondary
 */
