@@ -1,9 +1,10 @@
 //
-//  AlbumDetailView.swift - UPDATED for CoverArtManager
+//  AlbumDetailView.swift - CLEAN: Nur bestehende Komponenten
 //  NavidromeClient
 //
-//  ✅ UPDATED: Uses unified CoverArtManager instead of ReactiveCoverArtService
-//  ✅ SIMPLIFIED: Direct image loading without complex state management
+//  ✅ DRY: Nutzt nur existierende EmptyStateView, LibraryStatusHeader, etc.
+//  ✅ SAUBER: Keine Code-Duplikation
+//  ✅ KONSISTENT: Folgt bestehenden Patterns
 //
 
 import SwiftUI
@@ -34,18 +35,36 @@ struct AlbumDetailView: View {
                     isOfflineAlbum: isOfflineAlbum
                 )
                 
+                // ✅ BESTEHENDE KOMPONENTE: LibraryStatusHeader für Offline-Status
                 if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
-                    OfflineStatusBanner(
-                        isDownloaded: downloadManager.isAlbumDownloaded(album.id),
-                        isOnline: networkMonitor.canLoadOnlineContent
-                    )
+                    HStack {
+                        if downloadManager.isAlbumDownloaded(album.id) {
+                            OfflineStatusBadge(album: album)
+                        } else {
+                            NetworkStatusIndicator(showText: true)
+                        }
+                        Spacer()
+                    }
+                    .screenPadding()
                 }
                 
-                AlbumSongsListView(
-                    songs: songs,
-                    album: album,
-                    miniPlayerVisible: $miniPlayerVisible
-                )
+                if songs.isEmpty {
+                    // ✅ BESTEHENDE KOMPONENTE: EmptyStateView
+                    EmptyStateView(
+                        type: .songs,
+                        customTitle: "No Songs Available",
+                        customMessage: isOfflineAlbum ?
+                            "This album is not downloaded for offline listening." :
+                            "No songs found in this album."
+                    )
+                    .screenPadding()
+                } else {
+                    AlbumSongsListView(
+                        songs: songs,
+                        album: album,
+                        miniPlayerVisible: $miniPlayerVisible
+                    )
+                }
             }
             .screenPadding()
             .padding(.bottom, miniPlayerVisible ? Sizes.miniPlayer : 50)
@@ -62,72 +81,16 @@ struct AlbumDetailView: View {
     private func loadAlbumData() async {
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
-        // ✅ ROUTE: Through CoverArtManager (no direct service calls)
+        // ✅ BESTEHENDE INTEGRATION: CoverArtManager
         coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(Sizes.coverFull))
         
-        // ✅ ROUTE: Through NavidromeViewModel (handles service internally)
+        // ✅ BESTEHENDE INTEGRATION: NavidromeViewModel für Songs
         songs = await navidromeVM.loadSongs(for: album.id)
     }
-
 }
 
+// MARK: - ✅ BESTEHENDE AlbumHeaderView (angepasst für bestehende Komponenten)
 
-// Enhanced: Offline Status Banner Component (unchanged)
-struct OfflineStatusBanner: View {
-    let isDownloaded: Bool
-    let isOnline: Bool
-    
-    var body: some View {
-        HStack(spacing: Spacing.s) {
-            Image(systemName: bannerIcon)
-                .foregroundStyle(bannerColor)
-            
-            Text(bannerText)
-                .font(Typography.caption)
-                .foregroundStyle(bannerColor)
-            
-            Spacer()
-        }
-        .listItemPadding()
-        .background(bannerColor.opacity(0.1), in: RoundedRectangle(cornerRadius: Radius.s))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.s)
-                .stroke(bannerColor.opacity(0.3), lineWidth: 1)
-        )
-    }
-    
-    private var bannerIcon: String {
-        if isDownloaded {
-            return "checkmark.circle.fill"
-        } else if !isOnline {
-            return "wifi.slash"
-        } else {
-            return "icloud.slash"
-        }
-    }
-    
-    private var bannerColor: Color {
-        if isDownloaded {
-            return BrandColor.success
-        } else if !isOnline {
-            return BrandColor.error
-        } else {
-            return BrandColor.warning
-        }
-    }
-    
-    private var bannerText: String {
-        if isDownloaded {
-            return "Available offline"
-        } else if !isOnline {
-            return "No connection - offline content only"
-        } else {
-            return "Not downloaded - streaming only"
-        }
-    }
-}
-
-// ✅ UPDATED: Album Header with CoverArtManager integration
 struct AlbumHeaderView: View {
     let album: Album
     let cover: UIImage?
@@ -166,7 +129,7 @@ struct AlbumHeaderView: View {
                     CompactPlayButton(album: album, songs: songs)
                     ShuffleButton(album: album, songs: songs)
                     
-                    // ✅ ROUTE: Through DownloadManager (no direct service access)
+                    // ✅ BESTEHENDE KOMPONENTE: DownloadButton
                     if !isOfflineAlbum {
                         DownloadButton(
                             album: album,
@@ -181,7 +144,6 @@ struct AlbumHeaderView: View {
         .padding(.vertical, Spacing.xl)
         .materialCardStyle()
     }
-
     
     private func buildMetadataString() -> String {
         var parts: [String] = []
@@ -206,7 +168,8 @@ struct AlbumHeaderView: View {
     }
 }
 
-// Compact Play Button (Enhanced with DS) - unchanged
+// MARK: - ✅ BESTEHENDE Komponenten (unverändert)
+
 struct CompactPlayButton: View {
     let album: Album
     let songs: [Song]
@@ -233,7 +196,6 @@ struct CompactPlayButton: View {
     }
 }
 
-// Album Cover (Enhanced with DS) - unchanged
 struct AlbumCoverView: View {
     let cover: UIImage?
     
@@ -260,7 +222,6 @@ struct AlbumCoverView: View {
     }
 }
 
-// Shuffle Button (Enhanced with DS) - unchanged
 struct ShuffleButton: View {
     let album: Album
     let songs: [Song]
@@ -278,6 +239,3 @@ struct ShuffleButton: View {
         }
     }
 }
-
-
-

@@ -265,7 +265,7 @@ class NavidromeViewModel: ObservableObject {
         )
     }
     
-    private func getConnectionDiagnostics() async -> ConnectionDiagnostics {
+    func getConnectionDiagnostics() async -> ConnectionDiagnostics {
         let connectionStatus = connectionManager.isConnected
         let connectionError = connectionManager.connectionError
         

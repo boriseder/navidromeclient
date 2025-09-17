@@ -1,9 +1,10 @@
 //
-//  ArtistDetailView.swift - REFACTORED to Pure UI
+//  ArtistDetailView.swift - CLEAN: Pure ViewModel-Routing
 //  NavidromeClient
 //
-//  ✅ ELIMINATES: ArtistDetailViewModel completely
-//  ✅ CLEAN: Direct manager calls instead of ViewModel wrapper
+//  ✅ ELIMINIERT: Alle direkten Service-Zugriffe
+//  ✅ SAUBER: Nur ViewModel/Manager-Routing
+//  ✅ VOLLSTÄNDIG: Offline/Online-Integration
 //
 
 import SwiftUI
@@ -21,14 +22,15 @@ struct ArtistDetailView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
     
     @State private var albums: [Album] = []
     @State private var artistImage: UIImage?
     @State private var isLoading = false
-    @State private var isLoadingSongs = false
     @State private var errorMessage: String?
 
+    // MARK: - ✅ COMPUTED PROPERTIES
+    
     private var artist: Artist? {
         if case .artist(let a) = context { return a }
         return nil
@@ -54,47 +56,89 @@ struct ArtistDetailView: View {
         }
     }
     
+    private var displayAlbums: [Album] {
+        return isOfflineMode ? availableOfflineAlbums : albums
+    }
+    
+    private var emptyMessageForContext: String {
+        switch context {
+        case .artist(let artist):
+            return "No albums from \(artist.name) are downloaded for offline listening."
+        case .genre(let genre):
+            return "No \(genre.value) albums are downloaded for offline listening."
+        }
+    }
+    
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            LazyVStack(spacing: Spacing.xl) {
                 headerView
-                    .padding(.top, Spacing.s)
+                    .screenPadding()
                 
-                if isOfflineMode || !availableOfflineAlbums.isEmpty {
-                    offlineStatusSection
-                        .padding(.top, Spacing.m)
+                if isOfflineMode && availableOfflineAlbums.isEmpty {
+                    EmptyStateView(
+                        type: .artists,
+                        customTitle: "No Downloaded Content",
+                        customMessage: emptyMessageForContext,
+                        primaryAction: EmptyStateAction("Browse Online Content") {
+                            offlineManager.switchToOnlineMode()
+                        }
+                    )
+                    .screenPadding()
+                } else if !displayAlbums.isEmpty {
+                    AlbumGridView(albums: displayAlbums)
                 }
                 
-                albumsSection
-                    .padding(.top, Spacing.m)
+                Color.clear.frame(height: Sizes.miniPlayer)
             }
         }
-        .scrollIndicators(.hidden)
         .navigationTitle(contextTitle)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadContent()
         }
+        .refreshable {
+            await loadContent()
+        }
         .accountToolbar()
     }
     
+    // MARK: - ✅ HEADER VIEW
+    
     private var headerView: some View {
-        HStack(spacing: Spacing.l) {
-            artistAvatar
-            artistInfo
-            Spacer()
+        VStack(spacing: Spacing.l) {
+            HStack(spacing: Spacing.l) {
+                artistAvatar
+                
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    Text(contextTitle)
+                        .font(Typography.title2)
+                        .lineLimit(2)
+                    
+                    albumCountView
+                    
+                    if !displayAlbums.isEmpty {
+                        shuffleButton
+                    }
+                }
+                
+                Spacer()
+            }
+            
+            if isOfflineMode && !availableOfflineAlbums.isEmpty {
+                LibraryStatusHeader.artists(
+                    count: availableOfflineAlbums.count,
+                    isOnline: networkMonitor.canLoadOnlineContent,
+                    isOfflineMode: true
+                )
+            }
         }
-        .listItemPadding()
         .materialCardStyle()
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.m)
-                .stroke(Color.white.opacity(0.3), lineWidth: 1)
-        )
     }
     
     private var artistAvatar: some View {
         Group {
-            if let image = artist.artistImage {
+            if let image = artistImage {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
@@ -102,48 +146,43 @@ struct ArtistDetailView: View {
                     .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(BackgroundColor.secondary)
-                    .frame(width: 80, height: 80)
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: Sizes.avatarLarge, height: Sizes.avatarLarge)
                     .overlay(
-                        Image(systemName: "music.mic")
+                        Image(systemName: contextIcon)
                             .font(.system(size: Sizes.iconLarge))
                             .foregroundStyle(TextColor.onDark)
                     )
             }
         }
-        .cardShadow()
+        .avatarStyle()
     }
     
-    private var artistInfo: some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
-            Text(artist.title(for: context))
-                .font(Typography.title2)
-                .lineLimit(2)
-            
-            // ✅ ENHANCED: Show both online and offline album counts
-            albumCountView
-            
-            if artist.albums.isEmpty {
-                HStack {
-                    shuffleButton
-                }
-            }
+    private var contextIcon: String {
+        switch context {
+        case .artist: return "music.mic"
+        case .genre: return "music.note.list"
         }
     }
     
-    // ✅ NEW: Album Count View with Offline Support
     private var albumCountView: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            if !isOfflineMode {
-                albumCountBadge(
-                    count: artist.albums.count,
+            if !isOfflineMode && !albums.isEmpty {
+                AlbumCountBadge(
+                    count: albums.count,
                     label: "Total",
                     color: BrandColor.primary
                 )
             }
             
             if !availableOfflineAlbums.isEmpty {
-                albumCountBadge(
+                AlbumCountBadge(
                     count: availableOfflineAlbums.count,
                     label: "Downloaded",
                     color: BrandColor.success
@@ -152,7 +191,111 @@ struct ArtistDetailView: View {
         }
     }
     
-    private func albumCountBadge(count: Int, label: String, color: Color) -> some View {
+    private var shuffleButton: some View {
+        Button {
+            Task { await shufflePlayAllAlbums() }
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "shuffle")
+                    .font(Typography.caption)
+                Text("Shuffle All")
+                    .font(Typography.caption.weight(.semibold))
+            }
+            .foregroundStyle(TextColor.onDark)
+            .padding(.horizontal, Padding.m)
+            .padding(.vertical, Padding.s)
+            .background(BrandColor.primary, in: Capsule())
+        }
+    }
+    
+    // MARK: - ✅ CONTENT LOADING (Pure ViewModel-Routing)
+    
+    private func loadContent() async {
+        isLoading = true
+        errorMessage = nil
+        
+        await withTaskGroup(of: Void.self) { group in
+            // Albums via Manager laden
+            group.addTask {
+                await self.loadAlbumsViaManager()
+            }
+            
+            // Artist Image via Manager laden
+            group.addTask {
+                await self.loadArtistImageViaManager()
+            }
+        }
+        
+        isLoading = false
+    }
+    
+    /// ✅ KORREKT: Direkt über MusicLibraryManager (existierende Methode nutzen)
+    private func loadAlbumsViaManager() async {
+        guard !isOfflineMode else {
+            albums = availableOfflineAlbums
+            return
+        }
+        
+        do {
+            // ✅ KORREKT: Nutzt existierende loadAlbums(context:) Methode
+            albums = try await musicLibraryManager.loadAlbums(context: context)
+            print("✅ Loaded \(albums.count) albums via MusicLibraryManager")
+        } catch {
+            print("❌ Failed to load albums: \(error)")
+            errorMessage = "Failed to load albums: \(error.localizedDescription)"
+            // Fallback zu Offline
+            albums = availableOfflineAlbums
+        }
+    }
+    
+    /// ✅ SAUBER: Nur Manager-Routing
+    private func loadArtistImageViaManager() async {
+        if case .artist(let artist) = context {
+            artistImage = await coverArtManager.loadArtistImage(
+                artist: artist,
+                size: Int(Sizes.avatarLarge)
+            )
+        }
+    }
+    
+    // MARK: - ✅ SHUFFLE PLAY (Pure ViewModel-Routing)
+    
+    private func shufflePlayAllAlbums() async {
+        let albumsToPlay = displayAlbums
+        guard !albumsToPlay.isEmpty else { return }
+        
+        var allSongs: [Song] = []
+        
+        for album in albumsToPlay {
+            // ✅ DIRECT: MusicLibraryManager für Songs
+            let songs = await navidromeVM.loadSongs(for: album.id)
+            allSongs.append(contentsOf: songs)
+        }
+        
+        guard !allSongs.isEmpty else {
+            print("❌ No songs found in albums")
+            return
+        }
+        
+        let shuffledSongs = allSongs.shuffled()
+        await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
+        
+        if !playerVM.isShuffling {
+            playerVM.toggleShuffle()
+        }
+        
+        print("🎵 Started shuffle play with \(shuffledSongs.count) songs")
+    }
+}
+
+// MARK: - ✅ SUPPORTING COMPONENTS
+
+struct AlbumCountBadge: View {
+    let count: Int
+    let label: String
+    let color: Color
+    
+    var body: some View {
         Text("\(count) \(label) Album\(count != 1 ? "s" : "")")
             .font(Typography.caption)
             .foregroundStyle(color)
@@ -162,264 +305,5 @@ struct ArtistDetailView: View {
             .overlay(
                 Capsule().stroke(color.opacity(0.3), lineWidth: 1)
             )
-    }
-
-    // ✅ FOCUSED: Route through ViewModels only
-    private func loadContent() async {
-        isLoading = true
-        errorMessage = nil
-        
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await self.loadAlbumsViaViewModel()
-            }
-            group.addTask {
-                await self.loadArtistImageViaManager()
-            }
-        }
-        
-        isLoading = false
-    }
-    
-    // ✅ ROUTE: Through NavidromeViewModel (no direct service access)
-    private func loadAlbumsViaViewModel() async {
-        do {
-            if isOfflineMode {
-                albums = availableOfflineAlbums
-            } else {
-                // ✅ ROUTE: Through NavidromeViewModel.loadAlbums()
-                albums = try await navidromeVM.loadAlbums(context: context)
-            }
-            
-            print("✅ Loaded \(albums.count) albums for \(contextTitle) via NavidromeViewModel")
-        } catch {
-            print("❌ Failed to load albums via NavidromeViewModel: \(error)")
-            errorMessage = "Failed to load albums: \(error.localizedDescription)"
-            
-            // Fallback to offline
-            albums = availableOfflineAlbums
-        }
-    }
-    
-    // ✅ ROUTE: Through CoverArtManager (no direct service access)
-    private func loadArtistImageViaManager() async {
-        if case .artist(let artist) = context {
-            artistImage = await coverArtManager.loadArtistImage(artist: artist, size: 300)
-        }
-    }
-    
-   
-    // ✅ SHUFFLE PLAY: Route through NavidromeViewModel for song loading
-    @MainActor
-    private func shufflePlayAllAlbums() async {
-        let albumsToPlay = isOfflineMode ? availableOfflineAlbums : albums
-        guard !albumsToPlay.isEmpty else { return }
-        
-        isLoadingSongs = true
-        defer { isLoadingSongs = false }
-        
-        var allSongs: [Song] = []
-        
-        for album in albumsToPlay {
-            // ✅ ROUTE: Through NavidromeViewModel.loadSongs()
-            let songs = await navidromeVM.loadSongs(for: album.id)
-            allSongs.append(contentsOf: songs)
-        }
-        
-        guard !allSongs.isEmpty else {
-            print("❌ No songs found in any albums")
-            return
-        }
-        
-        let shuffledSongs = allSongs.shuffled()
-        print("🎵 Starting shuffle play with \(shuffledSongs.count) songs via NavidromeViewModel")
-        
-        await playerVM.setPlaylist(
-            shuffledSongs,
-            startIndex: 0,
-            albumId: nil
-        )
-        
-        if !playerVM.isShuffling {
-            playerVM.toggleShuffle()
-        }
-    }
-
-    private var offlineStatusSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
-            HStack {
-                Image(systemName: isOfflineMode ? "wifi.slash" : "arrow.down.circle.fill")
-                    .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.success)
-                
-                Text(offlineStatusText)
-                    .font(Typography.caption)
-                    .foregroundStyle(isOfflineMode ? BrandColor.warning : BrandColor.success)
-                
-                Spacer()
-                
-                if !isOfflineMode && !availableOfflineAlbums.isEmpty {
-                    Button("View Downloads Only") {
-                        offlineManager.switchToOfflineMode()
-                    }
-                    .font(Typography.caption)
-                    .foregroundStyle(BrandColor.primary)
-                }
-            }
-        }
-        .listItemPadding()
-        .background(
-            (isOfflineMode ? BrandColor.warning : BrandColor.success).opacity(0.1),
-            in: RoundedRectangle(cornerRadius: Radius.s)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.s)
-                .stroke((isOfflineMode ? BrandColor.warning : BrandColor.success).opacity(0.3), lineWidth: 1)
-        )
-        .screenPadding()
-    }
-    
-    private var offlineStatusText: String {
-        if isOfflineMode {
-            return availableOfflineAlbums.isEmpty ?
-                "No offline content available" :
-                "Showing \(availableOfflineAlbums.count) downloaded albums"
-        } else {
-            return "\(availableOfflineAlbums.count) albums available offline"
-        }
-    }
-    
-    private var albumsSection: some View {
-        VStack(spacing: Spacing.l) {
-            if isLoading {
-                LoadingView()
-            } else if let error = errorMessage {
-                errorView(error)
-            } else {
-                let albumsToShow = isOfflineMode ? availableOfflineAlbums : albums
-                
-                if albumsToShow.isEmpty {
-                    EmptyStateView.artists()
-                } else {
-                    AlbumGridView(albums: albumsToShow)
-                }
-            }
-        }
-        .padding(.bottom, 120)
-    }
-        
-    private func errorView(_ error: String) -> some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
-                .foregroundStyle(BrandColor.error)
-            
-            VStack(spacing: Spacing.s) {
-                Text("Error Loading Content")
-                    .font(Typography.headline)
-                
-                Text(error)
-                    .font(Typography.subheadline)
-                    .foregroundStyle(TextColor.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            Button("Retry") {
-                Task {
-                    await loadContent()
-                }
-            }
-            .primaryButtonStyle()
-        }
-        .padding(Padding.xl)
-        .materialCardStyle()
-    }
-    
-    // MARK: - ✅ SHUFFLE PLAY LOGIC (direct implementation)
-    
-    @MainActor
-    private func shufflePlayAllAlbums() async {
-        let albumsToPlay = isOfflineMode ? availableOfflineAlbums : albums
-        guard !albumsToPlay.isEmpty else { return }
-        
-        isLoadingSongs = true
-        defer { isLoadingSongs = false }
-        
-        var allSongs: [Song] = []
-        
-        for album in albumsToPlay {
-            do {
-                let songs = try await loadSongsForAlbumWithOfflineSupport(album)
-                allSongs.append(contentsOf: songs)
-            } catch {
-                print("⚠️ Failed to load songs for album \(album.name): \(error)")
-            }
-        }
-        
-        guard !allSongs.isEmpty else {
-            print("❌ No songs found in any albums")
-            return
-        }
-        
-        let shuffledSongs = allSongs.shuffled()
-        print("🎵 Starting shuffle play with \(shuffledSongs.count) songs (offline: \(isOfflineMode))")
-        
-        await playerVM.setPlaylist(
-            shuffledSongs,
-            startIndex: 0,
-            albumId: nil
-        )
-        
-        if !playerVM.isShuffling {
-            playerVM.toggleShuffle()
-        }
-    }
-    
-    private func loadSongsForAlbumWithOfflineSupport(_ album: Album) async throws -> [Song] {
-        // 1. If we're in offline mode or album is downloaded, prefer offline
-        if isOfflineMode || downloadManager.isAlbumDownloaded(album.id) {
-            let offlineSongs = await loadOfflineSongsForAlbum(album)
-            if !offlineSongs.isEmpty {
-                return offlineSongs
-            }
-        }
-        
-        // 2. Try online if available
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-            guard let service = navidromeVM.getService() else {
-                throw URLError(.networkConnectionLost)
-            }
-            return try await service.getSongs(for: album.id)
-        }
-        
-        // 3. Fallback to offline again
-        return await loadOfflineSongsForAlbum(album)
-    }
-    
-    private func loadOfflineSongsForAlbum(_ album: Album) async -> [Song] {
-        // ✅ DIRECT CALL: Use NavidromeVM song cache
-        if let cachedSongs = navidromeVM.albumSongs[album.id] {
-            return cachedSongs
-        }
-        
-        // ✅ DIRECT CALL: Use download manager
-        guard let downloadedAlbum = downloadManager.downloadedAlbums.first(where: { $0.albumId == album.id }) else {
-            return []
-        }
-        
-        return downloadedAlbum.songIds.enumerated().map { index, songId in
-            Song.createFromDownload(
-                id: songId,
-                title: "Track \(index + 1)",
-                duration: nil,
-                coverArt: album.id,
-                artist: album.artist,
-                album: album.name,
-                albumId: album.id,
-                track: index + 1,
-                year: album.year,
-                genre: album.genre,
-                contentType: "audio/mpeg"
-            )
-        }
     }
 }

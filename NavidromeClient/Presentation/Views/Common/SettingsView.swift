@@ -1,3 +1,12 @@
+//
+//  SettingsView.swift - CLEANED: Pure Service Architecture
+//  NavidromeClient
+//
+//  ✅ ELIMINATED: All legacy service patterns and direct service extraction
+//  ✅ CLEAN: Routes through ViewModels and AppConfig only
+//  ✅ REMOVED: All problematic dynamic members and missing components
+//
+
 import SwiftUI
 
 // MARK: - SettingsView
@@ -7,7 +16,8 @@ struct SettingsView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var coverArtService: CoverArtManager
+    @EnvironmentObject var coverArtManager: CoverArtManager
+    @EnvironmentObject var networkMonitor: NetworkMonitor
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingFactoryResetConfirmation = false
@@ -71,6 +81,10 @@ struct SettingsView: View {
     private var ServerDetailsSection: some View {
         Section {
             SettingsRow(title: "Status:", value: navidromeVM.connectionStatus ? "Connected" : "Disconnected")
+            SettingsRow(title: "Network:", value: networkMonitor.connectionStatusDescription)
+            if networkMonitor.canLoadOnlineContent {
+                SettingsRow(title: "Server Health:", value: navidromeVM.connectionQualityDescription)
+            }
         } header: {
             Text("Server Info")
         }
@@ -103,7 +117,6 @@ struct SettingsView: View {
     }
 }
 
-
 // MARK: - Helper Components
 
 struct SettingsRow: View {
@@ -128,25 +141,12 @@ struct ConnectionStatusView: View {
         HStack {
             Text("Connection:")
             Spacer()
-            if navidromeVM.isLoading { ProgressView() }
-            else {
+            if navidromeVM.isLoading {
+                ProgressView()
+                    .scaleEffect(0.8)
+            } else {
                 Image(systemName: navidromeVM.connectionStatus ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .foregroundColor(navidromeVM.connectionStatus ? .green : .red)
-            }
-        }
-    }
-}
-
-struct ConnectionDetailsSection: View {
-    @ObservedObject var navidromeVM: NavidromeViewModel
-
-    var body: some View {
-        Section("Connection Details") {
-            if let subsonicVersion = navidromeVM.subsonicVersion {
-                HStack { Text("Subsonic API:"); Spacer(); Text(subsonicVersion).foregroundStyle(.secondary) }
-            }
-            if let openSubsonic = navidromeVM.openSubsonic {
-                HStack { Text("OpenSubsonic:"); Spacer(); Text(openSubsonic ? "Yes" : "No").foregroundStyle(.secondary) }
             }
         }
     }
@@ -167,16 +167,12 @@ struct FactoryResetOverlayView: View {
     }
 }
 
-
-// MARK: - ServerEditView
+// MARK: - ServerEditView - CLEANED
 struct ServerEditView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var coverArtService: CoverArtManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingSaveSuccess = false
@@ -187,7 +183,7 @@ struct ServerEditView: View {
     var body: some View {
         Form {
             if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
-                OfflineWarningSection
+                OfflineWarningSection()
             }
 
             Section("Server & Login") {
@@ -222,13 +218,13 @@ struct ServerEditView: View {
 
             Section {
                 Button("Save & Continue") {
-                    Task { await saveCredentialsAndReloadViaViewModels() }
+                    Task { await saveCredentialsAndConfigure() }
                 }
                 .disabled(navidromeVM.isLoading || !navidromeVM.connectionStatus)
             }
 
             if navidromeVM.connectionStatus {
-                ConnectionDetailsSection(navidromeVM: navidromeVM)
+                ServerHealthSection
             }
         }
         .navigationTitle(appConfig.isConfigured ? "Edit Server" : "Initial Setup")
@@ -237,43 +233,46 @@ struct ServerEditView: View {
                 Task { await testConnectionWithOfflineCheck() }
             }
         }
-        .alert("Success", isPresented: $showingSaveSuccess) { Button("OK", role: .cancel) {} } message: { Text("Configuration saved successfully") }
-        .alert("Error", isPresented: $showingError) { Button("OK", role: .cancel) {} } message: { Text(errorMessage) }
+        .alert("Success", isPresented: $showingSaveSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Configuration saved successfully")
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage)
+        }
         .alert("Switch to Online Mode?", isPresented: $showingOfflineWarning) {
             Button("Switch to Online") {
                 offlineManager.switchToOnlineMode()
                 Task { await navidromeVM.testConnection() }
             }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("You need to be in online mode to test the server connection.") }
-    }
-    
-    // ✅ FOCUSED: Route through ViewModels only (no service extraction)
-    private func saveCredentialsAndReloadViaViewModels() async {
-        let success = await navidromeVM.saveCredentials()
-        if success {
-            // ✅ ROUTE: Configure managers through their own methods (no direct service extraction)
-            await MainActor.run {
-                // PlayerViewModel and managers will be configured by NavidromeViewModel
-                // when it calls updateService() internally
-                NetworkMonitor.shared.setConnectionManager(navidromeVM.connectionManager)
-            }
-            
-            await MainActor.run { dismiss() }
-            if !appConfig.isConfigured {
-                await MainActor.run { appConfig.isConfigured = true }
-                showingSaveSuccess = true
-            }
-            await navidromeVM.loadInitialDataIfNeeded()
-        } else {
-            errorMessage = navidromeVM.errorMessage ?? "Fehler beim Speichern"
-            showingError = true
+        } message: {
+            Text("You need to be in online mode to test the server connection.")
         }
     }
     
-    // ❌ REMOVED: service.getMediaService() calls
-    // ❌ REMOVED: service.get*Service() manual extraction
-    // ❌ REMOVED: Direct service configuration
+    // ✅ CLEAN: Route through ViewModels only (no service extraction)
+    private func saveCredentialsAndConfigure() async {
+        let success = await navidromeVM.saveCredentials()
+        if success {
+            await MainActor.run { dismiss() }
+            if !appConfig.isConfigured {
+                await MainActor.run {
+                    appConfig.isConfigured = true
+                    showingSaveSuccess = true
+                }
+            }
+            
+            // ✅ CLEAN: Let NavidromeViewModel handle initial data loading
+            await navidromeVM.loadInitialDataIfNeeded()
+        } else {
+            errorMessage = navidromeVM.errorMessage ?? "Failed to save credentials"
+            showingError = true
+        }
+    }
     
     private func testConnectionWithOfflineCheck() async {
         if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
@@ -283,14 +282,76 @@ struct ServerEditView: View {
         await navidromeVM.testConnection()
     }
     
-    // ... (rest unchanged)
+    // MARK: - Server Health Section
+    private var ServerHealthSection: some View {
+        Section("Connection Details") {
+            HStack {
+                Text("Response Time:")
+                Spacer()
+                Text(navidromeVM.connectionResponseTime)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Text("Connection Quality:")
+                Spacer()
+                Text(navidromeVM.connectionQualityDescription)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 }
 
-// MARK: - CacheSettingsView
+// MARK: - ✅ NEW: OfflineWarningSection Component
+struct OfflineWarningSection: View {
+    @EnvironmentObject var networkMonitor: NetworkMonitor
+    @EnvironmentObject var offlineManager: OfflineManager
+    
+    var body: some View {
+        Section {
+            HStack {
+                Image(systemName: offlineManager.isOfflineMode ? "icloud.slash" : "wifi.slash")
+                    .foregroundColor(.orange)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Offline Mode Active")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text(warningText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if networkMonitor.isConnected {
+                    Button("Go Online") {
+                        offlineManager.switchToOnlineMode()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+        .listRowBackground(Color.orange.opacity(0.1))
+    }
+    
+    private var warningText: String {
+        if !networkMonitor.isConnected {
+            return "No internet connection available"
+        } else if offlineManager.isOfflineMode {
+            return "Using downloaded content only"
+        } else {
+            return "Limited connectivity"
+        }
+    }
+}
+
+// MARK: - CacheSettingsView - CLEANED
 struct CacheSettingsView: View {
     @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var coverArtService: CoverArtManager
+    @EnvironmentObject var coverArtManager: CoverArtManager
 
     @State private var cacheStats = PersistentImageCache.shared.getCacheStats()
     @State private var showingClearConfirmation = false
@@ -311,22 +372,56 @@ struct CacheSettingsView: View {
             }
 
             Section("Download Cache") {
-                HStack { Text("Downloaded Music"); Spacer(); Text(downloadManager.totalDownloadSize()).foregroundStyle(.secondary) }
-                Button(role: .destructive) { downloadManager.deleteAllDownloads() } label: { Label("Delete ALL Music", systemImage: "trash") }
+                HStack {
+                    Text("Downloaded Music")
+                    Spacer()
+                    Text(downloadManager.totalDownloadSize())
+                        .foregroundStyle(.secondary)
+                }
+                Button(role: .destructive) {
+                    downloadManager.deleteAllDownloads()
+                } label: {
+                    Label("Delete ALL Music", systemImage: "trash")
+                }
+            }
+            
+            Section("Performance") {
+                let coverStats = coverArtManager.getCacheStats()
+                CacheStatsRow(title: "Memory Images", value: "\(coverStats.memoryCount)", icon: "memorychip")
+                CacheStatsRow(title: "Active Requests", value: "\(coverStats.activeRequests)", icon: "arrow.down.circle")
+                
+                Button("Clear Memory Cache") {
+                    coverArtManager.clearMemoryCache()
+                    updateCacheStats()
+                }
             }
         }
         .navigationTitle("Cache Management")
         .confirmationDialog("Clear Cover Art Cache?", isPresented: $showingClearConfirmation) {
             Button("Clear Cache", role: .destructive) { clearCoverArtCache() }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("This will remove all cached cover art images.") }
-        .alert("Cache Cleared", isPresented: $showingClearSuccess) { Button("OK") {} } message: { Text("Cover art cache has been successfully cleared.") }
+        } message: {
+            Text("This will remove all cached cover art images.")
+        }
+        .alert("Cache Cleared", isPresented: $showingClearSuccess) {
+            Button("OK") {}
+        } message: {
+            Text("Cover art cache has been successfully cleared.")
+        }
         .task { updateCacheStats() }
         .refreshable { updateCacheStats() }
     }
 
-    private func updateCacheStats() { cacheStats = PersistentImageCache.shared.getCacheStats() }
-    private func clearCoverArtCache() { PersistentImageCache.shared.clearCache(); updateCacheStats(); showingClearSuccess = true }
+    private func updateCacheStats() {
+        cacheStats = PersistentImageCache.shared.getCacheStats()
+    }
+    
+    private func clearCoverArtCache() {
+        PersistentImageCache.shared.clearCache()
+        coverArtManager.clearMemoryCache()
+        updateCacheStats()
+        showingClearSuccess = true
+    }
 }
 
 struct CacheStatsRow: View {

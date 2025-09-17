@@ -1,9 +1,10 @@
 //
-//  PlayerViewModel.swift - MIGRATED to MediaService
+//  PlayerViewModel.swift - FIXED: Complete Optional Handling
 //  NavidromeClient
 //
-//  ✅ MIGRATION COMPLETE: SubsonicService → MediaService
-//  ✅ ALL MEDIA-RELATED SERVICE CALLS UPDATED
+//  ✅ FIXED: All MediaService optional unwrapping issues
+//  ✅ CLEAN: Proper guard statements and nil-checking
+//  ✅ SAFE: No force unwrapping, defensive programming
 //
 
 import Foundation
@@ -13,7 +14,7 @@ import MediaPlayer
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
-    // MARK: - Published Properties (unchanged)
+    // MARK: - Published Properties
     @Published var isPlaying = false
     @Published var currentSong: Song?
     @Published var currentAlbumId: String?
@@ -25,7 +26,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published var volume: Float = 0.7
     
-    // MARK: - Playlist Management (unchanged)
+    // MARK: - Playlist Management
     @Published var playlistManager = PlaylistManager()
     
     typealias RepeatMode = PlaylistManager.RepeatMode
@@ -36,15 +37,14 @@ class PlayerViewModel: NSObject, ObservableObject {
     var currentPlaylist: [Song] { playlistManager.currentPlaylist }
     var currentIndex: Int { playlistManager.currentIndex }
     
-    
-    // ✅ NEW: Primary MediaService for streaming
+    // ✅ FIXED: MediaService as optional with proper handling
     private weak var mediaService: MediaService?
         
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
     private weak var coverArtManager: CoverArtManager?
 
-    // MARK: - Observer Management (unchanged)
+    // MARK: - Observer Management
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var playerItemEndObserver: NSObjectProtocol?
@@ -53,16 +53,22 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var notificationObservers: [NSObjectProtocol] = []
     private var lastUpdateTime: Double = 0
 
-    // MARK: - ✅ MIGRATION: Enhanced Initialization
-    init(downloadManager: DownloadManager? = nil) {
-        self.downloadManager = downloadManager ?? DownloadManager.shared
+    // MARK: - ✅ FIXED: Enhanced Initialization
+    init(service: UnifiedSubsonicService? = nil, downloadManager: DownloadManager = DownloadManager.shared) {
+        self.downloadManager = downloadManager
+        
+        // ✅ SAFE: Optional service handling
+        if let service = service {
+            self.mediaService = service.getMediaService()
+        }
+        
         super.init()
         
         setupNotifications()
         configureAudioSession()
     }
 
-    // MARK: - Thread-safe deinit (unchanged but enhanced logging)
+    // MARK: - Thread-safe deinit
     deinit {
         currentPlayTask?.cancel()
         
@@ -88,25 +94,32 @@ class PlayerViewModel: NSObject, ObservableObject {
         print("✅ PlayerViewModel: Complete cleanup completed")
     }
 
-    // MARK: - ✅ MIGRATION: Enhanced Service Management
+    // MARK: - ✅ FIXED: Service Management with Proper Optional Handling
     
-    /// ✅ NEW: Configure with focused MediaService (preferred)
-    func configure(service: UnifiedSubsonicService) {
-        self.mediaService = service.getMediaService()
-        print("✅ PlayerViewModel: Configured with UnifiedSubsonicService only")
+    func updateService(_ service: UnifiedSubsonicService?) {
+        if let service = service {
+            self.mediaService = service.getMediaService()
+            print("✅ PlayerViewModel: MediaService updated")
+        } else {
+            self.mediaService = nil
+            print("⚠️ PlayerViewModel: MediaService removed")
+        }
     }
     
-    /// ✅ FOCUSED: Configure with MediaService directly
     func configure(mediaService: MediaService) {
         self.mediaService = mediaService
         print("✅ PlayerViewModel: Configured with focused MediaService directly")
     }
 
-    /// ✅ NEW: Get optimal stream URL based on connection quality
+    // ✅ FIXED: Proper optional unwrapping for getOptimalStreamURL
     func getOptimalStreamURL(for songId: String) -> URL? {
+        guard let mediaService = mediaService else {
+            print("❌ MediaService not available for optimal stream URL")
+            return nil
+        }
         
-        // Get connection quality from AudioSessionManager or NetworkMonitor
-        let connectionQuality: ConnectionService.ConnectionQuality = .good // Default
+        // Default connection quality - could be enhanced to get real quality
+        let connectionQuality: ConnectionService.ConnectionQuality = .good
         
         return mediaService.getOptimalStreamURL(
             for: songId,
@@ -115,14 +128,14 @@ class PlayerViewModel: NSObject, ObservableObject {
         )
     }
         
-    // MARK: - Cover Art Management (unchanged)
+    // MARK: - Cover Art Management
     func updateCoverArtService(_ newCoverArtManager: CoverArtManager) {
         self.coverArtManager = newCoverArtManager
     }
     
     func loadCoverArt() async {
-        guard let albumId = currentAlbumId else { return }
-        guard let coverArtManager = coverArtManager else { return }
+        guard let albumId = currentAlbumId,
+              let coverArtManager = coverArtManager else { return }
         
         if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
             coverArt = await coverArtManager.loadAlbumImage(album: albumMetadata, size: 300)
@@ -134,7 +147,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         updateNowPlayingInfo()
     }
 
-    // MARK: - ✅ MIGRATION: Enhanced Playback Methods
+    // MARK: - ✅ FIXED: Enhanced Playback Methods
     
     func play(song: Song) async {
         await setPlaylist([song], startIndex: 0, albumId: song.albumId)
@@ -152,7 +165,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         await playCurrent()
     }
     
-    // ✅ MIGRATION: Enhanced playback with MediaService
+    // ✅ FIXED: Enhanced playbook with proper MediaService handling
     private func playCurrent() async {
         print("🎵 playCurrent called")
         
@@ -195,8 +208,8 @@ class PlayerViewModel: NSObject, ObservableObject {
                 await playFromURL(streamURL)
             } else {
                 await MainActor.run {
-                    errorMessage = "No playback source available via MediaService"
-                    print("❌ No playback source found via MediaService")
+                    errorMessage = "No playback source available"
+                    print("❌ No playback source found")
                     isLoading = false
                     objectWillChange.send()
                 }
@@ -204,16 +217,15 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
     }
 
-    // ✅ MIGRATION: Smart stream URL resolution
+    // ✅ FIXED: Smart stream URL resolution with proper optional handling
     private func getStreamURL(for song: Song) async -> URL? {
-        // Try focused MediaService first (preferred)
-        if let mediaService = mediaService {
-            print("🎵 Getting stream URL via focused MediaService")
-            return mediaService.streamURL(for: song.id)
+        guard let mediaService = mediaService else {
+            print("❌ No MediaService available for streaming")
+            return nil
         }
-                
-        print("❌ No MediaService or legacy service available for streaming")
-        return nil
+        
+        print("🎵 Getting stream URL via MediaService")
+        return mediaService.streamURL(for: song.id)
     }
     
     // ✅ ENHANCED: Safe URL playback with better error handling
@@ -252,7 +264,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             
             // Start playback
             player?.play()
-            print("✅ New player created and started via MediaService")
+            print("✅ New player created and started")
         }
         
         // Setup new observers AFTER player is ready
@@ -261,14 +273,13 @@ class PlayerViewModel: NSObject, ObservableObject {
                 setupPlayerItemObserver(for: currentItem)
                 setupTimeObserver()
                 updateNowPlayingInfo()
-                print("✅ New observers setup completed for MediaService playback")
+                print("✅ New observers setup completed")
             }
         }
     }
     
-    // MARK: - ✅ MIGRATION: Enhanced Download Status Methods
+    // MARK: - ✅ FIXED: Enhanced Download Status Methods
     
-    /// Check if album is downloaded (unchanged but enhanced logging)
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         let isDownloaded = downloadManager.isAlbumDownloaded(albumId)
         if isDownloaded {
@@ -277,50 +288,47 @@ class PlayerViewModel: NSObject, ObservableObject {
         return isDownloaded
     }
     
-    /// Check if album is downloading (unchanged)
     func isAlbumDownloading(_ albumId: String) -> Bool {
         return downloadManager.isAlbumDownloading(albumId)
     }
     
-    /// Check if song is downloaded (unchanged)
     func isSongDownloaded(_ songId: String) -> Bool {
         return downloadManager.isSongDownloaded(songId)
     }
     
-    /// Get download progress (unchanged)
     func getDownloadProgress(albumId: String) -> Double {
         return downloadManager.downloadProgress[albumId] ?? 0.0
     }
     
-    /// Delete album downloads (unchanged)
     func deleteAlbum(albumId: String) {
         downloadManager.deleteAlbum(albumId: albumId)
     }
     
-    // MARK: - ✅ MIGRATION: Enhanced Media Quality Selection
+    // MARK: - ✅ FIXED: Enhanced Media Quality Selection
     
-    /// ✅ NEW: Set preferred streaming quality
     func setPreferredStreamingQuality(_ bitRate: Int) {
-        // This would be stored and used in getOptimalStreamURL
-        print("🎵 Preferred streaming quality set to \(bitRate) kbps via MediaService")
+        // Store for use in getOptimalStreamURL
+        print("🎵 Preferred streaming quality set to \(bitRate) kbps")
     }
     
-    /// ✅ NEW: Get media information for current song
+    // ✅ FIXED: Proper optional handling for getMediaInfo
     func getCurrentMediaInfo() async -> MediaInfo? {
         guard let song = currentSong,
-              let mediaService = mediaService else { return nil }
+              let mediaService = mediaService else {
+            print("❌ MediaService not available for media info")
+            return nil
+        }
         
         do {
             return try await mediaService.getMediaInfo(for: song.id)
         } catch {
-            print("⚠️ Failed to get media info via MediaService: \(error)")
+            print("⚠️ Failed to get media info: \(error)")
             return nil
         }
     }
     
-    // MARK: - ✅ DIAGNOSTICS: Service Health Monitoring
+    // MARK: - ✅ FIXED: Service Health Monitoring
     
-    /// ✅ NEW: Get media service diagnostics
     func getMediaServiceDiagnostics() -> String {
         guard let mediaService = mediaService else {
             return "❌ No MediaService configured"
@@ -332,11 +340,11 @@ class PlayerViewModel: NSObject, ObservableObject {
         - Service: ✅ Available
         - Cache: \(stats.summary)
         - Stream Quality: Adaptive
-        - Connection: \(mediaService != nil ? "Ready" : "Unavailable")
+        - Connection: Ready
         """
     }
     
-    // MARK: - Observer Setup Methods (unchanged but enhanced logging)
+    // MARK: - Observer Setup Methods
     
     private func setupNotifications() {
         let center = NotificationCenter.default
@@ -450,7 +458,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         print("✅ Time observer setup")
     }
 
-    // MARK: - Playback Control Methods (unchanged)
+    // MARK: - Playback Control Methods
     func togglePlayPause() {
         guard let player = player else {
             print("❌ No player available for togglePlayPause")
@@ -535,7 +543,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         seek(to: newTime)
     }
     
-    // MARK: - Playlist Controls (unchanged)
+    // MARK: - Playlist Controls
     func toggleShuffle() {
         playlistManager.toggleShuffle()
     }
@@ -544,13 +552,13 @@ class PlayerViewModel: NSObject, ObservableObject {
         playlistManager.toggleRepeat()
     }
     
-    // MARK: - Volume Control (unchanged)
+    // MARK: - Volume Control
     func setVolume(_ volume: Float) {
         self.volume = volume
         player?.volume = volume
     }
     
-    // MARK: - Now Playing Info (unchanged)
+    // MARK: - Now Playing Info
     private func updateNowPlayingInfo() {
         guard let song = currentSong else {
             audioSessionManager.clearNowPlayingInfo()
@@ -572,7 +580,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         playbackProgress = duration > 0 ? currentTime / duration : 0
     }
 
-    // MARK: - Notification Handlers (unchanged)
+    // MARK: - Notification Handlers
     @objc private func handleAudioInterruptionBegan() {
         pause()
     }
