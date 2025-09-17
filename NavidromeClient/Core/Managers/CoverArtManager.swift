@@ -95,9 +95,9 @@ class CoverArtManager: ObservableObject {
     }
     
     func getAlbumImage(for albumId: String, size: Int = 200) -> UIImage? {
-        return albumImages[albumId]
+        return albumImages["album_\(albumId)"]
     }
-    
+
     // MARK: ARTIST Image Loading
 
     func loadArtistImage(artist: Artist, size: Int = 200, staggerIndex: Int = 0) async -> UIImage? {
