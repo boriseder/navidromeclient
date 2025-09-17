@@ -1,0 +1,55 @@
+# SwiftLint Konfiguration für iOS-Projekte
+
+# Regeln, die nicht geprüft werden sollen
+disabled_rules:
+  - trailing_whitespace      # Leerzeichen am Zeilenende
+  - identifier_name          # zu kurze Variablennamen (z. B. i, x)
+  - force_cast               # manchmal praktisch, wird aber markiert
+  - force_try                # try! wird erlaubt
+  - todo                     # TODO-Kommentare nicht als Fehler
+  - function_body_length     # lange Funktionen manchmal nötig
+  - type_body_length         # große Klassen erlaubt
+  - file_length              # keine künstliche Grenze pro Datei
+#  - line_length              # lange Zeilen nur mit warning
+  - cyclomatic_complexity    # nicht sofort nerven
+
+# Regeln, die wir zusätzlich aktivieren
+opt_in_rules:
+  - empty_count              # .isEmpty statt count == 0
+  - closure_end_indentation
+  - conditional_returns_on_newline
+  - vertical_whitespace
+
+# Welche Dateien werden berücksichtigt
+included:
+  - .         # dein Projektordner
+
+# Welche Ordner werden ignoriert
+excluded:
+  - Carthage
+  - Pods
+  - fastlane
+  - build
+  - DerivedData
+
+# Anpassungen von Standardregeln
+line_length:
+  warning: 140
+  error: 180
+  ignores_comments: true
+  ignores_urls: true
+
+type_name:
+  min_length: 2
+  max_length: 50
+  excluded:
+    - id
+    - x
+    - y
+
+function_parameter_count:
+  warning: 8
+  error: 10
+
+nesting:
+  type_level: 2

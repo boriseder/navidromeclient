@@ -65,8 +65,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A1D552E72E5E6BDC00317006 /* Build configuration list for PBXNativeTarget "NavidromeClient" */;
 			buildPhases = (
-				A1D552D62E5E6BDB00317006 /* Sources */,
 				A1D552D72E5E6BDB00317006 /* Frameworks */,
+				A1D552D62E5E6BDB00317006 /* Sources */,
+				A1CD5DBA2E7B059F00DD1801 /* ShellScript */,
 				A1D552D82E5E6BDB00317006 /* Resources */,
 			);
 			buildRules = (
@@ -126,6 +127,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1CD5DBA2E7B059F00DD1801 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -x /opt/homebrew/bin/swiftlint ]; then\n  /opt/homebrew/bin/swiftlint\nelse\n  echo \"warning: SwiftLint not installed at /opt/homebrew/bin/swiftlint\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A1D552D62E5E6BDB00317006 /* Sources */ = {
@@ -270,8 +292,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2FZ6CDB537;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NavidromeClient/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Freddy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -301,8 +325,10 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2FZ6CDB537;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NavidromeClient/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Freddy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

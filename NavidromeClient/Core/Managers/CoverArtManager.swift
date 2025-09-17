@@ -374,7 +374,19 @@ class CoverArtManager: ObservableObject {
 
 // MARK: - ✅ CONVENIENCE: Album Initializer for Song->Album conversion
 extension Album {
-    init(id: String, name: String, artist: String, year: Int?, genre: String?, coverArt: String?, coverArtId: String?, duration: Int?, songCount: Int?, artistId: String?, displayArtist: String?) {
+    init(
+        id: String,
+        name: String,
+        artist: String,
+        year: Int?,
+        genre: String?,
+        coverArt: String?,
+        coverArtId: String?,
+        duration: Int?,
+        songCount: Int?,
+        artistId: String?,
+        displayArtist: String?
+    ) {
         self.id = id
         self.name = name
         self.artist = artist
