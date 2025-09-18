@@ -170,31 +170,6 @@ struct AlbumHeaderView: View {
 
 // MARK: - ✅ BESTEHENDE Komponenten (unverändert)
 
-struct CompactPlayButton: View {
-    let album: Album
-    let songs: [Song]
-    @EnvironmentObject var playerVM: PlayerViewModel
-
-    var body: some View {
-        Button {
-            Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
-        } label: {
-            HStack(spacing: DSLayout.tightGap) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: DSLayout.smallIcon, weight: .semibold))
-                Text("Play")
-                    .font(DSText.metadata.weight(.semibold))
-            }
-            .foregroundColor(DSColor.onDark)
-            .padding(.horizontal, DSLayout.elementPadding)
-            .padding(.vertical, DSLayout.tightPadding)
-            .background(
-                Capsule()
-                    .fill(DSColor.accent)
-            )
-        }
-    }
-}
 
 struct AlbumCoverView: View {
     let cover: UIImage?
@@ -222,20 +197,3 @@ struct AlbumCoverView: View {
     }
 }
 
-struct ShuffleButton: View {
-    let album: Album
-    let songs: [Song]
-    @EnvironmentObject var playerVM: PlayerViewModel
-
-    var body: some View {
-        Button {
-            Task { await playerVM.setPlaylist(songs.shuffled(), startIndex: 0, albumId: album.id) }
-        } label: {
-            Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
-                .resizable()
-                .scaledToFit()
-                .frame(width: DSLayout.icon, height: DSLayout.icon)
-                .foregroundColor(DSColor.secondary)
-        }
-    }
-}
