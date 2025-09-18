@@ -33,7 +33,7 @@ struct MiniPlayerView: View {
                             ))
                             .frame(width: geometry.size.width * progressPercentage, height: 4)
                             .cornerRadius(DSCorners.tight)
-                            .animation(isDragging ? nil : Animations.easeQuick, value: progressPercentage)
+                            .animation(isDragging ? nil : DSAnimations.easeQuick, value: progressPercentage)
                         
                         // Drag Zone
                         Rectangle()
@@ -100,19 +100,19 @@ struct MiniPlayerView: View {
                         }
 
                         VStack(alignment: .leading, spacing: DSLayout.tightGap) {
-                            Text(song.title)
-                                .font(DSText.prominent)
-                                .lineLimit(1)
-                                .foregroundStyle(DSColor.primary)
+                            if let artist = song.artist {
+                                Text(artist)
+                                    .font(DSText.body)
+                                    .foregroundStyle(DSColor.secondary)
+                                    .lineLimit(1)
+                            }
                             
                             HStack(spacing: DSLayout.tightGap) {
-                                if let artist = song.artist {
-                                    Text(artist)
-                                        .font(DSText.sectionTitle)
-                                        .foregroundStyle(DSColor.secondary)
-                                        .lineLimit(1)
-                                }
-                                
+                                Text(song.title)
+                                    .font(DSText.emphasized)
+                                    .lineLimit(1)
+                                    .foregroundStyle(DSColor.primary)
+
                                 // Loading indicator
                                 if playerVM.isLoading {
                                     ProgressView()
@@ -203,7 +203,7 @@ struct MiniPlayerView: View {
             .clipShape(RoundedRectangle(cornerRadius: 0))
             .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -2)
             .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(Animations.spring, value: playerVM.currentSong?.id)
+            .animation(DSAnimations.spring, value: playerVM.currentSong?.id)
             .fullScreenCover(isPresented: $showFullScreen) {
                 FullScreenPlayerView()
                     .environmentObject(playerVM)

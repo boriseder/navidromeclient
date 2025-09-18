@@ -224,7 +224,7 @@ struct DownloadProgressRing: View {
                 .stroke(DSColor.accent, lineWidth: 2)
                 .frame(width: size, height: size)
                 .rotationEffect(.degrees(-90))
-                .animation(Animations.ease, value: progress)
+                .animation(DSAnimations.ease, value: progress)
             
             if progress > 0 && progress < 1 {
                 Text("\(Int(progress * 100))%")

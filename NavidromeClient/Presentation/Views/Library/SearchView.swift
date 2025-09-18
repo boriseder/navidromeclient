@@ -531,7 +531,7 @@ struct SearchHeaderView: View {
             .padding(.horizontal, DSLayout.contentPadding)
             .padding(.vertical, DSLayout.elementPadding)
             .background(DSColor.background, in: RoundedRectangle(cornerRadius: DSCorners.comfortable))
-            .animation(Animations.ease, value: query.isEmpty)
+            .animation(DSAnimations.ease, value: query.isEmpty)
             
             // Search Tabs
             HStack(spacing: DSLayout.elementGap) {
@@ -582,7 +582,7 @@ struct SearchTabButton: View {
             )
             .foregroundStyle(isSelected ? DSColor.onDark : DSColor.primary)
         }
-        .animation(Animations.ease, value: isSelected)
-        .animation(Animations.ease, value: count)
+        .animation(DSAnimations.ease, value: isSelected)
+        .animation(DSAnimations.ease, value: count)
     }
 }

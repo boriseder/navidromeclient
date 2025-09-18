@@ -100,7 +100,6 @@ struct ArtistImageView: View {
             Circle()
                 .fill(DSColor.surface)
                 .frame(width: DSLayout.listCover, height: DSLayout.listCover)
-                .blur(radius: 3)
             
             Group {
                 if let image = coverArtManager.getArtistImage(for: artist.id) {
@@ -167,7 +166,6 @@ struct AlbumImageView: View {
             RoundedRectangle(cornerRadius: DSCorners.element)
                 .fill(DSColor.surface)
                 .frame(width: DSLayout.listCover, height: DSLayout.listCover)
-                .blur(radius: 3)
             
             Group {
                 if let image = coverArtManager.getAlbumImage(for: album.id) {
@@ -245,7 +243,6 @@ struct SongImageView: View {
             RoundedRectangle(cornerRadius: DSCorners.element)
                 .fill(DSColor.surface.opacity(isPlaying ? 0.2 : 0.1))
                 .frame(width: DSLayout.listCover, height: DSLayout.listCover)
-                .blur(radius: 3)
             
             Group {
                 if let image = songImage {

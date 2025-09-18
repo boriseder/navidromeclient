@@ -31,7 +31,7 @@ struct LoadingView: View {
                         .frame(width: 12, height: 12)
                         .scaleEffect(isAnimating ? 1.0 : 0.5)
                         .animation(
-                            Animations.ease
+                            DSAnimations.ease
                                 .repeatForever()
                                 .delay(Double(index) * 0.2),
                             value: isAnimating

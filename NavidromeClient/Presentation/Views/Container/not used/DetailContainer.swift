@@ -4,7 +4,7 @@
 //
 //  Created by Boris Eder on 18.09.25.
 //
-
+/*
 import SwiftUI
 
 // MARK: - 2. Detail View Container
@@ -45,3 +45,4 @@ struct DetailContainer<Header: View, Content: View>: View {
         .accountToolbar() // Keep existing toolbar for Phase 1
     }
 }
+*/

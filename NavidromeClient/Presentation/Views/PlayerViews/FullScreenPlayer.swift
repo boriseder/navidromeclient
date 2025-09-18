@@ -35,7 +35,7 @@ struct FullScreenPlayerView: View {
                 CoverArtView(cover: playerVM.coverArt)
                     .frame(width: DSLayout.detailCover, height: DSLayout.detailCover)
                     .scaleEffect(isDragging ? 0.95 : 1.0)
-                    .animation(Animations.spring, value: isDragging)
+                    .animation(DSAnimations.spring, value: isDragging)
 
                 if let song = playerVM.currentSong {
                     PlayerSongInfoView(
@@ -64,7 +64,7 @@ struct FullScreenPlayerView: View {
         .offset(y: dragOffset)
         .gesture(dismissDragGesture)
         .highPriorityGesture(longPressDismissGesture)
-        .animation(Animations.interactive, value: dragOffset)
+        .animation(DSAnimations.interactive, value: dragOffset)
         .sheet(isPresented: $showingQueue) {
           //  QueueView()
            //     .environmentObject(playerVM)
@@ -88,11 +88,11 @@ struct FullScreenPlayerView: View {
             .onEnded { value in
                 isDragging = false
                 if value.translation.height > 200 {
-                    withAnimation(Animations.spring) {
+                    withAnimation(DSAnimations.spring) {
                         dismiss()
                     }
                 } else {
-                    withAnimation(Animations.spring) {
+                    withAnimation(DSAnimations.spring) {
                         dragOffset = 0
                     }
                 }
@@ -103,7 +103,7 @@ struct FullScreenPlayerView: View {
     private var longPressDismissGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.5)
             .onEnded { _ in
-                withAnimation(Animations.spring) {
+                withAnimation(DSAnimations.spring) {
                     playerVM.stop()
                     dismiss()
                 }
@@ -437,7 +437,7 @@ struct PlayerProgressView: View {
                     .foregroundStyle(DSColor.onDarkSecondary)
             }
             .font(DSText.numbers)
-            .animation(Animations.easeQuick, value: isDragging)
+            .animation(DSAnimations.easeQuick, value: isDragging)
         }
     }
 

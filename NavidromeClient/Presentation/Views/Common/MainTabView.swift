@@ -74,7 +74,7 @@ struct MainTabView: View {
             .foregroundStyle(DSColor.onDark)
             .screenPadding()
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(Animations.ease, value: networkMonitor.isConnected)
+            .animation(DSAnimations.ease, value: networkMonitor.isConnected)
         }
     }
 }

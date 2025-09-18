@@ -4,6 +4,8 @@
 //
 //  Created by Boris Eder on 18.09.25.
 //
+
+
 import SwiftUI
 
 // MARK: - 3. Grid Container (FIXED: Load More Logic)
@@ -41,7 +43,6 @@ struct GridContainer<Item>: View where Item: Identifiable {
                 }
                 .buttonStyle(PlainButtonStyle())
                 .onAppear {
-                    // ✅ CRITICAL FIX: Load more when reaching near the end
                     let triggerIndex = max(0, items.count - 5)
                     if index >= triggerIndex && onLoadMore != nil {
                         print("🔄 GridContainer: Triggering load more at index \(index)/\(items.count)")

@@ -86,7 +86,19 @@ struct ArtistDetailView: View {
                     )
                     .screenPadding()
                 } else if !displayAlbums.isEmpty {
-                    AlbumGridView(albums: displayAlbums)
+                    ScrollView {
+                        LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
+                            ForEach(albums, id: \.id) { album in
+                                NavigationLink {
+                                    AlbumDetailView(album: album)
+                                } label: {
+                                    CardItemContainer(content: .album(album), index: 0)
+                                }
+                            }
+                        }
+                        .screenPadding()
+                        .padding(.bottom, 100) // Approx. DS applied - könnte Sizes.miniPlayer + Padding.s sein
+                    }
                 }
                 
                 Color.clear.frame(height: DSLayout.miniPlayerHeight)

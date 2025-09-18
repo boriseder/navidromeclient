@@ -129,7 +129,7 @@ enum DSColor {
     static let overlayHeavy = SwiftUI.Color.black.opacity(0.6)
 }
 
-enum Animations {
+enum DSAnimations {
     static let spring = Animation.spring(response: 0.4, dampingFraction: 0.8)
     static let springSnappy = Animation.spring(response: 0.3, dampingFraction: 0.7)
     static let ease = Animation.easeInOut(duration: 0.2)

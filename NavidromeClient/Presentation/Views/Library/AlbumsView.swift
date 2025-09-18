@@ -45,40 +45,37 @@ struct AlbumsView: View {
     
     // MARK: - ✅ NEW: Simplified Body using LibraryContainer
     var body: some View {
-        LibraryContainer(
+        LibraryView(
             title: "Albums",
             isLoading: shouldShowLoading,
             isEmpty: isEmpty && !shouldShowLoading,
             isOfflineMode: isOfflineMode,
-            onRefresh: { await refreshAllData() },
             emptyStateType: .albums,
+            onRefresh: { await refreshAllData() },
             searchText: $searchText,
-            searchPrompt: "Search albums..."
+            searchPrompt: "Search albums...",
+            toolbarConfig: .libraryWithSort(
+                title: "Albums",
+                isOffline: isOfflineMode,
+                currentSort: selectedAlbumSort,
+                sortOptions: ContentService.AlbumSortType.allCases,
+                onRefresh: { await refreshAllData() },
+                onToggleOffline: { toggleOfflineMode() },
+                onSort: { sortType in
+                    Task { await loadAlbums(sortBy: sortType) }
+                }
+            )
         ) {
-            // ✅ Content is now much simpler - just the grid
             AlbumsGridContent()
         }
         .onChange(of: searchText) { _, _ in
             handleSearchTextChange()
         }
-        // ✅ Custom toolbar temporarily kept - will be migrated in Phase 2
-        .unifiedToolbar(.libraryWithSort(
-            title: "Albums",
-            isOffline: isOfflineMode,
-            currentSort: selectedAlbumSort,
-            sortOptions: ContentService.AlbumSortType.allCases,
-            onRefresh: { await refreshAllData() },
-            onToggleOffline: { toggleOfflineMode() },
-            onSort: { sortType in
-                Task { await loadAlbums(sortBy: sortType) }
-            }
-        ))
-
         .task(id: displayedAlbums.count) {
             await preloadAlbumImages()
         }
     }
-    
+
     // MARK: - ✅ FIXED: Grid Content with Load More
     @ViewBuilder
     private func AlbumsGridContent() -> some View {
@@ -97,7 +94,7 @@ struct AlbumsView: View {
             NavigationLink {
                 AlbumDetailView(album: album)
             } label: {
-                AlbumCard(album: album, accentColor: .primary, index: index)
+                CardItemContainer(content: .album(album), index: index)
             }
         }
     }

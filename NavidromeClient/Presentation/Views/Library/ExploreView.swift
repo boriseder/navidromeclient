@@ -278,7 +278,7 @@ struct AlbumSection: View {
                     ForEach(albums.indices, id: \.self) { index in
                         let album = albums[index]
                         NavigationLink(destination: AlbumDetailView(album: album)) {
-                            AlbumCard(album: album, accentColor: accentColor, index: index)
+                            CardItemContainer(content: .album(album), index: index)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }

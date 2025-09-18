@@ -28,21 +28,21 @@ struct SongRow: View {
         .overlay(separatorLine, alignment: .bottom)
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(Animations.easeQuick) { action() }
+            withAnimation(DSAnimations.easeQuick) { action() }
         }
         .scaleEffect(isPlaying ? 1.02 : 1.0)
-        .animation(Animations.ease, value: isPlaying)
+        .animation(DSAnimations.ease, value: isPlaying)
         .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
         .shadow(color: .black.opacity(isPlaying ? 0.08 : 0.03), radius: 3, x: 0, y: 2)
         .onAppear {
             if isPlaying {
-                withAnimation(Animations.ease.delay(0.1)) {
+                withAnimation(DSAnimations.ease.delay(0.1)) {
                     showPlayIndicator = true
                 }
             }
         }
         .onChange(of: isPlaying) { _, newValue in
-            withAnimation(Animations.ease) { showPlayIndicator = newValue }
+            withAnimation(DSAnimations.ease) { showPlayIndicator = newValue }
         }
         .contextMenu {
             Button("Add to playlist") {
@@ -84,7 +84,7 @@ struct SongRow: View {
                     .transition(.opacity.combined(with: .scale))
             }
         }
-        .animation(Animations.ease, value: isPlaying)
+        .animation(DSAnimations.ease, value: isPlaying)
     }
 
     // MARK: - Song Info (Enhanced)
@@ -95,7 +95,7 @@ struct SongRow: View {
                 .foregroundStyle(isPlaying ? DSColor.playing : DSColor.primary)
                 .lineLimit(1)
                 .transition(.opacity.combined(with: .slide))
-                .animation(Animations.ease, value: isPlaying)
+                .animation(DSAnimations.ease, value: isPlaying)
         }
     }
     
@@ -121,7 +121,7 @@ struct SongRow: View {
                 RoundedRectangle(cornerRadius: DSCorners.tight) // Approx. DS applied
                     .stroke(isPlaying ? DSColor.playing.opacity(0.1) : Color.white.opacity(0.1), lineWidth: 1)
             )
-            .animation(Animations.ease, value: isPlaying)
+            .animation(DSAnimations.ease, value: isPlaying)
     }
 
     // MARK: - Separator (Enhanced)

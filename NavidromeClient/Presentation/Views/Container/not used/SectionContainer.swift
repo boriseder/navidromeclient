@@ -4,6 +4,8 @@
 //
 //  Created by Boris Eder on 18.09.25.
 //
+
+/*
 import SwiftUI
 
 // MARK: - 5. Section Container (For Home/Explore horizontal scrolls)
@@ -90,3 +92,4 @@ struct SectionContainer<Item>: View where Item: Identifiable {
         }
     }
 }
+*/
