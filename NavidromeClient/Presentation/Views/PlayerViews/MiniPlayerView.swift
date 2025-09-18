@@ -1,216 +1,175 @@
 //
-//  MiniPlayerView.swift - Enhanced with Design System
+//  MiniPlayerView.swift - Spotify-Style Design
 //  NavidromeClient
 //
-//   ENHANCED: Vollständige Anwendung des Design Systems
+//   SPOTIFY-STYLE: Clean, minimal design with full background tap
+//   ENHANCED: Better visual hierarchy and interaction zones
 //
 
 import SwiftUI
 
 struct MiniPlayerView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var audioSessionManager: AudioSessionManager
-    @State private var isDragging = false
     @State private var showFullScreen = false
+    @State private var isDragging = false
     
     var body: some View {
         if let song = playerVM.currentSong {
             VStack(spacing: 0) {
-                // MARK: Progress Bar (Enhanced with DS)
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        Rectangle()
-                            .fill(DSColor.surfaceSecondary)
-                            .frame(height: 4)
-                            .cornerRadius(DSCorners.tight)
-                        
-                        Rectangle()
-                            .fill(LinearGradient(
-                                colors: [DSColor.accent, DSColor.secondary],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            ))
-                            .frame(width: geometry.size.width * progressPercentage, height: 4)
-                            .cornerRadius(DSCorners.tight)
-                            .animation(isDragging ? nil : DSAnimations.easeQuick, value: progressPercentage)
-                        
-                        // Drag Zone
-                        Rectangle()
-                            .fill(Color.clear)
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onChanged { value in
-                                        isDragging = true
-                                        let progress = max(0, min(value.location.x / geometry.size.width, 1))
-                                        let newTime = progress * playerVM.duration
-                                        playerVM.seek(to: newTime)
-                                    }
-                                    .onEnded { _ in
-                                        isDragging = false
-                                    }
-                            )
-                    }
-                }
-                .frame(height: 4)
+                // Progress Bar (Spotify-style: thin, prominent)
+                ProgressBarView(playerVM: playerVM, isDragging: $isDragging)
                 
-                // MARK: Player HStack (Enhanced with DS)
+                // Main Player Content
                 HStack(spacing: DSLayout.contentGap) {
-                    // Cover + Song Info
+                    // Left: Album Art + Song Info
                     HStack(spacing: DSLayout.contentGap) {
-                        // Cover Art with Audio Route Indicator
-                        ZStack {
-                            Group {
-                                if let cover = playerVM.coverArt {
-                                    Image(uiImage: cover)
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fill)
-                                } else {
-                                    Rectangle()
-                                        .fill(LinearGradient(
-                                            colors: [DSColor.surface, DSColor.surfaceSecondary],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ))
-                                        .overlay(
-                                            Image(systemName: "music.note")
-                                                .font(.system(size: DSLayout.icon))
-                                                .foregroundStyle(DSColor.tertiary)
-                                        )
-                                }
-                            }
-                            .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
-                            .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
+                        AlbumArtView(cover: playerVM.coverArt)
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(song.title)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(DSColor.primary)
+                                .lineLimit(1)
                             
-                            // Audio Route Indicator
-                            if audioSessionManager.isHeadphonesConnected {
-                                VStack {
-                                    HStack {
-                                        Spacer()
-                                        Image(systemName: audioSessionManager.audioRoute.contains("Bluetooth") ? "bluetooth" : "headphones")
-                                            .font(DSText.body)
-                                            .foregroundStyle(DSColor.onDark)
-                                            .padding(DSLayout.tightPadding)
-                                            .background(Circle().fill(DSColor.accent))
-                                    }
-                                    Spacer()
-                                }
-                            }
-                        }
-
-                        VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                             if let artist = song.artist {
                                 Text(artist)
-                                    .font(DSText.body)
+                                    .font(.system(size: 13, weight: .regular))
                                     .foregroundStyle(DSColor.secondary)
                                     .lineLimit(1)
                             }
-                            
-                            HStack(spacing: DSLayout.tightGap) {
-                                Text(song.title)
-                                    .font(DSText.emphasized)
-                                    .lineLimit(1)
-                                    .foregroundStyle(DSColor.primary)
-
-                                // Loading indicator
-                                if playerVM.isLoading {
-                                    ProgressView()
-                                        .scaleEffect(0.6)
-                                        .frame(width: 12, height: 12) // Approx. DS applied
-                                }
-                            }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        showFullScreen = true
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     
                     Spacer()
                     
-                    // MARK: Controls (Enhanced with DS)
-                    HStack(spacing: DSLayout.sectionGap) {
+                    // Right: Controls (Spotify-style: minimal)
+                    HStack(spacing: 16) {
+                        // Heart/Like button (Spotify has this)
                         Button {
-                            Task { await playerVM.playPrevious() }
+                            // TODO: Implement favorite functionality
                         } label: {
-                            Image(systemName: "backward.fill")
-                                .font(.system(size: DSLayout.icon))
-                                .foregroundStyle(DSColor.primary)
+                            Image(systemName: "heart")
+                                .font(.system(size: 18))
+                                .foregroundStyle(DSColor.secondary)
                         }
-                        .disabled(playerVM.isLoading)
                         
+                        // Play/Pause (Primary control)
                         Button {
                             playerVM.togglePlayPause()
                         } label: {
-                            ZStack {
-                                if playerVM.isLoading {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: DSColor.onDark))
-                                        .scaleEffect(0.8)
-                                } else {
-                                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                                        .font(.system(size: DSLayout.largeIcon))
-                                        .foregroundStyle(DSColor.onDark)
-                                }
+                            if playerVM.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .frame(width: 32, height: 32)
+                            } else {
+                                Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundStyle(DSColor.primary)
+                                    .frame(width: 32, height: 32)
                             }
-                            .frame(width: 40, height: 40) // Approx. DS applied - könnte Sizes.buttonHeight - 4 sein
-                            .background(
-                                Circle()
-                                    .fill(LinearGradient(
-                                        colors: [DSColor.accent, DSColor.secondary],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ))
-                            )
                         }
                         .disabled(playerVM.isLoading)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    ZStack {
+                        // Blurred Cover Art Background
+                        if let cover = playerVM.coverArt {
+                            Image(uiImage: cover)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .blur(radius: 20)
+                                .opacity(0.3)
+                                .clipped()
+                        }
                         
-                        Button {
-                            Task { await playerVM.playNext() }
-                        } label: {
-                            Image(systemName: "forward.fill")
-                                .font(.system(size: DSLayout.icon))
-                                .foregroundStyle(DSColor.primary)
-                        }
-                        .disabled(playerVM.isLoading)
+                        // Dark overlay for readability
+                        DSColor.surface.opacity(0.8)
                     }
+                )
+                .contentShape(Rectangle()) // Makes entire area tappable
+                .onTapGesture {
+                    showFullScreen = true
                 }
-                .listItemPadding()
-                .background(DSColor.background)
-                
-                // MARK: Audio Session Status Bar (Debug - Enhanced with DS)
-                if ProcessInfo.processInfo.environment["DEBUG_AUDIO"] == "1" {
-                    AudioStatusBar()
-                        .environmentObject(audioSessionManager)
-                }
+                .gesture(
+                    DragGesture()
+                        .onEnded { value in
+                            if value.translation.height < -50 {
+                                // Swipe up to open full screen
+                                showFullScreen = true
+                            } else if value.translation.height > 50 {
+                                // Swipe down to dismiss
+                                playerVM.stop()
+                            }
+                        }
+                )
             }
-            .contentShape(Rectangle())
-            .gesture(
-                LongPressGesture(minimumDuration: 0.5)
-                    .onEnded { _ in
-                        playerVM.stop()
+            .background(
+                ZStack {
+                    // Blurred Cover Art Background
+                    if let cover = playerVM.coverArt {
+                        Image(uiImage: cover)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .blur(radius: 20)
+                            .opacity(0.3)
+                            .clipped()
                     }
-            )
-            .gesture(
-                DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                    .onEnded { value in
-                        if value.translation.height > 50 { // Swipe nach unten
-                            playerVM.stop()
-                        }
-                    }
+                    
+                    // Dark overlay
+                    DSColor.surface.opacity(0.8)
+                }
             )
             .clipShape(RoundedRectangle(cornerRadius: 0))
             .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -2)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-            .animation(DSAnimations.spring, value: playerVM.currentSong?.id)
             .fullScreenCover(isPresented: $showFullScreen) {
                 FullScreenPlayerView()
                     .environmentObject(playerVM)
-                    .environmentObject(navidromeVM)
                     .environmentObject(audioSessionManager)
             }
         }
+    }
+}
+
+// MARK: - Progress Bar (Spotify-style)
+struct ProgressBarView: View {
+    @ObservedObject var playerVM: PlayerViewModel
+    @Binding var isDragging: Bool
+    
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Background track
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(height: 2)
+                
+                // Progress track (Spotify green when playing)
+                Rectangle()
+                    .fill(playerVM.isPlaying ? Color.green : Color.gray)
+                    .frame(width: geometry.size.width * progressPercentage, height: 2)
+                    .animation(isDragging ? nil : .linear(duration: 0.1), value: progressPercentage)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        isDragging = true
+                        let progress = max(0, min(value.location.x / geometry.size.width, 1))
+                        let newTime = progress * playerVM.duration
+                        playerVM.seek(to: newTime)
+                    }
+                    .onEnded { _ in
+                        isDragging = false
+                    }
+            )
+        }
+        .frame(height: 2)
     }
     
     private var progressPercentage: Double {
@@ -219,30 +178,27 @@ struct MiniPlayerView: View {
     }
 }
 
-// MARK: - Audio Status Bar (Enhanced with DS)
-struct AudioStatusBar: View {
-    @EnvironmentObject var audioSessionManager: AudioSessionManager
+// MARK: - Album Art (Spotify-style)
+struct AlbumArtView: View {
+    let cover: UIImage?
     
     var body: some View {
-        HStack(spacing: DSLayout.elementGap) {
-            // Audio Session Status
-            Circle()
-                .fill(audioSessionManager.isAudioSessionActive ? DSColor.success : DSColor.error)
-                .frame(width: 6, height: 6) // Approx. DS applied
-            
-            Text("Audio: \(audioSessionManager.audioRoute)")
-                .font(DSText.body)
-                .foregroundStyle(DSColor.secondary)
-            
-            if audioSessionManager.isHeadphonesConnected {
-                Image(systemName: "headphones")
-                    .font(DSText.body)
-                    .foregroundStyle(DSColor.accent)
+        Group {
+            if let cover = cover {
+                Image(uiImage: cover)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .overlay(
+                        Image(systemName: "music.note")
+                            .font(.system(size: 20))
+                            .foregroundStyle(.gray)
+                    )
             }
-            
-            Spacer()
         }
-        .listItemPadding()
-        .background(DSColor.background)
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }

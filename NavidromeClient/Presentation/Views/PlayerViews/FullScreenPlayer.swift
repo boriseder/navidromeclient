@@ -1,83 +1,75 @@
 //
-//  FullScreenPlayerView.swift - Enhanced with Audio Route Picker
+//  FullScreenPlayerView.swift - Spotify-Style Design
 //  NavidromeClient
 //
-//   ADDED: Audio Route Picker for AirPlay/Bluetooth selection
+//   SPOTIFY-STYLE: Clean, minimal full-screen player
+//   ENHANCED: Better visual hierarchy and gesture handling
 //
 
 import SwiftUI
 import AVKit
 
-// MARK: - Full Screen Player (Enhanced with DS)
 struct FullScreenPlayerView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var audioSessionManager: AudioSessionManager
+    @EnvironmentObject var coverArtManager: CoverArtManager
     @Environment(\.dismiss) private var dismiss
+    
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
     @State private var showingQueue = false
-    @State private var showingSettings = false
-
+    @State private var highResCoverArt: UIImage?
+    
     var body: some View {
         ZStack {
-            BackgroundView(image: playerVM.coverArt)
-
-            VStack(spacing: DSLayout.sectionGap) {
-                PlayerTopBar(
-                    dismiss: dismiss,
-                    showingQueue: $showingQueue,
-                    showingSettings: $showingSettings,
-                    audioSessionManager: audioSessionManager
-                )
-
-                Spacer()
-
-                CoverArtView(cover: playerVM.coverArt)
-                    .frame(width: DSLayout.detailCover, height: DSLayout.detailCover)
-                    .scaleEffect(isDragging ? 0.95 : 1.0)
-                    .animation(DSAnimations.spring, value: isDragging)
-
-                if let song = playerVM.currentSong {
-                    PlayerSongInfoView(
-                        song: song,
-                        isPlaying: playerVM.isPlaying,
-                        isLoading: playerVM.isLoading
-                    )
+            // Background (Spotify uses dark with subtle album art blur)
+            SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
+            
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 16) {
+                        // Top Bar
+                        TopBar(dismiss: dismiss, showingQueue: $showingQueue, audioSessionManager: audioSessionManager)
+                        
+                        // Album Art (kompakt)
+                        SpotifyAlbumArt(cover: highResCoverArt ?? playerVM.coverArt)
+                            .scaleEffect(isDragging ? 0.95 : 1.0)
+                            .animation(.spring(response: 0.3), value: isDragging)
+                        
+                        // Song Info
+                        if let song = playerVM.currentSong {
+                            SpotifySongInfoView(song: song, isPlaying: playerVM.isPlaying)
+                        }
+                        
+                        // Progress Section
+                        ProgressSection(playerVM: playerVM)
+                            .padding(.horizontal, 8)
+                        
+                        // Main Controls
+                        MainControls(playerVM: playerVM)
+                        
+                        // Bottom Controls - jetzt sichtbar
+                        BottomControls(playerVM: playerVM)
+                            .padding(.top, 8)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, max(0, geometry.safeAreaInsets.top))
+                    .padding(.bottom, max(16, geometry.safeAreaInsets.bottom))
+                    .frame(minHeight: geometry.size.height)
                 }
-
-                PlayerProgressView(playerVM: playerVM)
-
-                PlaybackControls(playerVM: playerVM)
-                
-                VolumeSlider(playerVM: playerVM)
-                
-                Spacer()
-
-                //  ENHANCED: Bottom controls with Audio Route Picker
-                EnhancedBottomControls(playerVM: playerVM)
-                    .padding(.bottom, DSLayout.screenPadding)
             }
-            .padding(.top, DSLayout.sectionGap)
-            .screenPadding()
+            .ignoresSafeArea(.container, edges: .top)
+            .offset(y: dragOffset)
+            .gesture(dismissGesture)
         }
-        .statusBarHidden()
-        .offset(y: dragOffset)
-        .gesture(dismissDragGesture)
-        .highPriorityGesture(longPressDismissGesture)
-        .animation(DSAnimations.interactive, value: dragOffset)
-        .sheet(isPresented: $showingQueue) {
-          //  QueueView()
-           //     .environmentObject(playerVM)
-        }
-        .sheet(isPresented: $showingSettings) {
-         //   AudioSettingsView()
-           //     .environmentObject(audioSessionManager)
-           //     .environmentObject(playerVM)
+        .statusBarHidden(false) // StatusBar wieder sichtbar
+        .animation(.interactiveSpring(), value: dragOffset)
+        .task(id: playerVM.currentSong?.id) {
+            await loadHighResCoverArt()
         }
     }
-
-    // MARK: - Drag Down Gesture (unchanged)
-    private var dismissDragGesture: some Gesture {
+    
+    private var dismissGesture: some Gesture {
         DragGesture()
             .onChanged { value in
                 if value.translation.height > 0 {
@@ -88,245 +80,109 @@ struct FullScreenPlayerView: View {
             .onEnded { value in
                 isDragging = false
                 if value.translation.height > 200 {
-                    withAnimation(DSAnimations.spring) {
-                        dismiss()
-                    }
+                    dismiss()
                 } else {
-                    withAnimation(DSAnimations.spring) {
+                    withAnimation(.spring()) {
                         dragOffset = 0
                     }
                 }
             }
     }
-
-    // MARK: - Long Press Gesture (unchanged)
-    private var longPressDismissGesture: some Gesture {
-        LongPressGesture(minimumDuration: 0.5)
-            .onEnded { _ in
-                withAnimation(DSAnimations.spring) {
-                    playerVM.stop()
-                    dismiss()
-                }
-            }
-    }
-}
-
-// MARK: -  NEW: Enhanced Bottom Controls with Audio Route Picker
-struct EnhancedBottomControls: View {
-    @ObservedObject var playerVM: PlayerViewModel
-    @StateObject private var audioSessionManager = AudioSessionManager.shared
-
-    var body: some View {
-        HStack(spacing: 40) { // Increased spacing for 3 buttons
-            
-            // Shuffle Button
-            Button { playerVM.toggleShuffle() } label: {
-                VStack(spacing: DSLayout.tightGap) {
-                    Image(systemName: "shuffle")
-                        .font(DSText.sectionTitle)
-                        .foregroundStyle(playerVM.isShuffling ? DSColor.accent : DSColor.onDarkSecondary)
-                    
-                    Text("Shuffle")
-                        .font(DSText.body)
-                        .foregroundStyle(playerVM.isShuffling ? DSColor.accent : DSColor.onDarkSecondary)
-                }
-            }
-
-            //  NEW: Audio Route Picker Button
-            AudioRoutePickerButton()
-            
-            // Repeat Button
-            Button { playerVM.toggleRepeat() } label: {
-                VStack(spacing: DSLayout.tightGap) {
-                    Image(systemName: repeatIcon)
-                        .font(DSText.sectionTitle)
-                        .foregroundStyle(repeatColor)
-                    
-                    Text(repeatText)
-                        .font(DSText.body)
-                        .foregroundStyle(repeatColor)
-                }
-            }
-        }
-    }
-
-    private var repeatIcon: String {
-        switch playerVM.repeatMode {
-        case .off: return "repeat"
-        case .all: return "repeat"
-        case .one: return "repeat.1"
-        }
-    }
-
-    private var repeatColor: Color {
-        switch playerVM.repeatMode {
-        case .off: return DSColor.onDarkSecondary
-        case .all, .one: return DSColor.accent
-        }
-    }
     
-    private var repeatText: String {
-        switch playerVM.repeatMode {
-        case .off: return "Repeat"
-        case .all: return "All"
-        case .one: return "One"
+    // MARK: - High-Res Cover Art Loading
+    private func loadHighResCoverArt() async {
+        guard let song = playerVM.currentSong,
+              let albumId = song.albumId else { return }
+        
+        // Load high-resolution cover art for full screen
+        if let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
+            // Request 800x800 for sharp full-screen display
+            highResCoverArt = await coverArtManager.loadAlbumImage(
+                album: cachedAlbum,
+                size: 800
+            )
         }
     }
 }
 
-// MARK: -  NEW: Audio Route Picker Button
-struct AudioRoutePickerButton: View {
-    @StateObject private var audioSessionManager = AudioSessionManager.shared
+// MARK: - Spotify-Style Background
+struct SpotifyBackground: View {
+    let image: UIImage?
     
     var body: some View {
         ZStack {
-            // Hidden AVRoutePickerView for functionality
-            AudioRoutePickerViewRepresentable()
-                .frame(width: 44, height: 44) // Match button size
-                .opacity(0.001) // Nearly invisible but still interactive
+            Color.black.ignoresSafeArea()
             
-            // Custom UI Button
-            VStack(spacing: DSLayout.tightGap) {
-                Image(systemName: audioRouteIcon)
-                    .font(DSText.sectionTitle)
-                    .foregroundStyle(audioRouteColor)
+            if let cover = image {
+                Image(uiImage: cover)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .ignoresSafeArea()
+                    .blur(radius: 60)
+                    .opacity(0.3)
+                    .scaleEffect(1.2)
+            }
+        }
+    }
+}
+
+// MARK: - Top Bar (zeigt Audio Route)
+struct TopBar: View {
+    let dismiss: DismissAction
+    @Binding var showingQueue: Bool
+    let audioSessionManager: AudioSessionManager
+    
+    var body: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+            
+            Spacer()
+            
+            VStack(spacing: 2) {
+                Text("Abspielen auf")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.7))
                 
-                Text(audioRouteText)
-                    .font(DSText.body)
-                    .foregroundStyle(audioRouteColor)
+                Text(audioOutputText)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            
+            Spacer()
+            
+            Button {
+                showingQueue = true
+            } label: {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(.white)
             }
         }
     }
     
-    private var audioRouteIcon: String {
-        if audioSessionManager.audioRoute.contains("Bluetooth") {
-            return "bluetooth"
-        } else if audioSessionManager.isHeadphonesConnected {
-            return "headphones"
-        } else if audioSessionManager.audioRoute.contains("AirPlay") {
-            return "airplayaudio"
-        } else {
-            return "speaker.wave.2"
-        }
-    }
-    
-    private var audioRouteColor: Color {
-        if audioSessionManager.isHeadphonesConnected ||
-           audioSessionManager.audioRoute.contains("Bluetooth") ||
-           audioSessionManager.audioRoute.contains("AirPlay") {
-            return DSColor.accent
-        } else {
-            return DSColor.onDarkSecondary
-        }
-    }
-    
-    private var audioRouteText: String {
+    private var audioOutputText: String {
         if audioSessionManager.audioRoute.contains("Bluetooth") {
             return "Bluetooth"
         } else if audioSessionManager.audioRoute.contains("AirPlay") {
             return "AirPlay"
         } else if audioSessionManager.isHeadphonesConnected {
-            return "Headphones"
+            return "Kopfhörer"
         } else {
-            return "Speaker"
+            return "iPhone"
         }
     }
 }
 
-// MARK: -  NEW: AVRoutePickerView UIKit Wrapper
-struct AudioRoutePickerViewRepresentable: UIViewRepresentable {
-    
-    func makeUIView(context: Context) -> AVRoutePickerView {
-        let routePickerView = AVRoutePickerView()
-        
-        // Customize appearance
-        routePickerView.backgroundColor = UIColor.clear
-        routePickerView.tintColor = UIColor.systemBlue
-        
-        // Hide the default button - we show our custom UI
-        routePickerView.prioritizesVideoDevices = false
-        
-        return routePickerView
-    }
-    
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
-        // Updates handled automatically by AVRoutePickerView
-    }
-}
-
-// MARK: - Existing Components (unchanged but keeping for completeness)
-
-// Enhanced Top Bar
-struct PlayerTopBar: View {
-    var dismiss: DismissAction
-    @Binding var showingQueue: Bool
-    @Binding var showingSettings: Bool
-    let audioSessionManager: AudioSessionManager
-
-    var body: some View {
-        HStack {
-            CircleButton(icon: "chevron.down") { dismiss() }
-            
-            Spacer()
-            
-            VStack(spacing: DSLayout.tightGap) {
-                Text("Playing from")
-                    .font(DSText.metadata)
-                    .foregroundStyle(DSColor.onDarkSecondary)
-                
-                HStack(spacing: DSLayout.tightGap) {
-                    // Audio Route Indicator
-                    if audioSessionManager.isHeadphonesConnected {
-                        Image(systemName: audioRouteIcon)
-                            .font(DSText.body)
-                            .foregroundStyle(DSColor.onDark.opacity(0.8))
-                    }
-                    
-                    Text(audioRouteText)
-                        .font(DSText.metadata.weight(.semibold))
-                        .foregroundStyle(DSColor.onDark)
-                }
-            }
-            
-            Spacer()
-            
-            HStack(spacing: DSLayout.elementGap) {
-                CircleButton(icon: "list.bullet") {
-                    showingQueue = true
-                }
-                
-                CircleButton(icon: "gear") {
-                    showingSettings = true
-                }
-            }
-        }
-    }
-    
-    private var audioRouteIcon: String {
-        if audioSessionManager.audioRoute.contains("Bluetooth") {
-            return "bluetooth"
-        } else if audioSessionManager.isHeadphonesConnected {
-            return "headphones"
-        } else {
-            return "speaker.wave.2"
-        }
-    }
-    
-    private var audioRouteText: String {
-        if audioSessionManager.audioRoute.contains("Bluetooth") {
-            return "Bluetooth"
-        } else if audioSessionManager.isHeadphonesConnected {
-            return "Headphones"
-        } else {
-            return "Speaker"
-        }
-    }
-}
-
-// Cover Art View (unchanged)
-struct CoverArtView: View {
+// MARK: - Spotify Album Art
+struct SpotifyAlbumArt: View {
     let cover: UIImage?
-
+    
     var body: some View {
         Group {
             if let cover = cover {
@@ -334,140 +190,127 @@ struct CoverArtView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             } else {
-                RoundedRectangle(cornerRadius: DSCorners.comfortable)
-                    .fill(DSColor.background)
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
                     .overlay(
                         Image(systemName: "music.note")
-                            .font(.system(size: 80))
-                            .foregroundStyle(DSColor.onDark.opacity(0.6))
+                            .font(.system(size: 60))
+                            .foregroundStyle(.gray)
                     )
                     .aspectRatio(1, contentMode: .fit)
             }
         }
-        .coverStyle()
-        .overlay(
-            RoundedRectangle(cornerRadius: DSCorners.comfortable)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-        )
+        .frame(maxWidth: 280, maxHeight: 280)  // Kompakter
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
     }
 }
 
-// Song Info View (unchanged)
-struct PlayerSongInfoView: View {
+// MARK: - Song Info Section (Spotify-style)
+struct SpotifySongInfoView: View {
     let song: Song
     let isPlaying: Bool
-    let isLoading: Bool
-
+    
     var body: some View {
-        VStack(spacing: DSLayout.elementGap) {
+        VStack(spacing: 8) {
             HStack {
-                Text(song.title)
-                    .font(isPlaying ? DSText.sectionTitle : DSText.sectionTitle)
-                    .foregroundStyle(isPlaying ? DSColor.playing : DSColor.onDark)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: DSColor.onDark))
-                        .scaleEffect(0.8)
-                        .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(song.title)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    
+                    if let artist = song.artist {
+                        Text(artist)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                    }
                 }
-            }
-
-            if let artist = song.artist {
-                Text(artist)
-                    .font(DSText.sectionTitle)
-                    .foregroundStyle(DSColor.onDarkSecondary)
-                    .lineLimit(1)
-            }
-            
-            // Additional metadata
-            HStack(spacing: DSLayout.elementGap) {
-                if let album = song.album {
-                    Text(album)
-                        .font(DSText.metadata)
-                        .foregroundStyle(DSColor.onDark.opacity(0.6))
-                        .lineLimit(1)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 
-                if let year = song.year {
-                    Text("•")
-                        .foregroundStyle(DSColor.onDark.opacity(0.4))
-                    Text(String(year))
-                        .font(DSText.metadata)
-                        .foregroundStyle(DSColor.onDark.opacity(0.6))
+                // Heart button (Spotify has this in top-right of song info)
+                Button {
+                    // TODO: Implement favorite
+                } label: {
+                    Image(systemName: "heart")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.white.opacity(0.7))
                 }
             }
         }
     }
 }
 
-// Progress View (unchanged)
-struct PlayerProgressView: View {
+// MARK: - Progress Section (Spotify-style)
+struct ProgressSection: View {
     @ObservedObject var playerVM: PlayerViewModel
     @State private var isDragging = false
     @State private var dragValue: Double = 0
-
+    
     var body: some View {
-        VStack(spacing: DSLayout.elementGap) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: DSCorners.tight)
-                    .fill(DSColor.onDark.opacity(0.3))
-                    .frame(height: 4)
-                
-                RoundedRectangle(cornerRadius: DSCorners.tight)
-                    .fill(DSColor.onDark)
-                    .frame(width: progressWidth, height: 4)
-                
-                Circle()
-                    .fill(DSColor.onDark)
-                    .frame(width: 12, height: 12)
-                    .offset(x: progressWidth - 6)
+        VStack(spacing: 8) {
+            // Progress Bar
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Background
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(.white.opacity(0.3))
+                        .frame(height: 4)
+                    
+                    // Progress
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(.white)
+                        .frame(width: progressWidth(geometry.size.width), height: 4)
+                    
+                    // Drag handle
+                    if isDragging {
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 14, height: 14)
+                            .offset(x: progressWidth(geometry.size.width) - 7)
+                    }
+                }
+                .gesture(progressGesture(geometry.size.width))
             }
-            .gesture(progressDragGesture)
-
+            .frame(height: 20)
+            
+            // Time Labels
             HStack {
                 Text(formatTime(isDragging ? dragValue * playerVM.duration : playerVM.currentTime))
-                    .foregroundStyle(isDragging ? DSColor.accent : DSColor.onDarkSecondary)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.7))
                 
                 Spacer()
                 
                 Text(formatTime(playerVM.duration))
-                    .foregroundStyle(DSColor.onDarkSecondary)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.7))
             }
-            .font(DSText.numbers)
-            .animation(DSAnimations.easeQuick, value: isDragging)
-        }
-    }
-
-    private var progressWidth: CGFloat {
-        let maxWidth = UIScreen.main.bounds.width - 48
-        guard playerVM.duration > 0 else { return 0 }
-        
-        if isDragging {
-            return maxWidth * CGFloat(dragValue)
-        } else {
-            return maxWidth * CGFloat(playerVM.currentTime / playerVM.duration)
         }
     }
     
-    private var progressDragGesture: some Gesture {
+    private func progressWidth(_ maxWidth: CGFloat) -> CGFloat {
+        guard playerVM.duration > 0 else { return 0 }
+        let progress = isDragging ? dragValue : (playerVM.currentTime / playerVM.duration)
+        return maxWidth * progress
+    }
+    
+    private func progressGesture(_ maxWidth: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 isDragging = true
-                let maxWidth = UIScreen.main.bounds.width - 48
-                let progress = max(0, min(1, value.location.x / maxWidth))
+                let progress = max(0, min(value.location.x / maxWidth, 1))
                 dragValue = progress
             }
             .onEnded { value in
-                let maxWidth = UIScreen.main.bounds.width - 48
-                let progress = max(0, min(1, value.location.x / maxWidth))
+                let progress = max(0, min(value.location.x / maxWidth, 1))
                 playerVM.seek(to: progress * playerVM.duration)
                 isDragging = false
             }
     }
-
+    
     private func formatTime(_ seconds: Double) -> String {
         let minutes = Int(seconds) / 60
         let remainingSeconds = Int(seconds) % 60
@@ -475,124 +318,188 @@ struct PlayerProgressView: View {
     }
 }
 
-// Playback Controls (unchanged)
-struct PlaybackControls: View {
+// MARK: - Main Controls (kompakter)
+struct MainControls: View {
     @ObservedObject var playerVM: PlayerViewModel
-
+    
     var body: some View {
-        HStack(spacing: DSLayout.screenPadding) {
+        HStack(spacing: 32) {  // Weniger Abstand
+            // Shuffle
+            Button { playerVM.toggleShuffle() } label: {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 20))  // Kleiner
+                    .foregroundStyle(playerVM.isShuffling ? DSColor.accent : .white.opacity(0.7))
+            }
+            
+            // Previous
             Button {
                 Task { await playerVM.playPrevious() }
             } label: {
                 Image(systemName: "backward.end.fill")
-                    .font(.system(size: DSLayout.icon))
-                    .foregroundStyle(DSColor.onDark)
+                    .font(.system(size: 26))  // Kleiner
+                    .foregroundStyle(.white)
             }
-            .disabled(playerVM.isLoading)
-
+            
+            // Play/Pause (kompakter)
             Button {
                 playerVM.togglePlayPause()
             } label: {
                 ZStack {
                     Circle()
-                        .fill(DSColor.onDark)
-                        .frame(width: 80, height: 80)
+                        .fill(.white)
+                        .frame(width: 56, height: 56)  // Kleiner
                     
                     if playerVM.isLoading {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: DSColor.onLight))
-                            .scaleEffect(1.2)
+                            .tint(.black)
                     } else {
                         Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(DSColor.onLight)
+                            .font(.system(size: 22))  // Kleiner
+                            .foregroundStyle(.black)
+                            .offset(x: playerVM.isPlaying ? 0 : 2)
                     }
                 }
             }
-            .disabled(playerVM.isLoading)
-
+            
+            // Next
             Button {
                 Task { await playerVM.playNext() }
             } label: {
                 Image(systemName: "forward.end.fill")
-                    .font(.system(size: DSLayout.icon))
-                    .foregroundStyle(DSColor.onDark)
+                    .font(.system(size: 26))  // Kleiner
+                    .foregroundStyle(.white)
             }
-            .disabled(playerVM.isLoading)
+            
+            // Repeat
+            Button { playerVM.toggleRepeat() } label: {
+                Image(systemName: repeatIcon)
+                    .font(.system(size: 20))  // Kleiner
+                    .foregroundStyle(repeatColor)
+            }
+        }
+    }
+    
+    private var repeatIcon: String {
+        switch playerVM.repeatMode {
+        case .off: return "repeat"
+        case .all: return "repeat"
+        case .one: return "repeat.1"
+        }
+    }
+    
+    private var repeatColor: Color {
+        switch playerVM.repeatMode {
+        case .off: return .white.opacity(0.7)
+        case .all, .one: return DSColor.accent
         }
     }
 }
 
-// Volume Slider (unchanged)
-struct VolumeSlider: View {
+// MARK: - Bottom Controls (jetzt mit mehr Platz)
+struct BottomControls: View {
     @ObservedObject var playerVM: PlayerViewModel
-
+    
     var body: some View {
-        HStack(spacing: DSLayout.elementGap) {
-            Image(systemName: "speaker.fill")
-                .foregroundStyle(DSColor.onDarkSecondary)
-
-            Slider(
-                value: Binding(
-                    get: { Double(playerVM.volume) },
-                    set: { newValue in
-                        let floatValue = Float(newValue)
-                        playerVM.setVolume(floatValue)
+        VStack(spacing: 16) {
+            // Shuffle und Repeat
+            HStack(spacing: 60) {
+                // Shuffle
+                Button { playerVM.toggleShuffle() } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 22))
+                            .foregroundStyle(playerVM.isShuffling ? DSColor.accent : .white.opacity(0.7))
+                        Text("Shuffle")
+                            .font(.system(size: 11))
+                            .foregroundStyle(playerVM.isShuffling ? DSColor.accent : .white.opacity(0.7))
                     }
-                ),
-                in: 0...1
-            )
-            .tint(DSColor.onDark)
-
-            Image(systemName: "speaker.wave.3.fill")
-                .foregroundStyle(DSColor.onDarkSecondary)
+                }
+                
+                // Repeat
+                Button { playerVM.toggleRepeat() } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: repeatIcon)
+                            .font(.system(size: 22))
+                            .foregroundStyle(repeatColor)
+                        Text(repeatText)
+                            .font(.system(size: 11))
+                            .foregroundStyle(repeatColor)
+                    }
+                }
+            }
+            
+            // Audio Route und Share
+            HStack {
+                // Audio Route
+                AudioRouteButton()
+                
+                Spacer()
+                
+                // Like Button
+                Button {
+                    // TODO: Implement favorite
+                } label: {
+                    Image(systemName: "heart")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+        }
+    }
+    
+    private var repeatIcon: String {
+        switch playerVM.repeatMode {
+        case .off: return "repeat"
+        case .all: return "repeat"
+        case .one: return "repeat.1"
+        }
+    }
+    
+    private var repeatColor: Color {
+        switch playerVM.repeatMode {
+        case .off: return .white.opacity(0.7)
+        case .all, .one: return DSColor.accent
+        }
+    }
+    
+    private var repeatText: String {
+        switch playerVM.repeatMode {
+        case .off: return "Repeat"
+        case .all: return "Repeat"
+        case .one: return "Repeat 1"
         }
     }
 }
 
-// Background View (unchanged)
-struct BackgroundView: View {
-    let image: UIImage?
-
+// MARK: - Audio Route Button (mit Label)
+struct AudioRouteButton: View {
     var body: some View {
         ZStack {
-            if let cover = image {
-                Image(uiImage: cover)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .ignoresSafeArea()
-                    .blur(radius: 40)
-                    .scaleEffect(1.2)
+            AudioRoutePickerViewRepresentable()
+                .frame(width: 44, height: 44)
+                .opacity(0.001)
+            
+            VStack(spacing: 4) {
+                Image(systemName: "hifispeaker")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.white.opacity(0.7))
+                Text("Geräte")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.7))
             }
-            Rectangle()
-                .fill(DSColor.overlay)
-                .ignoresSafeArea()
         }
     }
 }
 
-// Circle Button (unchanged)
-struct CircleButton: View {
-    let icon: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(DSText.sectionTitle)
-                .foregroundStyle(DSColor.onDark)
-                .frame(width: DSLayout.buttonHeight, height: DSLayout.buttonHeight)
-                .background(DSColor.background)
-                .clipShape(Circle())
-        }
+// MARK: - AVRoutePickerView Wrapper
+struct AudioRoutePickerViewRepresentable: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let routePickerView = AVRoutePickerView()
+        routePickerView.backgroundColor = UIColor.clear
+        routePickerView.tintColor = UIColor.white
+        routePickerView.prioritizesVideoDevices = false
+        return routePickerView
     }
+    
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
 }
-
-// Style Extension (unchanged)
-extension View {
-    func coverStyle() -> some View {
-        self.clipShape(RoundedRectangle(cornerRadius: DSCorners.comfortable))
-    }
-}
-
-// Queue View and Audio Settings View would remain the same...
