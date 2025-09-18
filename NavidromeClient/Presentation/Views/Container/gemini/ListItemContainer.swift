@@ -11,7 +11,7 @@ struct ListItemContainer: View {
     let index: Int
     
     var body: some View {
-        HStack(spacing: DSLayout.sectionGap) {
+        HStack(spacing: DSLayout.tightGap) {
             coverImageOrIconView()
                 .task(id: content.id) {
                     await loadContentImage()
@@ -36,6 +36,15 @@ struct ListItemContainer: View {
                     .foregroundColor(DSColor.secondary)
             }
         }
+        .background(
+            Color(DSColor.surfaceLight) // hellgrau
+                .opacity(0.5)   // leicht transparent
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DSCorners.tight) // abgerundete Ecken
+                .stroke(Color(.systemGray4), lineWidth: 0.5) // Haarlinie
+        )
+        .cornerRadius(DSCorners.tight) // sorgt für das Clipping der Background
     }
     
     @ViewBuilder
@@ -43,7 +52,7 @@ struct ListItemContainer: View {
         ZStack {
             // Background for the image/icon
             Circle()
-                .fill(Color.gray)
+                .fill(DSColor.overlayLight)
                 .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
             
             switch content {
@@ -56,10 +65,12 @@ struct ListItemContainer: View {
             case .genre:
                 // Genres have no images to load
                 Image(systemName: content.iconName)
-                    .foregroundColor(DSColor.primary.opacity(0.7))
+                    .font(.system(size: DSLayout.smallAvatar * 0.5))
+                    .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
+                    .foregroundColor(DSColor.onDark)
             }
         }
-        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
+        .frame(width: DSLayout.avatar, height: DSLayout.avatar)
     }
     
     private func loadContentImage() async {
@@ -67,13 +78,13 @@ struct ListItemContainer: View {
         case .album(let album):
             await coverArtManager.loadAlbumImage(
                 album: album,
-                size: Int(DSLayout.smallAvatar),
+                size: Int(DSLayout.avatar),
                 staggerIndex: index
             )
         case .artist(let artist):
             await coverArtManager.loadArtistImage(
                 artist: artist,
-                size: Int(DSLayout.smallAvatar),
+                size: Int(DSLayout.avatar),
                 staggerIndex: index
             )
         case .genre:
@@ -98,11 +109,13 @@ struct ListItemContainer: View {
                 .tint(.white)
         } else if coverArtManager.errorStates[content.id] != nil {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 24))
+                .font(DSText.largeButton)
                 .foregroundColor(DSColor.error)
         } else {
             Image(systemName: content.iconName)
-                .font(DSText.largeButton)
+                .font(.system(size: DSLayout.smallAvatar * 0.8))
+                .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
+                .scaledToFill()
                 .foregroundColor(DSColor.primary.opacity(0.7))
         }
     }

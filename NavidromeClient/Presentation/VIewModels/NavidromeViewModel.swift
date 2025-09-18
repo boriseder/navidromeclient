@@ -2,9 +2,9 @@
 //  NavidromeViewModel.swift - COMPLETE LEGACY ELIMINATION
 //  NavidromeClient
 //
-//  ✅ ELIMINATED: All direct service access
-//  ✅ MIGRATED: To focused services only
-//  ✅ REMOVED: Legacy compatibility methods
+//   ELIMINATED: All direct service access
+//   MIGRATED: To focused services only
+//   REMOVED: Legacy compatibility methods
 //
 
 import Foundation
@@ -13,16 +13,16 @@ import SwiftUI
 @MainActor
 class NavidromeViewModel: ObservableObject {
     
-    // MARK: - ✅ FOCUSED SERVICE DEPENDENCIES ONLY
+    // MARK: -  FOCUSED SERVICE DEPENDENCIES ONLY
     private var unifiedService: UnifiedSubsonicService?
     
-    // ✅ FOCUSED: Direct access to specialized services
+    //  FOCUSED: Direct access to specialized services
     private var contentService: ContentService? { unifiedService?.getContentService() }
     private var searchService: SearchService? { unifiedService?.getSearchService() }
     private var connectionService: ConnectionService? { unifiedService?.getConnectionService() }
     private var mediaService: MediaService? { unifiedService?.getMediaService() }
     
-    // MARK: - ✅ MANAGER DEPENDENCIES (No direct service access)
+    // MARK: -  MANAGER DEPENDENCIES (No direct service access)
     private let connectionManager = ConnectionManager()
     let musicLibraryManager = MusicLibraryManager.shared
     private let songManager = SongManager()
@@ -31,33 +31,33 @@ class NavidromeViewModel: ObservableObject {
         setupManagerDependencies()
     }
     
-    // MARK: - ✅ ELIMINATED: All Legacy Service Access Methods
+    // MARK: -  ELIMINATED: All Legacy Service Access Methods
     
     // ❌ REMOVED: getService() -> UnifiedSubsonicService?
     // ❌ REMOVED: Direct service configuration methods
     // ❌ REMOVED: Legacy compatibility wrappers
     
-    // MARK: - ✅ PURE FOCUSED SERVICE CONFIGURATION
+    // MARK: -  PURE FOCUSED SERVICE CONFIGURATION
     
     func updateService(_ newService: UnifiedSubsonicService) {
         self.unifiedService = newService
         configureManagersWithFocusedServices(newService)
         objectWillChange.send()
-        print("✅ NavidromeViewModel: Configured with focused services only")
+        print(" NavidromeViewModel: Configured with focused services only")
     }
     
     private func configureManagersWithFocusedServices(_ service: UnifiedSubsonicService) {
-        // ✅ FOCUSED: Pass specialized services to managers
+        //  FOCUSED: Pass specialized services to managers
         musicLibraryManager.configure(service: service)
         songManager.configure(service: service)
         
-        // ✅ FOCUSED: Configure connection via ConnectionManager
+        //  FOCUSED: Configure connection via ConnectionManager
         NetworkMonitor.shared.setConnectionManager(connectionManager)
         
-        print("✅ All managers configured with focused services")
+        print(" All managers configured with focused services")
     }
     
-    // MARK: - ✅ DELEGATION: Published Properties (unchanged API)
+    // MARK: -  DELEGATION: Published Properties (unchanged API)
     
     // Library Data (delegated to managers)
     var albums: [Album] { musicLibraryManager.albums }
@@ -100,7 +100,7 @@ class NavidromeViewModel: ObservableObject {
     // Song Cache (delegated to SongManager)
     var albumSongs: [String: [Song]] { songManager.albumSongs }
     
-    // MARK: - ✅ FOCUSED SERVICE OPERATIONS ONLY
+    // MARK: -  FOCUSED SERVICE OPERATIONS ONLY
     
     // Connection Management via focused ConnectionService
     func testConnection() async {
@@ -143,7 +143,7 @@ class NavidromeViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // ✅ FOCUSED: Search via SearchService only
+    //  FOCUSED: Search via SearchService only
     func search(query: String) async -> SearchResult {
         guard let searchService = searchService else {
             print("❌ SearchService not available")
@@ -158,7 +158,7 @@ class NavidromeViewModel: ObservableObject {
         }
     }
     
-    // ✅ FOCUSED: Artist/Genre Detail via ContentService only
+    //  FOCUSED: Artist/Genre Detail via ContentService only
     func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
         guard let contentService = contentService else {
             throw URLError(.networkConnectionLost)
@@ -178,13 +178,13 @@ class NavidromeViewModel: ObservableObject {
         
         if isOnline {
             await connectionManager.performQuickHealthCheck()
-            print("✅ NavidromeViewModel: Network restored - ConnectionService health checked")
+            print(" NavidromeViewModel: Network restored - ConnectionService health checked")
         }
         
         objectWillChange.send()
     }
     
-    // MARK: - ✅ FOCUSED: Connection Health via ConnectionService only
+    // MARK: -  FOCUSED: Connection Health via ConnectionService only
     
     func getConnectionHealth() async -> ConnectionHealth? {
         guard let connectionService = connectionService else {
@@ -205,7 +205,7 @@ class NavidromeViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // MARK: - ✅ STATISTICS & LEGACY COMPATIBILITY (Read-only)
+    // MARK: -  STATISTICS & LEGACY COMPATIBILITY (Read-only)
     
     func getCachedSongCount() -> Int {
         return songManager.getCachedSongCount()
@@ -229,7 +229,7 @@ class NavidromeViewModel: ObservableObject {
         )
     }
     
-    // MARK: - ✅ RESET & CLEANUP
+    // MARK: -  RESET & CLEANUP
     
     func reset() {
         connectionManager.reset()
@@ -239,10 +239,10 @@ class NavidromeViewModel: ObservableObject {
         
         NetworkMonitor.shared.setConnectionManager(nil)
         objectWillChange.send()
-        print("✅ NavidromeViewModel: Complete reset including all focused services")
+        print(" NavidromeViewModel: Complete reset including all focused services")
     }
     
-    // MARK: - ✅ PRIVATE SETUP
+    // MARK: -  PRIVATE SETUP
     
     private func setupManagerDependencies() {
         if let service = unifiedService {
@@ -250,7 +250,7 @@ class NavidromeViewModel: ObservableObject {
         }
     }
     
-    // MARK: - ✅ DIAGNOSTICS (Focused Services Only)
+    // MARK: -  DIAGNOSTICS (Focused Services Only)
     
     func getServiceArchitectureDiagnostics() async -> ServiceArchitectureDiagnostics {
         let connectionDiag = await getConnectionDiagnostics()
@@ -298,7 +298,7 @@ class NavidromeViewModel: ObservableObject {
             let server = networkDiagnostics.isServerReachable
             
             if connection && network && server {
-                return "✅ All systems operational"
+                return " All systems operational"
             } else if network {
                 return "⚠️ Network issues detected"
             } else {
@@ -320,7 +320,7 @@ class NavidromeViewModel: ObservableObject {
             Cache Layer:
             \(songCacheStats.summary)
             
-            Managers: \(managersConfigured ? "✅ Configured" : "❌ Not Configured")
+            Managers: \(managersConfigured ? " Configured" : "❌ Not Configured")
             """
         }
     }
@@ -345,7 +345,7 @@ class NavidromeViewModel: ObservableObject {
     #endif
 }
 
-// MARK: - ✅ SUPPORTING TYPES (Unchanged)
+// MARK: -  SUPPORTING TYPES (Unchanged)
 
 struct ConnectionDiagnostics {
     let isConnected: Bool
@@ -357,15 +357,15 @@ struct ConnectionDiagnostics {
         if hasService, let health = connectionHealth {
             return """
             🏗️ FOCUSED SERVICE ARCHITECTURE:
-            - ConnectionService: ✅
-            - Connection: \(isConnected ? "✅" : "❌")
+            - ConnectionService: 
+            - Connection: \(isConnected ? "" : "❌")
             - Health: \(health.statusDescription)
             """
         } else {
             return """
             🏗️ FOCUSED SERVICE ARCHITECTURE:
             - ConnectionService: ❌
-            - Connection: \(isConnected ? "✅" : "❌")
+            - Connection: \(isConnected ? "" : "❌")
             - Error: \(errorMessage ?? "Unknown")
             """
         }
@@ -384,7 +384,7 @@ struct SongLoadingStats {
     }
 }
 
-// MARK: - ✅ CONVENIENCE COMPUTED PROPERTIES (Focused Services Only)
+// MARK: -  CONVENIENCE COMPUTED PROPERTIES (Focused Services Only)
 
 extension NavidromeViewModel {
     

@@ -2,8 +2,8 @@
 //  ExploreView.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ CLEAN: All business logic moved to HomeScreenManager
-//  ✅ ELIMINATES: ExploreViewModel dependency completely
+//   CLEAN: All business logic moved to HomeScreenManager
+//   ELIMINATES: ExploreViewModel dependency completely
 //
 
 import SwiftUI
@@ -273,17 +273,13 @@ struct AlbumSection: View {
             .screenPadding()
             
             // Horizontal Album Scroll
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: DSLayout.contentGap) {
-                    ForEach(albums.indices, id: \.self) { index in
-                        let album = albums[index]
-                        NavigationLink(destination: AlbumDetailView(album: album)) {
-                            CardItemContainer(content: .album(album), index: index)
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                    }
+            UnifiedContainer(
+                items: albums,
+                layout: .horizontal
+            ) { album, index in
+                NavigationLink(destination: AlbumDetailView(album: album)) {
+                    CardItemContainer(content: .album(album), index: index)
                 }
-                .padding(.horizontal, DSLayout.screenPadding)
             }
         }
     }

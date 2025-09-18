@@ -2,7 +2,7 @@
 //  FullScreenPlayerView.swift - Enhanced with Audio Route Picker
 //  NavidromeClient
 //
-//  ✅ ADDED: Audio Route Picker for AirPlay/Bluetooth selection
+//   ADDED: Audio Route Picker for AirPlay/Bluetooth selection
 //
 
 import SwiftUI
@@ -53,7 +53,7 @@ struct FullScreenPlayerView: View {
                 
                 Spacer()
 
-                // ✅ ENHANCED: Bottom controls with Audio Route Picker
+                //  ENHANCED: Bottom controls with Audio Route Picker
                 EnhancedBottomControls(playerVM: playerVM)
                     .padding(.bottom, DSLayout.screenPadding)
             }
@@ -111,7 +111,7 @@ struct FullScreenPlayerView: View {
     }
 }
 
-// MARK: - ✅ NEW: Enhanced Bottom Controls with Audio Route Picker
+// MARK: -  NEW: Enhanced Bottom Controls with Audio Route Picker
 struct EnhancedBottomControls: View {
     @ObservedObject var playerVM: PlayerViewModel
     @StateObject private var audioSessionManager = AudioSessionManager.shared
@@ -132,7 +132,7 @@ struct EnhancedBottomControls: View {
                 }
             }
 
-            // ✅ NEW: Audio Route Picker Button
+            //  NEW: Audio Route Picker Button
             AudioRoutePickerButton()
             
             // Repeat Button
@@ -174,7 +174,7 @@ struct EnhancedBottomControls: View {
     }
 }
 
-// MARK: - ✅ NEW: Audio Route Picker Button
+// MARK: -  NEW: Audio Route Picker Button
 struct AudioRoutePickerButton: View {
     @StateObject private var audioSessionManager = AudioSessionManager.shared
     
@@ -233,7 +233,7 @@ struct AudioRoutePickerButton: View {
     }
 }
 
-// MARK: - ✅ NEW: AVRoutePickerView UIKit Wrapper
+// MARK: -  NEW: AVRoutePickerView UIKit Wrapper
 struct AudioRoutePickerViewRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> AVRoutePickerView {

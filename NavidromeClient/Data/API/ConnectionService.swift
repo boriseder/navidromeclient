@@ -10,7 +10,7 @@
 //  ConnectionService.swift - Core Connection & Authentication
 //  NavidromeClient
 //
-//  ✅ FOCUSED: Connection, auth, ping, health checks only
+//   FOCUSED: Connection, auth, ping, health checks only
 //
 
 import Foundation
@@ -62,7 +62,7 @@ class ConnectionService: ObservableObject {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: - ✅ CONNECTION TESTING
+    // MARK: -  CONNECTION TESTING
     
     func testConnection() async -> ConnectionTestResult {
         let startTime = Date()
@@ -128,7 +128,7 @@ class ConnectionService: ObservableObject {
         return decoded.subsonicResponse
     }
     
-    // MARK: - ✅ URL BUILDING & SECURITY
+    // MARK: -  URL BUILDING & SECURITY
     
     func buildURL(endpoint: String, params: [String: String] = [:]) -> URL? {
         // Input validation
@@ -168,7 +168,7 @@ class ConnectionService: ObservableObject {
         return components.url
     }
     
-    // MARK: - ✅ HEALTH MONITORING
+    // MARK: -  HEALTH MONITORING
     
     func performHealthCheck() async -> ConnectionHealth {
         let startTime = Date()
@@ -183,7 +183,7 @@ class ConnectionService: ObservableObject {
         )
     }
     
-    // MARK: - ✅ PRIVATE HELPERS
+    // MARK: -  PRIVATE HELPERS
     
     private func updateConnectionState(responseTime: TimeInterval, success: Bool) {
         isConnected = success

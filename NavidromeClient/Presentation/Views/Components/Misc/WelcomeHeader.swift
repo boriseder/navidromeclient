@@ -116,6 +116,7 @@ struct WelcomeHeader: View {
     let nowPlaying: Song?
 
     @State private var showingNetworkTestView = false
+    @State private var showingCoverArtDebugView = false
     
     // MARK: - Mehrsprachige Grüße nach Tageszeit
     private let greetingsByTime: [String: [String]] = [
@@ -205,6 +206,19 @@ struct WelcomeHeader: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
                 }
+                
+                Button (action: {
+                    showingCoverArtDebugView.toggle()
+                })
+                {
+                    Text("click me")
+                }
+                .sheet(isPresented: $showingCoverArtDebugView){
+                    CoverArtDebugView() // deine View, die aufgehen soll
+                }
+
+                
+                
                 
                 Spacer()
                 

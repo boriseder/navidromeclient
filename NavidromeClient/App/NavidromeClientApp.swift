@@ -2,9 +2,9 @@
 //  NavidromeClientApp.swift - FIXED: Service Initialization Issues
 //  NavidromeClient
 //
-//  ✅ FIXED: Incorrect argument labels and type conversions
-//  ✅ CLEAN: Proper UnifiedSubsonicService initialization pattern
-//  ✅ SAFE: Handles missing credentials gracefully
+//   FIXED: Incorrect argument labels and type conversions
+//   CLEAN: Proper UnifiedSubsonicService initialization pattern
+//   SAFE: Handles missing credentials gracefully
 //
 
 import SwiftUI
@@ -22,12 +22,12 @@ struct NavidromeClientApp: App {
     @StateObject private var coverArtManager = CoverArtManager.shared
     @StateObject private var homeScreenManager = HomeScreenManager.shared
     
-    // ✅ FIXED: ViewModels with proper service initialization
+    //  FIXED: ViewModels with proper service initialization
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     
     init() {
-        // ✅ FIXED: Create ViewModels with correct service handling
+        //  FIXED: Create ViewModels with correct service handling
         let service: UnifiedSubsonicService?
         if let creds = AppConfig.shared.getCredentials() {
             service = UnifiedSubsonicService(
@@ -40,7 +40,7 @@ struct NavidromeClientApp: App {
         }
 
         _navidromeVM = StateObject(wrappedValue: NavidromeViewModel())
-        // ✅ FIXED: Use correct initializer - service parameter accepts UnifiedSubsonicService?
+        //  FIXED: Use correct initializer - service parameter accepts UnifiedSubsonicService?
         _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
     }
     
@@ -71,7 +71,7 @@ struct NavidromeClientApp: App {
         }
     }
     
-    // MARK: - ✅ FIXED: Enhanced Service Configuration
+    // MARK: -  FIXED: Enhanced Service Configuration
     
     private func setupInitialConfiguration() async {
         guard appConfig.isConfigured else {
@@ -79,67 +79,67 @@ struct NavidromeClientApp: App {
             return
         }
         
-        // ✅ FIXED: Configure all services properly
+        //  FIXED: Configure all services properly
         await configureAllServices()
         
         // Load initial data
         await navidromeVM.loadInitialDataIfNeeded()
         
-        // ✅ FIXED: Perform initial health check
+        //  FIXED: Perform initial health check
         await performInitialHealthCheck()
     }
     
-    /// ✅ FIXED: Service configuration with proper service types
+    ///  FIXED: Service configuration with proper service types
     private func configureAllServices() async {
         guard let creds = appConfig.getCredentials() else {
             print("❌ No credentials available for service configuration")
             return
         }
         
-        // ✅ FIXED: Create UnifiedSubsonicService
+        //  FIXED: Create UnifiedSubsonicService
         let unifiedService = UnifiedSubsonicService(
             baseURL: creds.baseURL,
             username: creds.username,
             password: creds.password
         )
         
-        // ✅ FIXED: Configure all managers with proper service types
+        //  FIXED: Configure all managers with proper service types
         await configureManagersWithServices(unifiedService: unifiedService)
         
-        print("✅ All services configured successfully")
+        print(" All services configured successfully")
     }
     
-    /// ✅ FIXED: Configure managers with correct service extraction
+    ///  FIXED: Configure managers with correct service extraction
     private func configureManagersWithServices(unifiedService: UnifiedSubsonicService) async {
         await MainActor.run {
-            // ✅ Configure NavidromeViewModel
+            //  Configure NavidromeViewModel
             navidromeVM.updateService(unifiedService)
             
-            // ✅ FIXED: Configure PlayerViewModel with UnifiedSubsonicService
+            //  FIXED: Configure PlayerViewModel with UnifiedSubsonicService
             playerVM.updateService(unifiedService)
             
-            // ✅ Configure DownloadManager with UnifiedSubsonicService
+            //  Configure DownloadManager with UnifiedSubsonicService
             downloadManager.configure(service: unifiedService)
             downloadManager.configure(coverArtManager: coverArtManager)
             
-            // ✅ Configure CoverArtManager with focused MediaService
+            //  Configure CoverArtManager with focused MediaService
             let mediaService = unifiedService.getMediaService()
             coverArtManager.configure(mediaService: mediaService)
             
-            // ✅ Configure HomeScreenManager
+            //  Configure HomeScreenManager
             homeScreenManager.configure(service: unifiedService)
             
-            // ✅ Configure MusicLibraryManager
+            //  Configure MusicLibraryManager
             MusicLibraryManager.shared.configure(service: unifiedService)
             
-            // ✅ FIXED: Update PlayerViewModel with CoverArtManager
+            //  FIXED: Update PlayerViewModel with CoverArtManager
             playerVM.updateCoverArtService(coverArtManager)
             
-            print("✅ All managers configured with focused services")
+            print(" All managers configured with focused services")
         }
     }
     
-    /// ✅ FIXED: Initial health check
+    ///  FIXED: Initial health check
     fileprivate func performInitialHealthCheck() async {
         print("🏥 Performing initial health check...")
         
@@ -156,21 +156,21 @@ struct NavidromeClientApp: App {
         """)
     }
     
-    // MARK: - ✅ FIXED: Network State Management
+    // MARK: -  FIXED: Network State Management
     
     private func handleNetworkChange(isConnected: Bool) async {
         print("🌐 Network state changed: \(isConnected ? "Connected" : "Disconnected")")
         
         if isConnected {
-            // ✅ FIXED: Reconfigure services when network comes back
+            //  FIXED: Reconfigure services when network comes back
             await setupSimplifiedServices()
         }
         
-        // ✅ Notify managers about network change
+        //  Notify managers about network change
         await navidromeVM.handleNetworkChange(isOnline: isConnected)
         await homeScreenManager.handleNetworkChange(isOnline: isConnected)
         
-        // ✅ Update NetworkMonitor diagnostics
+        //  Update NetworkMonitor diagnostics
         let networkDiag = networkMonitor.getNetworkDiagnostics()
         print("📊 Network diagnostics: \(networkDiag.summary)")
     }
@@ -194,7 +194,7 @@ struct NavidromeClientApp: App {
         print("📱 App became active - checking services...")
         
         Task {
-            // ✅ FIXED: Comprehensive health check on app activation
+            //  FIXED: Comprehensive health check on app activation
             await performAppActivationHealthCheck()
             
             // Refresh data if needed
@@ -207,7 +207,7 @@ struct NavidromeClientApp: App {
         }
     }
     
-    /// ✅ FIXED: Comprehensive health check when app becomes active
+    ///  FIXED: Comprehensive health check when app becomes active
     private func performAppActivationHealthCheck() async {
         print("🔄 App activation health check...")
         
@@ -227,7 +227,7 @@ struct NavidromeClientApp: App {
         #endif
     }
     
-    // MARK: - ✅ FIXED: Advanced Service Features
+    // MARK: -  FIXED: Advanced Service Features
     
     /// Get comprehensive service health for troubleshooting
     func getComprehensiveServiceHealth() async -> ComprehensiveServiceHealth {
@@ -242,7 +242,7 @@ struct NavidromeClientApp: App {
         )
     }
     
-    // ✅ FIXED: Correct type references
+    //  FIXED: Correct type references
     struct ComprehensiveServiceHealth {
         let connectionHealth: ConnectionHealth?
         let networkDiagnostics: NetworkMonitor.NetworkDiagnostics
@@ -259,7 +259,7 @@ struct NavidromeClientApp: App {
             let score = overallHealthScore * 100
             
             if score >= 80 {
-                return "✅ Excellent (\(String(format: "%.0f", score))%)"
+                return " Excellent (\(String(format: "%.0f", score))%)"
             } else if score >= 60 {
                 return "⚠️ Good (\(String(format: "%.0f", score))%)"
             } else if score >= 40 {
@@ -283,7 +283,7 @@ struct NavidromeClientApp: App {
         }
     }
     
-    // MARK: - ✅ DEBUG HELPERS
+    // MARK: -  DEBUG HELPERS
     
     #if DEBUG
     /// Print comprehensive service diagnostics for debugging
@@ -305,21 +305,21 @@ struct NavidromeClientApp: App {
     #endif
 }
 
-// MARK: - ✅ MIGRATION NOTES & DOCUMENTATION
+// MARK: -  MIGRATION NOTES & DOCUMENTATION
 
 /*
 SERVICE INITIALIZATION FIXES COMPLETE! 🎉
 
-✅ FIXES APPLIED:
+ FIXES APPLIED:
 1. FIXED: PlayerViewModel(service:) parameter - now accepts UnifiedSubsonicService?
 2. FIXED: Service type conversion - no longer tries to pass UnifiedSubsonicService as MediaService
 3. FIXED: Proper service configuration flow through updateService() methods
 4. FIXED: All manager configurations use correct service types
 
-✅ SERVICE FLOW:
+ SERVICE FLOW:
 App -> Creates UnifiedSubsonicService -> Passes to ViewModels -> ViewModels extract focused services
 
-✅ INITIALIZATION PATTERN:
+ INITIALIZATION PATTERN:
 ```swift
 // Create service if credentials available
 let service: UnifiedSubsonicService? = credentials ? UnifiedSubsonicService(...) : nil
@@ -331,7 +331,7 @@ PlayerViewModel(service: service, downloadManager: downloadManager)
 playerVM.updateService(unifiedService)  // Extracts MediaService internally
 ```
 
-✅ ARCHITECTURE BENEFITS:
+ ARCHITECTURE BENEFITS:
 - Single source of truth for service creation
 - Proper optional handling when no credentials
 - Clean separation between service factory and focused services

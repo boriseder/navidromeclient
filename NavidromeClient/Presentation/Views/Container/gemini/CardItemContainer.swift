@@ -55,6 +55,17 @@ struct CardItemContainer: View {
                     .foregroundColor(DSColor.secondary)
             }
         }
+        .padding(DSLayout.elementPadding)
+        .background(
+            Color(DSColor.surfaceLight) // hellgrau
+                .opacity(0.5)   // leicht transparent
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DSCorners.tight) // abgerundete Ecken
+                .stroke(Color(.systemGray4), lineWidth: 0.5) // Haarlinie
+        )
+        .cornerRadius(DSCorners.tight) // sorgt für das Clipping der Background
+
     }
     
     @ViewBuilder

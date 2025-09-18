@@ -2,7 +2,7 @@
 //  DiscoveryService.swift - Home Screen & Recommendations
 //  NavidromeClient
 //
-//  ✅ FOCUSED: Recent, newest, frequent, random albums - discovery content
+//   FOCUSED: Recent, newest, frequent, random albums - discovery content
 //
 
 import Foundation
@@ -21,7 +21,7 @@ class DiscoveryService {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: - ✅ DISCOVERY ALGORITHMS
+    // MARK: -  DISCOVERY ALGORITHMS
     
     func getRecentAlbums(size: Int = 20) async throws -> [Album] {
         return try await getAlbumList(type: .recent, size: size)
@@ -39,7 +39,7 @@ class DiscoveryService {
         return try await getAlbumList(type: .random, size: size)
     }
     
-    // MARK: - ✅ ADVANCED DISCOVERY
+    // MARK: -  ADVANCED DISCOVERY
     
     func getRecommendationsFor(artist: Artist, limit: Int = 10) async throws -> [Album] {
         // Get albums by same artist
@@ -89,7 +89,7 @@ class DiscoveryService {
         )
     }
     
-    // MARK: - ✅ GENRE-BASED DISCOVERY
+    // MARK: -  GENRE-BASED DISCOVERY
     
     func getAlbumsByGenre(genre: String, limit: Int = 20) async throws -> [Album] {
         guard !genre.isEmpty else { return [] }
@@ -119,7 +119,7 @@ class DiscoveryService {
             .map { $0 }
     }
     
-    // MARK: - ✅ TIME-BASED DISCOVERY
+    // MARK: -  TIME-BASED DISCOVERY
     
     func getAlbumsFromYear(year: Int, limit: Int = 20) async throws -> [Album] {
         // This would need a custom implementation or use search
@@ -142,7 +142,7 @@ class DiscoveryService {
             .map { $0 }
     }
     
-    // MARK: - ✅ PRIVATE CORE METHODS
+    // MARK: -  PRIVATE CORE METHODS
     
     private func getAlbumList(type: AlbumListType, size: Int = 20, offset: Int = 0) async throws -> [Album] {
         let params = ["type": type.rawValue, "size": "\(size)", "offset": "\(offset)"]
@@ -160,7 +160,7 @@ class DiscoveryService {
         )
         
         let albums = decoded.subsonicResponse.albumList2.album
-        print("✅ Loaded \(albums.count) \(type.rawValue) albums")
+        print(" Loaded \(albums.count) \(type.rawValue) albums")
         return albums
     }
     
@@ -183,7 +183,7 @@ class DiscoveryService {
             .filter { $0.id != album.id } // Exclude the source album
     }
     
-    // MARK: - ✅ CORE FETCH IMPLEMENTATION
+    // MARK: -  CORE FETCH IMPLEMENTATION
     
     private func fetchData<T: Decodable>(
         endpoint: String,
@@ -252,7 +252,7 @@ class DiscoveryService {
     }
 }
 
-// MARK: - ✅ SUPPORTING TYPES
+// MARK: -  SUPPORTING TYPES
 
 extension DiscoveryService {
     enum AlbumListType: String {

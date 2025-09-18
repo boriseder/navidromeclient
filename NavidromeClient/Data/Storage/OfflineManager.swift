@@ -33,7 +33,7 @@ class OfflineManager: ObservableObject {
             }
         }
         
-        // ✅ NEW: Überwache Download-Löschungen
+        //  NEW: Überwache Download-Löschungen
         NotificationCenter.default.addObserver(
             forName: .downloadDeleted,
             object: nil,
@@ -77,7 +77,7 @@ class OfflineManager: ObservableObject {
         objectWillChange.send() // Force UI update
     }
     
-    // ✅ NEW: Complete Reset Method
+    //  NEW: Complete Reset Method
     func performCompleteReset() {
         print("🔄 OfflineManager: Performing complete reset...")
         
@@ -87,7 +87,7 @@ class OfflineManager: ObservableObject {
         // Force UI update
         objectWillChange.send()
         
-        print("✅ OfflineManager: Reset completed")
+        print(" OfflineManager: Reset completed")
     }
     
     // Prüfe ob ein Album offline verfügbar ist
@@ -157,7 +157,7 @@ class OfflineManager: ObservableObject {
 
 
 
-// MARK: - ✅ NEW: Stats Helper
+// MARK: -  NEW: Stats Helper
 struct OfflineStats {
     let albumCount: Int
     let artistCount: Int

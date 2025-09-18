@@ -2,8 +2,8 @@
 //  SearchResultRow.swift - UPDATED for CoverArtManager
 //  NavidromeClient
 //
-//  ✅ UPDATED: Uses unified CoverArtManager instead of multiple services
-//  ✅ REACTIVE: Uses centralized image state instead of local @State
+//   UPDATED: Uses unified CoverArtManager instead of multiple services
+//   REACTIVE: Uses centralized image state instead of local @State
 //
 
 import SwiftUI
@@ -13,13 +13,13 @@ struct SearchResultArtistRow: View {
     let artist: Artist
     let index: Int // For staggered loading
     
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
             HStack(spacing: DSLayout.contentGap) {
-                // ✅ REACTIVE: Uses centralized state
+                //  REACTIVE: Uses centralized state
                 ArtistImageView(artist: artist, index: index)
                 ArtistInfoView(artist: artist)
                 Spacer()
@@ -39,13 +39,13 @@ struct SearchResultAlbumRow: View {
     let album: Album
     let index: Int // For staggered loading
     
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         NavigationLink(destination: AlbumDetailView(album: album)) {
             HStack(spacing: DSLayout.contentGap) {
-                // ✅ REACTIVE: Uses centralized state
+                //  REACTIVE: Uses centralized state
                 AlbumImageView(album: album, index: index)
                 AlbumInfoView(album: album)
                 Spacer()
@@ -67,13 +67,13 @@ struct SearchResultSongRow: View {
     let isPlaying: Bool
     let action: () -> Void
     
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: DSLayout.contentGap) {
-                // ✅ REACTIVE: Uses centralized state
+                //  REACTIVE: Uses centralized state
                 SongImageView(song: song, isPlaying: isPlaying)
                 SongInfoView(song: song, isPlaying: isPlaying)
                 Spacer()
@@ -86,13 +86,13 @@ struct SearchResultSongRow: View {
     }
 }
 
-// MARK: - ✅ UPDATED: Image Components (Pure UI)
+// MARK: -  UPDATED: Image Components (Pure UI)
 
 struct ArtistImageView: View {
     let artist: Artist
     let index: Int
     
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -103,7 +103,7 @@ struct ArtistImageView: View {
             
             Group {
                 if let image = coverArtManager.getArtistImage(for: artist.id) {
-                    // ✅ REACTIVE: Uses centralized state
+                    //  REACTIVE: Uses centralized state
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -125,7 +125,7 @@ struct ArtistImageView: View {
             }
         }
         .task(id: artist.id) {
-            // ✅ SINGLE LINE: Manager handles staggering, caching, state
+            //  SINGLE LINE: Manager handles staggering, caching, state
             await coverArtManager.loadArtistImage(
                 artist: artist,
                 size: Int(DSLayout.smallAvatar),
@@ -137,12 +137,12 @@ struct ArtistImageView: View {
     @ViewBuilder
     private var artistImageOverlay: some View {
         if coverArtManager.isLoadingImage(for: artist.id) {
-            // ✅ REACTIVE: Uses centralized loading state
+            //  REACTIVE: Uses centralized loading state
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
         } else if let error = coverArtManager.getImageError(for: artist.id) {
-            // ✅ NEW: Error state handling
+            //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
                 .foregroundStyle(.orange)
@@ -158,7 +158,7 @@ struct AlbumImageView: View {
     let album: Album
     let index: Int
     
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
@@ -169,7 +169,7 @@ struct AlbumImageView: View {
             
             Group {
                 if let image = coverArtManager.getAlbumImage(for: album.id) {
-                    // ✅ REACTIVE: Uses centralized state
+                    //  REACTIVE: Uses centralized state
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -191,7 +191,7 @@ struct AlbumImageView: View {
             }
         }
         .task(id: album.id) {
-            // ✅ SINGLE LINE: Manager handles staggering, caching, state
+            //  SINGLE LINE: Manager handles staggering, caching, state
             await coverArtManager.loadAlbumImage(
                 album: album,
                 size: Int(DSLayout.smallAvatar),
@@ -203,12 +203,12 @@ struct AlbumImageView: View {
     @ViewBuilder
     private var albumImageOverlay: some View {
         if coverArtManager.isLoadingImage(for: album.id) {
-            // ✅ REACTIVE: Uses centralized loading state
+            //  REACTIVE: Uses centralized loading state
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
         } else if let error = coverArtManager.getImageError(for: album.id) {
-            // ✅ NEW: Error state handling
+            //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
                 .foregroundStyle(.orange)
@@ -224,15 +224,15 @@ struct SongImageView: View {
     let song: Song
     let isPlaying: Bool
     
-    // ✅ UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
+    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
     @EnvironmentObject var coverArtManager: CoverArtManager
     
-    // ✅ REACTIVE: Get song image via centralized state
+    //  REACTIVE: Get song image via centralized state
     private var songImage: UIImage? {
         coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover))
     }
     
-    // ✅ REACTIVE: Get loading state via centralized state
+    //  REACTIVE: Get loading state via centralized state
     private var isLoading: Bool {
         guard let albumId = song.albumId else { return false }
         return coverArtManager.isLoadingImage(for: albumId)
@@ -268,7 +268,7 @@ struct SongImageView: View {
             }
         }
         .task(id: song.albumId) {
-            // ✅ SINGLE LINE: Manager handles all complexity
+            //  SINGLE LINE: Manager handles all complexity
             _ = await coverArtManager.loadSongImage(song: song, size: Int(DSLayout.miniCover))
         }
     }
@@ -289,12 +289,12 @@ struct SongImageView: View {
     @ViewBuilder
     private var songImageOverlay: some View {
         if isLoading {
-            // ✅ REACTIVE: Uses centralized loading state
+            //  REACTIVE: Uses centralized loading state
             ProgressView()
                 .scaleEffect(0.6)
                 .tint(.white)
         } else if let albumId = song.albumId, let error = coverArtManager.getImageError(for: albumId) {
-            // ✅ NEW: Error state handling
+            //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
                 .foregroundStyle(.orange)
@@ -496,7 +496,7 @@ extension Optional where Wrapped == String {
     }
 }
 
-// MARK: - ✅ Convenience Initializers
+// MARK: -  Convenience Initializers
 
 extension SearchResultArtistRow {
     /// Convenience initializer without index for simple usage

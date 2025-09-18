@@ -10,9 +10,9 @@
 //  UnifiedToolbar.swift - COMPLETE Toolbar System
 //  NavidromeClient
 //
-//  ✅ INTEGRATES: Existing AccountToolbarModifier functionality
-//  ✅ REPLACES: All existing toolbar patterns
-//  ✅ SUSTAINABLE: Single source of truth for all toolbars
+//   INTEGRATES: Existing AccountToolbarModifier functionality
+//   REPLACES: All existing toolbar patterns
+//   SUSTAINABLE: Single source of truth for all toolbars
 //
 
 import SwiftUI
@@ -28,14 +28,14 @@ struct ToolbarConfiguration {
     let rightItems: [ToolbarElement]
     let title: String?
     let displayMode: NavigationBarItem.TitleDisplayMode
-    let showSettings: Bool // ✅ INTEGRATES AccountToolbarModifier
+    let showSettings: Bool //  INTEGRATES AccountToolbarModifier
     
     init(
         leftItems: [ToolbarElement] = [],
         rightItems: [ToolbarElement] = [],
         title: String? = nil,
         displayMode: NavigationBarItem.TitleDisplayMode = .automatic,
-        showSettings: Bool = true // ✅ DEFAULT: Show settings (like AccountToolbarModifier)
+        showSettings: Bool = true //  DEFAULT: Show settings (like AccountToolbarModifier)
     ) {
         self.leftItems = leftItems
         self.rightItems = rightItems
@@ -49,7 +49,7 @@ struct ToolbarConfiguration {
 
 // MARK: - 3. Toolbar Element Types
 enum ToolbarElement: Identifiable {
-    // ✅ EXISTING: From analysis of your current toolbars
+    //  EXISTING: From analysis of your current toolbars
     case settings // Now handled by showSettings flag
     case refresh(action: () async -> Void)
     case offlineToggle(isOffline: Bool, toggle: () -> Void)
@@ -124,7 +124,7 @@ struct UnifiedToolbar: ViewModifier {
                         toolbarButton(for: item)
                     }
                     
-                    // ✅ INTEGRATES AccountToolbarModifier: Always show settings unless disabled
+                    //  INTEGRATES AccountToolbarModifier: Always show settings unless disabled
                     if config.showSettings {
                         SettingsButton()
                     }
@@ -274,7 +274,7 @@ private struct MenuToolbarButton: View {
     }
 }
 
-// ✅ REPLACES AccountToolbarModifier functionality
+//  REPLACES AccountToolbarModifier functionality
 private struct SettingsButton: View {
     var body: some View {
         NavigationLink {
@@ -292,12 +292,12 @@ extension View {
         self.modifier(UnifiedToolbar(config: config))
     }
     
-    // ✅ REPLACES: .accountToolbar() extension
+    //  REPLACES: .accountToolbar() extension
     func accountToolbar() -> some View {
         self.unifiedToolbar(ToolbarConfiguration(showSettings: true))
     }
     
-    // ✅ NEW: Convenience for no toolbar
+    //  NEW: Convenience for no toolbar
     func noToolbar() -> some View {
         self.unifiedToolbar(ToolbarConfiguration(showSettings: false))
     }
@@ -307,7 +307,7 @@ extension View {
 
 extension ToolbarConfiguration {
     
-    // ✅ REPLACES: Most AlbumsView/ArtistsView/GenreView toolbars
+    //  REPLACES: Most AlbumsView/ArtistsView/GenreView toolbars
     static func library(
         title: String,
         isOffline: Bool,
@@ -323,7 +323,7 @@ extension ToolbarConfiguration {
         )
     }
     
-    // ✅ COVERS: AlbumsView with sorting
+    //  COVERS: AlbumsView with sorting
     static func libraryWithSort<T>(
         title: String,
         isOffline: Bool,
@@ -362,7 +362,7 @@ extension ToolbarConfiguration {
         )
     }
     
-    // ✅ COVERS: Detail views like AlbumDetailView
+    //  COVERS: Detail views like AlbumDetailView
     static func detail(
         title: String,
         actions: [ToolbarElement] = []
@@ -376,7 +376,7 @@ extension ToolbarConfiguration {
         )
     }
     
-    // ✅ COVERS: Search views
+    //  COVERS: Search views
     static func search() -> ToolbarConfiguration {
         ToolbarConfiguration(
             leftItems: [],
@@ -387,7 +387,7 @@ extension ToolbarConfiguration {
         )
     }
     
-    // ✅ COVERS: Settings and other modal views
+    //  COVERS: Settings and other modal views
     static func modal(title: String) -> ToolbarConfiguration {
         ToolbarConfiguration(
             leftItems: [],
@@ -401,7 +401,7 @@ extension ToolbarConfiguration {
 
 // MARK: - 8. Sort Configuration Helpers
 
-// ✅ MAPS: ContentService.AlbumSortType to display names
+//  MAPS: ContentService.AlbumSortType to display names
 private func getSortDisplayName<T>(_ sortType: T) -> String where T: RawRepresentable, T.RawValue == String {
     // This would need to be implemented based on your actual sort types
     if let albumSort = sortType as? ContentService.AlbumSortType {

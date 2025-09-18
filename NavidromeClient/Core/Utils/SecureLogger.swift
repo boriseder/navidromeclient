@@ -36,7 +36,7 @@ final class SecureLogger {
         // Anonymisiere Username für Logs
         let anonymizedUsername = anonymizeUsername(username)
         if success {
-            authLogger.info("✅ Authentication successful for user: \(anonymizedUsername)")
+            authLogger.info(" Authentication successful for user: \(anonymizedUsername)")
         } else {
             authLogger.warning("🔒 Authentication failed for user: \(anonymizedUsername)")
         }

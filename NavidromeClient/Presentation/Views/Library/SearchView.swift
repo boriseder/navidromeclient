@@ -2,9 +2,9 @@
 //  SearchView.swift - CLEAN ARCHITECTURE FIXED
 //  NavidromeClient
 //
-//  ✅ FIXED: All compile errors resolved
-//  ✅ CLEAN: Direct manager access, no service extraction
-//  ✅ SUSTAINABLE: Proper error handling and state management
+//   FIXED: All compile errors resolved
+//   CLEAN: Direct manager access, no service extraction
+//   SUSTAINABLE: Proper error handling and state management
 //
 
 import SwiftUI
@@ -111,7 +111,7 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - ✅ CLEAN: Search Logic via NavidromeViewModel Only
+    // MARK: -  CLEAN: Search Logic via NavidromeViewModel Only
     
     private func handleQueryChange(_ newValue: String) {
         searchTask?.cancel()
@@ -156,7 +156,7 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - ✅ OFFLINE SEARCH: Field-specific only
+    // MARK: -  OFFLINE SEARCH: Field-specific only
     
     private func performOfflineSearch(query: String) {
         searchTask = Task {
@@ -228,11 +228,11 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - ✅ ONLINE SEARCH: Via NavidromeViewModel Only
+    // MARK: -  ONLINE SEARCH: Via NavidromeViewModel Only
     
     private func performOnlineSearch(query: String) {
         searchTask = Task {
-            // ✅ ROUTE: Through NavidromeViewModel only (no direct service access)
+            //  ROUTE: Through NavidromeViewModel only (no direct service access)
             let result = await navidromeVM.search(query: query)
             
             if !Task.isCancelled {
@@ -279,7 +279,7 @@ struct SearchView: View {
         )
     }
     
-    // MARK: - ✅ UTILITY: Relevance Sorting
+    // MARK: -  UTILITY: Relevance Sorting
     
     private func sortByRelevance<T>(_ items: [T], query: String, keyPath: (T) -> String) -> [T] {
         return items.sorted { item1, item2 in
@@ -301,7 +301,7 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - ✅ STATE Management
+    // MARK: -  STATE Management
     
     private func clearResults() {
         searchTask?.cancel()
@@ -332,7 +332,7 @@ struct SearchView: View {
         }
     }
     
-    // MARK: - ✅ UI Components
+    // MARK: -  UI Components
     
     @ViewBuilder
     private func SearchModeHeader() -> some View {
@@ -496,7 +496,7 @@ struct SearchView: View {
     }
 }
 
-// MARK: - ✅ Search Header Components
+// MARK: -  Search Header Components
 
 struct SearchHeaderView: View {
     @Binding var query: String

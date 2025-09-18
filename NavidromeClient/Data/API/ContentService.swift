@@ -10,7 +10,7 @@
 //  ContentService.swift - Library Content Operations  
 //  NavidromeClient
 //
-//  ✅ FOCUSED: Albums, artists, songs, genres - all library content
+//   FOCUSED: Albums, artists, songs, genres - all library content
 //
 
 import Foundation
@@ -29,7 +29,7 @@ class ContentService {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: - ✅ ALBUMS API
+    // MARK: -  ALBUMS API
     
     func getAllAlbums(
         sortBy: AlbumSortType = .alphabetical,
@@ -75,7 +75,7 @@ class ContentService {
         return decoded.subsonicResponse.albumList2.album
     }
     
-    // MARK: - ✅ ARTISTS API
+    // MARK: -  ARTISTS API
     
     func getArtists() async throws -> [Artist] {
         let decoded: SubsonicResponse<ArtistsContainer> = try await fetchData(
@@ -86,7 +86,7 @@ class ContentService {
         return decoded.subsonicResponse.artists?.index?.flatMap { $0.artist ?? [] } ?? []
     }
     
-    // MARK: - ✅ SONGS API
+    // MARK: -  SONGS API
     
     func getSongs(for albumId: String) async throws -> [Song] {
         guard !albumId.isEmpty else { return [] }
@@ -100,7 +100,7 @@ class ContentService {
         return decoded.subsonicResponse.album.song ?? []
     }
     
-    // MARK: - ✅ GENRES API
+    // MARK: -  GENRES API
     
     func getGenres() async throws -> [Genre] {
         let decoded: SubsonicResponse<GenresContainer> = try await fetchData(
@@ -111,7 +111,7 @@ class ContentService {
         return decoded.subsonicResponse.genres?.genre ?? []
     }
     
-    // MARK: - ✅ CORE FETCH IMPLEMENTATION
+    // MARK: -  CORE FETCH IMPLEMENTATION
     
     private func fetchData<T: Decodable>(
         endpoint: String,
@@ -158,7 +158,7 @@ class ContentService {
         }
     }
     
-    // MARK: - ✅ BATCH OPERATIONS with Fallbacks
+    // MARK: -  BATCH OPERATIONS with Fallbacks
     
     func fetchDataWithFallback<T: Decodable>(
         endpoint: String,
@@ -186,7 +186,7 @@ class ContentService {
         }
     }
     
-    // MARK: - ✅ ERROR HANDLING
+    // MARK: -  ERROR HANDLING
     
     private func handleDecodingError(_ error: Error, endpoint: String) -> SubsonicError {
         if case DecodingError.keyNotFound(let key, _) = error {
@@ -201,7 +201,7 @@ class ContentService {
     }
 }
 
-// MARK: - ✅ ALBUM SORT TYPES
+// MARK: -  ALBUM SORT TYPES
 
 extension ContentService {
     enum AlbumSortType: String, CaseIterable {

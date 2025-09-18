@@ -10,7 +10,7 @@
 //  LibraryStatusHeader.swift - Generic Status Header Component
 //  NavidromeClient
 //
-//  ✅ DRY: Replaces ArtistsStatusHeader + GenresStatusHeader
+//   DRY: Replaces ArtistsStatusHeader + GenresStatusHeader
 //
 
 import SwiftUI

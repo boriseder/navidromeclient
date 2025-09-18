@@ -2,9 +2,9 @@
 //  UnifiedSubsonicService.swift - REFACTORED: Pure Service Factory
 //  NavidromeClient
 //
-//  ✅ REMOVED: All delegation methods (~180 LOC eliminated)
-//  ✅ KEPT: Service Factory Pattern + Access Methods
-//  ✅ CLEAN: Focused responsibility
+//   REMOVED: All delegation methods (~180 LOC eliminated)
+//   KEPT: Service Factory Pattern + Access Methods
+//   CLEAN: Focused responsibility
 //
 
 import Foundation
@@ -13,14 +13,14 @@ import UIKit
 @MainActor
 class UnifiedSubsonicService: ObservableObject {
     
-    // MARK: - ✅ THEMATIC SERVICES (Private)
+    // MARK: -  THEMATIC SERVICES (Private)
     internal let connectionService: ConnectionService
     internal let contentService: ContentService
     internal let mediaService: MediaService
     internal let discoveryService: DiscoveryService
     internal let searchService: SearchService
     
-    // MARK: - ✅ SERVICE FACTORY PATTERN
+    // MARK: -  SERVICE FACTORY PATTERN
     
     init(baseURL: URL, username: String, password: String) {
         // Initialize services in dependency order
@@ -35,10 +35,10 @@ class UnifiedSubsonicService: ObservableObject {
         self.discoveryService = DiscoveryService(connectionService: connectionService)
         self.searchService = SearchService(connectionService: connectionService)
         
-        print("✅ UnifiedSubsonicService: Service factory initialized")
+        print(" UnifiedSubsonicService: Service factory initialized")
     }
     
-    // MARK: - ✅ SERVICE ACCESS METHODS (Only these remain)
+    // MARK: -  SERVICE ACCESS METHODS (Only these remain)
     
     func getConnectionService() -> ConnectionService {
         return connectionService
@@ -60,7 +60,7 @@ class UnifiedSubsonicService: ObservableObject {
         return searchService
     }
     
-    // MARK: - ✅ HEALTH & DIAGNOSTICS
+    // MARK: -  HEALTH & DIAGNOSTICS
     
     func performHealthCheck() async -> ConnectionHealth {
         return await connectionService.performHealthCheck()
@@ -72,5 +72,5 @@ class UnifiedSubsonicService: ObservableObject {
     }
 }
 
-// MARK: - ✅ LEGACY TYPE ALIAS (Backwards compatibility)
+// MARK: -  LEGACY TYPE ALIAS (Backwards compatibility)
 typealias SubsonicService = UnifiedSubsonicService

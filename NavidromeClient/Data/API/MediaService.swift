@@ -10,7 +10,7 @@
 //  MediaService.swift - Media URLs & Cover Art
 //  NavidromeClient
 //
-//  ✅ FOCUSED: Cover art, streaming URLs, downloads
+//   FOCUSED: Cover art, streaming URLs, downloads
 //
 
 import Foundation
@@ -33,7 +33,7 @@ class MediaService {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: - ✅ COVER ART API
+    // MARK: -  COVER ART API
     
     func getCoverArt(for coverId: String, size: Int = 300) async -> UIImage? {
         let cacheKey = "\(coverId)_\(size)"
@@ -94,10 +94,10 @@ class MediaService {
             }
         }
         
-        print("✅ Preloaded cover art for \(albumsToPreload.count) albums")
+        print(" Preloaded cover art for \(albumsToPreload.count) albums")
     }
     
-    // MARK: - ✅ STREAMING URLS
+    // MARK: -  STREAMING URLS
     
     func streamURL(for songId: String) -> URL? {
         guard !songId.isEmpty else { return nil }
@@ -115,7 +115,7 @@ class MediaService {
         return connectionService.buildURL(endpoint: "download", params: params)
     }
     
-    // MARK: - ✅ MEDIA METADATA
+    // MARK: -  MEDIA METADATA
     
     func getMediaInfo(for songId: String) async throws -> MediaInfo? {
         guard !songId.isEmpty else { return nil }
@@ -125,7 +125,7 @@ class MediaService {
         return nil
     }
     
-    // MARK: - ✅ BATCH COVER ART OPERATIONS
+    // MARK: -  BATCH COVER ART OPERATIONS
     
     func getCoverArtBatch(
         items: [(id: String, size: Int)],
@@ -162,7 +162,7 @@ class MediaService {
         return results
     }
     
-    // MARK: - ✅ AUDIO QUALITY OPTIMIZATION
+    // MARK: -  AUDIO QUALITY OPTIMIZATION
     
     func getOptimalStreamURL(
         for songId: String,
@@ -191,7 +191,7 @@ class MediaService {
         return connectionService.buildURL(endpoint: "stream", params: params)
     }
     
-    // MARK: - ✅ CACHE MANAGEMENT
+    // MARK: -  CACHE MANAGEMENT
     
     func clearCoverArtCache() {
         PersistentImageCache.shared.clearCache()
@@ -210,7 +210,7 @@ class MediaService {
     }
 }
 
-// MARK: - ✅ SUPPORTING TYPES
+// MARK: -  SUPPORTING TYPES
 
 struct MediaInfo {
     let bitRate: Int?

@@ -2,9 +2,9 @@
 //  HomeScreenManager.swift - SIMPLIFIED: Direct UnifiedSubsonicService
 //  NavidromeClient
 //
-//  ✅ REMOVED: Legacy service support, dual configuration
-//  ✅ SIMPLIFIED: Single service dependency via UnifiedSubsonicService
-//  ✅ CLEAN: Direct access to service.discoveryService
+//   REMOVED: Legacy service support, dual configuration
+//   SIMPLIFIED: Single service dependency via UnifiedSubsonicService
+//   CLEAN: Direct access to service.discoveryService
 //
 
 import Foundation
@@ -24,7 +24,7 @@ class HomeScreenManager: ObservableObject {
     @Published private(set) var homeDataError: String?
     @Published private(set) var lastHomeRefresh: Date?
     
-    // ✅ SINGLE SERVICE DEPENDENCY
+    //  SINGLE SERVICE DEPENDENCY
     private weak var service: UnifiedSubsonicService?
     
     // Configuration
@@ -33,14 +33,14 @@ class HomeScreenManager: ObservableObject {
     
     private init() {}
     
-    // MARK: - ✅ SIMPLIFIED: Single Configuration Method
+    // MARK: -  SIMPLIFIED: Single Configuration Method
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("✅ HomeScreenManager configured with UnifiedSubsonicService")
+        print(" HomeScreenManager configured with UnifiedSubsonicService")
     }
     
-    // MARK: - ✅ HOME SCREEN DATA LOADING
+    // MARK: -  HOME SCREEN DATA LOADING
     
     func loadHomeScreenData() async {
         guard let service = service else {
@@ -53,7 +53,7 @@ class HomeScreenManager: ObservableObject {
         defer { isLoadingHomeData = false }
         
         do {
-            // ✅ DIRECT ACCESS: service.discoveryService
+            //  DIRECT ACCESS: service.discoveryService
             let discoveryMix = try await service.discoveryService.getDiscoveryMix(size: homeDataBatchSize * 4)
             
             recentAlbums = Array(discoveryMix.recent.prefix(homeDataBatchSize))
@@ -62,7 +62,7 @@ class HomeScreenManager: ObservableObject {
             randomAlbums = Array(discoveryMix.random.prefix(homeDataBatchSize))
             
             lastHomeRefresh = Date()
-            print("✅ Home screen data loaded: \(discoveryMix.totalCount) total albums")
+            print(" Home screen data loaded: \(discoveryMix.totalCount) total albums")
             
         } catch {
             print("❌ Failed to load discovery mix, falling back to individual calls")
@@ -86,13 +86,13 @@ class HomeScreenManager: ObservableObject {
         
         do {
             randomAlbums = try await service.discoveryService.getRandomAlbums(size: homeDataBatchSize)
-            print("✅ Refreshed random albums: \(randomAlbums.count)")
+            print(" Refreshed random albums: \(randomAlbums.count)")
         } catch {
             print("❌ Failed to refresh random albums: \(error)")
         }
     }
     
-    // MARK: - ✅ SIMPLIFIED: Fallback Implementation
+    // MARK: -  SIMPLIFIED: Fallback Implementation
     
     private func loadHomeScreenDataFallback() async {
         guard let service = service else { return }
@@ -105,7 +105,7 @@ class HomeScreenManager: ObservableObject {
         }
         
         lastHomeRefresh = Date()
-        print("✅ Home screen data loaded via fallback method")
+        print(" Home screen data loaded via fallback method")
     }
     
     private func loadRecentAlbums() async {
@@ -152,7 +152,7 @@ class HomeScreenManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ UTILITY METHODS
+    // MARK: -  UTILITY METHODS
     
     func refreshIfNeeded() async {
         guard shouldRefreshHomeData else { return }
@@ -194,7 +194,7 @@ class HomeScreenManager: ObservableObject {
         homeDataError = nil
         lastHomeRefresh = nil
         
-        print("✅ HomeScreenManager reset completed")
+        print(" HomeScreenManager reset completed")
     }
     
     private func handleHomeDataError(_ error: Error, for section: String) {

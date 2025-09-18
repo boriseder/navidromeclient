@@ -91,7 +91,7 @@ class AudioSessionManager: NSObject, ObservableObject {
             try audioSession.setActive(true)
             isAudioSessionActive = true
             
-            print("✅ Audio Session configured successfully")
+            print(" Audio Session configured successfully")
             
         } catch {
             print("❌ Audio Session setup failed: \(error)")

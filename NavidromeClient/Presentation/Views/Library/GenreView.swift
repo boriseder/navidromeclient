@@ -10,9 +10,9 @@
 //  AlbumsView.swift - MIGRATED to Container Architecture
 //  NavidromeClient
 //
-//  ✅ PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
-//  ✅ MAINTAINS: All existing functionality
-//  ✅ REDUCES: ~60% of view code through container reuse
+//   PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
+//   MAINTAINS: All existing functionality
+//   REDUCES: ~60% of view code through container reuse
 //
 
 import SwiftUI
@@ -56,7 +56,7 @@ struct GenreView: View {
         return displayedGenres.isEmpty
     }
     
-    // MARK: - ✅ NEW: Simplified Body using LibraryContainer
+    // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
         LibraryView(
             title: "Genres",
@@ -79,21 +79,20 @@ struct GenreView: View {
         }
     }
 
-    // MARK: - ✅ FIXED: Grid Content with Load More
+    // MARK: -  FIXED: Grid Content with Load More
     @ViewBuilder
     private func GenresListContent() -> some View {
-        ListContainer(
+        UnifiedContainer(
             items: displayedGenres,
-            onItemTap: { genre in
-            }
+            layout: .list
         ) { genre, index in
             NavigationLink(value: genre) {
                 ListItemContainer(content: .genre(genre), index: index)
             }
         }
     }
-    
-    // MARK: - ✅ UNCHANGED: All business logic remains identical
+
+    // MARK: -  UNCHANGED: All business logic remains identical
     
     private func getGenreDataSource() -> [Genre] {
         if canLoadOnlineContent && !isOfflineMode {

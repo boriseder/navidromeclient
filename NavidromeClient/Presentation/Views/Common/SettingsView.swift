@@ -2,9 +2,9 @@
 //  SettingsView.swift - CLEANED: Pure Service Architecture
 //  NavidromeClient
 //
-//  ✅ ELIMINATED: All legacy service patterns and direct service extraction
-//  ✅ CLEAN: Routes through ViewModels and AppConfig only
-//  ✅ REMOVED: All problematic dynamic members and missing components
+//   ELIMINATED: All legacy service patterns and direct service extraction
+//   CLEAN: Routes through ViewModels and AppConfig only
+//   REMOVED: All problematic dynamic members and missing components
 //
 
 import SwiftUI
@@ -254,7 +254,7 @@ struct ServerEditView: View {
         }
     }
     
-    // ✅ CLEAN: Route through ViewModels only (no service extraction)
+    //  CLEAN: Route through ViewModels only (no service extraction)
     private func saveCredentialsAndConfigure() async {
         let success = await navidromeVM.saveCredentials()
         if success {
@@ -266,7 +266,7 @@ struct ServerEditView: View {
                 }
             }
             
-            // ✅ CLEAN: Let NavidromeViewModel handle initial data loading
+            //  CLEAN: Let NavidromeViewModel handle initial data loading
             await navidromeVM.loadInitialDataIfNeeded()
         } else {
             errorMessage = navidromeVM.errorMessage ?? "Failed to save credentials"
@@ -301,7 +301,7 @@ struct ServerEditView: View {
     }
 }
 
-// MARK: - ✅ NEW: OfflineWarningSection Component
+// MARK: -  NEW: OfflineWarningSection Component
 struct OfflineWarningSection: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager

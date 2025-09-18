@@ -2,9 +2,9 @@
 //  MusicLibraryManager.swift - SIMPLIFIED: Direct UnifiedSubsonicService
 //  NavidromeClient
 //
-//  ✅ REMOVED: ContentService dependency, legacy compatibility
-//  ✅ SIMPLIFIED: Single service dependency via UnifiedSubsonicService
-//  ✅ CLEAN: Direct access to service.contentService
+//   REMOVED: ContentService dependency, legacy compatibility
+//   SIMPLIFIED: Single service dependency via UnifiedSubsonicService
+//   CLEAN: Direct access to service.contentService
 //
 
 import Foundation
@@ -12,10 +12,10 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
-    // ✅ SINGLETON PATTERN (unchanged)
+    //  SINGLETON PATTERN (unchanged)
     static let shared = MusicLibraryManager()
     
-    // ✅ PROGRESSIVE LIBRARY DATA (unchanged)
+    //  PROGRESSIVE LIBRARY DATA (unchanged)
     @Published private(set) var loadedAlbums: [Album] = []
     @Published private(set) var totalAlbumCount: Int = 0
     @Published private(set) var albumLoadingState: DataLoadingState = .idle
@@ -27,15 +27,15 @@ class MusicLibraryManager: ObservableObject {
     @Published private(set) var loadedGenres: [Genre] = []
     @Published private(set) var genreLoadingState: DataLoadingState = .idle
     
-    // ✅ STATE MANAGEMENT (unchanged)
+    //  STATE MANAGEMENT (unchanged)
     @Published private(set) var hasLoadedInitialData = false
     @Published private(set) var lastRefreshDate: Date?
     @Published private(set) var backgroundLoadingProgress: String = ""
     
-    // ✅ SINGLE SERVICE DEPENDENCY
+    //  SINGLE SERVICE DEPENDENCY
     private weak var service: UnifiedSubsonicService?
     
-    // ✅ CONFIGURATION (unchanged)
+    //  CONFIGURATION (unchanged)
     private struct LoadingConfig {
         static let albumBatchSize = 20
         static let artistBatchSize = 25
@@ -43,10 +43,10 @@ class MusicLibraryManager: ObservableObject {
         static let batchDelay: UInt64 = 200_000_000   // 200ms
     }
     
-    // ✅ SINGLETON INIT (unchanged)
+    //  SINGLETON INIT (unchanged)
     private init() {}
     
-    // MARK: - ✅ PUBLIC API (unchanged)
+    // MARK: -  PUBLIC API (unchanged)
     var albums: [Album] { loadedAlbums }
     var artists: [Artist] { loadedArtists }
     var genres: [Genre] { loadedGenres }
@@ -65,13 +65,13 @@ class MusicLibraryManager: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) < freshnessDuration
     }
     
-    // ✅ SIMPLIFIED: Single configuration method
+    //  SIMPLIFIED: Single configuration method
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("✅ MusicLibraryManager configured with UnifiedSubsonicService")
+        print(" MusicLibraryManager configured with UnifiedSubsonicService")
     }
     
-    // MARK: - ✅ ALBUMS LOADING with Direct Service Access
+    // MARK: -  ALBUMS LOADING with Direct Service Access
     
     func loadAlbumsProgressively(
         sortBy: ContentService.AlbumSortType = .alphabetical,
@@ -86,7 +86,7 @@ class MusicLibraryManager: ObservableObject {
         
         guard albumLoadingState.canLoadMore else { return }
         
-        // ✅ DIRECT SERVICE ACCESS
+        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             albumLoadingState = .error("Service not available")
             print("❌ UnifiedSubsonicService not configured")
@@ -105,7 +105,7 @@ class MusicLibraryManager: ObservableObject {
                 try await Task.sleep(nanoseconds: LoadingConfig.batchDelay)
             }
             
-            // ✅ DIRECT ACCESS: service.contentService
+            //  DIRECT ACCESS: service.contentService
             let newAlbums = try await service.contentService.getAllAlbums(
                 sortBy: sortBy,
                 size: batchSize,
@@ -141,14 +141,14 @@ class MusicLibraryManager: ObservableObject {
             
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
+            print(" Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
             
         } catch {
             await handleLoadingError(error, for: "albums")
         }
     }
     
-    // MARK: - ✅ ARTISTS LOADING with Direct Service Access
+    // MARK: -  ARTISTS LOADING with Direct Service Access
     
     func loadArtistsProgressively(reset: Bool = false) async {
         
@@ -160,7 +160,7 @@ class MusicLibraryManager: ObservableObject {
         
         guard artistLoadingState.canLoadMore else { return }
         
-        // ✅ DIRECT SERVICE ACCESS
+        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             artistLoadingState = .error("Service not available")
             print("❌ UnifiedSubsonicService not configured")
@@ -171,7 +171,7 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading artists..."
         
         do {
-            // ✅ DIRECT ACCESS: service.contentService
+            //  DIRECT ACCESS: service.contentService
             let allArtists = try await service.contentService.getArtists()
             
             loadedArtists = allArtists
@@ -179,14 +179,14 @@ class MusicLibraryManager: ObservableObject {
             artistLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded artists: \(allArtists.count)")
+            print(" Loaded artists: \(allArtists.count)")
             
         } catch {
             await handleLoadingError(error, for: "artists")
         }
     }
     
-    // MARK: - ✅ GENRES LOADING with Direct Service Access
+    // MARK: -  GENRES LOADING with Direct Service Access
     
     func loadGenresProgressively(reset: Bool = false) async {
         
@@ -197,7 +197,7 @@ class MusicLibraryManager: ObservableObject {
         
         guard genreLoadingState.canLoadMore else { return }
         
-        // ✅ DIRECT SERVICE ACCESS
+        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             genreLoadingState = .error("Service not available")
             print("❌ UnifiedSubsonicService not configured")
@@ -208,21 +208,21 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading genres..."
         
         do {
-            // ✅ DIRECT ACCESS: service.contentService
+            //  DIRECT ACCESS: service.contentService
             let allGenres = try await service.contentService.getGenres()
             
             loadedGenres = allGenres
             genreLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded genres: \(allGenres.count)")
+            print(" Loaded genres: \(allGenres.count)")
             
         } catch {
             await handleLoadingError(error, for: "genres")
         }
     }
     
-    // MARK: - ✅ COORDINATED LOADING (simplified logic, direct service calls)
+    // MARK: -  COORDINATED LOADING (simplified logic, direct service calls)
     
     func loadInitialDataIfNeeded() async {
         guard !hasLoadedInitialData,
@@ -251,7 +251,7 @@ class MusicLibraryManager: ObservableObject {
             }
         }
         
-        print("✅ Initial progressive data load completed")
+        print(" Initial progressive data load completed")
     }
     
     func loadMoreAlbumsIfNeeded() async {
@@ -275,10 +275,10 @@ class MusicLibraryManager: ObservableObject {
         }
         
         lastRefreshDate = Date()
-        print("✅ Progressive data refresh completed")
+        print(" Progressive data refresh completed")
     }
     
-    // MARK: - ✅ NETWORK STATE HANDLING (unchanged)
+    // MARK: -  NETWORK STATE HANDLING (unchanged)
     
     func handleNetworkChange(isOnline: Bool) async {
         guard isOnline,
@@ -295,11 +295,11 @@ class MusicLibraryManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ ARTIST/GENRE DETAIL SUPPORT with Direct Service Access
+    // MARK: -  ARTIST/GENRE DETAIL SUPPORT with Direct Service Access
     
     
     func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
-        // ✅ DIRECT SERVICE ACCESS
+        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             print("❌ UnifiedSubsonicService not available for context loading")
             throw URLError(.networkConnectionLost)
@@ -307,15 +307,15 @@ class MusicLibraryManager: ObservableObject {
         
         switch context {
         case .artist(let artist):
-            // ✅ DIRECT ACCESS: service.contentService
+            //  DIRECT ACCESS: service.contentService
             return try await service.contentService.getAlbumsByArtist(artistId: artist.id)
         case .genre(let genre):
-            // ✅ DIRECT ACCESS: service.contentService
+            //  DIRECT ACCESS: service.contentService
             return try await service.contentService.getAlbumsByGenre(genre: genre.value)
         }
     }
     
-    // MARK: - ✅ PRIVATE IMPLEMENTATION (simplified error messages)
+    // MARK: -  PRIVATE IMPLEMENTATION (simplified error messages)
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
         print("❌ Failed to load \(dataType): \(error)")
@@ -361,7 +361,7 @@ class MusicLibraryManager: ObservableObject {
         OfflineManager.shared.switchToOfflineMode()
     }
     
-    // MARK: - ✅ RESET (unchanged)
+    // MARK: -  RESET (unchanged)
     
     func reset() {
         loadedAlbums = []
@@ -378,11 +378,11 @@ class MusicLibraryManager: ObservableObject {
         totalAlbumCount = 0
         totalArtistCount = 0
         
-        print("✅ MusicLibraryManager reset completed")
+        print(" MusicLibraryManager reset completed")
     }
 }
 
-// MARK: - ✅ DATA LOADING STATE (unchanged)
+// MARK: -  DATA LOADING STATE (unchanged)
 
 enum DataLoadingState: Equatable {
     case idle

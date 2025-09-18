@@ -2,9 +2,9 @@
 //  AlbumDetailView.swift - CLEAN: Nur bestehende Komponenten
 //  NavidromeClient
 //
-//  ✅ DRY: Nutzt nur existierende EmptyStateView, LibraryStatusHeader, etc.
-//  ✅ SAUBER: Keine Code-Duplikation
-//  ✅ KONSISTENT: Folgt bestehenden Patterns
+//   DRY: Nutzt nur existierende EmptyStateView, LibraryStatusHeader, etc.
+//   SAUBER: Keine Code-Duplikation
+//   KONSISTENT: Folgt bestehenden Patterns
 //
 
 import SwiftUI
@@ -35,7 +35,7 @@ struct AlbumDetailView: View {
                     isOfflineAlbum: isOfflineAlbum
                 )
                 
-                // ✅ BESTEHENDE KOMPONENTE: LibraryStatusHeader für Offline-Status
+                //  BESTEHENDE KOMPONENTE: LibraryStatusHeader für Offline-Status
                 if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
                     HStack {
                         if downloadManager.isAlbumDownloaded(album.id) {
@@ -49,7 +49,7 @@ struct AlbumDetailView: View {
                 }
                 
                 if songs.isEmpty {
-                    // ✅ BESTEHENDE KOMPONENTE: EmptyStateView
+                    //  BESTEHENDE KOMPONENTE: EmptyStateView
                     EmptyStateView(
                         type: .songs,
                         customTitle: "No Songs Available",
@@ -81,15 +81,15 @@ struct AlbumDetailView: View {
     private func loadAlbumData() async {
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
-        // ✅ BESTEHENDE INTEGRATION: CoverArtManager
+        //  BESTEHENDE INTEGRATION: CoverArtManager
         coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(DSLayout.fullCover))
         
-        // ✅ BESTEHENDE INTEGRATION: NavidromeViewModel für Songs
+        //  BESTEHENDE INTEGRATION: NavidromeViewModel für Songs
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
 
-// MARK: - ✅ BESTEHENDE AlbumHeaderView (angepasst für bestehende Komponenten)
+// MARK: -  BESTEHENDE AlbumHeaderView (angepasst für bestehende Komponenten)
 
 struct AlbumHeaderView: View {
     let album: Album
@@ -129,7 +129,7 @@ struct AlbumHeaderView: View {
                     CompactPlayButton(album: album, songs: songs)
                     ShuffleButton(album: album, songs: songs)
                     
-                    // ✅ BESTEHENDE KOMPONENTE: DownloadButton
+                    //  BESTEHENDE KOMPONENTE: DownloadButton
                     if !isOfflineAlbum {
                         DownloadButton(
                             album: album,
@@ -168,7 +168,7 @@ struct AlbumHeaderView: View {
     }
 }
 
-// MARK: - ✅ BESTEHENDE Komponenten (unverändert)
+// MARK: -  BESTEHENDE Komponenten (unverändert)
 
 
 struct AlbumCoverView: View {

@@ -2,9 +2,9 @@
 //  NetworkMonitor.swift - FIXED: ConnectionManager/ConnectionService Integration
 //  NavidromeClient
 //
-//  ✅ FIXED: Direct ConnectionService access for detailed monitoring
-//  ✅ FIXED: Simplified ConnectionManager usage for UI state
-//  ✅ BACKWARDS COMPATIBLE: All existing API calls unchanged
+//   FIXED: Direct ConnectionService access for detailed monitoring
+//   FIXED: Simplified ConnectionManager usage for UI state
+//   BACKWARDS COMPATIBLE: All existing API calls unchanged
 //
 
 import Foundation
@@ -19,7 +19,7 @@ class NetworkMonitor: ObservableObject {
     @Published var isConnected = true
     @Published var connectionType: NetworkConnectionType = .unknown
     
-    // ✅ FIXED: Enhanced server connection status via ConnectionService
+    //  FIXED: Enhanced server connection status via ConnectionService
     @Published var isServerReachable = true
     @Published var lastServerCheck: Date?
     @Published var serverConnectionQuality: ConnectionQuality = .unknown
@@ -27,7 +27,7 @@ class NetworkMonitor: ObservableObject {
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
     
-    // ✅ FIXED: ConnectionManager instead of direct service
+    //  FIXED: ConnectionManager instead of direct service
     private var serverCheckTimer: Timer?
     private weak var connectionManager: ConnectionManager?
     
@@ -35,7 +35,7 @@ class NetworkMonitor: ObservableObject {
         case wifi, cellular, ethernet, unknown
     }
     
-    // ✅ FIXED: Simplified ConnectionQuality (no longer from ConnectionManager)
+    //  FIXED: Simplified ConnectionQuality (no longer from ConnectionManager)
     enum ConnectionQuality {
         case unknown, excellent, good, poor, timeout
         
@@ -95,14 +95,14 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ FIXED: Enhanced Server Monitoring via ConnectionManager/ConnectionService
+    // MARK: -  FIXED: Enhanced Server Monitoring via ConnectionManager/ConnectionService
     
     /// FIXED: Now accepts ConnectionManager instead of SubsonicService
     func setConnectionManager(_ manager: ConnectionManager?) {
         self.connectionManager = manager
         
         if manager != nil {
-            print("✅ NetworkMonitor: ConnectionManager configured")
+            print(" NetworkMonitor: ConnectionManager configured")
             checkServerConnection()
         } else {
             print("⚠️ NetworkMonitor: ConnectionManager removed")
@@ -120,7 +120,7 @@ class NetworkMonitor: ObservableObject {
             // We can't easily extract ConnectionManager from service,
             // so we'll just mark as connected for legacy compatibility
             isServerReachable = true
-            print("✅ NetworkMonitor: Legacy service configured (limited functionality)")
+            print(" NetworkMonitor: Legacy service configured (limited functionality)")
         } else {
             isServerReachable = false
             serverConnectionQuality = .unknown
@@ -128,11 +128,11 @@ class NetworkMonitor: ObservableObject {
     }
     
     private func startServerMonitoring() {
-        // ✅ FIXED: Enhanced monitoring with ConnectionService integration
+        //  FIXED: Enhanced monitoring with ConnectionService integration
         serverCheckTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.checkServerConnection()
         }
-        print("✅ NetworkMonitor: Server monitoring started (30s intervals)")
+        print(" NetworkMonitor: Server monitoring started (30s intervals)")
     }
     
     func checkServerConnection() async {
@@ -155,11 +155,11 @@ class NetworkMonitor: ObservableObject {
         
         let wasReachable = isServerReachable
         
-        // ✅ FIXED: Use ConnectionManager simplified API
+        //  FIXED: Use ConnectionManager simplified API
         await connectionManager.performQuickHealthCheck()
         let serverReachable = connectionManager.isConnected
         
-        // ✅ FIXED: Get connection quality from ConnectionService if available
+        //  FIXED: Get connection quality from ConnectionService if available
         var connectionQuality: ConnectionQuality = .unknown
         
         if let connectionService = connectionManager.getConnectionService() {
@@ -194,7 +194,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ FIXED: Enhanced Computed Properties with ConnectionService data
+    // MARK: -  FIXED: Enhanced Computed Properties with ConnectionService data
     
     /// True if both internet AND server are reachable via ConnectionService
     var canLoadOnlineContent: Bool {
@@ -240,8 +240,8 @@ class NetworkMonitor: ObservableObject {
         var summary: String {
             var status: [String] = []
             
-            status.append("Internet: \(isConnected ? "✅" : "❌")")
-            status.append("Server: \(isServerReachable ? "✅" : "❌")")
+            status.append("Internet: \(isConnected ? "" : "❌")")
+            status.append("Server: \(isServerReachable ? "" : "❌")")
             
             if let lastCheck = lastServerCheck {
                 let formatter = DateFormatter()
@@ -249,7 +249,7 @@ class NetworkMonitor: ObservableObject {
                 status.append("Last Check: \(formatter.string(from: lastCheck))")
             }
             
-            status.append("ConnectionManager: \(hasConnectionManager ? "✅" : "❌")")
+            status.append("ConnectionManager: \(hasConnectionManager ? "" : "❌")")
             
             return status.joined(separator: " | ")
         }
@@ -259,7 +259,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ FIXED: Enhanced Server Health Features
+    // MARK: -  FIXED: Enhanced Server Health Features
     
     /// Force immediate server health check via ConnectionService
     func forceServerHealthCheck() async {
@@ -302,7 +302,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ FIXED: Private Helper Methods
+    // MARK: -  FIXED: Private Helper Methods
     
     /// Map ConnectionService.ConnectionQuality to local enum
     private func mapConnectionServiceQuality(_ serviceQuality: ConnectionService.ConnectionQuality) -> ConnectionQuality {
@@ -315,7 +315,7 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - ✅ FIXED: Reset & Cleanup
+    // MARK: -  FIXED: Reset & Cleanup
     
     func reset() {
         connectionManager = nil
@@ -323,10 +323,10 @@ class NetworkMonitor: ObservableObject {
         serverConnectionQuality = .unknown
         lastServerCheck = nil
         
-        print("✅ NetworkMonitor: Reset completed")
+        print(" NetworkMonitor: Reset completed")
     }
     
-    // MARK: - ✅ DEBUG & DIAGNOSTICS
+    // MARK: -  DEBUG & DIAGNOSTICS
     
     #if DEBUG
     func printDiagnostics() {
@@ -338,7 +338,7 @@ class NetworkMonitor: ObservableObject {
             
             if let connectionManager = connectionManager,
                let connectionService = connectionManager.getConnectionService() {
-                connectionServiceStatus = "✅"
+                connectionServiceStatus = ""
                 let health = await connectionService.performHealthCheck()
                 healthDetails = """
                 Quality: \(health.quality.description)
@@ -352,8 +352,8 @@ class NetworkMonitor: ObservableObject {
             \(diagnostics.summary)
             
             Connection Architecture:
-            - Network Monitor: ✅
-            - ConnectionManager: \(connectionManager != nil ? "✅" : "❌")
+            - Network Monitor: 
+            - ConnectionManager: \(connectionManager != nil ? "" : "❌")
             - ConnectionService: \(connectionServiceStatus)
             
             ConnectionService Details:

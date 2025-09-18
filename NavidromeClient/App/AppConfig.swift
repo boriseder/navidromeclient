@@ -46,14 +46,14 @@ final class AppConfig: ObservableObject {
         // Update NetworkMonitor
         let service = SubsonicService(baseURL: baseURL, username: username, password: password)
         NetworkMonitor.shared.setService(service)
-        print("✅ Credentials configured and NetworkMonitor updated")
+        print(" Credentials configured and NetworkMonitor updated")
     }
     
     func getCredentials() -> ServerCredentials? {
         return credentials
     }
     
-    // MARK: - ✅ NEW: Factory Reset (Complete App Reset)
+    // MARK: -  NEW: Factory Reset (Complete App Reset)
     func performFactoryReset() async {
         print("🔄 Starting factory reset...")
         
@@ -83,10 +83,10 @@ final class AppConfig: ObservableObject {
         // 7. Force UI updates
         objectWillChange.send()
         
-        print("✅ Factory reset completed")
+        print(" Factory reset completed")
     }
     
-    // MARK: - ✅ DEPRECATED: Simple logout (keep for backward compatibility)
+    // MARK: -  DEPRECATED: Simple logout (keep for backward compatibility)
     func logout() {
         Task {
             await performFactoryReset()
@@ -169,7 +169,7 @@ final class AppConfig: ObservableObject {
                 password: sessionPassword
             )
             NetworkMonitor.shared.setService(service)
-            print("✅ NetworkMonitor updated with loaded credentials")
+            print(" NetworkMonitor updated with loaded credentials")
         }
         
         isConfigured = true
@@ -209,7 +209,7 @@ final class AppConfig: ObservableObject {
                 password: password
             )
             NetworkMonitor.shared.setService(service)
-            print("✅ NetworkMonitor updated with restored password")
+            print(" NetworkMonitor updated with restored password")
             
             return true
         }

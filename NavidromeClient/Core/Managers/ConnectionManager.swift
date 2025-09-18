@@ -2,9 +2,9 @@
 //  ConnectionManager.swift - REDESIGNED: Lightweight UI-Focused
 //  NavidromeClient
 //
-//  ✅ LEAN: Nur UI-Essentials, delegiert an ConnectionService
-//  ✅ CLEAN: Separation of Concerns zwischen UI und Business Logic
-//  ✅ REDUCED: Von 200+ LOC auf ~80 LOC
+//   LEAN: Nur UI-Essentials, delegiert an ConnectionService
+//   CLEAN: Separation of Concerns zwischen UI und Business Logic
+//   REDUCED: Von 200+ LOC auf ~80 LOC
 //
 
 import Foundation
@@ -13,7 +13,7 @@ import SwiftUI
 @MainActor
 class ConnectionManager: ObservableObject {
     
-    // MARK: - ✅ UI Form Bindings (Core Responsibility)
+    // MARK: -  UI Form Bindings (Core Responsibility)
     
     @Published var scheme: String = "http"
     @Published var host: String = ""
@@ -21,23 +21,23 @@ class ConnectionManager: ObservableObject {
     @Published var username: String = ""
     @Published var password: String = ""
     
-    // MARK: - ✅ UI State (Minimal)
+    // MARK: -  UI State (Minimal)
     
     @Published private(set) var isConnected = false
     @Published private(set) var isTestingConnection = false
     @Published private(set) var connectionError: String?
     
-    // MARK: - ✅ Service Dependency (Single Source of Truth)
+    // MARK: -  Service Dependency (Single Source of Truth)
     
     private var connectionService: ConnectionService?
     
-    // MARK: - ✅ Initialization
+    // MARK: -  Initialization
     
     init() {
         loadSavedCredentials()
     }
     
-    // MARK: - ✅ UI Actions (Minimal Interface)
+    // MARK: -  UI Actions (Minimal Interface)
     
     /// Test connection with current form values
     func testConnection() async {
@@ -51,7 +51,7 @@ class ConnectionManager: ObservableObject {
         isTestingConnection = true
         connectionError = nil
         
-        // ✅ Delegate to Service
+        //  Delegate to Service
         connectionService = ConnectionService(
             baseURL: url,
             username: username,
@@ -60,7 +60,7 @@ class ConnectionManager: ObservableObject {
         
         let result = await connectionService!.testConnection()
         
-        // ✅ Update UI State
+        //  Update UI State
         switch result {
         case .success:
             isConnected = true
@@ -79,7 +79,7 @@ class ConnectionManager: ObservableObject {
         
         guard isConnected else { return false }
         
-        // ✅ Delegate to AppConfig for persistence
+        //  Delegate to AppConfig for persistence
         guard let url = buildBasicURL() else { return false }
         AppConfig.shared.configure(baseURL: url, username: username, password: password)
         
@@ -91,7 +91,7 @@ class ConnectionManager: ObservableObject {
         return connectionService
     }
     
-    // MARK: - ✅ UI Helpers (Minimal)
+    // MARK: -  UI Helpers (Minimal)
     
     /// Basic URL building for service creation
     private func buildBasicURL() -> URL? {
@@ -119,7 +119,7 @@ class ConnectionManager: ObservableObject {
         return true
     }
     
-    // MARK: - ✅ Persistence (UI Convenience)
+    // MARK: -  Persistence (UI Convenience)
     
     /// Load saved credentials for form population
     private func loadSavedCredentials() {
@@ -131,10 +131,10 @@ class ConnectionManager: ObservableObject {
         username = creds.username
         password = creds.password
         
-        // ✅ Assume saved credentials are valid
+        //  Assume saved credentials are valid
         isConnected = true
         
-        // ✅ Create service for immediate use
+        //  Create service for immediate use
         connectionService = ConnectionService(
             baseURL: creds.baseURL,
             username: creds.username,
@@ -142,7 +142,7 @@ class ConnectionManager: ObservableObject {
         )
     }
     
-    // MARK: - ✅ Reset (UI State Only)
+    // MARK: -  Reset (UI State Only)
     
     func reset() {
         scheme = "http"
@@ -157,7 +157,7 @@ class ConnectionManager: ObservableObject {
         connectionService = nil
     }
     
-    // MARK: - ✅ UI Computed Properties
+    // MARK: -  UI Computed Properties
     
     /// Connection status for UI display
     var connectionStatusText: String {
@@ -192,7 +192,7 @@ class ConnectionManager: ObservableObject {
     }
 }
 
-// MARK: - ✅ UI Extensions
+// MARK: -  UI Extensions
 
 extension ConnectionManager {
     

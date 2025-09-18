@@ -10,9 +10,9 @@
 //  AlbumsView.swift - MIGRATED to Container Architecture
 //  NavidromeClient
 //
-//  ✅ PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
-//  ✅ MAINTAINS: All existing functionality
-//  ✅ REDUCES: ~60% of view code through container reuse
+//   PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
+//   MAINTAINS: All existing functionality
+//   REDUCES: ~60% of view code through container reuse
 //
 
 import SwiftUI
@@ -59,7 +59,7 @@ struct ArtistsView: View {
         return displayedArtists.isEmpty
     }
     
-    // MARK: - ✅ NEW: Simplified Body using LibraryContainer
+    // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
         LibraryView(
             title: "Artists",
@@ -82,22 +82,20 @@ struct ArtistsView: View {
         }
     }
 
-    // MARK: - ✅ FIXED: Grid Content with Load More
+    // MARK: -  FIXED: Grid Content with Load More
     @ViewBuilder
     private func ArtistListContent() -> some View {
-        ListContainer(
+        UnifiedContainer(
             items: displayedArtists,
-            onItemTap: { artist in
-                // Navigation will be handled by NavigationLink in itemBuilder
-            }
+            layout: .list
         ) { artist, index in
             NavigationLink(value: artist) {
                 ListItemContainer(content: .artist(artist), index: index)
             }
         }
     }
-    
-    // MARK: - ✅ UNCHANGED: All business logic remains identical
+
+    // MARK: -  UNCHANGED: All business logic remains identical
     
     private func getArtistDataSource() -> [Artist] {
         if canLoadOnlineContent && !isOfflineMode {
@@ -141,7 +139,7 @@ struct ArtistsView: View {
     }
 }
 
-// MARK: - ✅ COMPARISON: Code Reduction Analysis
+// MARK: -  COMPARISON: Code Reduction Analysis
 
 /*
 BEFORE (Original AlbumsView): ~180 Lines
@@ -159,7 +157,7 @@ AFTER (Container AlbumsView): ~120 Lines
 - Simplified conditional logic
 
 REDUCTION: ~33% less code
-MAINTAINABILITY: ✅ Much higher
-CONSISTENCY: ✅ Guaranteed across all library views
-RISK: ✅ Very low - same business logic
+MAINTAINABILITY:  Much higher
+CONSISTENCY:  Guaranteed across all library views
+RISK:  Very low - same business logic
 */

@@ -2,9 +2,9 @@
 //  DownloadManager.swift - CLEANED: Pure Focused Service Architecture
 //  NavidromeClient
 //
-//  ✅ ELIMINATED: All legacy service patterns completely
-//  ✅ PURE: Only UnifiedSubsonicService dependency for service access
-//  ✅ CLEAN: Single configuration path, no dual service patterns
+//   ELIMINATED: All legacy service patterns completely
+//   PURE: Only UnifiedSubsonicService dependency for service access
+//   CLEAN: Single configuration path, no dual service patterns
 //
 
 import Foundation
@@ -18,14 +18,14 @@ class DownloadManager: ObservableObject {
     @Published private(set) var isDownloading: Set<String> = []
     @Published private(set) var downloadProgress: [String: Double] = [:]
     
-    // ✅ ENHANCED: Centralized Download UI States
+    //  ENHANCED: Centralized Download UI States
     @Published private(set) var downloadStates: [String: DownloadState] = [:]
     @Published private(set) var downloadErrors: [String: String] = [:]
 
-    // ✅ PURE: Single service dependency only
+    //  PURE: Single service dependency only
     private weak var service: UnifiedSubsonicService?
     
-    // ✅ FOCUSED: CoverArtManager integration for cover art downloads
+    //  FOCUSED: CoverArtManager integration for cover art downloads
     private weak var coverArtManager: CoverArtManager?
 
     private var downloadsFolder: URL {
@@ -41,7 +41,7 @@ class DownloadManager: ObservableObject {
         downloadsFolder.appendingPathComponent("downloaded_albums.json")
     }
 
-    // ✅ CLEAN: Download State Management
+    //  CLEAN: Download State Management
     enum DownloadState: Equatable {
         case idle
         case downloading
@@ -78,19 +78,19 @@ class DownloadManager: ObservableObject {
         setupStateObservation()
     }
     
-    // MARK: - ✅ PURE: Single Service Configuration
+    // MARK: -  PURE: Single Service Configuration
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("✅ DownloadManager configured with UnifiedSubsonicService")
+        print(" DownloadManager configured with UnifiedSubsonicService")
     }
     
     func configure(coverArtManager: CoverArtManager) {
         self.coverArtManager = coverArtManager
-        print("✅ DownloadManager configured with CoverArtManager")
+        print(" DownloadManager configured with CoverArtManager")
     }
     
-    // MARK: - ✅ PURE: Download Operations
+    // MARK: -  PURE: Download Operations
     
     func startDownload(album: Album, songs: [Song]) async {
         guard getDownloadState(for: album.id).canStartDownload else {
@@ -134,7 +134,7 @@ class DownloadManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ PURE: Core Download Implementation
+    // MARK: -  PURE: Core Download Implementation
     
     private func downloadAlbumWithService(
         songs: [Song],
@@ -224,7 +224,7 @@ class DownloadManager: ObservableObject {
                     downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
                 }
                 
-                print("✅ Downloaded: \(song.title) (\(data.count) bytes)")
+                print(" Downloaded: \(song.title) (\(data.count) bytes)")
                 
             } catch {
                 print("❌ Download error for \(song.title): \(error)")
@@ -253,7 +253,7 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            print("✅ Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
+            print(" Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
         } else {
             throw DownloadError.noSongsDownloaded
         }
@@ -266,7 +266,7 @@ class DownloadManager: ObservableObject {
         downloadProgress.removeValue(forKey: albumId)
     }
     
-    // MARK: - ✅ PURE: Cover Art Integration
+    // MARK: -  PURE: Cover Art Integration
     
     private func downloadAlbumCoverArt(album: Album) async {
         guard let coverArtManager = coverArtManager else {
@@ -285,7 +285,7 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        print("✅ Cached album cover art for \(album.id) in \(sizes.count) sizes")
+        print(" Cached album cover art for \(album.id) in \(sizes.count) sizes")
     }
     
     private func downloadArtistImage(for album: Album) async {
@@ -312,10 +312,10 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        print("✅ Cached artist image for \(artist.name) in \(sizes.count) sizes")
+        print(" Cached artist image for \(artist.name) in \(sizes.count) sizes")
     }
     
-    // MARK: - ✅ PURE: Stream URL Resolution
+    // MARK: -  PURE: Stream URL Resolution
     
     private func getStreamURL(for songId: String, from service: UnifiedSubsonicService) -> URL? {
         guard !songId.isEmpty else { return nil }
@@ -325,7 +325,7 @@ class DownloadManager: ObservableObject {
         return mediaService.streamURL(for: songId)
     }
     
-    // MARK: - ✅ UI State Management
+    // MARK: -  UI State Management
     
     private func setupStateObservation() {
         NotificationCenter.default.addObserver(
@@ -464,7 +464,7 @@ class DownloadManager: ObservableObject {
         return String(format: "%.1f MB", mb)
     }
 
-    // MARK: - ✅ Download Error Types
+    // MARK: -  Download Error Types
     
     enum DownloadError: LocalizedError {
         case alreadyInProgress
@@ -526,7 +526,7 @@ class DownloadManager: ObservableObject {
             NotificationCenter.default.post(name: .downloadDeleted, object: nil)
             objectWillChange.send()
 
-            print("✅ Deleted album: \(album.albumName)")
+            print(" Deleted album: \(album.albumName)")
         }
     }
     
@@ -556,7 +556,7 @@ class DownloadManager: ObservableObject {
         NotificationCenter.default.post(name: .downloadDeleted, object: nil)
         objectWillChange.send()
         
-        print("✅ Cleared all downloads and notified observers")
+        print(" Cleared all downloads and notified observers")
     }
 
     // MARK: - Persistence
@@ -617,7 +617,7 @@ class DownloadManager: ObservableObject {
             .description
     }
     
-    // MARK: - ✅ Diagnostics & Health Monitoring
+    // MARK: -  Diagnostics & Health Monitoring
     
     func getServiceDiagnostics() -> DownloadServiceDiagnostics {
         return DownloadServiceDiagnostics(
@@ -651,7 +651,7 @@ class DownloadManager: ObservableObject {
             let score = healthScore * 100
             
             switch score {
-            case 90...100: return "✅ Excellent"
+            case 90...100: return " Excellent"
             case 70..<90: return "🟢 Good"
             case 50..<70: return "🟡 Fair"
             default: return "🟠 Needs attention"
@@ -661,8 +661,8 @@ class DownloadManager: ObservableObject {
         var summary: String {
             return """
             📊 DOWNLOAD SERVICE DIAGNOSTICS:
-            - UnifiedSubsonicService: \(hasService ? "✅" : "❌")
-            - CoverArtManager: \(hasCoverArtManager ? "✅" : "❌")
+            - UnifiedSubsonicService: \(hasService ? "" : "❌")
+            - CoverArtManager: \(hasCoverArtManager ? "" : "❌")
             - Active Downloads: \(activeDownloads)
             - Total Downloads: \(totalDownloads)
             - Errors: \(errorCount)

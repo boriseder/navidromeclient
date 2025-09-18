@@ -2,7 +2,7 @@
 //  CoverArtManager.swift - COMPLETE Missing Methods
 //  NavidromeClient
 //
-//  ✅ ADDED: All missing methods used throughout the app
+//   ADDED: All missing methods used throughout the app
 //
 
 import Foundation
@@ -18,32 +18,32 @@ class CoverArtManager: ObservableObject {
     @Published private(set) var loadingStates: [String: Bool] = [:]
     @Published private(set) var errorStates: [String: String] = [:]
     
-    // ✅ NEW: Focused service dependency
+    //  NEW: Focused service dependency
     private weak var mediaService: MediaService?
     
-    // ✅ BACKWARDS COMPATIBLE: Keep old service reference
+    //  BACKWARDS COMPATIBLE: Keep old service reference
     private weak var legacyService: UnifiedSubsonicService?
     
     private let persistentCache = PersistentImageCache.shared
     
     private init() {}
     
-    // MARK: - ✅ ENHANCED: Dual Configuration Support
+    // MARK: -  ENHANCED: Dual Configuration Support
     
     /// NEW: Configure with focused MediaService (preferred)
     func configure(mediaService: MediaService) {
         self.mediaService = mediaService
-        print("✅ CoverArtManager configured with focused MediaService")
+        print(" CoverArtManager configured with focused MediaService")
     }
     
     /// LEGACY: Configure with UnifiedSubsonicService (backwards compatible)
     func configure(service: UnifiedSubsonicService) {
         self.legacyService = service
         self.mediaService = service.getMediaService()
-        print("✅ CoverArtManager configured with legacy service (extracted MediaService)")
+        print(" CoverArtManager configured with legacy service (extracted MediaService)")
     }
     
-    // MARK: - ✅ ENHANCED: Smart Service Resolution
+    // MARK: -  ENHANCED: Smart Service Resolution
     
     private var activeMediaService: MediaService? {
         return mediaService ?? legacyService?.getMediaService()
@@ -75,7 +75,7 @@ class CoverArtManager: ObservableObject {
         loadingStates[stateKey] = true
         defer { loadingStates[stateKey] = false }
         
-        // ✅ STAGGER LOADING: Add delay based on index
+        //  STAGGER LOADING: Add delay based on index
         if staggerIndex > 0 {
             try? await Task.sleep(nanoseconds: UInt64(staggerIndex * 100_000_000)) // 100ms per index
         }
@@ -115,7 +115,7 @@ class CoverArtManager: ObservableObject {
             return cached
         }
         
-        // ✅ ECHTE IMPLEMENTATION: Load from MediaService
+        //  ECHTE IMPLEMENTATION: Load from MediaService
         guard let service = activeMediaService else {
             errorStates[stateKey] = "Media service not available"
             return nil
@@ -124,12 +124,12 @@ class CoverArtManager: ObservableObject {
         loadingStates[stateKey] = true
         defer { loadingStates[stateKey] = false }
         
-        // ✅ STAGGER LOADING: Add delay based on index
+        //  STAGGER LOADING: Add delay based on index
         if staggerIndex > 0 {
             try? await Task.sleep(nanoseconds: UInt64(staggerIndex * 100_000_000)) // 100ms per index
         }
         
-        // ✅ LOAD ARTIST IMAGE via MediaService
+        //  LOAD ARTIST IMAGE via MediaService
         if let image = await service.getCoverArt(for: artist.id, size: size) {
             artistImages[stateKey] = image
             errorStates.removeValue(forKey: stateKey)
@@ -202,7 +202,7 @@ class CoverArtManager: ObservableObject {
             }
         }
         
-        print("✅ Batch preloaded album covers for \(min(albums.count, 5)) albums")
+        print(" Batch preloaded album covers for \(min(albums.count, 5)) albums")
     }
     
     // NEW: Batch artist image loading
@@ -228,7 +228,7 @@ class CoverArtManager: ObservableObject {
             }
         }
         
-        print("✅ Batch preloaded artist images for \(min(artists.count, 5)) artists")
+        print(" Batch preloaded artist images for \(min(artists.count, 5)) artists")
     }
     
     // MARK: Access Methods
@@ -241,7 +241,7 @@ class CoverArtManager: ObservableObject {
         return errorStates[key]
     }
     
-    // MARK: - ✅ CACHE MANAGEMENT
+    // MARK: -  CACHE MANAGEMENT
     
     func clearMemoryCache() {
         albumImages.removeAll()
@@ -252,7 +252,7 @@ class CoverArtManager: ObservableObject {
         print("🧹 Cleared all image caches")
     }
     
-    // MARK: - ✅ NEW: Performance & Diagnostics
+    // MARK: -  NEW: Performance & Diagnostics
       
     struct CacheStats {
         let memoryAlbums: Int
@@ -286,8 +286,8 @@ class CoverArtManager: ObservableObject {
         \(stats.summary)
         
         Service Architecture:
-        - MediaService: \(mediaService != nil ? "✅" : "❌")
-        - Legacy Service: \(legacyService != nil ? "✅" : "❌")
+        - MediaService: \(mediaService != nil ? "" : "❌")
+        - Legacy Service: \(legacyService != nil ? "" : "❌")
         """)
     }
     
@@ -372,7 +372,7 @@ class CoverArtManager: ObservableObject {
     
 }
 
-// MARK: - ✅ CONVENIENCE: Album Initializer for Song->Album conversion
+// MARK: -  CONVENIENCE: Album Initializer for Song->Album conversion
 extension Album {
     init(
         id: String,

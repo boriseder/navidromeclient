@@ -17,7 +17,7 @@ struct CoverArtDebugView: View {
             Text("Cover Art Performance")
                 .font(.headline)
             
-            // ✅ FIXED: Use correct property names
+            //  FIXED: Use correct property names
             VStack(alignment: .leading, spacing: 8) {
                 Text("Health: \(health.statusDescription)")
                     .foregroundColor(health.isHealthy ? .green : .orange)

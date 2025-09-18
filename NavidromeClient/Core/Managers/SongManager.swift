@@ -2,9 +2,9 @@
 //  SongManager.swift - COMPLETE FOCUSED SERVICE MIGRATION
 //  NavidromeClient
 //
-//  ✅ ELIMINATED: All legacy service patterns
-//  ✅ MIGRATED: To focused ContentService only
-//  ✅ REMOVED: Dual service dependencies
+//   ELIMINATED: All legacy service patterns
+//   MIGRATED: To focused ContentService only
+//   REMOVED: Dual service dependencies
 //
 
 import Foundation
@@ -13,34 +13,34 @@ import SwiftUI
 @MainActor
 class SongManager: ObservableObject {
     
-    // MARK: - ✅ SONG CACHE (unchanged)
+    // MARK: -  SONG CACHE (unchanged)
     
     @Published private(set) var albumSongs: [String: [Song]] = [:]
     @Published private(set) var isLoadingSongs: [String: Bool] = [:]
     
-    // ✅ FOCUSED: Single ContentService dependency only
+    //  FOCUSED: Single ContentService dependency only
     private weak var contentService: ContentService?
     private let downloadManager: DownloadManager
     
-    // MARK: - ✅ INITIALIZATION (unchanged)
+    // MARK: -  INITIALIZATION (unchanged)
     
     init(downloadManager: DownloadManager = DownloadManager.shared) {
         self.downloadManager = downloadManager
     }
     
-    // MARK: - ✅ PURE FOCUSED SERVICE CONFIGURATION
+    // MARK: -  PURE FOCUSED SERVICE CONFIGURATION
     
     func configure(service: UnifiedSubsonicService) {
-        // ✅ FOCUSED: Extract ContentService directly
+        //  FOCUSED: Extract ContentService directly
         self.contentService = service.getContentService()
-        print("✅ SongManager configured with focused ContentService")
+        print(" SongManager configured with focused ContentService")
     }
     
     // ❌ REMOVED: All legacy service configurations
     // ❌ REMOVED: Dual service pattern support
     // ❌ REMOVED: Optional service fallbacks
     
-    // MARK: - ✅ PRIMARY API: Smart Song Loading (focused service only)
+    // MARK: -  PRIMARY API: Smart Song Loading (focused service only)
     
     /// Load songs for album with intelligent offline/online fallback
     func loadSongs(for albumId: String) async -> [Song] {
@@ -72,7 +72,7 @@ class SongManager: ObservableObject {
             }
         }
         
-        // ✅ FOCUSED: Try online via ContentService only
+        //  FOCUSED: Try online via ContentService only
         if NetworkMonitor.shared.canLoadOnlineContent && !OfflineManager.shared.isOfflineMode {
             print("🌐 Loading online songs for album \(albumId) via ContentService")
             let onlineSongs = await loadOnlineSongsViaContentService(for: albumId)
@@ -92,7 +92,7 @@ class SongManager: ObservableObject {
         return fallbackSongs
     }
     
-    // MARK: - ✅ CACHE MANAGEMENT (unchanged)
+    // MARK: -  CACHE MANAGEMENT (unchanged)
     
     /// Get cached songs immediately (no loading)
     func getCachedSongs(for albumId: String) -> [Song]? {
@@ -130,7 +130,7 @@ class SongManager: ObservableObject {
         print("🧹 Cleared cache for album \(albumId)")
     }
     
-    // MARK: - ✅ STATISTICS (unchanged)
+    // MARK: -  STATISTICS (unchanged)
     
     /// Get total number of cached songs
     func getCachedSongCount() -> Int {
@@ -162,7 +162,7 @@ class SongManager: ObservableObject {
         return downloadManager.getDownloadedSongs(for: albumId).count
     }
     
-    // MARK: - ✅ FOCUSED: Online song loading via ContentService only
+    // MARK: -  FOCUSED: Online song loading via ContentService only
     
     /// Load songs from ContentService (no legacy fallback)
     private func loadOnlineSongsViaContentService(for albumId: String) async -> [Song] {
@@ -173,7 +173,7 @@ class SongManager: ObservableObject {
         
         do {
             let songs = try await contentService.getSongs(for: albumId)
-            print("✅ Loaded \(songs.count) online songs for album \(albumId) via focused ContentService")
+            print(" Loaded \(songs.count) online songs for album \(albumId) via focused ContentService")
             return songs
         } catch {
             print("⚠️ Failed to load online songs for album \(albumId) via ContentService: \(error)")
@@ -181,7 +181,7 @@ class SongManager: ObservableObject {
         }
     }
     
-    // MARK: - ✅ PRIVATE IMPLEMENTATION (unchanged - no service calls)
+    // MARK: -  PRIVATE IMPLEMENTATION (unchanged - no service calls)
     
     /// Load songs from offline storage with smart fallback
     private func loadOfflineSongs(for albumId: String) async -> [Song] {
@@ -189,7 +189,7 @@ class SongManager: ObservableObject {
         let downloadedSongs = downloadManager.getDownloadedSongs(for: albumId)
         if !downloadedSongs.isEmpty {
             let songs = downloadedSongs.map { $0.toSong() }
-            print("✅ Loaded \(songs.count) offline songs with full metadata for album \(albumId)")
+            print(" Loaded \(songs.count) offline songs with full metadata for album \(albumId)")
             return songs
         }
         
@@ -219,7 +219,7 @@ class SongManager: ObservableObject {
             )
         }
         
-        print("✅ Created \(fallbackSongs.count) fallback songs for legacy album \(albumId)")
+        print(" Created \(fallbackSongs.count) fallback songs for legacy album \(albumId)")
         return fallbackSongs
     }
     
@@ -247,16 +247,16 @@ class SongManager: ObservableObject {
         return cleanTitle.isEmpty ? "Track \(trackNumber)" : cleanTitle
     }
     
-    // MARK: - ✅ RESET (unchanged)
+    // MARK: -  RESET (unchanged)
     
     func reset() {
         albumSongs.removeAll()
         isLoadingSongs.removeAll()
         contentService = nil
-        print("✅ SongManager reset completed")
+        print(" SongManager reset completed")
     }
     
-    // MARK: - ✅ DIAGNOSTICS
+    // MARK: -  DIAGNOSTICS
     
     func getServiceDiagnostics() -> SongManagerDiagnostics {
         return SongManagerDiagnostics(
@@ -287,7 +287,7 @@ class SongManager: ObservableObject {
             let score = healthScore * 100
             
             switch score {
-            case 90...100: return "✅ Excellent"
+            case 90...100: return " Excellent"
             case 70..<90: return "🟢 Good"
             case 50..<70: return "🟡 Fair"
             default: return "🟠 Needs ContentService"
@@ -297,7 +297,7 @@ class SongManager: ObservableObject {
         var summary: String {
             return """
             📊 SONGMANAGER FOCUSED SERVICE DIAGNOSTICS:
-            - ContentService: \(hasContentService ? "✅" : "❌")
+            - ContentService: \(hasContentService ? "" : "❌")
             - Cached Albums: \(cachedAlbums)
             - Cached Songs: \(totalCachedSongs)
             - Active Loading: \(activeLoading)
@@ -314,7 +314,7 @@ class SongManager: ObservableObject {
     #endif
 }
 
-// MARK: - ✅ SUPPORTING TYPES (unchanged)
+// MARK: -  SUPPORTING TYPES (unchanged)
 
 struct SongCacheStats {
     let totalCachedSongs: Int
@@ -332,7 +332,7 @@ struct SongCacheStats {
     }
 }
 
-// MARK: - ✅ HELPER EXTENSIONS (unchanged)
+// MARK: -  HELPER EXTENSIONS (unchanged)
 
 extension Character {
     var isHexDigit: Bool {
@@ -340,7 +340,7 @@ extension Character {
     }
 }
 
-// MARK: - ✅ BATCH OPERATIONS SUPPORT (focused service only)
+// MARK: -  BATCH OPERATIONS SUPPORT (focused service only)
 
 extension SongManager {
     

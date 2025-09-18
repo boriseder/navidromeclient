@@ -2,7 +2,7 @@
 //  SearchService.swift - Search & Filtering Operations
 //  NavidromeClient
 //
-//  ✅ FOCUSED: Search queries, filtering, result ranking
+//   FOCUSED: Search queries, filtering, result ranking
 //
 
 import Foundation
@@ -25,7 +25,7 @@ class SearchService {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: - ✅ PRIMARY SEARCH API
+    // MARK: -  PRIMARY SEARCH API
     
     func search(query: String, maxResults: Int = 50) async throws -> SearchResult {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -49,12 +49,12 @@ class SearchService {
             songs: decoded.subsonicResponse.searchResult2.song ?? []
         )
         
-        print("✅ Search '\(trimmedQuery)': \(result.artists.count) artists, \(result.albums.count) albums, \(result.songs.count) songs")
+        print(" Search '\(trimmedQuery)': \(result.artists.count) artists, \(result.albums.count) albums, \(result.songs.count) songs")
         
         return result
     }
     
-    // MARK: - ✅ ADVANCED SEARCH
+    // MARK: -  ADVANCED SEARCH
     
     func searchByCategory(
         query: String,
@@ -91,7 +91,7 @@ class SearchService {
         )
     }
     
-    // MARK: - ✅ SEARCH SUGGESTIONS
+    // MARK: -  SEARCH SUGGESTIONS
     
     func getSearchSuggestions(for partialQuery: String, limit: Int = 5) async -> [String] {
         let query = partialQuery.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
@@ -128,7 +128,7 @@ class SearchService {
         }
     }
     
-    // MARK: - ✅ SEARCH RANKING & SORTING
+    // MARK: -  SEARCH RANKING & SORTING
     
     func rankSearchResults(_ results: SearchResult, for query: String) -> SearchResult {
         let lowercaseQuery = query.lowercased()
@@ -175,7 +175,7 @@ class SearchService {
         )
     }
     
-    // MARK: - ✅ FILTERING LOGIC
+    // MARK: -  FILTERING LOGIC
     
     private func filterArtists(_ artists: [Artist], with filters: SearchFilters) -> [Artist] {
         return artists.filter { artist in
@@ -228,7 +228,7 @@ class SearchService {
         }
     }
     
-    // MARK: - ✅ CORE FETCH IMPLEMENTATION
+    // MARK: -  CORE FETCH IMPLEMENTATION
     
     private func fetchData<T: Decodable>(
         endpoint: String,
@@ -271,14 +271,14 @@ class SearchService {
         }
     }
     
-    // MARK: - ✅ SEARCH STATE ACCESS
+    // MARK: -  SEARCH STATE ACCESS
     
     var currentSearchQuery: String {
         return lastSearchQuery
     }
 }
 
-// MARK: - ✅ SUPPORTING TYPES
+// MARK: -  SUPPORTING TYPES
 
 enum SearchCategory {
     case all

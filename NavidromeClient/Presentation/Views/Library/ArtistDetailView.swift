@@ -2,9 +2,9 @@
 //  ArtistDetailView.swift - CLEAN: Pure ViewModel-Routing
 //  NavidromeClient
 //
-//  ✅ ELIMINIERT: Alle direkten Service-Zugriffe
-//  ✅ SAUBER: Nur ViewModel/Manager-Routing
-//  ✅ VOLLSTÄNDIG: Offline/Online-Integration
+//   ELIMINIERT: Alle direkten Service-Zugriffe
+//   SAUBER: Nur ViewModel/Manager-Routing
+//   VOLLSTÄNDIG: Offline/Online-Integration
 //
 
 import SwiftUI
@@ -29,7 +29,7 @@ struct ArtistDetailView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    // MARK: - ✅ COMPUTED PROPERTIES
+    // MARK: -  COMPUTED PROPERTIES
     
     private var artist: Artist? {
         if case .artist(let a) = context { return a }
@@ -115,7 +115,7 @@ struct ArtistDetailView: View {
         .accountToolbar()
     }
     
-    // MARK: - ✅ HEADER VIEW
+    // MARK: -  HEADER VIEW
     
     private var headerView: some View {
         VStack(spacing: DSLayout.sectionGap) {
@@ -220,7 +220,7 @@ struct ArtistDetailView: View {
         }
     }
     
-    // MARK: - ✅ CONTENT LOADING (Pure ViewModel-Routing)
+    // MARK: -  CONTENT LOADING (Pure ViewModel-Routing)
     
     private func loadContent() async {
         isLoading = true
@@ -241,7 +241,7 @@ struct ArtistDetailView: View {
         isLoading = false
     }
     
-    /// ✅ KORREKT: Direkt über MusicLibraryManager (existierende Methode nutzen)
+    ///  KORREKT: Direkt über MusicLibraryManager (existierende Methode nutzen)
     private func loadAlbumsViaManager() async {
         guard !isOfflineMode else {
             albums = availableOfflineAlbums
@@ -249,9 +249,9 @@ struct ArtistDetailView: View {
         }
         
         do {
-            // ✅ KORREKT: Nutzt existierende loadAlbums(context:) Methode
+            //  KORREKT: Nutzt existierende loadAlbums(context:) Methode
             albums = try await musicLibraryManager.loadAlbums(context: context)
-            print("✅ Loaded \(albums.count) albums via MusicLibraryManager")
+            print(" Loaded \(albums.count) albums via MusicLibraryManager")
         } catch {
             print("❌ Failed to load albums: \(error)")
             errorMessage = "Failed to load albums: \(error.localizedDescription)"
@@ -260,7 +260,7 @@ struct ArtistDetailView: View {
         }
     }
     
-    /// ✅ SAUBER: Nur Manager-Routing
+    ///  SAUBER: Nur Manager-Routing
     private func loadArtistImageViaManager() async {
         if case .artist(let artist) = context {
             artistImage = await coverArtManager.loadArtistImage(
@@ -270,7 +270,7 @@ struct ArtistDetailView: View {
         }
     }
     
-    // MARK: - ✅ SHUFFLE PLAY (Pure ViewModel-Routing)
+    // MARK: -  SHUFFLE PLAY (Pure ViewModel-Routing)
     
     private func shufflePlayAllAlbums() async {
         let albumsToPlay = displayAlbums
@@ -279,7 +279,7 @@ struct ArtistDetailView: View {
         var allSongs: [Song] = []
         
         for album in albumsToPlay {
-            // ✅ DIRECT: MusicLibraryManager für Songs
+            //  DIRECT: MusicLibraryManager für Songs
             let songs = await navidromeVM.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }

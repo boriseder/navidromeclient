@@ -20,7 +20,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Configure background tasks (iOS 13+)
         registerBackgroundTasks()
         
-        print("✅ App launched with audio session configured")
+        print(" App launched with audio session configured")
         return true
     }
     

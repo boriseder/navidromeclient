@@ -2,14 +2,14 @@
 //  ConsolidatedStateViews.swift
 //  NavidromeClient
 //
-//  ✅ CONSOLIDATED: Universal EmptyState and Loading components
-//  ✅ REUSABLE: Single source of truth for all empty states
-//  ✅ CONSISTENT: Design system applied throughout
+//   CONSOLIDATED: Universal EmptyState and Loading components
+//   REUSABLE: Single source of truth for all empty states
+//   CONSISTENT: Design system applied throughout
 //
 
 import SwiftUI
 
-// MARK: - ✅ Universal Loading View
+// MARK: -  Universal Loading View
 
 struct LoadingView: View {
     let title: String
@@ -63,7 +63,7 @@ struct LoadingView: View {
     }
 }
 
-// MARK: - ✅ Universal Empty State View
+// MARK: -  Universal Empty State View
 
 struct EmptyStateView: View {
     let type: EmptyStateType
@@ -303,10 +303,10 @@ struct EmptyStateView: View {
 
 }
 
-// MARK: - ✅ Empty State Types
+// MARK: -  Empty State Types
 
 
-// MARK: - ✅ Empty State Action
+// MARK: -  Empty State Action
 
 struct EmptyStateAction {
     let title: String
@@ -318,7 +318,7 @@ struct EmptyStateAction {
     }
 }
 
-// MARK: - ✅ Convenience Extensions
+// MARK: -  Convenience Extensions
 
 extension EmptyStateView {
     
@@ -363,7 +363,7 @@ extension EmptyStateView {
     }
 }
 
-// MARK: - ✅ Loading View Variants
+// MARK: -  Loading View Variants
 
 extension LoadingView {
     

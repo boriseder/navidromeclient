@@ -2,7 +2,7 @@
 //  SemanticDesignSystem.swift - Semantische Umbenennung deines Systems
 //  NavidromeClient
 //
-//  ✅ Behält deine bestehende Struktur, macht sie nur semantisch klar
+//   Behält deine bestehende Struktur, macht sie nur semantisch klar
 //
 
 import SwiftUI

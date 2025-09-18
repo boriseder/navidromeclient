@@ -2,7 +2,7 @@
 //  MiniPlayerView.swift - Enhanced with Design System
 //  NavidromeClient
 //
-//  ✅ ENHANCED: Vollständige Anwendung des Design Systems
+//   ENHANCED: Vollständige Anwendung des Design Systems
 //
 
 import SwiftUI

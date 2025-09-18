@@ -2,8 +2,8 @@
 //  DownloadButton.swift - REFACTORED to Pure UI
 //  NavidromeClient
 //
-//  ✅ CLEAN: All state management moved to DownloadManager
-//  ✅ REACTIVE: Uses centralized download state instead of local @State
+//   CLEAN: All state management moved to DownloadManager
+//   REACTIVE: Uses centralized download state instead of local @State
 //
 
 import SwiftUI
@@ -46,7 +46,7 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: - ✅ Pure UI Content
+    // MARK: -  Pure UI Content
     
     @ViewBuilder
     private var buttonContent: some View {
@@ -114,7 +114,7 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: - ✅ Simple Action Handler
+    // MARK: -  Simple Action Handler
     
     private func handleButtonTap() {
         switch downloadState {
@@ -129,9 +129,9 @@ struct DownloadButton: View {
         }
     }
     
-    // ✅ FOCUSED: Route through DownloadManager only (no direct service access)
+    //  FOCUSED: Route through DownloadManager only (no direct service access)
     private func startDownload() {
-        // ✅ ROUTE: DownloadManager handles service access internally
+        //  ROUTE: DownloadManager handles service access internally
         Task {
             await downloadManager.startDownload(
                 album: album,
