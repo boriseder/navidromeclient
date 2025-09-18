@@ -69,12 +69,10 @@ struct ExploreView: View {
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: DSLayout.screenGap) {
-             /*
                 WelcomeHeader(
                     username: "User", // falls du keinen navidromeVM mehr hast
                     nowPlaying: playerVM.currentSong
                 )
-                */
                 if !homeScreenManager.recentAlbums.isEmpty {
                     AlbumSection(
                         title: "Recently played",

@@ -131,6 +131,10 @@ struct MainTabView: View {
             }
         }
         .overlay(networkStatusOverlay, alignment: .top)
+        .overlay(alignment: .bottom) { // ← Ist das da?
+            MiniPlayerView()
+                .environmentObject(playerVM)
+        }
     }
     
     // MARK: - ✅ GENERIC: Builder bleibt sauber und generisch
