@@ -17,6 +17,8 @@ struct ExploreView: View {
     
     @StateObject private var homeScreenManager = HomeScreenManager.shared
     
+    @State private var hasLoaded = false
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -28,43 +30,31 @@ struct ExploreView: View {
             }
             .navigationTitle("Music")
             .navigationBarTitleDisplayMode(.large)
-            .task {
+            .task(id: hasLoaded) { // ← Task-ID hinzufügen
+                guard !hasLoaded else { return }
+                print("🚀 ExploreView.setupHomeScreenData() called")
                 await setupHomeScreenData()
+                hasLoaded = true
             }
             .refreshable {
+                print("🔄 ExploreView manual refresh triggered")
                 await homeScreenManager.loadHomeScreenData()
                 await preloadHomeScreenCovers()
             }
-            .onChange(of: networkMonitor.canLoadOnlineContent) { _, canLoad in
-                if canLoad && !offlineManager.isOfflineMode {
-                    Task {
-                        await homeScreenManager.handleNetworkChange(isOnline: true)
-                        await preloadHomeScreenCovers()
-                    }
-                }
-            }
-            .onChange(of: offlineManager.isOfflineMode) { _, isOffline in
-                if !isOffline && networkMonitor.canLoadOnlineContent {
-                    Task {
-                        await homeScreenManager.loadHomeScreenData()
-                        await preloadHomeScreenCovers()
-                    }
-                }
-            }
-            .accountToolbar()
         }
     }
     
     // MARK: - Setup
     
     private func setupHomeScreenData() async {
-        // Keine Service-Übergabe mehr nötig
+        // Guard entfernt - nicht mehr nötig
         if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+            print("📡 Starting home screen data load")
             await homeScreenManager.loadHomeScreenData()
             await preloadHomeScreenCovers()
         }
     }
-    
+
     private func preloadHomeScreenCovers() async {
         let allAlbums = homeScreenManager.recentAlbums +
                        homeScreenManager.newestAlbums +
@@ -79,11 +69,12 @@ struct ExploreView: View {
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: DSLayout.screenGap) {
+             /*
                 WelcomeHeader(
                     username: "User", // falls du keinen navidromeVM mehr hast
                     nowPlaying: playerVM.currentSong
                 )
-                
+                */
                 if !homeScreenManager.recentAlbums.isEmpty {
                     AlbumSection(
                         title: "Recently played",

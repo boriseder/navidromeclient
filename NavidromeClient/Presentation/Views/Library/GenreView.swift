@@ -86,7 +86,7 @@ struct GenreView: View {
             items: displayedGenres,
             layout: .list
         ) { genre, index in
-            NavigationLink(value: genre) {
+            NavigationLink(destination: ArtistDetailView(context: .genre(genre))) {
                 ListItemContainer(content: .genre(genre), index: index)
             }
         }
