@@ -125,15 +125,20 @@ struct MainTabView: View {
     }
     
     var body: some View {
-        TabView {
-            ForEach(tabs.indices, id: \.self) { index in
-                tabContent(tabs[index])
+        GeometryReader { geometry in  // ← ADD GeometryReader
+            
+            TabView {
+                ForEach(tabs.indices, id: \.self) { index in
+                    tabContent(tabs[index])
+                }
             }
-        }
-        .overlay(networkStatusOverlay, alignment: .top)
-        .overlay(alignment: .bottom) { // ← Ist das da?
-            MiniPlayerView()
-                .environmentObject(playerVM)
+            .overlay(networkStatusOverlay, alignment: .top)
+            .overlay(alignment: .bottom) { // ← Ist das da?
+                MiniPlayerView()
+                    .environmentObject(playerVM)
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 49) // ← Standard TabBar height
+                
+            }
         }
     }
     

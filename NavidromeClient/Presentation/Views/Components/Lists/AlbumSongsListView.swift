@@ -11,7 +11,6 @@ import SwiftUI
 struct AlbumSongsListView: View {
     let songs: [Song]
     let album: Album
-    @Binding var miniPlayerVisible: Bool
     
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var navidromeVM: NavidromeViewModel
@@ -32,9 +31,9 @@ struct AlbumSongsListView: View {
                         },
                         onMore: {
                             playerVM.stop()
-                            miniPlayerVisible = false
                         }
                     )
+                    
                 }
             }
         }

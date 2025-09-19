@@ -21,7 +21,6 @@ struct AlbumDetailView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     
     @State private var songs: [Song] = []
-    @State private var miniPlayerVisible = false
     @State private var coverArt: UIImage?
     @State private var isOfflineAlbum = false
     
@@ -61,13 +60,12 @@ struct AlbumDetailView: View {
                 } else {
                     AlbumSongsListView(
                         songs: songs,
-                        album: album,
-                        miniPlayerVisible: $miniPlayerVisible
+                        album: album
                     )
                 }
             }
             .screenPadding()
-            .padding(.bottom, miniPlayerVisible ? DSLayout.miniPlayerHeight : DSLayout.contentGap)
+            .padding(.bottom, DSLayout.miniPlayerHeight + DSLayout.contentGap)
             .navigationTitle(album.name)
             .navigationBarTitleDisplayMode(.inline)
             .task {

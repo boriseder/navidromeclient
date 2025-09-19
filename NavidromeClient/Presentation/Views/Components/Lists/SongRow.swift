@@ -60,6 +60,8 @@ struct SongRow: View {
             }
             .tint(DSColor.accent)
         }
+        .contentShape(Rectangle())  // ✅ ADD: Macht gesamte Row klickbar
+
     }
 
     // MARK: - Track Number or Equalizer (Enhanced)
