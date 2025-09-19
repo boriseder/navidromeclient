@@ -35,11 +35,20 @@ struct CardItemContainer: View {
                     .font(DSText.emphasized)
                     .foregroundColor(DSColor.primary)
                     .lineLimit(1)
+                   // .multilineTextAlignment(.leading)       // linksbündig
+                   // .truncationMode(.tail)                  // falls nötig am Ende kürzen
+                   // .fixedSize(horizontal: false, vertical: true) // zwingt ihn zum Umbrechen
+                    .frame(maxWidth: .infinity, alignment: .leading) // sorgt für linksbündig auch bei nur 1 Zeile
 
+                
                 Text(content.subtitle)
                     .font(DSText.metadata)
                     .foregroundColor(DSColor.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)       // linksbündig
+                    .truncationMode(.tail)                  // falls nötig am Ende kürzen
+                    .fixedSize(horizontal: false, vertical: true) // zwingt ihn zum Umbrechen
+                    .frame(maxWidth: .infinity, alignment: .leading) // sorgt für linksbündig auch bei nur 1 Zeile
                 
                 if let year = content.year {
                     Text(year)
@@ -49,6 +58,8 @@ struct CardItemContainer: View {
                     Text("").hidden() // konsistenter Spacer
                 }
             }
+            .frame(maxWidth: DSLayout.cardCover)
+
             
             if content.hasChevron {
                 Image(systemName: "chevron.right")
