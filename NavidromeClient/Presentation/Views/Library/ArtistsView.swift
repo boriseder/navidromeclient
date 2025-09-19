@@ -67,6 +67,10 @@ struct ArtistsView: View {
         ) {
             ArtistListContent()
         }
+        // ✅ FIXED: NavigationDestination hier hinzufügen
+        .navigationDestination(for: Artist.self) { artist in
+            ArtistDetailView(context: .artist(artist))
+        }
         .onChange(of: searchText) { _, _ in
             handleSearchTextChange()
         }
@@ -82,9 +86,10 @@ struct ArtistsView: View {
             items: displayedArtists,
             layout: .list
         ) { artist, index in
-            NavigationLink(value: artist) {
+            NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
                 ListItemContainer(content: .artist(artist), index: index)
             }
+
         }
     }
 

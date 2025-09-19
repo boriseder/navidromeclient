@@ -8,7 +8,8 @@ struct CardItemContainer: View {
     
     @State private var loadedImage: UIImage?
     @State private var isLoading = false
-    
+    @State private var errorMessage: String?
+
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
             coverImageView()
@@ -41,11 +42,6 @@ struct CardItemContainer: View {
                 }
             }
             .frame(maxWidth: DSLayout.cardCover)
-            
-            if content.hasChevron {
-                Image(systemName: "chevron.right")
-                    .foregroundColor(DSColor.secondary)
-            }
         }
         .padding(DSLayout.elementPadding)
         .background(
@@ -79,6 +75,10 @@ struct CardItemContainer: View {
                 ProgressView()
                     .scaleEffect(0.7)
                     .tint(.white)
+            } else if errorMessage != nil {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(DSText.largeButton)
+                    .foregroundColor(DSColor.error)
             } else {
                 Image(systemName: content.iconName)
                     .font(DSText.largeButton)
@@ -112,5 +112,10 @@ struct CardItemContainer: View {
             // Genres don't have images
             break
         }
-    }
+        if loadedImage == nil {
+            errorMessage = "Image load failed"
+        }
+        isLoading = false
+
+    }    
 }

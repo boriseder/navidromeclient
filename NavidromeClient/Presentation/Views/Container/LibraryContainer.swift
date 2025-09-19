@@ -94,20 +94,19 @@ struct NavigationContainer<Content: View>: View {
     }
     
     var body: some View {
-        NavigationStack {
-            content()
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(displayMode)
-                .conditionalSearchable(searchText: searchText, prompt: searchPrompt)
-                .refreshable {
-                    await onRefresh?()
-                }
-                .conditionalToolbar(toolbarConfig)
-        }
+        // ✅ FIXED: KEIN NavigationStack hier - nur Modifiers
+        content()
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(displayMode)
+            .conditionalSearchable(searchText: searchText, prompt: searchPrompt)
+            .refreshable {
+                await onRefresh?()
+            }
+            .conditionalToolbar(toolbarConfig)
     }
 }
 
-// MARK: - 3.  CLEAN: LibraryView Composition
+// ✅ UPDATED: LibraryView verwendet jetzt NavigationStack
 struct LibraryView<Content: View>: View {
     let title: String
     let isLoading: Bool
@@ -121,20 +120,23 @@ struct LibraryView<Content: View>: View {
     let content: () -> Content
     
     var body: some View {
-        NavigationContainer(
-            title: title,
-            onRefresh: onRefresh,
-            searchText: searchText,
-            searchPrompt: searchPrompt,
-            toolbarConfig: toolbarConfig
-        ) {
-            ContentContainer(
-                isLoading: isLoading,
-                isEmpty: isEmpty,
-                isOfflineMode: isOfflineMode,
-                emptyStateType: emptyStateType,
-                content: content
-            )
+        // ✅ FIXED: NavigationStack hier, damit navigationDestination funktioniert
+        NavigationStack {
+            NavigationContainer(
+                title: title,
+                onRefresh: onRefresh,
+                searchText: searchText,
+                searchPrompt: searchPrompt,
+                toolbarConfig: toolbarConfig
+            ) {
+                ContentContainer(
+                    isLoading: isLoading,
+                    isEmpty: isEmpty,
+                    isOfflineMode: isOfflineMode,
+                    emptyStateType: emptyStateType,
+                    content: content
+                )
+            }
         }
     }
 }
