@@ -216,8 +216,8 @@ struct SpotifySongInfoView: View {
                 Text(song.title)
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 
                 if let artist = song.artist {
                     Text(artist)
