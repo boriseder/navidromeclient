@@ -66,14 +66,15 @@ struct LoadingView: View {
 // MARK: -  Universal Empty State View
 
 struct EmptyStateView: View {
+    
+    @EnvironmentObject var deps: AppDependencies
+
     let type: EmptyStateType
     let customTitle: String?
     let customMessage: String?
     let primaryAction: EmptyStateAction?
     let secondaryAction: EmptyStateAction?
     
-    @EnvironmentObject private var networkMonitor: NetworkMonitor
-    @EnvironmentObject private var offlineManager: OfflineManager
     
     init(
         type: EmptyStateType,
@@ -113,7 +114,7 @@ struct EmptyStateView: View {
                 } else if !isOnline && !isOfflineMode {
                     // Auto-generated action for offline scenarios
                     Button("Switch to Downloaded Music") {
-                        offlineManager.switchToOfflineMode()
+                        deps.offlineManager.switchToOfflineMode()
                     }
                 }
                 
@@ -129,11 +130,11 @@ struct EmptyStateView: View {
     // MARK: - Computed Properties
     
     private var isOnline: Bool {
-        return networkMonitor.canLoadOnlineContent
+        return deps.networkMonitor.canLoadOnlineContent
     }
     
     private var isOfflineMode: Bool {
-        return offlineManager.isOfflineMode
+        return deps.offlineManager.isOfflineMode
     }
     
     private var iconName: String {

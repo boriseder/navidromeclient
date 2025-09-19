@@ -10,12 +10,8 @@
 import SwiftUI
 
 struct SearchView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtManager: CoverArtManager
+
+    @EnvironmentObject var deps: AppDependencies
     
     @State private var query: String = ""
     @State private var selectedTab: SearchTab = .songs
@@ -63,7 +59,7 @@ struct SearchView: View {
     // MARK: - Computed Properties
     
     private var shouldUseOfflineSearch: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+        return !deps.networkMonitor.canLoadOnlineContent || deps.offlineManager.isOfflineMode
     }
     
     private var hasResults: Bool {
@@ -187,7 +183,7 @@ struct SearchView: View {
     
     private func searchArtistsByName(query: String) async -> [Artist] {
         return await MainActor.run {
-            let matches = offlineManager.offlineArtists.filter { artist in
+            let matches = deps.offlineManager.offlineArtists.filter { artist in
                 artist.name.lowercased().contains(query)
             }
             
@@ -197,7 +193,7 @@ struct SearchView: View {
     
     private func searchAlbumsByName(query: String) async -> [Album] {
         return await MainActor.run {
-            let matches = offlineManager.offlineAlbums.filter { album in
+            let matches = deps.offlineManager.offlineAlbums.filter { album in
                 album.name.lowercased().contains(query)
             }
             
@@ -210,8 +206,8 @@ struct SearchView: View {
             var allSongs: [Song] = []
             
             // Collect all songs from downloaded albums
-            for downloadedAlbum in downloadManager.downloadedAlbums {
-                if let cachedSongs = navidromeVM.albumSongs[downloadedAlbum.albumId] {
+            for downloadedAlbum in deps.downloadManager.downloadedAlbums {
+                if let cachedSongs = deps.navidromeVM.albumSongs[downloadedAlbum.albumId] {
                     allSongs.append(contentsOf: cachedSongs)
                 } else {
                     let songs = downloadedAlbum.songs.map { $0.toSong() }
@@ -233,7 +229,7 @@ struct SearchView: View {
     private func performOnlineSearch(query: String) {
         searchTask = Task {
             //  ROUTE: Through NavidromeViewModel only (no direct service access)
-            let result = await navidromeVM.search(query: query)
+            let result = await deps.navidromeVM.search(query: query)
             
             if !Task.isCancelled {
                 await MainActor.run {
@@ -324,7 +320,7 @@ struct SearchView: View {
     
     private func handleSongTap(at index: Int) {
         Task {
-            await playerVM.setPlaylist(
+            await deps.playerVM.setPlaylist(
                 searchResults.songs,
                 startIndex: index,
                 albumId: nil
@@ -390,7 +386,7 @@ struct SearchView: View {
                         SearchResultSongRow(
                             song: song,
                             index: index + 1,
-                            isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                            isPlaying: deps.playerVM.currentSong?.id == song.id && deps.playerVM.isPlaying,
                             action: { handleSongTap(at: index) }
                         )
                     }

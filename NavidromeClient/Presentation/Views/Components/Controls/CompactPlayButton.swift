@@ -7,13 +7,15 @@
 import SwiftUI
 
 struct CompactPlayButton: View {
+    
+    @EnvironmentObject var deps: AppDependencies
+    
     let album: Album
     let songs: [Song]
-    @EnvironmentObject var playerVM: PlayerViewModel
 
     var body: some View {
         Button {
-            Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
+            Task { await deps.playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
         } label: {
             HStack(spacing: DSLayout.tightGap) {
                 Image(systemName: "play.fill")

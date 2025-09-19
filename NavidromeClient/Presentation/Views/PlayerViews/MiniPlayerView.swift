@@ -1,29 +1,28 @@
 //
-//  MiniPlayerView.swift - FIXED: Background Blur vom Cover
+//  MiniPlayerView.swift - FIXED: AppDependencies Migration
 //  NavidromeClient
 //
-//   FIXED: Cover-Blur Background statt hellem Surface
+//   FIXED: ProgressBarView deps access
 //
 
 import SwiftUI
 
 struct MiniPlayerView: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var audioSessionManager: AudioSessionManager
+    @EnvironmentObject var deps: AppDependencies
     @State private var showFullScreen = false
     @State private var isDragging = false
     
     var body: some View {
-        if let song = playerVM.currentSong {
+        if let song = deps.playerVM.currentSong {
             VStack(spacing: 0) {
                 // Progress Bar (Spotify green)
-                ProgressBarView(playerVM: playerVM, isDragging: $isDragging)
+                ProgressBarView(isDragging: $isDragging)
                 
                 // Main Player Content
                 HStack(spacing: 12) {
                     // Left: Album Art + Song Info
                     HStack(spacing: 12) {
-                        AlbumArtView(cover: playerVM.coverArt)
+                        AlbumArtView(cover: deps.playerVM.coverArt)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(song.title)
@@ -55,21 +54,21 @@ struct MiniPlayerView: View {
                         }
                         
                         Button {
-                            playerVM.togglePlayPause()
+                            deps.playerVM.togglePlayPause()
                         } label: {
-                            if playerVM.isLoading {
+                            if deps.playerVM.isLoading {
                                 ProgressView()
                                     .scaleEffect(0.8)
                                     .frame(width: 32, height: 32)
                                     .tint(.white)
                             } else {
-                                Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                                Image(systemName: deps.playerVM.isPlaying ? "pause.fill" : "play.fill")
                                     .font(.system(size: 18, weight: .medium))
                                     .foregroundStyle(.white)
                                     .frame(width: 32, height: 32)
                             }
                         }
-                        .disabled(playerVM.isLoading)
+                        .disabled(deps.playerVM.isLoading)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -77,7 +76,7 @@ struct MiniPlayerView: View {
                 .background(
                     ZStack {
                         // FIXED: Cover Blur Background
-                        if let cover = playerVM.coverArt {
+                        if let cover = deps.playerVM.coverArt {
                             Image(uiImage: cover)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -100,7 +99,7 @@ struct MiniPlayerView: View {
                             if value.translation.height < -50 {
                                 showFullScreen = true
                             } else if value.translation.height > 50 {
-                                playerVM.stop()
+                                deps.playerVM.stop()
                             }
                         }
                 )
@@ -108,7 +107,7 @@ struct MiniPlayerView: View {
             .background(
                 // FIXED: Gesamter Background mit Cover Blur
                 ZStack {
-                    if let cover = playerVM.coverArt {
+                    if let cover = deps.playerVM.coverArt {
                         Image(uiImage: cover)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -124,8 +123,7 @@ struct MiniPlayerView: View {
             .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: -2)
             .fullScreenCover(isPresented: $showFullScreen) {
                 FullScreenPlayerView()
-                    .environmentObject(playerVM)
-                    .environmentObject(audioSessionManager)
+                    .environmentObject(deps)
             }
         }
     }
@@ -133,7 +131,7 @@ struct MiniPlayerView: View {
 
 // MARK: - Progress Bar mit Spotify-Grün
 struct ProgressBarView: View {
-    @ObservedObject var playerVM: PlayerViewModel
+    @EnvironmentObject var deps: AppDependencies
     @Binding var isDragging: Bool
     
     var body: some View {
@@ -156,8 +154,8 @@ struct ProgressBarView: View {
                     .onChanged { value in
                         isDragging = true
                         let progress = max(0, min(value.location.x / geometry.size.width, 1))
-                        let newTime = progress * playerVM.duration
-                        playerVM.seek(to: newTime)
+                        let newTime = progress * deps.playerVM.duration
+                        deps.playerVM.seek(to: newTime)
                     }
                     .onEnded { _ in
                         isDragging = false
@@ -168,8 +166,8 @@ struct ProgressBarView: View {
     }
     
     private var progressPercentage: Double {
-        guard playerVM.duration > 0 else { return 0 }
-        return playerVM.currentTime / playerVM.duration
+        guard deps.playerVM.duration > 0 else { return 0 }
+        return deps.playerVM.currentTime / deps.playerVM.duration
     }
 }
 

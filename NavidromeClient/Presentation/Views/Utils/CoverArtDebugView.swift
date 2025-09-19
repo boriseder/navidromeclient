@@ -7,11 +7,12 @@
 import SwiftUI
 
 struct CoverArtDebugView: View {
-    @EnvironmentObject var coverArtManager: CoverArtManager
+
+    @EnvironmentObject var deps: AppDependencies
     
     var body: some View {
-        let stats = coverArtManager.getCacheStats()
-        let health = coverArtManager.getHealthStatus()
+        let stats = deps.coverArtManager.getCacheStats()
+        let health = deps.coverArtManager.getHealthStatus()
         
         VStack(spacing: 16) {
             Text("Cover Art Performance")
@@ -31,15 +32,15 @@ struct CoverArtDebugView: View {
             
             HStack {
                 Button("Reset Stats") {
-                    coverArtManager.resetPerformanceStats()
+                    deps.coverArtManager.resetPerformanceStats()
                 }
                 
                 Button("Clear Cache") {
-                    coverArtManager.clearMemoryCache()
+                    deps.coverArtManager.clearMemoryCache()
                 }
                 
                 Button("Print Diagnostics") {
-                    coverArtManager.printDiagnostics()
+                    deps.coverArtManager.printDiagnostics()
                 }
             }
         }

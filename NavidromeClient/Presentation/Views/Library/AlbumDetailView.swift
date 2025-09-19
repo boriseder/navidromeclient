@@ -10,16 +10,12 @@
 import SwiftUI
 
 struct AlbumDetailView: View {
+
+    @EnvironmentObject var deps: AppDependencies
+
     let album: Album
+
     @State private var scrollOffset: CGFloat = 0
-    
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtManager: CoverArtManager
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    
     @State private var songs: [Song] = []
     @State private var coverArt: UIImage?
     @State private var isOfflineAlbum = false
@@ -35,9 +31,9 @@ struct AlbumDetailView: View {
                 )
                 
                 //  BESTEHENDE KOMPONENTE: LibraryStatusHeader für Offline-Status
-                if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
+                if isOfflineAlbum || !deps.networkMonitor.canLoadOnlineContent {
                     HStack {
-                        if downloadManager.isAlbumDownloaded(album.id) {
+                        if deps.downloadManager.isAlbumDownloaded(album.id) {
                             OfflineStatusBadge(album: album)
                         } else {
                             NetworkStatusIndicator(showText: true)
@@ -77,13 +73,13 @@ struct AlbumDetailView: View {
     
     @MainActor
     private func loadAlbumData() async {
-        isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+        isOfflineAlbum = !deps.networkMonitor.canLoadOnlineContent || deps.offlineManager.isOfflineMode
         
         //  BESTEHENDE INTEGRATION: CoverArtManager
-        coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(DSLayout.fullCover))
+        coverArt = await deps.coverArtManager.loadAlbumImage(album: album, size: Int(DSLayout.fullCover))
         
         //  BESTEHENDE INTEGRATION: NavidromeViewModel für Songs
-        songs = await navidromeVM.loadSongs(for: album.id)
+        songs = await deps.navidromeVM.loadSongs(for: album.id)
     }
 }
 
@@ -95,9 +91,9 @@ struct AlbumHeaderView: View {
     let songs: [Song]
     let isOfflineAlbum: Bool
     
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var downloadManager: DownloadManager
+    // MIGRATED to AppDependencies
+    // MIGRATED to AppDependencies
+    // MIGRATED to AppDependencies
     
     var body: some View {
         HStack(spacing: DSLayout.sectionGap) {
@@ -131,8 +127,7 @@ struct AlbumHeaderView: View {
                     if !isOfflineAlbum {
                         DownloadButton(
                             album: album,
-                            songs: songs,
-                            navidromeVM: navidromeVM
+                            songs: songs
                         )
                     }
                 }

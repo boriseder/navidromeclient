@@ -1,17 +1,14 @@
 import SwiftUI
 
 struct ContentView: View {
-    @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
+   
+    @EnvironmentObject var deps: AppDependencies
     
     @State private var showingSettings = false
     
     var body: some View {
         Group {
-            if appConfig.isConfigured {
+            if deps.appConfig.isConfigured {
                 MainTabView()
             } else {
                 WelcomeView {
@@ -27,11 +24,11 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            if !appConfig.isConfigured {
+            if !deps.appConfig.isConfigured {
                 showingSettings = true
             }
         }
-        .onChange(of: networkMonitor.isConnected) { _, isConnected in
+        .onChange(of: deps.networkMonitor.isConnected) { _, isConnected in
             handleNetworkChange(isConnected)
         }
     }
@@ -39,7 +36,7 @@ struct ContentView: View {
     private func handleNetworkChange(_ isConnected: Bool) {
         if !isConnected {
             print("📵 Network lost - switching to offline mode")
-            offlineManager.switchToOfflineMode()
+            deps.offlineManager.switchToOfflineMode()
         } else {
             print("📶 Network restored")
         }

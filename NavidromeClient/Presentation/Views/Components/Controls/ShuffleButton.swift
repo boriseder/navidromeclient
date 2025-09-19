@@ -8,15 +8,17 @@
 import SwiftUI
 
 struct ShuffleButton: View {
+
+    @EnvironmentObject var deps: AppDependencies
+
     let album: Album
     let songs: [Song]
-    @EnvironmentObject var playerVM: PlayerViewModel
-
+    
     var body: some View {
         Button {
-            Task { await playerVM.setPlaylist(songs.shuffled(), startIndex: 0, albumId: album.id) }
+            Task { await deps.playerVM.setPlaylist(songs.shuffled(), startIndex: 0, albumId: album.id) }
         } label: {
-            Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
+            Image(systemName: deps.playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
                 .resizable()
                 .scaledToFit()
                 .frame(width: DSLayout.icon, height: DSLayout.icon)

@@ -6,7 +6,9 @@ enum CardContent {
     case genre(Genre)
 }
 struct ListItemContainer: View {
-    @EnvironmentObject var coverArtManager: CoverArtManager
+
+    @EnvironmentObject var deps: AppDependencies
+
     let content: CardContent
     let index: Int
     
@@ -57,10 +59,10 @@ struct ListItemContainer: View {
             
             switch content {
             case .album:
-                let image = coverArtManager.getAlbumImage(for: content.id)
+                let image = deps.coverArtManager.getAlbumImage(for: content.id, size: Int(DSLayout.smallAvatar*3))
                 imageDisplayView(image: image)
             case .artist:
-                let image = coverArtManager.getArtistImage(for: content.id)
+                let image = deps.coverArtManager.getArtistImage(for: content.id, size: Int(DSLayout.smallAvatar*3))
                 imageDisplayView(image: image)
             case .genre:
                 // Genres have no images to load
@@ -76,15 +78,15 @@ struct ListItemContainer: View {
     private func loadContentImage() async {
         switch content {
         case .album(let album):
-            await coverArtManager.loadAlbumImage(
+            await deps.coverArtManager.loadAlbumImage(
                 album: album,
-                size: Int(DSLayout.avatar),
+                size: Int(DSLayout.avatar*3),
                 staggerIndex: index
             )
         case .artist(let artist):
-            await coverArtManager.loadArtistImage(
+            await deps.coverArtManager.loadArtistImage(
                 artist: artist,
-                size: Int(DSLayout.avatar),
+                size: Int(DSLayout.avatar*3),
                 staggerIndex: index
             )
         case .genre:
@@ -103,11 +105,11 @@ struct ListItemContainer: View {
                 .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
                 .clipShape(content.clipShape)
                 .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-        } else if coverArtManager.loadingStates[content.id] ?? false {
+        } else if deps.coverArtManager.loadingStates[content.id] ?? false {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if coverArtManager.errorStates[content.id] != nil {
+        } else if deps.coverArtManager.errorStates[content.id] != nil {
             Image(systemName: "exclamationmark.triangle")
                 .font(DSText.largeButton)
                 .foregroundColor(DSColor.error)

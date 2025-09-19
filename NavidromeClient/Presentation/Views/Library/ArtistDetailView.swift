@@ -15,14 +15,11 @@ enum ArtistDetailContext {
 }
 
 struct ArtistDetailView: View {
+
+    @EnvironmentObject var deps: AppDependencies
+    
     let context: ArtistDetailContext
     
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var coverArtManager: CoverArtManager
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
     
     @State private var albums: [Album] = []
     @State private var artistImage: UIImage?
@@ -37,15 +34,15 @@ struct ArtistDetailView: View {
     }
     
     private var isOfflineMode: Bool {
-        !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+        !deps.networkMonitor.canLoadOnlineContent || deps.offlineManager.isOfflineMode
     }
     
     private var availableOfflineAlbums: [Album] {
         switch context {
         case .artist(let artist):
-            return offlineManager.getOfflineAlbums(for: artist)
+            return deps.offlineManager.getOfflineAlbums(for: artist)
         case .genre(let genre):
-            return offlineManager.getOfflineAlbums(for: genre)
+            return deps.offlineManager.getOfflineAlbums(for: genre)
         }
     }
     
@@ -81,7 +78,7 @@ struct ArtistDetailView: View {
                         customTitle: "No Downloaded Content",
                         customMessage: emptyMessageForContext,
                         primaryAction: EmptyStateAction("Browse Online Content") {
-                            offlineManager.switchToOnlineMode()
+                            deps.offlineManager.switchToOnlineMode()
                         }
                     )
                     .screenPadding()
@@ -140,7 +137,7 @@ struct ArtistDetailView: View {
             if isOfflineMode && !availableOfflineAlbums.isEmpty {
                 LibraryStatusHeader.artists(
                     count: availableOfflineAlbums.count,
-                    isOnline: networkMonitor.canLoadOnlineContent,
+                    isOnline: deps.networkMonitor.canLoadOnlineContent,
                     isOfflineMode: true
                 )
             }
@@ -250,7 +247,7 @@ struct ArtistDetailView: View {
         
         do {
             //  KORREKT: Nutzt existierende loadAlbums(context:) Methode
-            albums = try await musicLibraryManager.loadAlbums(context: context)
+            albums = try await deps.musicLibraryManager.loadAlbums(context: context)
             print(" Loaded \(albums.count) albums via MusicLibraryManager")
         } catch {
             print("❌ Failed to load albums: \(error)")
@@ -263,7 +260,7 @@ struct ArtistDetailView: View {
     ///  SAUBER: Nur Manager-Routing
     private func loadArtistImageViaManager() async {
         if case .artist(let artist) = context {
-            artistImage = await coverArtManager.loadArtistImage(
+            artistImage = await deps.coverArtManager.loadArtistImage(
                 artist: artist,
                 size: Int(DSLayout.smallAvatar)
             )
@@ -280,7 +277,7 @@ struct ArtistDetailView: View {
         
         for album in albumsToPlay {
             //  DIRECT: MusicLibraryManager für Songs
-            let songs = await navidromeVM.loadSongs(for: album.id)
+            let songs = await deps.navidromeVM.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }
         
@@ -290,10 +287,10 @@ struct ArtistDetailView: View {
         }
         
         let shuffledSongs = allSongs.shuffled()
-        await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
+        await deps.playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
         
-        if !playerVM.isShuffling {
-            playerVM.toggleShuffle()
+        if !deps.playerVM.isShuffling {
+            deps.playerVM.toggleShuffle()
         }
         
         print("🎵 Started shuffle play with \(shuffledSongs.count) songs")

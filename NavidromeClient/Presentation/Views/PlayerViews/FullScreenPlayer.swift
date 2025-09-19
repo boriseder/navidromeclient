@@ -9,9 +9,9 @@ import SwiftUI
 import AVKit
 
 struct FullScreenPlayerView: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var audioSessionManager: AudioSessionManager
-    @EnvironmentObject var coverArtManager: CoverArtManager
+
+    @EnvironmentObject var deps: AppDependencies
+    
     @Environment(\.dismiss) private var dismiss
     
     @State private var dragOffset: CGFloat = 0
@@ -23,7 +23,7 @@ struct FullScreenPlayerView: View {
         GeometryReader { geometry in
             ZStack {
 
-               //SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
+               //SpotifyBackground(image: highResCoverArt ?? deps.playerVM.coverArt)
                 
                 VStack(spacing: 5) {
                     // Top Bar
@@ -31,27 +31,27 @@ struct FullScreenPlayerView: View {
                     TopBar(dismiss: dismiss, showingQueue: $showingQueue)
                         .padding(.horizontal, 20)
                     Spacer(minLength: 30)
-                    SpotifyAlbumArt(cover: highResCoverArt ?? playerVM.coverArt, screenWidth: geometry.size.width)
+                    SpotifyAlbumArt(cover: highResCoverArt ?? deps.playerVM.coverArt, screenWidth: geometry.size.width)
                         .scaleEffect(isDragging ? 0.95 : 1.0)
                         .animation(.spring(response: 0.3), value: isDragging)
                     
                     Spacer(minLength: 20)
 
-                    if let song = playerVM.currentSong {
+                    if let song = deps.playerVM.currentSong {
                         SpotifySongInfoView(song: song, screenWidth: geometry.size.width)
                     }
                                         
                     Spacer(minLength: 16)
                     
                     // FIXED: Progress mit Timeline-Indikator
-                    ProgressSection(playerVM: playerVM, screenWidth: geometry.size.width)
+                    ProgressSection(screenWidth: geometry.size.width)
                     
                     Spacer(minLength: 24)
                     
-                    MainControls(playerVM: playerVM)
+                    MainControls()
                     
                     Spacer()
-                    BottomControls(playerVM: playerVM, audioSessionManager: audioSessionManager, screenWidth: geometry.size.width)
+                    BottomControls(screenWidth: geometry.size.width)
                       //  .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
 
                 }
@@ -62,7 +62,7 @@ struct FullScreenPlayerView: View {
                 .padding(.top, 70)
                 .padding(.bottom, 20)
                 .background {
-                    SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
+                    SpotifyBackground(image: highResCoverArt ?? deps.playerVM.coverArt)
                 }
 
             }
@@ -71,7 +71,7 @@ struct FullScreenPlayerView: View {
             .gesture(dismissGesture)
         }
         .animation(.interactiveSpring(), value: dragOffset)
-        .task(id: playerVM.currentSong?.id) {
+        .task(id: deps.playerVM.currentSong?.id) {
             await loadTrueHighResCoverArt()
         }
     }
@@ -98,19 +98,19 @@ struct FullScreenPlayerView: View {
     
     // FIXED: Force echte High-Res mit size parameter
     private func loadTrueHighResCoverArt() async {
-        guard let song = playerVM.currentSong,
+        guard let song = deps.playerVM.currentSong,
               let albumId = song.albumId else { return }
         
         if let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
             // ✅ FIXED: Load 800px + Check if bereits geladen
-            if let existingHighRes = coverArtManager.getAlbumImage(for: albumId, size: 800) {
+            if let existingHighRes = deps.coverArtManager.getAlbumImage(for: albumId, size: 1200) {
                 print("🎯 High-res cache hit: \(existingHighRes.size.width)x\(existingHighRes.size.height)")
                 highResCoverArt = existingHighRes
                 return
             }
             
             // Load fresh 800px
-            let highRes = await coverArtManager.loadAlbumImage(
+            let highRes = await deps.coverArtManager.loadAlbumImage(
                 album: cachedAlbum,
                 size: 800,
                 staggerIndex: 0
@@ -242,7 +242,7 @@ struct SpotifySongInfoView: View {
 
 // MARK: - FIXED: Progress Section mit Timeline-Indikator
 struct ProgressSection: View {
-    @ObservedObject var playerVM: PlayerViewModel
+    @EnvironmentObject var deps: AppDependencies
     let screenWidth: CGFloat
     @State private var isDragging = false
     @State private var dragValue: Double = 0
@@ -274,13 +274,13 @@ struct ProgressSection: View {
             
             // Time Labels
             HStack {
-                Text(formatTime(isDragging ? dragValue * playerVM.duration : playerVM.currentTime))
+                Text(formatTime(isDragging ? dragValue * deps.playerVM.duration : deps.playerVM.currentTime))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.7))
                 
                 Spacer()
                 
-                Text(formatTime(playerVM.duration))
+                Text(formatTime(deps.playerVM.duration))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.7))
             }
@@ -290,8 +290,8 @@ struct ProgressSection: View {
     }
     
     private func progressWidth(_ maxWidth: CGFloat) -> CGFloat {
-        guard playerVM.duration > 0 else { return 0 }
-        let progress = isDragging ? dragValue : (playerVM.currentTime / playerVM.duration)
+        guard deps.playerVM.duration > 0 else { return 0 }
+        let progress = isDragging ? dragValue : (deps.playerVM.currentTime / deps.playerVM.duration)
         return min(maxWidth * progress, maxWidth)
     }
     
@@ -304,7 +304,7 @@ struct ProgressSection: View {
             }
             .onEnded { value in
                 let progress = max(0, min(value.location.x / maxWidth, 1))
-                playerVM.seek(to: progress * playerVM.duration)
+                deps.playerVM.seek(to: progress * deps.playerVM.duration)
                 isDragging = false
             }
     }
@@ -318,20 +318,20 @@ struct ProgressSection: View {
 
 // MARK: - FIXED: Main Controls ohne Overflow
 struct MainControls: View {
-    @ObservedObject var playerVM: PlayerViewModel
+    @EnvironmentObject var deps: AppDependencies
     
     var body: some View {
         HStack(spacing: 30) {
             // Shuffle
-            Button { playerVM.toggleShuffle() } label: {
+            Button { deps.playerVM.toggleShuffle() } label: {
                 Image(systemName: "shuffle")
                     .font(.system(size: 22))
-                    .foregroundStyle(playerVM.isShuffling ? .green : .white.opacity(0.7))
+                    .foregroundStyle(deps.playerVM.isShuffling ? .green : .white.opacity(0.7))
             }
             
             // Previous
             Button {
-                Task { await playerVM.playPrevious() }
+                Task { await deps.playerVM.playPrevious() }
             } label: {
                 Image(systemName: "backward.end.fill")
                     .font(.system(size: 28))
@@ -340,28 +340,28 @@ struct MainControls: View {
             
             // Play/Pause
             Button {
-                playerVM.togglePlayPause()
+                deps.playerVM.togglePlayPause()
             } label: {
                 ZStack {
                     Circle()
                         .fill(.white)
                         .frame(width: 64, height: 64)
                     
-                    if playerVM.isLoading {
+                    if deps.playerVM.isLoading {
                         ProgressView()
                             .tint(.black)
                     } else {
-                        Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
+                        Image(systemName: deps.playerVM.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 24))
                             .foregroundStyle(.black)
-                            .offset(x: playerVM.isPlaying ? 0 : 2)
+                            .offset(x: deps.playerVM.isPlaying ? 0 : 2)
                     }
                 }
             }
             
             // Next
             Button {
-                Task { await playerVM.playNext() }
+                Task { await deps.playerVM.playNext() }
             } label: {
                 Image(systemName: "forward.end.fill")
                     .font(.system(size: 28))
@@ -369,7 +369,7 @@ struct MainControls: View {
             }
             
             // Repeat
-            Button { playerVM.toggleRepeat() } label: {
+            Button { deps.playerVM.toggleRepeat() } label: {
                 Image(systemName: repeatIcon)
                     .font(.system(size: 22))
                     .foregroundStyle(repeatColor)
@@ -378,7 +378,7 @@ struct MainControls: View {
     }
     
     private var repeatIcon: String {
-        switch playerVM.repeatMode {
+        switch deps.playerVM.repeatMode {
         case .off: return "repeat"
         case .all: return "repeat"
         case .one: return "repeat.1"
@@ -386,7 +386,7 @@ struct MainControls: View {
     }
     
     private var repeatColor: Color {
-        switch playerVM.repeatMode {
+        switch deps.playerVM.repeatMode {
         case .off: return .white.opacity(0.7)
         case .all, .one: return .green
         }
@@ -395,13 +395,12 @@ struct MainControls: View {
 
 // MARK: - FIXED: Bottom Controls mit Audio Source
 struct BottomControls: View {
-    @ObservedObject var playerVM: PlayerViewModel
-    let audioSessionManager: AudioSessionManager
+    @EnvironmentObject var deps: AppDependencies
     let screenWidth: CGFloat
     
     var body: some View {
         HStack {
-            AudioSourceButton(audioSessionManager: audioSessionManager)
+            AudioSourceButton(audioSessionManager: deps.audioSessionManager)
             
             Spacer()
         }

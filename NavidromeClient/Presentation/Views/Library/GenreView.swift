@@ -18,13 +18,8 @@
 import SwiftUI
 
 struct GenreView: View {
-    // MARK: - Dependencies (unchanged)
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
+
+    @EnvironmentObject var deps: AppDependencies
     
     // MARK: - State (unchanged)
     @State private var searchText = ""
@@ -41,15 +36,15 @@ struct GenreView: View {
     }
 
     private var isOfflineMode: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+        return !deps.networkMonitor.canLoadOnlineContent || deps.offlineManager.isOfflineMode
     }
     
     private var canLoadOnlineContent: Bool {
-        return networkMonitor.canLoadOnlineContent
+        return deps.networkMonitor.canLoadOnlineContent
     }
 
     private var shouldShowLoading: Bool {
-        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+        return deps.musicLibraryManager.isLoading && !deps.musicLibraryManager.hasLoadedInitialData
     }
     
     private var isEmpty: Bool {
@@ -96,9 +91,9 @@ struct GenreView: View {
     
     private func getGenreDataSource() -> [Genre] {
         if canLoadOnlineContent && !isOfflineMode {
-            return musicLibraryManager.genres
+            return deps.musicLibraryManager.genres
         } else {
-            return offlineManager.offlineGenres
+            return deps.offlineManager.offlineGenres
         }
     }
     
@@ -118,7 +113,7 @@ struct GenreView: View {
     
 
     private func refreshAllData() async {
-        await musicLibraryManager.refreshAllData()
+        await deps.musicLibraryManager.refreshAllData()
     }
     
     private func handleSearchTextChange() {
@@ -128,6 +123,6 @@ struct GenreView: View {
     }
     
     private func toggleOfflineMode() {
-        offlineManager.toggleOfflineMode()
+        deps.offlineManager.toggleOfflineMode()
     }
 }

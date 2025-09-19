@@ -18,15 +18,8 @@
 import SwiftUI
 
 struct ArtistsView: View {
-    // MARK: - Dependencies (unchanged)
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var coverArtManager: CoverArtManager
-    @EnvironmentObject var musicLibraryManager: MusicLibraryManager
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var downloadManager: DownloadManager
+
+    @EnvironmentObject var deps: AppDependencies
     
     // MARK: - State (unchanged)
     @State private var searchText = ""
@@ -44,15 +37,15 @@ struct ArtistsView: View {
     }
 
     private var isOfflineMode: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+        return !deps.networkMonitor.canLoadOnlineContent || deps.offlineManager.isOfflineMode
     }
     
     private var canLoadOnlineContent: Bool {
-        return networkMonitor.canLoadOnlineContent
+        return deps.networkMonitor.canLoadOnlineContent
     }
 
     private var shouldShowLoading: Bool {
-        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+        return deps.musicLibraryManager.isLoading && !deps.musicLibraryManager.hasLoadedInitialData
     }
     
     private var isEmpty: Bool {
@@ -99,9 +92,9 @@ struct ArtistsView: View {
     
     private func getArtistDataSource() -> [Artist] {
         if canLoadOnlineContent && !isOfflineMode {
-            return musicLibraryManager.artists
+            return deps.musicLibraryManager.artists
         } else {
-            return offlineManager.offlineArtists
+            return deps.offlineManager.offlineArtists
         }
     }
     
@@ -120,12 +113,12 @@ struct ArtistsView: View {
     }
 
     private func refreshAllData() async {
-        await musicLibraryManager.refreshAllData()
+        await deps.musicLibraryManager.refreshAllData()
     }
     
     private func preloadArtistImages() async {
         let artistsToPreload = Array(displayedArtists.prefix(20))
-        await coverArtManager.preloadArtists(artistsToPreload, size: 120)
+        await deps.coverArtManager.preloadArtists(artistsToPreload, size: 120)
     }
     
     private func handleSearchTextChange() {
@@ -135,7 +128,7 @@ struct ArtistsView: View {
     }
     
     private func toggleOfflineMode() {
-        offlineManager.toggleOfflineMode()
+        deps.offlineManager.toggleOfflineMode()
     }
 }
 

@@ -9,11 +9,12 @@ import SwiftUI
 
 // MARK: - Album Songs List
 struct AlbumSongsListView: View {
+
+    @EnvironmentObject var deps: AppDependencies
+    @State private var showingDeleteConfirmation = false
+
     let songs: [Song]
     let album: Album
-    
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     
     var body: some View {
         if songs.isEmpty {
@@ -25,12 +26,12 @@ struct AlbumSongsListView: View {
                     SongRow(
                         song: song,
                         index: index + 1,
-                        isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                        isPlaying: deps.playerVM.currentSong?.id == song.id && deps.playerVM.isPlaying,
                         action: {
-                            Task { await playerVM.setPlaylist(songs, startIndex: index, albumId: album.id) }
+                            Task { await deps.playerVM.setPlaylist(songs, startIndex: index, albumId: album.id) }
                         },
                         onMore: {
-                            playerVM.stop()
+                            deps.playerVM.stop()
                         }
                     )
                     

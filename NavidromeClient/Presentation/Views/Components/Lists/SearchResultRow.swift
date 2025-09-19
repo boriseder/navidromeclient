@@ -10,11 +10,12 @@ import SwiftUI
 
 // MARK: - Artist Row (Pure UI)
 struct SearchResultArtistRow: View {
+
+    @EnvironmentObject var deps: AppDependencies
+
     let artist: Artist
     let index: Int // For staggered loading
     
-    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
         NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
@@ -40,7 +41,7 @@ struct SearchResultAlbumRow: View {
     let index: Int // For staggered loading
     
     //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    @EnvironmentObject var coverArtManager: CoverArtManager
+    // MIGRATED to AppDependencies
     
     var body: some View {
         NavigationLink(destination: AlbumDetailView(album: album)) {
@@ -68,7 +69,7 @@ struct SearchResultSongRow: View {
     let action: () -> Void
     
     //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    @EnvironmentObject var coverArtManager: CoverArtManager
+    // MIGRATED to AppDependencies
     
     var body: some View {
         Button(action: action) {
@@ -89,20 +90,22 @@ struct SearchResultSongRow: View {
 // MARK: -  UPDATED: Image Components (Pure UI)
 
 struct ArtistImageView: View {
+    @EnvironmentObject var deps: AppDependencies
+    
     let artist: Artist
     let index: Int
     
     //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    @EnvironmentObject var coverArtManager: CoverArtManager
+    // MIGRATED to AppDependencies
     
     var body: some View {
         ZStack {
             Circle()
                 .fill(DSColor.surface)
-                .frame(width: DSLayout.listCover, height: DSLayout.listCover)
+                .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
             
             Group {
-                if let image = coverArtManager.getArtistImage(for: artist.id) {
+                if let image = deps.coverArtManager.getArtistImage(for: artist.id, size: Int(DSLayout.smallAvatar*3)) {
                     //  REACTIVE: Uses centralized state
                     Image(uiImage: image)
                         .resizable()
@@ -126,9 +129,9 @@ struct ArtistImageView: View {
         }
         .task(id: artist.id) {
             //  SINGLE LINE: Manager handles staggering, caching, state
-            await coverArtManager.loadArtistImage(
+            await deps.coverArtManager.loadArtistImage(
                 artist: artist,
-                size: Int(DSLayout.smallAvatar),
+                size: Int(DSLayout.smallAvatar*3),
                 staggerIndex: index
             )
         }
@@ -136,12 +139,12 @@ struct ArtistImageView: View {
     
     @ViewBuilder
     private var artistImageOverlay: some View {
-        if coverArtManager.isLoadingImage(for: artist.id) {
+        if deps.coverArtManager.isLoadingImage(for: artist.id, size: Int(DSLayout.smallAvatar*3)) {
             //  REACTIVE: Uses centralized loading state
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if let error = coverArtManager.getImageError(for: artist.id) {
+        } else if let error = deps.coverArtManager.getImageError(for: artist.id, size: Int(DSLayout.smallAvatar*3)) {
             //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
@@ -155,12 +158,11 @@ struct ArtistImageView: View {
 }
 
 struct AlbumImageView: View {
+    @EnvironmentObject var deps: AppDependencies
+    
     let album: Album
     let index: Int
-    
-    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    @EnvironmentObject var coverArtManager: CoverArtManager
-    
+        
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: DSCorners.element)
@@ -168,12 +170,12 @@ struct AlbumImageView: View {
                 .frame(width: DSLayout.listCover, height: DSLayout.listCover)
             
             Group {
-                if let image = coverArtManager.getAlbumImage(for: album.id) {
+                if let image = deps.coverArtManager.getAlbumImage(for: album.id, size: Int(DSLayout.listCover*3)) {
                     //  REACTIVE: Uses centralized state
-                    Image(uiImage: image)
+                    Image(uiImage: image)  
                         .resizable()
                         .scaledToFill()
-                        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
+                        .frame(width: DSLayout.listCover, height: DSLayout.listCover)
                         .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
                         .transition(.opacity.animation(.easeInOut(duration: 0.3)))
                 } else {
@@ -192,9 +194,9 @@ struct AlbumImageView: View {
         }
         .task(id: album.id) {
             //  SINGLE LINE: Manager handles staggering, caching, state
-            await coverArtManager.loadAlbumImage(
+            await deps.coverArtManager.loadAlbumImage(
                 album: album,
-                size: Int(DSLayout.smallAvatar),
+                size: Int(DSLayout.listCover*3),
                 staggerIndex: index
             )
         }
@@ -202,12 +204,12 @@ struct AlbumImageView: View {
     
     @ViewBuilder
     private var albumImageOverlay: some View {
-        if coverArtManager.isLoadingImage(for: album.id) {
+        if deps.coverArtManager.isLoadingImage(for: album.id, size: Int(DSLayout.listCover*3)) {
             //  REACTIVE: Uses centralized loading state
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if let error = coverArtManager.getImageError(for: album.id) {
+        } else if let error = deps.coverArtManager.getImageError(for: album.id, size: Int(DSLayout.listCover*3)) {
             //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
@@ -221,21 +223,23 @@ struct AlbumImageView: View {
 }
 
 struct SongImageView: View {
+    @EnvironmentObject var deps: AppDependencies
+    
     let song: Song
     let isPlaying: Bool
     
     //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    @EnvironmentObject var coverArtManager: CoverArtManager
+    // MIGRATED to AppDependencies
     
     //  REACTIVE: Get song image via centralized state
     private var songImage: UIImage? {
-        coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover))
+        deps.coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover))
     }
     
     //  REACTIVE: Get loading state via centralized state
     private var isLoading: Bool {
         guard let albumId = song.albumId else { return false }
-        return coverArtManager.isLoadingImage(for: albumId)
+        return deps.coverArtManager.isLoadingImage(for: albumId, size: Int(DSLayout.miniCover))
     }
     
     var body: some View {
@@ -269,7 +273,7 @@ struct SongImageView: View {
         }
         .task(id: song.albumId) {
             //  SINGLE LINE: Manager handles all complexity
-            _ = await coverArtManager.loadSongImage(song: song, size: Int(DSLayout.miniCover))
+            _ = await deps.coverArtManager.loadSongImage(song: song, size: Int(DSLayout.miniCover))
         }
     }
     
@@ -293,7 +297,7 @@ struct SongImageView: View {
             ProgressView()
                 .scaleEffect(0.6)
                 .tint(.white)
-        } else if let albumId = song.albumId, let error = coverArtManager.getImageError(for: albumId) {
+        } else if let albumId = song.albumId, let error = deps.coverArtManager.getImageError(for: albumId, size: Int(DSLayout.smallAvatar*3)) {
             //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))

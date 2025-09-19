@@ -1,33 +1,19 @@
-//
-//  CardContent.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 18.09.25.
-//
-
-
-import SwiftUI
-
-//
-//  CardContent.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 18.09.25.
-//
-
-
 import SwiftUI
 
 struct CardItemContainer: View {
-    @EnvironmentObject var coverArtManager: CoverArtManager
+    @EnvironmentObject var deps: AppDependencies
+    
     let content: CardContent
     let index: Int
-        
+    
+    @State private var loadedImage: UIImage?
+    @State private var isLoading = false
+    
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
-            coverImageOrIconView()
+            coverImageView()
                 .task(id: content.id) {
-                    await loadContentImage()
+                    await loadImage()
                 }
 
             VStack(alignment: .leading, spacing: DSLayout.tightGap) {
@@ -35,31 +21,26 @@ struct CardItemContainer: View {
                     .font(DSText.emphasized)
                     .foregroundColor(DSColor.primary)
                     .lineLimit(1)
-                   // .multilineTextAlignment(.leading)       // linksbündig
-                   // .truncationMode(.tail)                  // falls nötig am Ende kürzen
-                   // .fixedSize(horizontal: false, vertical: true) // zwingt ihn zum Umbrechen
-                    .frame(maxWidth: .infinity, alignment: .leading) // sorgt für linksbündig auch bei nur 1 Zeile
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                
                 Text(content.subtitle)
                     .font(DSText.metadata)
                     .foregroundColor(DSColor.secondary)
                     .lineLimit(2)
-                    .multilineTextAlignment(.leading)       // linksbündig
-                    .truncationMode(.tail)                  // falls nötig am Ende kürzen
-                    .fixedSize(horizontal: false, vertical: true) // zwingt ihn zum Umbrechen
-                    .frame(maxWidth: .infinity, alignment: .leading) // sorgt für linksbündig auch bei nur 1 Zeile
+                    .multilineTextAlignment(.leading)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 
                 if let year = content.year {
                     Text(year)
                         .font(DSText.footnote)
                         .foregroundColor(DSColor.tertiary)
                 } else {
-                    Text("").hidden() // konsistenter Spacer
+                    Text("").hidden()
                 }
             }
             .frame(maxWidth: DSLayout.cardCover)
-
             
             if content.hasChevron {
                 Image(systemName: "chevron.right")
@@ -68,19 +49,18 @@ struct CardItemContainer: View {
         }
         .padding(DSLayout.elementPadding)
         .background(
-            Color(DSColor.surfaceLight) // hellgrau
-                .opacity(0.5)   // leicht transparent
+            Color(DSColor.surfaceLight)
+                .opacity(0.5)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: DSCorners.tight) // abgerundete Ecken
-                .stroke(Color(.systemGray4), lineWidth: 0.5) // Haarlinie
+            RoundedRectangle(cornerRadius: DSCorners.tight)
+                .stroke(Color(.systemGray4), lineWidth: 0.5)
         )
-        .cornerRadius(DSCorners.tight) // sorgt für das Clipping der Background
-
+        .cornerRadius(DSCorners.tight)
     }
     
     @ViewBuilder
-    private func coverImageOrIconView() -> some View {
+    private func coverImageView() -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .fill(LinearGradient(
@@ -89,13 +69,19 @@ struct CardItemContainer: View {
                     endPoint: .bottomTrailing
                 ))
 
-            switch content {
-            case .album:
-                imageDisplayView(image: coverArtManager.getAlbumImage(for: content.id))
-            case .artist:
-                imageDisplayView(image: coverArtManager.getArtistImage(for: content.id))
-            case .genre:
+            if let image = loadedImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+            } else if isLoading {
+                ProgressView()
+                    .scaleEffect(0.7)
+                    .tint(.white)
+            } else {
                 Image(systemName: content.iconName)
+                    .font(DSText.largeButton)
                     .foregroundColor(DSColor.primary.opacity(0.7))
             }
         }
@@ -103,48 +89,28 @@ struct CardItemContainer: View {
         .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
     }
     
-    private func loadContentImage() async {
+    private func loadImage() async {
+        let imageSize = Int(DSLayout.cardCover * 3) // High res for sharp display
+        
+        isLoading = true
+        defer { isLoading = false }
+        
         switch content {
         case .album(let album):
-            await coverArtManager.loadAlbumImage(
+            loadedImage = await deps.coverArtManager.loadAlbumImage(
                 album: album,
-                size: Int(DSLayout.cardCover),
+                size: imageSize,
                 staggerIndex: index
             )
         case .artist(let artist):
-            await coverArtManager.loadArtistImage(
+            loadedImage = await deps.coverArtManager.loadArtistImage(
                 artist: artist,
-                size: Int(DSLayout.cardCover),
+                size: imageSize,
                 staggerIndex: index
             )
         case .genre:
-            // Genres don't have images to load, so we do nothing here
-            return
-        }
-
-    }
-    
-    @ViewBuilder
-    private func imageDisplayView(image: UIImage?) -> some View {
-        if let loadedImage = image {
-            Image(uiImage: loadedImage)
-                .resizable()
-                .scaledToFill()
-                .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
-                .transition(.opacity)
-        } else if coverArtManager.loadingStates[content.id] ?? false {
-            ProgressView()
-                .scaleEffect(0.7)
-                .tint(.white)
-        } else if coverArtManager.errorStates[content.id] != nil {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 24))
-                .foregroundColor(DSColor.error)
-        } else {
-            Image(systemName: content.iconName)
-                .font(DSText.largeButton)
-                .foregroundColor(DSColor.primary.opacity(0.7))
+            // Genres don't have images
+            break
         }
     }
 }
-

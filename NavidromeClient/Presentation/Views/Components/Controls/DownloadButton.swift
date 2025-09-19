@@ -1,9 +1,8 @@
 //
-//  DownloadButton.swift - REFACTORED to Pure UI
+//  DownloadButton.swift - FIXED: AppDependencies Migration
 //  NavidromeClient
 //
-//   CLEAN: All state management moved to DownloadManager
-//   REACTIVE: Uses centralized download state instead of local @State
+//   FIXED: Added @EnvironmentObject, removed navidromeVM parameter
 //
 
 import SwiftUI
@@ -11,19 +10,23 @@ import SwiftUI
 struct DownloadButton: View {
     let album: Album
     let songs: [Song]
-    let navidromeVM: NavidromeViewModel
     
-    @EnvironmentObject var downloadManager: DownloadManager
+    // ADDED: EnvironmentObject for deps access
+    @EnvironmentObject var deps: AppDependencies
+    
+    // REMOVED: let navidromeVM: NavidromeViewModel parameter
+    
     @State private var showingDeleteConfirmation = false
     
     private let buttonSize: CGFloat = 24
     
+    // FIXED: Now uses deps.downloadManager
     private var downloadState: DownloadManager.DownloadState {
-        downloadManager.getDownloadState(for: album.id)
+        deps.downloadManager.getDownloadState(for: album.id)
     }
     
     private var progress: Double {
-        downloadManager.downloadProgress[album.id] ?? 0
+        deps.downloadManager.downloadProgress[album.id] ?? 0
     }
     
     var body: some View {
@@ -38,7 +41,7 @@ struct DownloadButton: View {
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                downloadManager.deleteDownload(albumId: album.id)
+                deps.downloadManager.deleteDownload(albumId: album.id)
             }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -46,7 +49,7 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: -  Pure UI Content
+    // MARK: - UI Content (unchanged)
     
     @ViewBuilder
     private var buttonContent: some View {
@@ -100,7 +103,7 @@ struct DownloadButton: View {
         Image(systemName: "exclamationmark.triangle.fill")
             .font(.system(size: 18))
             .foregroundColor(.orange)
-            .help(message) // Show error on hover/long press
+            .help(message)
     }
     
     private var cancellingButton: some View {
@@ -114,7 +117,7 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: -  Simple Action Handler
+    // MARK: - Action Handler (unchanged logic)
     
     private func handleButtonTap() {
         switch downloadState {
@@ -129,11 +132,10 @@ struct DownloadButton: View {
         }
     }
     
-    //  FOCUSED: Route through DownloadManager only (no direct service access)
+    // FIXED: Now uses deps.downloadManager
     private func startDownload() {
-        //  ROUTE: DownloadManager handles service access internally
         Task {
-            await downloadManager.startDownload(
+            await deps.downloadManager.startDownload(
                 album: album,
                 songs: songs
             )
@@ -141,6 +143,6 @@ struct DownloadButton: View {
     }
     
     private func cancelDownload() {
-        downloadManager.cancelDownload(albumId: album.id)
+        deps.downloadManager.cancelDownload(albumId: album.id)
     }
 }

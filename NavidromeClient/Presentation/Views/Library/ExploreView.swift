@@ -9,11 +9,8 @@
 import SwiftUI
 
 struct ExploreView: View {
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-    @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var coverArtManager: CoverArtManager
+
+    @EnvironmentObject var deps: AppDependencies
     
     @StateObject private var homeScreenManager = HomeScreenManager.shared
     
@@ -22,7 +19,7 @@ struct ExploreView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+                if deps.networkMonitor.canLoadOnlineContent && !deps.offlineManager.isOfflineMode {
                     onlineContent
                 } else {
                     offlineContent
@@ -48,7 +45,7 @@ struct ExploreView: View {
     
     private func setupHomeScreenData() async {
         // Guard entfernt - nicht mehr nötig
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+        if deps.networkMonitor.canLoadOnlineContent && !deps.offlineManager.isOfflineMode {
             print("📡 Starting home screen data load")
             await homeScreenManager.loadHomeScreenData()
             await preloadHomeScreenCovers()
@@ -61,7 +58,7 @@ struct ExploreView: View {
                        homeScreenManager.frequentAlbums +
                        homeScreenManager.randomAlbums
         
-        await coverArtManager.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
+        await deps.coverArtManager.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
     }
     
     // MARK: - Online Content
@@ -71,7 +68,7 @@ struct ExploreView: View {
             LazyVStack(spacing: DSLayout.screenGap) {
                 WelcomeHeader(
                     username: "User", // falls du keinen navidromeVM mehr hast
-                    nowPlaying: playerVM.currentSong
+                    nowPlaying: deps.playerVM.currentSong
                 )
                 if !homeScreenManager.recentAlbums.isEmpty {
                     AlbumSection(
@@ -133,15 +130,15 @@ struct ExploreView: View {
         ScrollView {
             LazyVStack(spacing: DSLayout.screenGap) {
                 OfflineWelcomeHeader(
-                    downloadedAlbums: downloadManager.downloadedAlbums.count,
-                    isConnected: networkMonitor.isConnected
+                    downloadedAlbums: deps.downloadManager.downloadedAlbums.count,
+                    isConnected: deps.networkMonitor.isConnected
                 )
                 .screenPadding()
                 
-                if !offlineManager.offlineAlbums.isEmpty {
+                if !deps.offlineManager.offlineAlbums.isEmpty {
                     AlbumSection(
                         title: "Downloaded Albums",
-                        albums: Array(offlineManager.offlineAlbums.prefix(10)),
+                        albums: Array(deps.offlineManager.offlineAlbums.prefix(10)),
                         icon: "arrow.down.circle.fill",
                         accentColor: .green
                     )
@@ -150,7 +147,7 @@ struct ExploreView: View {
                 NavigationLink(destination: AlbumsView()) {
                     QuickAccessCard(
                         title: "View All Downloads",
-                        subtitle: "\(downloadManager.downloadedAlbums.count) albums available offline",
+                        subtitle: "\(deps.downloadManager.downloadedAlbums.count) albums available offline",
                         icon: "folder.fill",
                         color: .blue
                     )
@@ -158,12 +155,12 @@ struct ExploreView: View {
                 .screenPadding()
                 
                 StorageInfoCard(
-                    totalSize: downloadManager.totalDownloadSize(),
-                    albumCount: downloadManager.downloadedAlbums.count
+                    totalSize: deps.downloadManager.totalDownloadSize(),
+                    albumCount: deps.downloadManager.downloadedAlbums.count
                 )
                 .screenPadding()
                 
-                if !networkMonitor.isConnected {
+                if !deps.networkMonitor.isConnected {
                     NetworkStatusCard()
                         .screenPadding()
                 }
@@ -175,8 +172,8 @@ struct ExploreView: View {
     }
     
     private func refreshRandomAlbums() async {
-        await homeScreenManager.refreshRandomAlbums()
-        await coverArtManager.preloadAlbums(homeScreenManager.randomAlbums, size: 200)
+        await deps.homeScreenManager.refreshRandomAlbums()
+        await deps.coverArtManager.preloadAlbums(homeScreenManager.randomAlbums, size: 200)
     }
 }
 // MARK: - Existing Components (unchanged but kept for completeness)

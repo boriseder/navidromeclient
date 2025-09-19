@@ -10,13 +10,9 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
-    @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var downloadManager: DownloadManager
-    @EnvironmentObject var networkMonitor: NetworkMonitor
-    @EnvironmentObject var offlineManager: OfflineManager
-
+   
+    @EnvironmentObject var deps: AppDependencies
+    
     // MARK: - ✅ ENHANCED: TabItem with Navigation Destinations
     
     private struct TabItem {
@@ -72,7 +68,7 @@ struct MainTabView: View {
                 view: AnyView(AlbumsView()),
                 label: "Albums",
                 systemImage: "record.circle",
-                badge: offlineManager.isOfflineMode ? "📱" : nil,
+                badge: deps.offlineManager.isOfflineMode ? "📱" : nil,
                 navigationDestinations: [
                     (Album.self, { album in
                         AnyView(AlbumDetailView(album: album as! Album))
@@ -135,7 +131,7 @@ struct MainTabView: View {
             .overlay(networkStatusOverlay, alignment: .top)
             .overlay(alignment: .bottom) { // ← Ist das da?
                 MiniPlayerView()
-                    .environmentObject(playerVM)
+                    .environmentObject(deps)
                     .padding(.bottom, geometry.safeAreaInsets.bottom + 49) // ← Standard TabBar height
                 
             }
@@ -166,16 +162,16 @@ struct MainTabView: View {
         
     @ViewBuilder
     private var networkStatusOverlay: some View {
-        if !networkMonitor.isConnected {
+        if !deps.networkMonitor.isConnected {
             HStack {
                 Image(systemName: "wifi.slash")
                     .font(DSText.metadata)
                 Text("Offline Mode")
                     .font(DSText.metadata.weight(.medium))
                 Spacer()
-                if downloadManager.downloadedAlbums.count > 0 {
+                if deps.downloadManager.downloadedAlbums.count > 0 {
                     Button("Downloaded Music") {
-                        offlineManager.switchToOfflineMode()
+                        deps.offlineManager.switchToOfflineMode()
                     }
                     .font(DSText.metadata)
                     .foregroundStyle(DSColor.accent)
@@ -188,7 +184,7 @@ struct MainTabView: View {
             .foregroundStyle(DSColor.onDark)
             .screenPadding()
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(DSAnimations.ease, value: networkMonitor.isConnected)
+            .animation(DSAnimations.ease, value: deps.networkMonitor.isConnected)
         }
     }
 }
