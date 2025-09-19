@@ -22,7 +22,7 @@ class AudioSessionManager: NSObject, ObservableObject {
     // Track observers for proper cleanup - nonisolated for deinit access
     private nonisolated(unsafe) var audioObservers: [NSObjectProtocol] = []
     
-    override init() {
+    private override init() {
         super.init()
         setupAudioSession()
         setupNotifications()

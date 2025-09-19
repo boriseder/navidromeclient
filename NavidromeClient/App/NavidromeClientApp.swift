@@ -12,37 +12,42 @@ import SwiftUI
 @main
 struct NavidromeClientApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
-    // Core Services (Singletons)
-    @StateObject private var appConfig = AppConfig.shared
-    @StateObject private var downloadManager = DownloadManager.shared
-    @StateObject private var audioSessionManager = AudioSessionManager.shared
-    @StateObject private var networkMonitor = NetworkMonitor.shared
-    @StateObject private var offlineManager = OfflineManager.shared
-    @StateObject private var coverArtManager = CoverArtManager.shared
-    @StateObject private var homeScreenManager = HomeScreenManager.shared
-    
-    //  FIXED: ViewModels with proper service initialization
+       
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     
-    init() {
-        //  FIXED: Create ViewModels with correct service handling
-        let service: UnifiedSubsonicService?
-        if let creds = AppConfig.shared.getCredentials() {
-            service = UnifiedSubsonicService(
-                baseURL: creds.baseURL,
-                username: creds.username,
-                password: creds.password
-            )
-        } else {
-            service = nil
-        }
+    // Manager als normale Properties (Singletons)
+    private let appConfig = AppConfig.shared
+    private let downloadManager = DownloadManager.shared
+    private let audioSessionManager = AudioSessionManager.shared
+    private let networkMonitor = NetworkMonitor.shared
+    private let offlineManager = OfflineManager.shared
+    private let coverArtManager = CoverArtManager.shared
+    private let homeScreenManager = HomeScreenManager.shared
+    private let musicLibraryManager = MusicLibraryManager.shared
 
+    
+    init() {
+        let initialService = Self.createInitialService()
+        
         _navidromeVM = StateObject(wrappedValue: NavidromeViewModel())
-        //  FIXED: Use correct initializer - service parameter accepts UnifiedSubsonicService?
-        _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
+        _playerVM = StateObject(wrappedValue: PlayerViewModel(
+            service: initialService,
+            downloadManager: DownloadManager.shared
+        ))
     }
+    
+    private static func createInitialService() -> UnifiedSubsonicService? {
+        guard let creds = AppConfig.shared.getCredentials() else { return nil }
+        
+        return UnifiedSubsonicService(
+            baseURL: creds.baseURL,
+            username: creds.username,
+            password: creds.password
+        )
+    }
+
+    
     
     var body: some Scene {
         WindowGroup {
@@ -109,30 +114,22 @@ struct NavidromeClientApp: App {
         print(" All services configured successfully")
     }
     
-    ///  FIXED: Configure managers with correct service extraction
+    // ✅ HINZUFÜGEN: Neue configureManagersWithServices method
     private func configureManagersWithServices(unifiedService: UnifiedSubsonicService) async {
         await MainActor.run {
-            //  Configure NavidromeViewModel
+            // ✅ PATTERN: ViewModels first
             navidromeVM.updateService(unifiedService)
-            
-            //  FIXED: Configure PlayerViewModel with UnifiedSubsonicService
             playerVM.updateService(unifiedService)
             
-            //  Configure DownloadManager with UnifiedSubsonicService
-            downloadManager.configure(service: unifiedService)
-            downloadManager.configure(coverArtManager: coverArtManager)
-            
-            //  Configure CoverArtManager with focused MediaService
+            // ✅ PATTERN: Managers via Singletons
             let mediaService = unifiedService.getMediaService()
-            coverArtManager.configure(mediaService: mediaService)
-            
-            //  Configure HomeScreenManager
-            homeScreenManager.configure(service: unifiedService)
-            
-            //  Configure MusicLibraryManager
+            CoverArtManager.shared.configure(mediaService: mediaService)
+            DownloadManager.shared.configure(service: unifiedService)
+            DownloadManager.shared.configure(coverArtManager: CoverArtManager.shared)
+            HomeScreenManager.shared.configure(service: unifiedService)
             MusicLibraryManager.shared.configure(service: unifiedService)
-                        
-            print(" All managers configured with focused services")
+            
+            print("✅ All components configured with consistent patterns")
         }
     }
     
