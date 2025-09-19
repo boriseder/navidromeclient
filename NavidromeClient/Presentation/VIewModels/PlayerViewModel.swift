@@ -132,30 +132,54 @@ class PlayerViewModel: NSObject, ObservableObject {
         configureAudioSession()
     }
 
-    // MARK: - Thread-safe deinit (UNCHANGED)
+    // MARK: Thread-safe deinit
     deinit {
+        // Cancel tasks synchronously
         currentPlayTask?.cancel()
         
+        // Schedule cleanup on main actor
+        Task { @MainActor in
+            await self.performFinalCleanup()
+        }
+        
+        print("✅ PlayerViewModel: Deinitialization started")
+    }
+
+    // ✅ HINZUFÜGEN: Proper cleanup method
+    @MainActor
+    private func performFinalCleanup() async {
+        print("🧹 PlayerViewModel: Starting final cleanup")
+        
+        // Cancel any remaining tasks
+        currentPlayTask?.cancel()
+        await cancelCurrentPlayTask()
+        
+        // Remove observers
         if let observer = timeObserver, let player = player {
             player.removeTimeObserver(observer)
+            timeObserver = nil
         }
         
         if let token = playerItemEndObserver {
             NotificationCenter.default.removeObserver(token)
+            playerItemEndObserver = nil
         }
+        
+        // Remove notification observers
         notificationObservers.forEach {
             NotificationCenter.default.removeObserver($0)
         }
-        NotificationCenter.default.removeObserver(self)
+        notificationObservers.removeAll()
         
-        let playerToClean = player
-        Task { @MainActor in
-            playerToClean?.pause()
-            playerToClean?.replaceCurrentItem(with: nil)
-            AudioSessionManager.shared.clearNowPlayingInfo()
-        }
+        // Clean up player
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        player = nil
         
-        print("✅ PlayerViewModel: Complete cleanup completed")
+        // Clear now playing
+        AudioSessionManager.shared.clearNowPlayingInfo()
+        
+        print("✅ PlayerViewModel: Final cleanup completed")
     }
 
     // MARK: - ✅ NEW: State Update Methods
@@ -233,65 +257,123 @@ class PlayerViewModel: NSObject, ObservableObject {
         await playCurrent()
     }
     
+    // Sichere Task-Behandlung mit Cancellation
     private func playCurrent() async {
         print("🎵 playCurrent called")
         
-        currentPlayTask?.cancel()
+        // Cancel previous task and wait for completion
+        await cancelCurrentPlayTask()
         
         currentPlayTask = Task {
-            guard !Task.isCancelled else { return }
-            guard let song = playlistManager.currentSong else {
-                await MainActor.run { stop() }
-                return
-            }
-            
-            await MainActor.run {
-                updatePlaybackState { state in
-                    state.currentSong = song
-                    state.currentAlbumId = song.albumId
-                    state.isLoading = true
-                    state.errorMessage = nil
+            do {
+                try Task.checkCancellation()
+                
+                guard let song = playlistManager.currentSong else {
+                    await MainActor.run { stop() }
+                    return
                 }
                 
-                updateProgressState { state in
-                    state.duration = Double(song.duration ?? 0)
-                    state.currentTime = 0
-                }
+                // Check cancellation before UI updates
+                try Task.checkCancellation()
                 
-                objectWillChange.send()
-            }
-            
-            print("🎵 Playing song: \(song.title)")
-            
-            guard !Task.isCancelled else {
-                await MainActor.run {
-                    updatePlaybackState { $0.isLoading = false }
-                    objectWillChange.send()
-                }
-                return
-            }
-            
-            print("➡️ Determining playback source for song \(song.id)")
-            
-            if let localURL = downloadManager.getLocalFileURL(for: song.id) {
-                print("🎵 Playing from local file: \(localURL)")
-                await playFromURL(localURL)
-            } else if let streamURL = await getStreamURL(for: song) {
-                print("🎵 Playing from MediaService stream: \(streamURL)")
-                await playFromURL(streamURL)
-            } else {
                 await MainActor.run {
                     updatePlaybackState { state in
-                        state.errorMessage = "No playback source available"
+                        state.currentSong = song
+                        state.currentAlbumId = song.albumId
+                        state.isLoading = true
+                        state.errorMessage = nil
+                    }
+                    updateProgressState { state in
+                        state.duration = Double(song.duration ?? 0)
+                        state.currentTime = 0
+                    }
+                    objectWillChange.send()
+                }
+                
+                print("🎵 Playing song: \(song.title)")
+                
+                // Check cancellation before expensive operations
+                try Task.checkCancellation()
+                
+                // Determine playback source with cancellation checks
+                if let localURL = downloadManager.getLocalFileURL(for: song.id) {
+                    print("🎵 Playing from local file: \(localURL)")
+                    try Task.checkCancellation()
+                    await playFromURL(localURL)
+                } else {
+                    // Check cancellation before network request
+                    try Task.checkCancellation()
+                    if let streamURL = await getStreamURL(for: song) {
+                        print("🎵 Playing from stream: \(streamURL)")
+                        try Task.checkCancellation()
+                        await playFromURL(streamURL)
+                    } else {
+                        throw PlaybackError.noSourceAvailable
+                    }
+                }
+                
+            } catch is CancellationError {
+                print("🎵 playCurrent cancelled gracefully")
+                await MainActor.run {
+                    updatePlaybackState { state in
                         state.isLoading = false
                     }
-                    print("❌ No playback source found")
+                    objectWillChange.send()
+                }
+            } catch {
+                print("❌ playCurrent failed: \(error)")
+                await MainActor.run {
+                    updatePlaybackState { state in
+                        state.errorMessage = "Playback failed: \(error.localizedDescription)"
+                        state.isLoading = false
+                    }
                     objectWillChange.send()
                 }
             }
         }
     }
 
+    // ✅ HINZUFÜGEN: Safe task cancellation helper
+    private func cancelCurrentPlayTask() async {
+        guard let task = currentPlayTask else { return }
+        
+        task.cancel()
+        
+        // Wait for task completion with timeout
+        let timeoutTask = Task {
+            try await Task.sleep(nanoseconds: 500_000_000) // 500ms timeout
+        }
+        
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                _ = await task.result
+            }
+            group.addTask {
+                _ = await timeoutTask.result
+            }
+        }
+        
+        currentPlayTask = nil
+        print("✅ Previous play task cancelled and cleaned up")
+    }
+
+    // ✅ HINZUFÜGEN: Playback error enum
+    enum PlaybackError: LocalizedError {
+        case noSourceAvailable
+        case taskCancelled
+        case networkUnavailable
+        
+        var errorDescription: String? {
+            switch self {
+            case .noSourceAvailable:
+                return "No playback source available"
+            case .taskCancelled:
+                return "Playback was cancelled"
+            case .networkUnavailable:
+                return "Network unavailable for streaming"
+            }
+        }
+    }
     private func getStreamURL(for song: Song) async -> URL? {
         guard let mediaService = mediaService else {
             print("❌ No MediaService available for streaming")
@@ -302,57 +384,84 @@ class PlayerViewModel: NSObject, ObservableObject {
         return mediaService.streamURL(for: song.id)
     }
     
+    // ✅ ERSETZEN: Mit Cancellation-Safe Implementation
     private func playFromURL(_ url: URL) async {
         print("🎵 playFromURL called: \(url)")
         
-        guard currentPlayTask?.isCancelled == false else { return }
-        
-        await MainActor.run {
-            // Remove old observers first
-            if let observer = timeObserver {
-                player?.removeTimeObserver(observer)
-                timeObserver = nil
-                print("✅ Old time observer removed")
-            }
+        do {
+            try Task.checkCancellation()
             
-            if let token = playerItemEndObserver {
-                NotificationCenter.default.removeObserver(token)
-                playerItemEndObserver = nil
-                print("✅ Old player item observer removed")
-            }
-            
-            // Stop old player
-            player?.pause()
-            player?.replaceCurrentItem(with: nil)
-            
-            // Create new player
-            let item = AVPlayerItem(url: url)
-            player = AVPlayer(playerItem: item)
-            player?.volume = audioState.volume
-            
-            // Update UI state
-            updatePlaybackState { state in
-                state.isPlaying = true
-                state.isLoading = false
-            }
-            objectWillChange.send()
-            
-            // Start playback
-            player?.play()
-            print("✅ New player created and started")
-        }
-        
-        // Setup new observers AFTER player is ready
-        if let player = player, let currentItem = player.currentItem {
             await MainActor.run {
-                setupPlayerItemObserver(for: currentItem)
-                setupTimeObserver()
-                updateNowPlayingInfo()
-                print("✅ New observers setup completed")
+                // Remove old observers first
+                if let observer = timeObserver {
+                    player?.removeTimeObserver(observer)
+                    timeObserver = nil
+                    print("✅ Old time observer removed")
+                }
+                
+                if let token = playerItemEndObserver {
+                    NotificationCenter.default.removeObserver(token)
+                    playerItemEndObserver = nil
+                    print("✅ Old player item observer removed")
+                }
+                
+                // Stop old player
+                player?.pause()
+                player?.replaceCurrentItem(with: nil)
+            }
+            
+            // Check cancellation before creating new player
+            try Task.checkCancellation()
+            
+            await MainActor.run {
+                // Create new player
+                let item = AVPlayerItem(url: url)
+                player = AVPlayer(playerItem: item)
+                player?.volume = audioState.volume
+                
+                // Update UI state
+                updatePlaybackState { state in
+                    state.isPlaying = true
+                    state.isLoading = false
+                }
+                objectWillChange.send()
+                
+                // Start playback
+                player?.play()
+                print("✅ New player created and started")
+            }
+            
+            // Setup observers only if not cancelled
+            try Task.checkCancellation()
+            
+            if let player = player, let currentItem = player.currentItem {
+                await MainActor.run {
+                    setupPlayerItemObserver(for: currentItem)
+                    setupTimeObserver()
+                    updateNowPlayingInfo()
+                    print("✅ New observers setup completed")
+                }
+            }
+            
+        } catch is CancellationError {
+            print("🎵 playFromURL cancelled gracefully")
+            await MainActor.run {
+                updatePlaybackState { state in
+                    state.isLoading = false
+                }
+                objectWillChange.send()
+            }
+        } catch {
+            print("❌ playFromURL failed: \(error)")
+            await MainActor.run {
+                updatePlaybackState { state in
+                    state.errorMessage = "Failed to play from URL: \(error.localizedDescription)"
+                    state.isLoading = false
+                }
+                objectWillChange.send()
             }
         }
     }
-    
     // MARK: - ✅ PRESERVED: Download Status Methods
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         let isDownloaded = downloadManager.isAlbumDownloaded(albumId)
