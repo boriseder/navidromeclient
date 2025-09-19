@@ -75,14 +75,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
-        // App wird beendet
         print("📱 App will terminate")
         
-        // Clean up audio session
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("❌ Failed to deactivate audio session: \(error)")
+        // ✅ CRITICAL: Cleanup AudioSessionManager properly
+        Task { @MainActor in
+            AudioSessionManager.shared.performCleanup()
         }
         
         // Clear now playing info
