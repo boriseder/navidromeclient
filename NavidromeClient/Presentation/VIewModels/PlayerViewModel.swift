@@ -27,7 +27,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     private weak var mediaService: MediaService?
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
-    private weak var coverArtManager: CoverArtManager?
 
     // MARK: - ✅ PRESERVED: Observer Management
     private var player: AVPlayer?
@@ -202,26 +201,17 @@ class PlayerViewModel: NSObject, ObservableObject {
             connectionQuality: connectionQuality
         )
     }
-        
-    // MARK: - Cover Art Management (UNCHANGED)
-    func updateCoverArtService(_ newCoverArtManager: CoverArtManager) {
-        self.coverArtManager = newCoverArtManager
-    }
-    
+            
     func loadCoverArt() async {
-        guard let albumId = currentAlbumId,
-              let coverArtManager = coverArtManager else { return }
+        guard let albumId = currentAlbumId else { return }
         
-        if let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            let loadedCoverArt = await coverArtManager.loadAlbumImage(album: albumMetadata, size: 300)
-            updatePlaybackState { $0.coverArt = loadedCoverArt }
-        } else {
-            print("⚠️ Album metadata not found for ID: \(albumId)")
-            updatePlaybackState { $0.coverArt = nil }
-        }
+        // ✅ NEU: Access via DownloadManager proxy
+        let loadedCoverArt = await downloadManager.getCoverArt(for: albumId, size: 300)
+        updatePlaybackState { $0.coverArt = loadedCoverArt }
         
         updateNowPlayingInfo()
     }
+
 
     // MARK: - ✅ UPDATED: Enhanced Playback Methods
     func play(song: Song) async {

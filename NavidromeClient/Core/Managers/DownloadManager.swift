@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 @MainActor
 class DownloadManager: ObservableObject {
@@ -135,7 +136,21 @@ class DownloadManager: ObservableObject {
     }
     
     // MARK: -  PURE: Core Download Implementation
-    
+    func getCoverArt(for albumId: String, size: Int = 300) async -> UIImage? {
+        guard let coverArtManager = coverArtManager,
+              let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
+            print("❌ CoverArtManager or album metadata not available for \(albumId)")
+            return nil
+        }
+        
+        return await coverArtManager.loadAlbumImage(album: albumMetadata, size: size)
+    }
+
+    /// Proxy method for immediate cover art access
+    func getCoverArtImage(for albumId: String, size: Int = 200) -> UIImage? {
+        return coverArtManager?.getAlbumImage(for: albumId, size: size)
+    }
+
     private func downloadAlbumWithService(
         songs: [Song],
         albumId: String,

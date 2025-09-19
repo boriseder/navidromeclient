@@ -131,10 +131,7 @@ struct NavidromeClientApp: App {
             
             //  Configure MusicLibraryManager
             MusicLibraryManager.shared.configure(service: unifiedService)
-            
-            //  FIXED: Update PlayerViewModel with CoverArtManager
-            playerVM.updateCoverArtService(coverArtManager)
-            
+                        
             print(" All managers configured with focused services")
         }
     }

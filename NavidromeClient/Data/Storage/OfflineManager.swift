@@ -9,32 +9,29 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Offline Manager
 @MainActor
 class OfflineManager: ObservableObject {
     static let shared = OfflineManager()
     
     @Published var isOfflineMode = false
     
-    private let downloadManager: DownloadManager
-    private let networkMonitor: NetworkMonitor
-    
-    // ✅ SINGLE SOURCE OF TRUTH: Computed property instead of @Published storage
+    // ✅ SINGLE SOURCE OF TRUTH: Computed property
     var offlineAlbums: [Album] {
         let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
         return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
     }
     
+    private let downloadManager: DownloadManager
+    private let networkMonitor: NetworkMonitor
+    
     private init() {
         self.downloadManager = DownloadManager.shared
         self.networkMonitor = NetworkMonitor.shared
         
-        // ✅ ELIMINATED: No initial synchronization needed
-        // ✅ ELIMINATED: No observers for download changes needed
-        
+        // ✅ NO SYNCHRONIZATION NEEDED
         print("📦 OfflineManager initialized with computed offlineAlbums")
     }
-    
+
     // ✅ PRESERVED: All public API methods unchanged
     func getOfflineAlbums(for artist: Artist) -> [Album] {
         return offlineAlbums.filter { $0.artist == artist.name }
