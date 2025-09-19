@@ -37,7 +37,7 @@
                                 <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <nil key="highlightedColor"/>
                             </label>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" image="image.png" highlightedImage="image.png" translatesAutoresizingMaskIntoConstraints="NO" id="QFR-Jo-NEo">
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" image="Freddy.png" translatesAutoresizingMaskIntoConstraints="NO" id="QFR-Jo-NEo">
                                 <rect key="frame" x="79" y="187" width="242" height="245"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                                 <color key="tintColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
@@ -54,7 +54,7 @@
         </scene>
     </scenes>
     <resources>
-        <image name="image.png" width="1024" height="1024"/>
+        <image name="Freddy.png" width="640" height="640"/>
         <namedColor name="AccentColor">
             <color red="0.98823529481887817" green="0.51372551918029785" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

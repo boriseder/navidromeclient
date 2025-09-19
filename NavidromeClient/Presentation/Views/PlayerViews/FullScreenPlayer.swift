@@ -1,9 +1,8 @@
 //
-//  FullScreenPlayerView.swift - Spotify-Style Design
+//  FullScreenPlayerView.swift - FIXED: Layout & High-Res
 //  NavidromeClient
 //
-//   SPOTIFY-STYLE: Clean, minimal full-screen player
-//   ENHANCED: Better visual hierarchy and gesture handling
+//   FIXED: Alles bleibt im Screen, echte High-Res, Timeline-Indikator
 //
 
 import SwiftUI
@@ -21,51 +20,59 @@ struct FullScreenPlayerView: View {
     @State private var highResCoverArt: UIImage?
     
     var body: some View {
-        ZStack {
-            // Background (Spotify uses dark with subtle album art blur)
-            SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
-            
-            GeometryReader { geometry in
-                ScrollView {
-                    VStack(spacing: 16) {
-                        // Top Bar
-                        TopBar(dismiss: dismiss, showingQueue: $showingQueue, audioSessionManager: audioSessionManager)
-                        
-                        // Album Art (kompakt)
-                        SpotifyAlbumArt(cover: highResCoverArt ?? playerVM.coverArt)
-                            .scaleEffect(isDragging ? 0.95 : 1.0)
-                            .animation(.spring(response: 0.3), value: isDragging)
-                        
-                        // Song Info
-                        if let song = playerVM.currentSong {
-                            SpotifySongInfoView(song: song, isPlaying: playerVM.isPlaying)
-                        }
-                        
-                        // Progress Section
-                        ProgressSection(playerVM: playerVM)
-                            .padding(.horizontal, 8)
-                        
-                        // Main Controls
-                        MainControls(playerVM: playerVM)
-                        
-                        // Bottom Controls - jetzt sichtbar
-                        BottomControls(playerVM: playerVM)
-                            .padding(.top, 8)
+        GeometryReader { geometry in
+            ZStack {
+
+               //SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
+                
+                VStack(spacing: 5) {
+                    // Top Bar
+                    
+                    TopBar(dismiss: dismiss, showingQueue: $showingQueue)
+                        .padding(.horizontal, 20)
+                    Spacer(minLength: 30)
+                    SpotifyAlbumArt(cover: highResCoverArt ?? playerVM.coverArt, screenWidth: geometry.size.width)
+                        .scaleEffect(isDragging ? 0.95 : 1.0)
+                        .animation(.spring(response: 0.3), value: isDragging)
+                    
+                    Spacer(minLength: 20)
+
+                    if let song = playerVM.currentSong {
+                        SpotifySongInfoView(song: song, screenWidth: geometry.size.width)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, max(0, geometry.safeAreaInsets.top))
-                    .padding(.bottom, max(16, geometry.safeAreaInsets.bottom))
-                    .frame(minHeight: geometry.size.height)
+                                        
+                    Spacer(minLength: 16)
+                    
+                    // FIXED: Progress mit Timeline-Indikator
+                    ProgressSection(playerVM: playerVM, screenWidth: geometry.size.width)
+                    
+                    Spacer(minLength: 24)
+                    
+                    MainControls(playerVM: playerVM)
+                    
+                    Spacer()
+                    BottomControls(playerVM: playerVM, audioSessionManager: audioSessionManager, screenWidth: geometry.size.width)
+                      //  .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
+
                 }
+                .frame(maxWidth: geometry.size.width*0.95, maxHeight: geometry.size.height*0.95)
+                // FOR DEBUG only
+                //.background(.red)
+                .padding(.horizontal, 10)
+                .padding(.top, 70)
+                .padding(.bottom, 20)
+                .background {
+                    SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
+                }
+
             }
-            .ignoresSafeArea(.container, edges: .top)
+            .ignoresSafeArea(.container, edges: [.top, .bottom])
             .offset(y: dragOffset)
             .gesture(dismissGesture)
         }
-        .statusBarHidden(false) // StatusBar wieder sichtbar
         .animation(.interactiveSpring(), value: dragOffset)
         .task(id: playerVM.currentSong?.id) {
-            await loadHighResCoverArt()
+            await loadTrueHighResCoverArt()
         }
     }
     
@@ -89,48 +96,63 @@ struct FullScreenPlayerView: View {
             }
     }
     
-    // MARK: - High-Res Cover Art Loading
-    private func loadHighResCoverArt() async {
+    // FIXED: Force echte High-Res mit size parameter
+    private func loadTrueHighResCoverArt() async {
         guard let song = playerVM.currentSong,
               let albumId = song.albumId else { return }
         
-        // Load high-resolution cover art for full screen
         if let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            // Request 800x800 for sharp full-screen display
-            highResCoverArt = await coverArtManager.loadAlbumImage(
-                album: cachedAlbum,
-                size: 800
-            )
-        }
-    }
-}
-
-// MARK: - Spotify-Style Background
-struct SpotifyBackground: View {
-    let image: UIImage?
-    
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+            // ✅ FIXED: Load 800px + Check if bereits geladen
+            if let existingHighRes = coverArtManager.getAlbumImage(for: albumId, size: 800) {
+                print("🎯 High-res cache hit: \(existingHighRes.size.width)x\(existingHighRes.size.height)")
+                highResCoverArt = existingHighRes
+                return
+            }
             
-            if let cover = image {
-                Image(uiImage: cover)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .ignoresSafeArea()
-                    .blur(radius: 60)
-                    .opacity(0.3)
-                    .scaleEffect(1.2)
+            // Load fresh 800px
+            let highRes = await coverArtManager.loadAlbumImage(
+                album: cachedAlbum,
+                size: 800,
+                staggerIndex: 0
+            )
+            
+            if let image = highRes {
+                print("🖼️ High-res loaded: \(image.size.width)x\(image.size.height)")
+                await MainActor.run {
+                    self.highResCoverArt = image
+                }
             }
         }
     }
 }
 
-// MARK: - Top Bar (zeigt Audio Route)
+// MARK: - FIXED: Noch intensiverer Background Blur
+struct SpotifyBackground: View {
+    let image: UIImage?
+    
+    var body: some View {
+        ZStack {
+            //Color.black.ignoresSafeArea()
+            Color.black
+            
+            if let cover = image {
+                Image(uiImage: cover)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    //.ignoresSafeArea()
+                    .blur(radius: 20)     // FIXED: Noch stärker
+                    .opacity(0.9)          // FIXED: Noch sichtbarer
+                    .scaleEffect(1.4)      // FIXED: Noch größer
+                    .brightness(-0.4)      // FIXED: Noch dunkler
+            }
+        }
+    }
+}
+
+// MARK: - Top Bar (unverändert)
 struct TopBar: View {
     let dismiss: DismissAction
     @Binding var showingQueue: Bool
-    let audioSessionManager: AudioSessionManager
     
     var body: some View {
         HStack {
@@ -138,19 +160,7 @@ struct TopBar: View {
                 dismiss()
             } label: {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.white)
-            }
-            
-            Spacer()
-            
-            VStack(spacing: 2) {
-                Text("Abspielen auf")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-                
-                Text(audioOutputText)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
             }
             
@@ -165,23 +175,12 @@ struct TopBar: View {
             }
         }
     }
-    
-    private var audioOutputText: String {
-        if audioSessionManager.audioRoute.contains("Bluetooth") {
-            return "Bluetooth"
-        } else if audioSessionManager.audioRoute.contains("AirPlay") {
-            return "AirPlay"
-        } else if audioSessionManager.isHeadphonesConnected {
-            return "Kopfhörer"
-        } else {
-            return "iPhone"
-        }
-    }
 }
 
-// MARK: - Spotify Album Art
+// MARK: - FIXED: Album Art mit fester Breite
 struct SpotifyAlbumArt: View {
     let cover: UIImage?
+    let screenWidth: CGFloat
     
     var body: some View {
         Group {
@@ -200,77 +199,74 @@ struct SpotifyAlbumArt: View {
                     .aspectRatio(1, contentMode: .fit)
             }
         }
-        .frame(maxWidth: 280, maxHeight: 280)  // Kompakter
+        .frame(width: min(280, screenWidth - 80), height: min(280, screenWidth - 80))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+        .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
     }
 }
 
-// MARK: - Song Info Section (Spotify-style)
+// MARK: - FIXED: Song Info ohne Overflow
 struct SpotifySongInfoView: View {
     let song: Song
-    let isPlaying: Bool
+    let screenWidth: CGFloat
     
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(song.title)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    
-                    if let artist = song.artist {
-                        Text(artist)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(song.title)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 
-                // Heart button (Spotify has this in top-right of song info)
-                Button {
-                    // TODO: Implement favorite
-                } label: {
-                    Image(systemName: "heart")
-                        .font(.system(size: 24))
+                if let artist = song.artist {
+                    Text(artist)
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            
+            Button {
+                // TODO: Implement favorite
+            } label: {
+                Image(systemName: "heart")
+                    .font(.system(size: 26))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
         }
+        .padding(.horizontal, 20)
     }
 }
 
-// MARK: - Progress Section (Spotify-style)
+// MARK: - FIXED: Progress Section mit Timeline-Indikator
 struct ProgressSection: View {
     @ObservedObject var playerVM: PlayerViewModel
+    let screenWidth: CGFloat
     @State private var isDragging = false
     @State private var dragValue: Double = 0
     
     var body: some View {
         VStack(spacing: 8) {
-            // Progress Bar
+
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Background
+                    // Background track
                     RoundedRectangle(cornerRadius: 2)
                         .fill(.white.opacity(0.3))
                         .frame(height: 4)
                     
-                    // Progress
+                    // Progress track
                     RoundedRectangle(cornerRadius: 2)
                         .fill(.white)
                         .frame(width: progressWidth(geometry.size.width), height: 4)
                     
-                    // Drag handle
-                    if isDragging {
-                        Circle()
-                            .fill(.white)
-                            .frame(width: 14, height: 14)
-                            .offset(x: progressWidth(geometry.size.width) - 7)
-                    }
+                    Circle()
+                        .fill(.white)
+                        .frame(width: isDragging ? 16 : 12, height: isDragging ? 16 : 12)
+                        .offset(x: progressWidth(geometry.size.width) - (isDragging ? 8 : 6))
+                        .animation(.easeInOut(duration: 0.1), value: isDragging)
                 }
                 .gesture(progressGesture(geometry.size.width))
             }
@@ -289,12 +285,14 @@ struct ProgressSection: View {
                     .foregroundStyle(.white.opacity(0.7))
             }
         }
+        .frame(maxWidth: screenWidth - 40)
+        .padding(.horizontal, 20)
     }
     
     private func progressWidth(_ maxWidth: CGFloat) -> CGFloat {
         guard playerVM.duration > 0 else { return 0 }
         let progress = isDragging ? dragValue : (playerVM.currentTime / playerVM.duration)
-        return maxWidth * progress
+        return min(maxWidth * progress, maxWidth)
     }
     
     private func progressGesture(_ maxWidth: CGFloat) -> some Gesture {
@@ -318,17 +316,17 @@ struct ProgressSection: View {
     }
 }
 
-// MARK: - Main Controls (kompakter)
+// MARK: - FIXED: Main Controls ohne Overflow
 struct MainControls: View {
     @ObservedObject var playerVM: PlayerViewModel
     
     var body: some View {
-        HStack(spacing: 32) {  // Weniger Abstand
+        HStack(spacing: 30) {
             // Shuffle
             Button { playerVM.toggleShuffle() } label: {
                 Image(systemName: "shuffle")
-                    .font(.system(size: 20))  // Kleiner
-                    .foregroundStyle(playerVM.isShuffling ? DSColor.accent : .white.opacity(0.7))
+                    .font(.system(size: 22))
+                    .foregroundStyle(playerVM.isShuffling ? .green : .white.opacity(0.7))
             }
             
             // Previous
@@ -336,25 +334,25 @@ struct MainControls: View {
                 Task { await playerVM.playPrevious() }
             } label: {
                 Image(systemName: "backward.end.fill")
-                    .font(.system(size: 26))  // Kleiner
+                    .font(.system(size: 28))
                     .foregroundStyle(.white)
             }
             
-            // Play/Pause (kompakter)
+            // Play/Pause
             Button {
                 playerVM.togglePlayPause()
             } label: {
                 ZStack {
                     Circle()
                         .fill(.white)
-                        .frame(width: 56, height: 56)  // Kleiner
+                        .frame(width: 64, height: 64)
                     
                     if playerVM.isLoading {
                         ProgressView()
                             .tint(.black)
                     } else {
                         Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 22))  // Kleiner
+                            .font(.system(size: 24))
                             .foregroundStyle(.black)
                             .offset(x: playerVM.isPlaying ? 0 : 2)
                     }
@@ -366,14 +364,14 @@ struct MainControls: View {
                 Task { await playerVM.playNext() }
             } label: {
                 Image(systemName: "forward.end.fill")
-                    .font(.system(size: 26))  // Kleiner
+                    .font(.system(size: 28))
                     .foregroundStyle(.white)
             }
             
             // Repeat
             Button { playerVM.toggleRepeat() } label: {
                 Image(systemName: repeatIcon)
-                    .font(.system(size: 20))  // Kleiner
+                    .font(.system(size: 22))
                     .foregroundStyle(repeatColor)
             }
         }
@@ -390,89 +388,32 @@ struct MainControls: View {
     private var repeatColor: Color {
         switch playerVM.repeatMode {
         case .off: return .white.opacity(0.7)
-        case .all, .one: return DSColor.accent
+        case .all, .one: return .green
         }
     }
 }
 
-// MARK: - Bottom Controls (jetzt mit mehr Platz)
+// MARK: - FIXED: Bottom Controls mit Audio Source
 struct BottomControls: View {
     @ObservedObject var playerVM: PlayerViewModel
+    let audioSessionManager: AudioSessionManager
+    let screenWidth: CGFloat
     
     var body: some View {
-        VStack(spacing: 16) {
-            // Shuffle und Repeat
-            HStack(spacing: 60) {
-                // Shuffle
-                Button { playerVM.toggleShuffle() } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: "shuffle")
-                            .font(.system(size: 22))
-                            .foregroundStyle(playerVM.isShuffling ? DSColor.accent : .white.opacity(0.7))
-                        Text("Shuffle")
-                            .font(.system(size: 11))
-                            .foregroundStyle(playerVM.isShuffling ? DSColor.accent : .white.opacity(0.7))
-                    }
-                }
-                
-                // Repeat
-                Button { playerVM.toggleRepeat() } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: repeatIcon)
-                            .font(.system(size: 22))
-                            .foregroundStyle(repeatColor)
-                        Text(repeatText)
-                            .font(.system(size: 11))
-                            .foregroundStyle(repeatColor)
-                    }
-                }
-            }
+        HStack {
+            AudioSourceButton(audioSessionManager: audioSessionManager)
             
-            // Audio Route und Share
-            HStack {
-                // Audio Route
-                AudioRouteButton()
-                
-                Spacer()
-                
-                // Like Button
-                Button {
-                    // TODO: Implement favorite
-                } label: {
-                    Image(systemName: "heart")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-            }
+            Spacer()
         }
-    }
-    
-    private var repeatIcon: String {
-        switch playerVM.repeatMode {
-        case .off: return "repeat"
-        case .all: return "repeat"
-        case .one: return "repeat.1"
-        }
-    }
-    
-    private var repeatColor: Color {
-        switch playerVM.repeatMode {
-        case .off: return .white.opacity(0.7)
-        case .all, .one: return DSColor.accent
-        }
-    }
-    
-    private var repeatText: String {
-        switch playerVM.repeatMode {
-        case .off: return "Repeat"
-        case .all: return "Repeat"
-        case .one: return "Repeat 1"
-        }
+        .frame(maxWidth: screenWidth - 40)
+        .padding(.horizontal, 20)
     }
 }
 
-// MARK: - Audio Route Button (mit Label)
-struct AudioRouteButton: View {
+// MARK: - Audio Source Button
+struct AudioSourceButton: View {
+    let audioSessionManager: AudioSessionManager
+    
     var body: some View {
         ZStack {
             AudioRoutePickerViewRepresentable()
@@ -480,18 +421,39 @@ struct AudioRouteButton: View {
                 .opacity(0.001)
             
             VStack(spacing: 4) {
-                Image(systemName: "hifispeaker")
-                    .font(.system(size: 22))
+                Image(systemName: audioSourceIcon)
+                    .font(.system(size: 24))
                     .foregroundStyle(.white.opacity(0.7))
-                Text("Geräte")
-                    .font(.system(size: 11))
+                
+                Text(audioSourceText)
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.white.opacity(0.7))
             }
         }
     }
+    
+    private var audioSourceIcon: String {
+        if audioSessionManager.isHeadphonesConnected {
+            return "headphones"
+        } else if audioSessionManager.audioRoute.contains("Bluetooth") {
+            return "airpods"
+        } else {
+            return "speaker.wave.2"
+        }
+    }
+    
+    private var audioSourceText: String {
+        if audioSessionManager.isHeadphonesConnected {
+            return "Kopfhörer"
+        } else if audioSessionManager.audioRoute.contains("Bluetooth") {
+            return "Bluetooth"
+        } else {
+            return "iPhone"
+        }
+    }
 }
 
-// MARK: - AVRoutePickerView Wrapper
+// MARK: - AVRoutePickerView
 struct AudioRoutePickerViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let routePickerView = AVRoutePickerView()

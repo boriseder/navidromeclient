@@ -1,9 +1,8 @@
 //
-//  MiniPlayerView.swift - Spotify-Style Design
+//  MiniPlayerView.swift - FIXED: Background Blur vom Cover
 //  NavidromeClient
 //
-//   SPOTIFY-STYLE: Clean, minimal design with full background tap
-//   ENHANCED: Better visual hierarchy and interaction zones
+//   FIXED: Cover-Blur Background statt hellem Surface
 //
 
 import SwiftUI
@@ -17,25 +16,25 @@ struct MiniPlayerView: View {
     var body: some View {
         if let song = playerVM.currentSong {
             VStack(spacing: 0) {
-                // Progress Bar (Spotify-style: thin, prominent)
+                // Progress Bar (Spotify green)
                 ProgressBarView(playerVM: playerVM, isDragging: $isDragging)
                 
                 // Main Player Content
-                HStack(spacing: DSLayout.contentGap) {
+                HStack(spacing: 12) {
                     // Left: Album Art + Song Info
-                    HStack(spacing: DSLayout.contentGap) {
+                    HStack(spacing: 12) {
                         AlbumArtView(cover: playerVM.coverArt)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(song.title)
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(DSColor.primary)
+                                .foregroundStyle(.white)
                                 .lineLimit(1)
                             
                             if let artist = song.artist {
                                 Text(artist)
                                     .font(.system(size: 13, weight: .regular))
-                                    .foregroundStyle(DSColor.secondary)
+                                    .foregroundStyle(.white.opacity(0.7))
                                     .lineLimit(1)
                             }
                         }
@@ -45,18 +44,16 @@ struct MiniPlayerView: View {
                     
                     Spacer()
                     
-                    // Right: Controls (Spotify-style: minimal)
+                    // Right: Controls
                     HStack(spacing: 16) {
-                        // Heart/Like button (Spotify has this)
                         Button {
-                            // TODO: Implement favorite functionality
+                            // TODO: Implement favorite
                         } label: {
                             Image(systemName: "heart")
                                 .font(.system(size: 18))
-                                .foregroundStyle(DSColor.secondary)
+                                .foregroundStyle(.white.opacity(0.7))
                         }
                         
-                        // Play/Pause (Primary control)
                         Button {
                             playerVM.togglePlayPause()
                         } label: {
@@ -64,10 +61,11 @@ struct MiniPlayerView: View {
                                 ProgressView()
                                     .scaleEffect(0.8)
                                     .frame(width: 32, height: 32)
+                                    .tint(.white)
                             } else {
                                 Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill")
                                     .font(.system(size: 18, weight: .medium))
-                                    .foregroundStyle(DSColor.primary)
+                                    .foregroundStyle(.white)
                                     .frame(width: 32, height: 32)
                             }
                         }
@@ -78,21 +76,21 @@ struct MiniPlayerView: View {
                 .padding(.vertical, 12)
                 .background(
                     ZStack {
-                        // Blurred Cover Art Background
+                        // FIXED: Cover Blur Background
                         if let cover = playerVM.coverArt {
                             Image(uiImage: cover)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                                .blur(radius: 20)
-                                .opacity(0.3)
+                                .blur(radius: 40)
+                                .opacity(0.7)
                                 .clipped()
                         }
                         
-                        // Dark overlay for readability
-                        DSColor.surface.opacity(0.8)
+                        // Dark overlay für Lesbarkeit
+                        Color.black.opacity(0.6)
                     }
                 )
-                .contentShape(Rectangle()) // Makes entire area tappable
+                .contentShape(Rectangle())
                 .onTapGesture {
                     showFullScreen = true
                 }
@@ -100,33 +98,30 @@ struct MiniPlayerView: View {
                     DragGesture()
                         .onEnded { value in
                             if value.translation.height < -50 {
-                                // Swipe up to open full screen
                                 showFullScreen = true
                             } else if value.translation.height > 50 {
-                                // Swipe down to dismiss
                                 playerVM.stop()
                             }
                         }
                 )
             }
             .background(
+                // FIXED: Gesamter Background mit Cover Blur
                 ZStack {
-                    // Blurred Cover Art Background
                     if let cover = playerVM.coverArt {
                         Image(uiImage: cover)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .blur(radius: 20)
-                            .opacity(0.3)
+                            .blur(radius: 40)
+                            .opacity(0.7)
                             .clipped()
                     }
                     
-                    // Dark overlay
-                    DSColor.surface.opacity(0.8)
+                    Color.black.opacity(0.3)
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: 0))
-            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -2)
+            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: -2)
             .fullScreenCover(isPresented: $showFullScreen) {
                 FullScreenPlayerView()
                     .environmentObject(playerVM)
@@ -136,7 +131,7 @@ struct MiniPlayerView: View {
     }
 }
 
-// MARK: - Progress Bar (Spotify-style)
+// MARK: - Progress Bar mit Spotify-Grün
 struct ProgressBarView: View {
     @ObservedObject var playerVM: PlayerViewModel
     @Binding var isDragging: Bool
@@ -146,12 +141,12 @@ struct ProgressBarView: View {
             ZStack(alignment: .leading) {
                 // Background track
                 Rectangle()
-                    .fill(Color.gray.opacity(0.3))
+                    .fill(Color.gray.opacity(0.4))
                     .frame(height: 2)
                 
-                // Progress track (Spotify green when playing)
+                // FIXED: Spotify-grüner Progress
                 Rectangle()
-                    .fill(playerVM.isPlaying ? Color.green : Color.gray)
+                    .fill(Color.green)
                     .frame(width: geometry.size.width * progressPercentage, height: 2)
                     .animation(isDragging ? nil : .linear(duration: 0.1), value: progressPercentage)
             }
@@ -178,7 +173,7 @@ struct ProgressBarView: View {
     }
 }
 
-// MARK: - Album Art (Spotify-style)
+// MARK: - Album Art (unverändert)
 struct AlbumArtView: View {
     let cover: UIImage?
     

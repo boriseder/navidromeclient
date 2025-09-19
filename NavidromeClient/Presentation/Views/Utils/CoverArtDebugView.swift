@@ -24,7 +24,7 @@ struct CoverArtDebugView: View {
                 
                 Text("Cache Hit Rate: \(String(format: "%.1f", stats.performanceStats.cacheHitRate))%")
                 Text("Average Load Time: \(String(format: "%.3f", stats.performanceStats.averageLoadTime))s")
-                Text("Memory Images: \(stats.totalMemoryImages)")
+              //  Text("Memory Images: \(stats.totalMemoryImages)")
                 Text("Active Requests: \(stats.activeRequests)")
                 Text("Errors: \(stats.errorCount)")
             }
