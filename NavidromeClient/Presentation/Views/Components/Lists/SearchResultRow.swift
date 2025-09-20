@@ -236,13 +236,13 @@ struct SongImageView: View {
     
     //  REACTIVE: Get song image via centralized state
     private var songImage: UIImage? {
-        deps.coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover))
+        deps.coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover*3))
     }
     
     //  REACTIVE: Get loading state via centralized state
     private var isLoading: Bool {
         guard let albumId = song.albumId else { return false }
-        return deps.coverArtManager.isLoadingImage(for: albumId, size: Int(DSLayout.miniCover))
+        return deps.coverArtManager.isLoadingImage(for: albumId, size: Int(DSLayout.miniCover*3))
     }
     
     var body: some View {

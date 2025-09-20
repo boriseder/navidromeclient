@@ -65,10 +65,10 @@ class CoverArtManager: ObservableObject {
         }
         
         if let image = await service.getCoverArt(for: album.id, size: size) {
-            print("Album network load: \(album.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
-            
+          
             albumImages[memoryKey] = image
             errorStates.removeValue(forKey: memoryKey)
+
             persistentCache.store(image, for: cacheKey)
             
             return image
