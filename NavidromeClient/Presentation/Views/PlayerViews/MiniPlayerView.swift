@@ -13,7 +13,7 @@ struct MiniPlayerView: View {
     @State private var isDragging = false
     
     var body: some View {
-        if let song = deps.playerVM.currentSong {
+        if let song = deps.playerVM.playbackState.currentSong {
             VStack(spacing: 0) {
                 // Progress Bar (Spotify green)
                 ProgressBarView(isDragging: $isDragging)

@@ -13,7 +13,7 @@ struct MainTabView: View {
    
     @EnvironmentObject var deps: AppDependencies
     
-    // MARK: - ✅ ENHANCED: TabItem with Navigation Destinations
+    // MARK: - TabItem with Navigation Destinations
     
     private struct TabItem {
         let view: AnyView
@@ -22,7 +22,7 @@ struct MainTabView: View {
         let badge: String?
         let navigationDestinations: [(Any.Type, (Any) -> AnyView)]
         
-        // ✅ CONVENIENCE: Simple initializer without destinations
+        // Simple initializer without destinations
         init(
             view: AnyView,
             label: String,
@@ -36,7 +36,7 @@ struct MainTabView: View {
             self.navigationDestinations = []
         }
         
-        // ✅ FULL: Initializer with navigation destinations
+        // Initializer with navigation destinations
         init(
             view: AnyView,
             label: String,
@@ -52,7 +52,7 @@ struct MainTabView: View {
         }
     }
     
-    // MARK: - ✅ CLEAN: Tab Configuration with Destinations
+    // MARK: - Tab Configuration with Destinations
     
     private var tabs: [TabItem] {
         [
@@ -128,6 +128,8 @@ struct MainTabView: View {
     }
     
     var body: some View {
+ 
+
         GeometryReader { geometry in  // ← ADD GeometryReader
             
             TabView {
@@ -136,11 +138,12 @@ struct MainTabView: View {
                 }
             }
             .overlay(networkStatusOverlay, alignment: .top)
-            .overlay(alignment: .bottom) { // ← Ist das da?
-                MiniPlayerView()
-                    .environmentObject(deps)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 40) // ← Standard TabBar height
-                
+            .overlay(alignment: .bottom) {
+                if deps.playerVM.playbackState.hasActiveSong {
+                    MiniPlayerView()
+                        .environmentObject(deps)
+                        .padding(.bottom, geometry.safeAreaInsets.bottom + 40)
+                }
             }
         }
     }
@@ -152,14 +155,8 @@ struct MainTabView: View {
         NavigationStack {
             ZStack {
                 tab.view
-                VStack {
-                    Spacer()
-                    MiniPlayerView()
-                        .frame(height: DSLayout.miniPlayerHeight)
-
-                }
             }
-            // ✅ MAGIC: Dynamically apply navigation destinations from TabItem
+           // .padding(.bottom, deps.playerVM.playbackState.hasActiveSong ? DSLayout.miniPlayerHeight : 0)
             .applyNavigationDestinations(tab.navigationDestinations)
         }
         .tabItem {

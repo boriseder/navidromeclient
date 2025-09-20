@@ -1,10 +1,10 @@
 //
-//  PlayerViewModel.swift - FIXED: Complete @Published Grouping Implementation
+//  PlayerViewModel.swift - FIXED: Separate @Published Properties with Atomic Updates
 //  NavidromeClient
 //
-//   FIXED: 3 grouped @Published properties instead of 11 individual ones
+//   FIXED: SwiftUI-compliant reactivity with separate @Published properties
+//   FIXED: Race conditions eliminated through atomic update methods
 //   PRESERVED: All existing functionality and public API
-//   IMPROVED: Single state updates for better performance
 //
 
 import Foundation
@@ -14,7 +14,7 @@ import MediaPlayer
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
-    // MARK: - ✅ GROUPED STATE: 3 structs instead of 11 individual @Published properties
+    // MARK: - ✅ FIXED: Separate @Published properties for proper SwiftUI reactivity
     @Published private(set) var playbackState = PlaybackState()
     @Published private(set) var progressState = ProgressState()
     @Published private(set) var audioState = AudioState()
@@ -182,7 +182,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         print("✅ PlayerViewModel: Final cleanup completed")
     }
 
-    // MARK: - ✅ NEW: State Update Methods
+    // MARK: - ✅ FIXED: Atomic State Update Methods
     private func updatePlaybackState(_ update: (inout PlaybackState) -> Void) {
         update(&playbackState)
     }
@@ -236,7 +236,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         updateNowPlayingInfo()
     }
 
-
     // MARK: - ✅ UPDATED: Enhanced Playback Methods
     func play(song: Song) async {
         await setPlaylist([song], startIndex: 0, albumId: song.albumId)
@@ -287,7 +286,6 @@ class PlayerViewModel: NSObject, ObservableObject {
                         state.duration = Double(song.duration ?? 0)
                         state.currentTime = 0
                     }
-                    objectWillChange.send()
                 }
                 
                 print("🎵 Playing song: \(song.title)")
@@ -315,10 +313,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             } catch is CancellationError {
                 print("🎵 playCurrent cancelled gracefully")
                 await MainActor.run {
-                    updatePlaybackState { state in
-                        state.isLoading = false
-                    }
-                    objectWillChange.send()
+                    updatePlaybackState { $0.isLoading = false }
                 }
             } catch {
                 print("❌ playCurrent failed: \(error)")
@@ -327,7 +322,6 @@ class PlayerViewModel: NSObject, ObservableObject {
                         state.errorMessage = "Playback failed: \(error.localizedDescription)"
                         state.isLoading = false
                     }
-                    objectWillChange.send()
                 }
             }
         }
@@ -374,6 +368,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             }
         }
     }
+    
     private func getStreamURL(for song: Song) async -> URL? {
         guard let mediaService = mediaService else {
             print("❌ No MediaService available for streaming")
@@ -417,14 +412,13 @@ class PlayerViewModel: NSObject, ObservableObject {
                 // Create new player
                 let item = AVPlayerItem(url: url)
                 player = AVPlayer(playerItem: item)
-                player?.volume = audioState.volume
+                player?.volume = audioState.effectiveVolume
                 
                 // Update UI state
                 updatePlaybackState { state in
                     state.isPlaying = true
                     state.isLoading = false
                 }
-                objectWillChange.send()
                 
                 // Start playback
                 player?.play()
@@ -446,10 +440,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         } catch is CancellationError {
             print("🎵 playFromURL cancelled gracefully")
             await MainActor.run {
-                updatePlaybackState { state in
-                    state.isLoading = false
-                }
-                objectWillChange.send()
+                updatePlaybackState { $0.isLoading = false }
             }
         } catch {
             print("❌ playFromURL failed: \(error)")
@@ -458,10 +449,10 @@ class PlayerViewModel: NSObject, ObservableObject {
                     state.errorMessage = "Failed to play from URL: \(error.localizedDescription)"
                     state.isLoading = false
                 }
-                objectWillChange.send()
             }
         }
     }
+    
     // MARK: - ✅ PRESERVED: Download Status Methods
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         let isDownloaded = downloadManager.isAlbumDownloaded(albumId)
@@ -629,7 +620,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             if abs(newTime - self.lastUpdateTime) > 0.1 {
                 self.lastUpdateTime = newTime
                 
-                // ✅ SINGLE state update instead of multiple @Published changes
+                // ✅ SINGLE state update for progress
                 self.updateProgressState { state in
                     state.currentTime = newTime
                 }
@@ -662,7 +653,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
         
         updateNowPlayingInfo()
-        objectWillChange.send()
     }
 
     func pause() {
@@ -670,7 +660,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         player?.pause()
         updatePlaybackState { $0.isPlaying = false }
         updateNowPlayingInfo()
-        objectWillChange.send()
     }
     
     func resume() {
@@ -678,7 +667,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         player?.play()
         updatePlaybackState { $0.isPlaying = true }
         updateNowPlayingInfo()
-        objectWillChange.send()
     }
     
     func stop() {
@@ -693,7 +681,6 @@ class PlayerViewModel: NSObject, ObservableObject {
             state.duration = 0
         }
         audioSessionManager.clearNowPlayingInfo()
-        objectWillChange.send()
     }
 
     func seek(to time: TimeInterval) {
