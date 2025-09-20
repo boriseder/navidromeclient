@@ -228,13 +228,9 @@ struct SpotifySongInfoView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            Button {
-                // TODO: Implement favorite
-            } label: {
-                Image(systemName: "heart")
-                    .font(.system(size: 26))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
+            // Heart Button für FullScreen
+            HeartButton.fullScreen(song: song)
+
         }
         .padding(.horizontal, 20)
     }

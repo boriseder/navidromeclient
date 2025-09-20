@@ -21,6 +21,10 @@ struct SongRow: View {
             trackNumberView
             songInfoView
             Spacer()
+            
+            // Heart Button für Song Rows
+            HeartButton.songRow(song: song)
+
             durationView
         }
         .listItemPadding()

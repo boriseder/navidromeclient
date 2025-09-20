@@ -74,3 +74,9 @@ class UnifiedSubsonicService: ObservableObject {
 
 // MARK: -  LEGACY TYPE ALIAS (Backwards compatibility)
 typealias SubsonicService = UnifiedSubsonicService
+
+extension UnifiedSubsonicService {
+    func getFavoritesService() -> FavoritesService {
+        return FavoritesService(connectionService: connectionService)
+    }
+}

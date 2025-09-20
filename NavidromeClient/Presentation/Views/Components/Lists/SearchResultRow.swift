@@ -78,6 +78,9 @@ struct SearchResultSongRow: View {
                 SongImageView(song: song, isPlaying: isPlaying)
                 SongInfoView(song: song, isPlaying: isPlaying)
                 Spacer()
+                // Heart Button für Search Results
+                HeartButton.songRow(song: song)
+
                 SongDurationView(duration: song.duration)
             }
             .listItemPadding()

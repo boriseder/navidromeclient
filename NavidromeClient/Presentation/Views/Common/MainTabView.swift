@@ -100,6 +100,13 @@ struct MainTabView: View {
                 ]
             ),
             
+            TabItem(
+                view: AnyView(FavoritesView()),
+                label: "Favorites",
+                systemImage: "heart.fill",
+                badge: deps.favoritesManager.favoriteCount > 0 ? "\(deps.favoritesManager.favoriteCount)" : nil
+            ),
+
             // Search - navigates to multiple destinations
             TabItem(
                 view: AnyView(SearchView()),

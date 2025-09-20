@@ -25,7 +25,8 @@ class AppDependencies: ObservableObject {
     let coverArtManager: CoverArtManager
     let homeScreenManager: HomeScreenManager
     let musicLibraryManager: MusicLibraryManager
-    
+    let favoritesManager: FavoritesManager
+
     // MARK: - Initialization
     
     init() {
@@ -40,7 +41,8 @@ class AppDependencies: ObservableObject {
         self.coverArtManager = CoverArtManager.shared
         self.homeScreenManager = HomeScreenManager.shared
         self.musicLibraryManager = MusicLibraryManager.shared
-        
+        self.favoritesManager = FavoritesManager.shared
+
         // 3. Create ViewModels
         let initialService = Self.createInitialService()
         self.navidromeVM = NavidromeViewModel()
@@ -85,7 +87,8 @@ class AppDependencies: ObservableObject {
         downloadManager.configure(coverArtManager: coverArtManager)
         homeScreenManager.configure(service: service)
         musicLibraryManager.configure(service: service)
-        
+        favoritesManager.configure(service: service)
+
         print("✅ AppDependencies: All dependencies configured with UnifiedSubsonicService")
     }
     
@@ -114,7 +117,8 @@ class AppDependencies: ObservableObject {
     
     func performFactoryReset() async {
         await appConfig.performFactoryReset()
-        
+        await favoritesManager.reset()
+
         // Reset all managers
         coverArtManager.clearMemoryCache()
         downloadManager.deleteAllDownloads()

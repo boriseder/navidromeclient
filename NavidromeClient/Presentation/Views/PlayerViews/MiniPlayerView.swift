@@ -45,8 +45,13 @@ struct MiniPlayerView: View {
                     
                     // Right: Controls
                     HStack(spacing: 16) {
+                        // Heart Button für MiniPlayer
+                        if let song = deps.playerVM.currentSong {
+                            HeartButton.miniPlayer(song: song)
+                        }
+                        
                         Button {
-                            // TODO: Implement favorite
+                            deps.playerVM.togglePlayPause()
                         } label: {
                             Image(systemName: "heart")
                                 .font(.system(size: 18))
