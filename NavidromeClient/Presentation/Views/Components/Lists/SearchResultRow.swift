@@ -98,8 +98,10 @@ struct ArtistImageView: View {
     let artist: Artist
     let index: Int
     
-    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    // MIGRATED to AppDependencies
+    // ✅ CRITICAL: Local state for reactive updates
+    @State private var currentImage: UIImage?
+    @State private var isLoading = false
+    @State private var hasError = false
     
     var body: some View {
         ZStack {
@@ -108,8 +110,7 @@ struct ArtistImageView: View {
                 .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
             
             Group {
-                if let image = deps.coverArtManager.getArtistImage(for: artist.id, size: Int(DSLayout.smallAvatar*3)) {
-                    //  REACTIVE: Uses centralized state
+                if let image = currentImage {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
@@ -131,24 +132,21 @@ struct ArtistImageView: View {
             }
         }
         .task(id: artist.id) {
-            //  SINGLE LINE: Manager handles staggering, caching, state
-            await deps.coverArtManager.loadArtistImage(
-                artist: artist,
-                size: Int(DSLayout.smallAvatar*3),
-                staggerIndex: index
-            )
+            await loadImageAsync()
+        }
+        // ✅ CRITICAL: Listen to CoverArtManager changes
+        .onReceive(deps.coverArtManager.objectWillChange) {
+            updateImageFromCache()
         }
     }
     
     @ViewBuilder
     private var artistImageOverlay: some View {
-        if deps.coverArtManager.isLoadingImage(for: artist.id, size: Int(DSLayout.smallAvatar*3)) {
-            //  REACTIVE: Uses centralized loading state
+        if isLoading {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if let error = deps.coverArtManager.getImageError(for: artist.id, size: Int(DSLayout.smallAvatar*3)) {
-            //  NEW: Error state handling
+        } else if hasError {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
                 .foregroundStyle(.orange)
@@ -158,14 +156,54 @@ struct ArtistImageView: View {
                 .foregroundStyle(DSColor.onDark)
         }
     }
+    
+    private func loadImageAsync() async {
+        let imageSize = Int(DSLayout.smallAvatar * 3)
+        
+        // Check immediate cache first
+        updateImageFromCache()
+        if currentImage != nil { return }
+        
+        await MainActor.run {
+            isLoading = true
+            hasError = false
+        }
+        
+        let loadedImage = await deps.coverArtManager.loadArtistImage(
+            artist: artist,
+            size: imageSize,
+            staggerIndex: index
+        )
+        
+        await MainActor.run {
+            self.currentImage = loadedImage
+            self.isLoading = false
+            self.hasError = loadedImage == nil
+        }
+    }
+    
+    private func updateImageFromCache() {
+        let imageSize = Int(DSLayout.smallAvatar * 3)
+        let cachedImage = deps.coverArtManager.getArtistImage(for: artist.id, size: imageSize)
+        
+        if cachedImage != currentImage {
+            currentImage = cachedImage
+        }
+    }
 }
 
+// MARK: - ✅ FIXED: Album Image Component
 struct AlbumImageView: View {
     @EnvironmentObject var deps: AppDependencies
     
     let album: Album
     let index: Int
-        
+    
+    // ✅ CRITICAL: Local state for reactive updates
+    @State private var currentImage: UIImage?
+    @State private var isLoading = false
+    @State private var hasError = false
+    
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: DSCorners.element)
@@ -173,9 +211,8 @@ struct AlbumImageView: View {
                 .frame(width: DSLayout.listCover, height: DSLayout.listCover)
             
             Group {
-                if let image = deps.coverArtManager.getAlbumImage(for: album.id, size: Int(DSLayout.listCover*3)) {
-                    //  REACTIVE: Uses centralized state
-                    Image(uiImage: image)  
+                if let image = currentImage {
+                    Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(width: DSLayout.listCover, height: DSLayout.listCover)
@@ -196,24 +233,21 @@ struct AlbumImageView: View {
             }
         }
         .task(id: album.id) {
-            //  SINGLE LINE: Manager handles staggering, caching, state
-            await deps.coverArtManager.loadAlbumImage(
-                album: album,
-                size: Int(DSLayout.listCover*3),
-                staggerIndex: index
-            )
+            await loadImageAsync()
+        }
+        // ✅ CRITICAL: Listen to CoverArtManager changes
+        .onReceive(deps.coverArtManager.objectWillChange) {
+            updateImageFromCache()
         }
     }
     
     @ViewBuilder
     private var albumImageOverlay: some View {
-        if deps.coverArtManager.isLoadingImage(for: album.id, size: Int(DSLayout.listCover*3)) {
-            //  REACTIVE: Uses centralized loading state
+        if isLoading {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if let error = deps.coverArtManager.getImageError(for: album.id, size: Int(DSLayout.listCover*3)) {
-            //  NEW: Error state handling
+        } else if hasError {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
                 .foregroundStyle(.orange)
@@ -223,95 +257,42 @@ struct AlbumImageView: View {
                 .foregroundStyle(DSColor.onDark)
         }
     }
+    
+    private func loadImageAsync() async {
+        let imageSize = Int(DSLayout.listCover * 3)
+        
+        // Check immediate cache first
+        updateImageFromCache()
+        if currentImage != nil { return }
+        
+        await MainActor.run {
+            isLoading = true
+            hasError = false
+        }
+        
+        let loadedImage = await deps.coverArtManager.loadAlbumImage(
+            album: album,
+            size: imageSize,
+            staggerIndex: index
+        )
+        
+        await MainActor.run {
+            self.currentImage = loadedImage
+            self.isLoading = false
+            self.hasError = loadedImage == nil
+        }
+    }
+    
+    private func updateImageFromCache() {
+        let imageSize = Int(DSLayout.listCover * 3)
+        let cachedImage = deps.coverArtManager.getAlbumImage(for: album.id, size: imageSize)
+        
+        if cachedImage != currentImage {
+            currentImage = cachedImage
+        }
+    }
 }
 
-struct SongImageView: View {
-    @EnvironmentObject var deps: AppDependencies
-    
-    let song: Song
-    let isPlaying: Bool
-    
-    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    // MIGRATED to AppDependencies
-    
-    //  REACTIVE: Get song image via centralized state
-    private var songImage: UIImage? {
-        deps.coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover*3))
-    }
-    
-    //  REACTIVE: Get loading state via centralized state
-    private var isLoading: Bool {
-        guard let albumId = song.albumId else { return false }
-        return deps.coverArtManager.isLoadingImage(for: albumId, size: Int(DSLayout.miniCover*3))
-    }
-    
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: DSCorners.element)
-                .fill(DSColor.surface.opacity(isPlaying ? 0.2 : 0.1))
-                .frame(width: DSLayout.listCover, height: DSLayout.listCover)
-            
-            Group {
-                if let image = songImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
-                        .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
-                        .overlay(playingOverlay)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                } else {
-                    RoundedRectangle(cornerRadius: DSCorners.element)
-                        .fill(
-                            LinearGradient(
-                                colors: [.green, .blue.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
-                        .overlay(songImageOverlay)
-                }
-            }
-        }
-        .task(id: song.albumId) {
-            //  SINGLE LINE: Manager handles all complexity
-            _ = await deps.coverArtManager.loadSongImage(song: song, size: Int(DSLayout.miniCover))
-        }
-    }
-    
-    @ViewBuilder
-    private var playingOverlay: some View {
-        if isPlaying {
-            RoundedRectangle(cornerRadius: DSCorners.element)
-                .fill(DSColor.playing.opacity(0.3))
-                .overlay(
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(DSText.metadata)
-                        .foregroundStyle(DSColor.playing)
-                )
-        }
-    }
-    
-    @ViewBuilder
-    private var songImageOverlay: some View {
-        if isLoading {
-            //  REACTIVE: Uses centralized loading state
-            ProgressView()
-                .scaleEffect(0.6)
-                .tint(.white)
-        } else if let albumId = song.albumId, let error = deps.coverArtManager.getImageError(for: albumId, size: Int(DSLayout.smallAvatar*3)) {
-            //  NEW: Error state handling
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: DSLayout.smallIcon))
-                .foregroundStyle(.orange)
-        } else {
-            Image(systemName: "music.note")
-                .font(.system(size: DSLayout.largeIcon))
-                .foregroundStyle(DSColor.onDark)
-        }
-    }
-}
 
 // MARK: - Info Components (unchanged)
 

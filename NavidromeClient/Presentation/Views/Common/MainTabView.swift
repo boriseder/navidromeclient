@@ -139,7 +139,7 @@ struct MainTabView: View {
             .overlay(alignment: .bottom) { // ← Ist das da?
                 MiniPlayerView()
                     .environmentObject(deps)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 49) // ← Standard TabBar height
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 40) // ← Standard TabBar height
                 
             }
         }
@@ -156,6 +156,7 @@ struct MainTabView: View {
                     Spacer()
                     MiniPlayerView()
                         .frame(height: DSLayout.miniPlayerHeight)
+
                 }
             }
             // ✅ MAGIC: Dynamically apply navigation destinations from TabItem
