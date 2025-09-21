@@ -1,9 +1,11 @@
 //
-//  ArtistsViewContent.swift
+//  ArtistsViewContent.swift - MIGRIERT: UnifiedLibraryContainer
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//   MIGRIERT: Von LibraryView + UnifiedContainer zu UnifiedLibraryContainer
+//   CLEAN: Single Container-Pattern
 //
+
 import SwiftUI
 
 struct ArtistsViewContent: View {
@@ -38,13 +40,18 @@ struct ArtistsViewContent: View {
     
     var body: some View {
         NavigationStack {
-            ContentOnlyLibraryView(
+            // ✅ MIGRIERT: Unified Container mit allen Features
+            UnifiedLibraryContainer(
+                items: displayedArtists,
                 isLoading: shouldShowLoading,
                 isEmpty: isEmpty && !shouldShowLoading,
                 isOfflineMode: isOfflineMode,
-                emptyStateType: .artists
-            ) {
-                ArtistListContent()
+                emptyStateType: .artists,
+                layout: .list
+            ) { artist, index in
+                NavigationLink(value: artist) {
+                    ListItemContainer(content: .artist(artist), index: index)
+                }
             }
             .searchable(text: $searchText, prompt: "Search artists...")
             .refreshable { await refreshAllData() }
@@ -60,20 +67,7 @@ struct ArtistsViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .unifiedToolbar(albumsToolbarConfig)
-        }
-    }
-    
-    @ViewBuilder
-    private func ArtistListContent() -> some View {
-        UnifiedContainer(
-            items: displayedArtists,
-            layout: .list
-        ) { artist, index in
-            // ✅ NavigationLink mit value für zentrale Navigation
-            NavigationLink(value: artist) {
-                ListItemContainer(content: .artist(artist), index: index)
-            }
+            .unifiedToolbar(artistsToolbarConfig)
         }
     }
     
@@ -115,7 +109,7 @@ struct ArtistsViewContent: View {
         }
     }
     
-    private var albumsToolbarConfig: ToolbarConfiguration {
+    private var artistsToolbarConfig: ToolbarConfiguration {
         .library(
             title: "Artists",
             isOffline: isOfflineMode,

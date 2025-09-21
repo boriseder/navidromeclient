@@ -1,9 +1,11 @@
 //
-//  ArtistDetailViewContent.swift
+//  ArtistDetailViewContent.swift - MIGRIERT: UnifiedLibraryContainer
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//   MIGRIERT: Album Grid nutzt jetzt UnifiedLibraryContainer
+//   CLEAN: Single Container-Pattern
 //
+
 import SwiftUI
 
 enum ArtistDetailContext {
@@ -81,16 +83,19 @@ struct ArtistDetailViewContent: View {
                     )
                     .screenPadding()
                 } else if !displayAlbums.isEmpty {
-                    LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
-                        ForEach(albums, id: \.id) { album in
-                            // ✅ NavigationLink mit value für zentrale Navigation
-                            NavigationLink(value: album) {
-                                CardItemContainer(content: .album(album), index: 0)
-                            }
+                    // ✅ MIGRIERT: UnifiedLibraryContainer für Album Grid
+                    UnifiedLibraryContainer(
+                        items: displayAlbums,
+                        isLoading: false,
+                        isEmpty: false,
+                        isOfflineMode: isOfflineMode,
+                        emptyStateType: .albums,
+                        layout: .twoColumnGrid
+                    ) { album, index in
+                        NavigationLink(value: album) {
+                            CardItemContainer(content: .album(album), index: index)
                         }
                     }
-                    .screenPadding()
-                    .padding(.bottom, 100)
                 }
                 
                 Color.clear.frame(height: DSLayout.miniPlayerHeight)

@@ -6,7 +6,7 @@
 //   CLEAN: Proper separation of concerns
 //   SUSTAINABLE: Each component has single responsibility
 //
-
+/*
 import SwiftUI
 
 // MARK: - 0. REQUIRED: Extensions
@@ -220,3 +220,4 @@ extension View {
     }
 }
 
+*/

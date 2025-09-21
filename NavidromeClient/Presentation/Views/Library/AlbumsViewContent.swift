@@ -1,9 +1,11 @@
 //
-//  AlbumsViewContent.swift
+//  AlbumsViewContent.swift - MIGRIERT: UnifiedLibraryContainer
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//   MIGRIERT: Von LibraryView + UnifiedContainer zu UnifiedLibraryContainer
+//   CLEAN: Single Container-Pattern
 //
+
 import SwiftUI
 
 struct AlbumsViewContent: View {
@@ -39,13 +41,21 @@ struct AlbumsViewContent: View {
     
     var body: some View {
         NavigationStack {
-            ContentOnlyLibraryView(
+            // ✅ MIGRIERT: Unified Container mit allen Features
+            UnifiedLibraryContainer(
+                items: displayedAlbums,
                 isLoading: shouldShowLoading,
                 isEmpty: isEmpty && !shouldShowLoading,
                 isOfflineMode: isOfflineMode,
-                emptyStateType: .albums
-            ) {
-                AlbumsGridContent()
+                emptyStateType: .albums,
+                layout: .twoColumnGrid,
+                onLoadMore: { _ in
+                    Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
+                }
+            ) { album, index in
+                NavigationLink(value: album) {
+                    CardItemContainer(content: .album(album), index: index)
+                }
             }
             .searchable(text: $searchText, prompt: "Search albums...")
             .refreshable { await refreshAllData() }
@@ -74,23 +84,6 @@ struct AlbumsViewContent: View {
         }
         .navigationTitle("Albums")
         .navigationBarTitleDisplayMode(.large)
-    }
-    
-    
-    @ViewBuilder
-    private func AlbumsGridContent() -> some View {
-        UnifiedContainer(
-            items: displayedAlbums,
-            layout: .twoColumnGrid,
-            onLoadMore: { _ in
-                Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
-            }
-        ) { album, index in
-            // ✅ NavigationLink mit value für zentrale Navigation
-            NavigationLink(value: album) {
-                CardItemContainer(content: .album(album), index: index)
-            }
-        }
     }
     
     // Business Logic (unverändert)
@@ -137,21 +130,5 @@ struct AlbumsViewContent: View {
     
     private func toggleOfflineMode() {
         offlineManager.toggleOfflineMode()
-    }
-    
-    private var albumToolbarConfig: ToolbarConfiguration {
-        .libraryWithSort(
-            title: "Albums",
-            isOffline: isOfflineMode,
-            currentSort: selectedAlbumSort,
-            sortOptions: ContentService.AlbumSortType.allCases,
-            onRefresh: {
-                await loadAlbums(sortBy: selectedAlbumSort)
-            },
-            onToggleOffline: toggleOfflineMode,
-            onSort: { sortType in
-                Task { await loadAlbums(sortBy: sortType) }
-            }
-        )
     }
 }

@@ -1,9 +1,11 @@
 //
-//  FavoritesViewContent.swift
+//  FavoritesViewContent.swift - MIGRIERT: UnifiedLibraryContainer
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//   MIGRIERT: Von ContentOnlyLibraryView zu UnifiedLibraryContainer
+//   CLEAN: Single Container-Pattern
 //
+
 import SwiftUI
 
 struct FavoritesViewContent: View {
@@ -45,13 +47,55 @@ struct FavoritesViewContent: View {
     
     var body: some View {
         NavigationStack {
-            ContentOnlyLibraryView(
-                isLoading: shouldShowLoading,
-                isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isOfflineMode,
-                emptyStateType: .favorites
-            ) {
-                FavoritesListContent()
+            // ✅ MIGRIERT: Custom Layout für Favorites mit Header
+            Group {
+                if shouldShowLoading {
+                    LoadingView()
+                } else if isEmpty && !shouldShowLoading {
+                    EmptyStateView(type: .favorites)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            if isOfflineMode {
+                                OfflineStatusBanner()
+                                    .screenPadding()
+                                    .padding(.bottom, DSLayout.elementGap)
+                            }
+                            
+                            LazyVStack(spacing: DSLayout.elementGap) {
+                                if !favoritesManager.favoriteSongs.isEmpty {
+                                    FavoritesStatsHeader()
+                                }
+                                
+                                ForEach(displayedSongs.indices, id: \.self) { index in
+                                    let song = displayedSongs[index]
+                                    
+                                    FavoriteSongRow(
+                                        song: song,
+                                        index: index + 1,
+                                        isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                                        onPlay: {
+                                            Task {
+                                                await playerVM.setPlaylist(
+                                                    displayedSongs,
+                                                    startIndex: index,
+                                                    albumId: nil
+                                                )
+                                            }
+                                        },
+                                        onToggleFavorite: {
+                                            Task {
+                                                await favoritesManager.toggleFavorite(song)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                            .screenPadding()
+                        }
+                        .padding(.bottom, DSLayout.miniPlayerHeight)
+                    }
+                }
             }
             .searchable(text: $searchText, prompt: "Search favorites...")
             .refreshable { await refreshFavorites() }
@@ -77,42 +121,7 @@ struct FavoritesViewContent: View {
             } message: {
                 Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
             }
-
         }
-    }
-    
-    @ViewBuilder
-    private func FavoritesListContent() -> some View {
-        LazyVStack(spacing: DSLayout.elementGap) {
-            if !favoritesManager.favoriteSongs.isEmpty {
-                FavoritesStatsHeader()
-            }
-            
-            ForEach(displayedSongs.indices, id: \.self) { index in
-                let song = displayedSongs[index]
-                
-                FavoriteSongRow(
-                    song: song,
-                    index: index + 1,
-                    isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                    onPlay: {
-                        Task {
-                            await playerVM.setPlaylist(
-                                displayedSongs,
-                                startIndex: index,
-                                albumId: nil
-                            )
-                        }
-                    },
-                    onToggleFavorite: {
-                        Task {
-                            await favoritesManager.toggleFavorite(song)
-                        }
-                    }
-                )
-            }
-        }
-        .screenPadding()
     }
     
     // Business Logic (unverändert)
@@ -156,8 +165,7 @@ struct FavoritesViewContent: View {
     }
     
     private var favoritesToolbarConfig: ToolbarConfiguration {
-        let left: [ToolbarElement] = [
-        ]
+        let left: [ToolbarElement] = []
         
         let right: [ToolbarElement] = [
             .menu(icon: "ellipsis", items: [
@@ -180,7 +188,5 @@ struct FavoritesViewContent: View {
             displayMode: .large,
             showSettings: true
         )
-
     }
-
 }

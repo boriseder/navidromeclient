@@ -1,26 +1,39 @@
 //
-//  UnifiedContainer.swift - FIXED: All Compiler Errors
+//  UnifiedLibraryContainer.swift - KONSOLIDIERT: Alle Container-Patterns
 //  NavidromeClient
 //
-//  ✅ FIXED: Equatable protocol conformance
-//  ✅ FIXED: Generic type constraints
-//  ✅ FIXED: Album initializer parameters
+//   KONSOLIDIERT: UnifiedContainer + LibraryContainer in einer Komponente
+//   CLEAN: Single Source of Truth für alle Container-Patterns
+//   SUSTAINABLE: Reduzierte Komplexität ohne neue Abhängigkeiten
 //
-/*
+
 import SwiftUI
 
-// MARK: - ✅ FIXED: UnifiedContainer Implementation
+// MARK: - Unified Library Container (Konsolidiert)
 
-struct UnifiedContainer<Item: Identifiable, Content: View>: View {
+struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
+    // Data & State
     let items: [Item]
+    let isLoading: Bool
+    let isEmpty: Bool
+    let isOfflineMode: Bool
+    let emptyStateType: EmptyStateView.EmptyStateType
+    
+    // Layout
     let layout: ContainerLayout
     let spacing: CGFloat
-    let onItemTap: (Item) -> Void
     let onLoadMore: ((Item) -> Void)?
+    
+    // Interaction
+    let onItemTap: (Item) -> Void
     let itemBuilder: (Item, Int) -> Content
     
     init(
         items: [Item],
+        isLoading: Bool = false,
+        isEmpty: Bool? = nil,
+        isOfflineMode: Bool = false,
+        emptyStateType: EmptyStateView.EmptyStateType,
         layout: ContainerLayout = .list,
         spacing: CGFloat = DSLayout.elementGap,
         onItemTap: @escaping (Item) -> Void = { _ in },
@@ -28,6 +41,10 @@ struct UnifiedContainer<Item: Identifiable, Content: View>: View {
         @ViewBuilder itemBuilder: @escaping (Item, Int) -> Content
     ) {
         self.items = items
+        self.isLoading = isLoading
+        self.isEmpty = isEmpty ?? items.isEmpty
+        self.isOfflineMode = isOfflineMode
+        self.emptyStateType = emptyStateType
         self.layout = layout
         self.spacing = spacing
         self.onItemTap = onItemTap
@@ -37,16 +54,37 @@ struct UnifiedContainer<Item: Identifiable, Content: View>: View {
     
     var body: some View {
         Group {
-            switch layout {
-            case .list:
-                listLayout
-            case .grid(let columns):
-                gridLayout(columns: columns)
-            case .horizontal:
-                horizontalLayout
+            if isLoading {
+                LoadingView()
+            } else if isEmpty {
+                EmptyStateView(type: emptyStateType)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if isOfflineMode {
+                            OfflineStatusBanner()
+                                .screenPadding()
+                                .padding(.bottom, DSLayout.elementGap)
+                        }
+                        
+                        layoutContent
+                    }
+                    .padding(.bottom, DSLayout.miniPlayerHeight)
+                }
             }
         }
-        .screenPadding()
+    }
+    
+    @ViewBuilder
+    private var layoutContent: some View {
+        switch layout {
+        case .list:
+            listLayout
+        case .grid(let columns):
+            gridLayout(columns: columns)
+        case .horizontal:
+            horizontalLayout
+        }
     }
     
     // MARK: - Layout Implementations
@@ -56,6 +94,7 @@ struct UnifiedContainer<Item: Identifiable, Content: View>: View {
         LazyVStack(spacing: spacing) {
             itemsWithLoadMore()
         }
+        .screenPadding()
     }
     
     @ViewBuilder
@@ -63,6 +102,7 @@ struct UnifiedContainer<Item: Identifiable, Content: View>: View {
         LazyVGrid(columns: columns, spacing: spacing) {
             itemsWithLoadMore()
         }
+        .screenPadding()
     }
     
     @ViewBuilder
@@ -109,20 +149,19 @@ struct UnifiedContainer<Item: Identifiable, Content: View>: View {
         
         let triggerIndex = max(0, items.count - 5)
         if index >= triggerIndex {
-            print("🔄 UnifiedContainer: Triggering load more at index \(index)/\(items.count)")
+            print("🔄 UnifiedLibraryContainer: Triggering load more at index \(index)/\(items.count)")
             onLoadMore(item)
         }
     }
 }
 
-// MARK: - ✅ FIXED: Layout Configuration with Equatable
+// MARK: - Layout Configuration (from UnifiedContainer)
 
 enum ContainerLayout: Equatable {
     case list
     case grid([GridItem])
     case horizontal
     
-    // ✅ FIXED: Equatable implementation for GridItem arrays
     static func == (lhs: ContainerLayout, rhs: ContainerLayout) -> Bool {
         switch (lhs, rhs) {
         case (.list, .list), (.horizontal, .horizontal):
@@ -140,107 +179,33 @@ enum ContainerLayout: Equatable {
     static let fourColumnGrid = ContainerLayout.grid(GridColumns.four)
 }
 
-// MARK: - ✅ REMOVED: Problematic Static Extensions
-
-// Note: Removed static extensions that caused generic type issues
-// Use direct UnifiedContainer initialization instead
-
-// MARK: - ✅ FIXED: Migration Helpers as View Extensions
+// MARK: - Convenience Extensions
 
 extension View {
     
-    // ✅ Helper for migrating from GridContainer
-    func migrateFromGridContainer<Item: Identifiable, Content: View>(
+    /// Content-only version (for views within NavigationStack)
+    func unifiedLibraryContent<Item: Identifiable, Content: View>(
         items: [Item],
-        columns: [GridItem] = GridColumns.two,
-        spacing: CGFloat = DSLayout.sectionGap,
-        onLoadMore: ((Item) -> Void)? = nil,
-        @ViewBuilder itemBuilder: @escaping (Item, Int) -> Content
-    ) -> some View {
-        UnifiedContainer(
-            items: items,
-            layout: .grid(columns),
-            spacing: spacing,
-            onLoadMore: onLoadMore,
-            itemBuilder: itemBuilder
-        )
-    }
-    
-    // ✅ Helper for migrating from ListContainer
-    func migrateFromListContainer<Item: Identifiable, Content: View>(
-        items: [Item],
+        isLoading: Bool = false,
+        isEmpty: Bool? = nil,
+        isOfflineMode: Bool = false,
+        emptyStateType: EmptyStateView.EmptyStateType,
+        layout: ContainerLayout = .list,
         spacing: CGFloat = DSLayout.elementGap,
         onLoadMore: ((Item) -> Void)? = nil,
         @ViewBuilder itemBuilder: @escaping (Item, Int) -> Content
-    ) -> some View {
-        UnifiedContainer(
+    ) -> some View where Content: View {
+        
+        UnifiedLibraryContainer(
             items: items,
-            layout: .list,
+            isLoading: isLoading,
+            isEmpty: isEmpty,
+            isOfflineMode: isOfflineMode,
+            emptyStateType: emptyStateType,
+            layout: layout,
             spacing: spacing,
             onLoadMore: onLoadMore,
             itemBuilder: itemBuilder
         )
     }
 }
-
-// MARK: - ✅ FIXED: Preview Code (Removed problematic Album inits)
-
-#if DEBUG
-struct UnifiedContainer_Previews: PreviewProvider {
-    static var previews: some View {
-        Group {
-            // List Layout
-            UnifiedContainer(
-                items: sampleItems,
-                layout: .list
-            ) { item, index in
-                Text(item.name)
-                    .padding()
-            }
-            .previewDisplayName("List Layout")
-            
-            // Grid Layout
-            UnifiedContainer(
-                items: sampleItems,
-                layout: .twoColumnGrid
-            ) { item, index in
-                Text(item.name)
-                    .padding()
-                    .background(Color.blue)
-                    .cornerRadius(8)
-            }
-            .previewDisplayName("Grid Layout")
-            
-            // Horizontal Layout
-            UnifiedContainer(
-                items: sampleItems,
-                layout: .horizontal
-            ) { item, index in
-                Text(item.name)
-                    .padding()
-                    .background(Color.green)
-                    .cornerRadius(8)
-            }
-            .previewDisplayName("Horizontal Layout")
-        }
-    }
-    
-    // ✅ FIXED: Simple test data structure
-    struct TestItem: Identifiable {
-        let id = UUID()
-        let name: String
-    }
-    
-    static let sampleItems = [
-        TestItem(name: "Item 1"),
-        TestItem(name: "Item 2"),
-        TestItem(name: "Item 3"),
-        TestItem(name: "Item 4")
-    ]
-}
-#endif
-
-// MARK: - ✅ USAGE EXAMPLES (Corrected)
-
-
- */

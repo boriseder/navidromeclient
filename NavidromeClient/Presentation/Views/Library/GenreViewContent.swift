@@ -1,9 +1,11 @@
 //
-//  GenreViewContent.swift
+//  GenreViewContent.swift - MIGRIERT: UnifiedLibraryContainer
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//   MIGRIERT: Von LibraryView + UnifiedContainer zu UnifiedLibraryContainer
+//   CLEAN: Single Container-Pattern
 //
+
 import SwiftUI
 
 struct GenreViewContent: View {
@@ -36,40 +38,34 @@ struct GenreViewContent: View {
     
     var body: some View {
         NavigationStack {
-            ContentOnlyLibraryView(
+            // ✅ MIGRIERT: Unified Container mit allen Features
+            UnifiedLibraryContainer(
+                items: displayedGenres,
                 isLoading: shouldShowLoading,
                 isEmpty: isEmpty && !shouldShowLoading,
                 isOfflineMode: isOfflineMode,
-                emptyStateType: .genres
-            ) {
-                GenresListContent()
+                emptyStateType: .genres,
+                layout: .list,
+                onItemTap: { _ in } // Still empty, but NavigationLink should handle it
+            ) { genre, index in
+                NavigationLink(value: genre) {
+                    ListItemContainer(content: .genre(genre), index: index)
+                }
+                
             }
             .searchable(text: $searchText, prompt: "Search genres...")
             .refreshable { await refreshAllData() }
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
+            
             .navigationDestination(for: Genre.self) { genre in
                 ArtistDetailViewContent(context: .genre(genre))
             }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
-            }
             .unifiedToolbar(genreToolbarConfig)
         }
-    }
-
-    @ViewBuilder
-    private func GenresListContent() -> some View {
-        UnifiedContainer(
-            items: displayedGenres,
-            layout: .list
-        ) { genre, index in
-            // ✅ NavigationLink mit value für zentrale Navigation
-            NavigationLink(value: genre) {
-                ListItemContainer(content: .genre(genre), index: index)
-            }
-        }
+        .navigationTitle("Genres")
+        .navigationBarTitleDisplayMode(.large)
     }
     
     // Business Logic (unverändert)

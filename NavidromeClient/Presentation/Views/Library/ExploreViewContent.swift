@@ -1,9 +1,11 @@
 //
-//  ExploreViewContent.swift
+//  ExploreViewContent.swift - MIGRIERT: UnifiedLibraryContainer
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//   MIGRIERT: ExploreSection nutzt jetzt UnifiedLibraryContainer für horizontal layout
+//   CLEAN: Single Container-Pattern
 //
+
 import SwiftUI
 
 struct ExploreViewContent: View {
@@ -50,7 +52,7 @@ struct ExploreViewContent: View {
                 )
                 
                 if !exploreManager.recentAlbums.isEmpty {
-                    ExploreSection(
+                    ExploreSectionMigrated(
                         title: "Recently played",
                         albums: exploreManager.recentAlbums,
                         icon: "clock.fill",
@@ -59,7 +61,7 @@ struct ExploreViewContent: View {
                 }
                 
                 if !exploreManager.newestAlbums.isEmpty {
-                    ExploreSection(
+                    ExploreSectionMigrated(
                         title: "Newly added",
                         albums: exploreManager.newestAlbums,
                         icon: "sparkles",
@@ -68,7 +70,7 @@ struct ExploreViewContent: View {
                 }
                 
                 if !exploreManager.frequentAlbums.isEmpty {
-                    ExploreSection(
+                    ExploreSectionMigrated(
                         title: "Often played",
                         albums: exploreManager.frequentAlbums,
                         icon: "chart.bar.fill",
@@ -77,7 +79,7 @@ struct ExploreViewContent: View {
                 }
                 
                 if !exploreManager.randomAlbums.isEmpty {
-                    ExploreSection(
+                    ExploreSectionMigrated(
                         title: "Explore",
                         albums: exploreManager.randomAlbums,
                         icon: "dice.fill",
@@ -103,7 +105,7 @@ struct ExploreViewContent: View {
                 .screenPadding()
                 
                 if !offlineManager.offlineAlbums.isEmpty {
-                    ExploreSection(
+                    ExploreSectionMigrated(
                         title: "Downloaded Albums",
                         albums: Array(offlineManager.offlineAlbums.prefix(10)),
                         icon: "arrow.down.circle.fill",
@@ -148,5 +150,62 @@ struct ExploreViewContent: View {
             onToggleOffline: offlineManager.toggleOfflineMode
         )
     }
+}
 
+// MARK: - ✅ MIGRIERTE ExploreSection mit UnifiedLibraryContainer
+
+struct ExploreSectionMigrated: View {
+    let title: String
+    let albums: [Album]
+    let icon: String
+    let accentColor: Color
+    var showRefreshButton: Bool = false
+    var refreshAction: (() async -> Void)? = nil
+    
+    @State private var isRefreshing = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: DSLayout.contentGap) {
+            // Section Header
+            HStack {
+                Label(title, systemImage: icon)
+                    .font(DSText.prominent)
+                    .foregroundColor(DSColor.primary)
+                
+                Spacer()
+                
+                if showRefreshButton, let refreshAction = refreshAction {
+                    Button {
+                        Task {
+                            isRefreshing = true
+                            await refreshAction()
+                            isRefreshing = false
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(DSText.sectionTitle)
+                            .foregroundColor(accentColor)
+                            .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
+                            .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+                    }
+                    .disabled(isRefreshing)
+                }
+            }
+            .screenPadding()
+            
+            // ✅ MIGRIERT: UnifiedLibraryContainer für horizontal scroll
+            UnifiedLibraryContainer(
+                items: albums,
+                isLoading: false,
+                isEmpty: false,
+                isOfflineMode: false,
+                emptyStateType: .albums,
+                layout: .horizontal
+            ) { album, index in
+                NavigationLink(value: album) {
+                    CardItemContainer(content: .album(album), index: index)
+                }
+            }
+        }
+    }
 }

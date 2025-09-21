@@ -4,6 +4,7 @@
 //
 //  Created by Boris Eder on 21.09.25.
 //
+/*
 import SwiftUI
 
 struct ExploreSection: View {
@@ -59,3 +60,4 @@ struct ExploreSection: View {
     }
     
 }
+*/
