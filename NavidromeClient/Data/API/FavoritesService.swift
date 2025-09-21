@@ -132,20 +132,10 @@ class FavoritesService {
             
             switch httpResponse.statusCode {
             case 200:
-                // ✅ Debug: Print raw JSON to see structure
-                if let jsonString = String(data: data, encoding: .utf8) {
-                    print("🔍 getStarred2 Raw JSON:")
-                    print(jsonString)
-                }
                 
                 let decoded = try JSONDecoder().decode(SubsonicResponse<StarredContainer>.self, from: data)
                 let songs = decoded.subsonicResponse.starred2?.song ?? []
-                
-                // ✅ Debug: Print parsed songs to verify coverArt field
-                for song in songs.prefix(3) {
-                    print("🎵 Song: \(song.title), coverArt: \(song.coverArt ?? "nil"), albumId: \(song.albumId ?? "nil")")
-                }
-                
+                                
                 print("✅ Loaded \(songs.count) starred songs from server")
                 return songs
                 

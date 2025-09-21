@@ -51,6 +51,7 @@ struct ListItemContainer: View {
                 .stroke(Color(.systemGray4), lineWidth: 0.5)
         )
         .cornerRadius(DSCorners.tight)
+
     }
     
     @ViewBuilder

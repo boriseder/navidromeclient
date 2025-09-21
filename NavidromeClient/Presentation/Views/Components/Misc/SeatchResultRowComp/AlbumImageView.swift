@@ -4,7 +4,7 @@
 //
 //  Created by Boris Eder on 21.09.25.
 //
-
+import SwiftUI
 
 struct AlbumImageView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager

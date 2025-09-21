@@ -126,7 +126,6 @@ struct FavoritesView: View {
             // Stats Header (wenn nicht leer)
             if !favoritesManager.favoriteSongs.isEmpty {
                 FavoritesStatsHeader()
-                    .screenPadding()
             }
             
             // Songs List
@@ -207,69 +206,62 @@ struct FavoritesStatsHeader: View {
     var body: some View {
         let stats = favoritesManager.getFavoriteStats()
         
-        VStack(spacing: DSLayout.elementGap) {
-            HStack {
-                Label("Your Favorites", systemImage: "heart.fill")
-                    .font(DSText.prominent)
-                    .foregroundStyle(DSColor.primary)
-                
-                Spacer()
-                
-                if let lastRefresh = stats.lastRefresh {
-                    Text("Updated \(timeAgoString(from: lastRefresh))")
-                        .font(DSText.metadata)
-                        .foregroundStyle(DSColor.secondary)
-                }
-            }
+        HStack(spacing: DSLayout.elementGap) {
+            StatsItem(
+                icon: "music.note",
+                value: "\(stats.songCount)",
+                label: "Songs"
+            )
             
-            HStack {
-                StatsItem(
-                    icon: "music.note",
-                    value: "\(stats.songCount)",
-                    label: "Songs"
-                )
-                
-                Spacer()
-                
-                StatsItem(
-                    icon: "person.2",
-                    value: "\(stats.uniqueArtists)",
-                    label: "Artists"
-                )
-                
-                Spacer()
-                
-                StatsItem(
-                    icon: "record.circle",
-                    value: "\(stats.uniqueAlbums)",
-                    label: "Albums"
-                )
-                
-                Spacer()
-                
-                StatsItem(
-                    icon: "clock",
-                    value: stats.formattedDuration,
-                    label: "Duration"
-                )
-            }
+            Spacer()
+            
+            StatsItem(
+                icon: "person.2",
+                value: "\(stats.uniqueArtists)",
+                label: "Artists"
+            )
+            
+            Spacer()
+            
+            StatsItem(
+                icon: "record.circle",
+                value: "\(stats.uniqueAlbums)",
+                label: "Albums"
+            )
+            
+            Spacer()
+            
+            StatsItem(
+                icon: "clock",
+                value: stats.formattedDurationShort,
+                label: "Duration"
+            )
         }
-        .listItemPadding()
-        .cardStyle()
+        .padding(DSLayout.elementGap)
+        .frame(maxWidth: .infinity) // volle Breite wie Song-Rows
+        .background(
+            Color(DSColor.surfaceLight)
+                .opacity(0.5)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DSCorners.tight)
+                .stroke(Color(.systemGray4), lineWidth: 0.5)
+        )
+        .cornerRadius(DSCorners.tight)
     }
-    
-    private func timeAgoString(from date: Date) -> String {
-        let now = Date()
-        let timeInterval = now.timeIntervalSince(date)
+}
+
+extension FavoriteStats {
+    // kompakte Duration, z.B. "3h 25m" statt lang
+    var formattedDurationShort: String {
+        let totalMinutes = Int(totalDuration / 60)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
         
-        if timeInterval < 60 {
-            return "just now"
-        } else if timeInterval < 3600 {
-            let minutes = Int(timeInterval / 60)
-            return "\(minutes)m ago"
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
         } else {
-            let hours = Int(timeInterval / 3600)
-            return "\(hours)h ago"
+            return "\(minutes)m"
         }
     }
 }
@@ -310,37 +302,40 @@ struct FavoriteSongRow: View {
     
     var body: some View {
         HStack(spacing: DSLayout.elementGap) {
-            // Track Number / Playing Indicator
-            ZStack {
+            
+            // Song Cover + Playing Indicator
+            ZStack(alignment: .bottomTrailing) {
+                SongImageView(song: song, isPlaying: isPlaying)
+                    .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
+                    .cornerRadius(DSCorners.tight)
+                
                 if isPlaying {
                     EqualizerBars(isActive: true)
-                } else {
-                    Text("\(index)")
-                        .font(DSText.metadata.weight(.medium))
-                        .foregroundStyle(DSColor.secondary)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 16, height: 16)
+                        .padding(4)
+                        .background(DSColor.background.opacity(0.7))
+                        .cornerRadius(4)
                 }
             }
-            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
+            
+            VStack(alignment: .leading, spacing: DSLayout.tightGap / 2) {
                 Text(song.title)
                     .font(isPlaying ? DSText.emphasized : DSText.body)
                     .foregroundStyle(isPlaying ? DSColor.playing : DSColor.primary)
                     .lineLimit(1)
                 
-                HStack(spacing: DSLayout.tightGap) {
+                HStack(spacing: 4) {
                     if let artist = song.artist {
                         Text(artist)
                             .font(DSText.metadata)
                             .foregroundStyle(DSColor.secondary)
                             .lineLimit(1)
                     }
-                    
                     if let artist = song.artist, let album = song.album {
                         Text("•")
                             .font(DSText.metadata)
                             .foregroundStyle(DSColor.secondary)
                     }
-                    
                     if let album = song.album {
                         Text(album)
                             .font(DSText.metadata)
@@ -352,8 +347,8 @@ struct FavoriteSongRow: View {
             
             Spacer()
             
-            // Duration & Heart Button
-            HStack(spacing: DSLayout.elementGap) {
+            // Duration + Heart Button
+            HStack(spacing: DSLayout.elementGap / 2) {
                 if let duration = song.duration, duration > 0 {
                     Text(formatDuration(duration))
                         .font(DSText.numbers)
@@ -365,9 +360,11 @@ struct FavoriteSongRow: View {
                     showingRemoveConfirmation = true
                 }) {
                     Image(systemName: "heart.fill")
-                        .font(DSText.body)
+                        .font(.title3)
                         .foregroundStyle(DSColor.error)
+                        .padding(4)
                 }
+                .buttonStyle(.borderless)
                 .confirmationDialog(
                     "Remove from Favorites?",
                     isPresented: $showingRemoveConfirmation
@@ -380,43 +377,25 @@ struct FavoriteSongRow: View {
                     Text("This will remove \"\(song.title)\" from your favorites.")
                 }
             }
-
         }
-    }
-    
-    // Song Cover mit direktem coverArt für Favorites
-    @ViewBuilder
-    private func songCoverView(for song: Song, isPlaying: Bool) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: DSCorners.element)
-                .fill(DSColor.surface.opacity(isPlaying ? 0.2 : 0.1))
-                .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
-            
-            SongImageView(song: song, isPlaying: isPlaying)
-            
-            
-            // Playing Overlay
-            if isPlaying {
-                RoundedRectangle(cornerRadius: DSCorners.element)
-                    .fill(DSColor.playing.opacity(0.3))
-                    .overlay(
-                        Image(systemName: "speaker.wave.2.fill")
-                            .font(DSText.metadata)
-                            .foregroundStyle(DSColor.playing)
-                    )
-            }
-        
-        }
-        .listItemPadding()
+        .padding(DSLayout.elementGap)
         .background(
-            RoundedRectangle(cornerRadius: DSCorners.element)
-                .fill(isPlaying ? DSColor.playing.opacity(0.1) : DSColor.background)
+            Color(DSColor.surfaceLight)
+                .opacity(0.5)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: DSCorners.tight)
+                .stroke(Color(.systemGray4), lineWidth: 0.5)
+        )
+        .cornerRadius(DSCorners.tight)
         .contentShape(Rectangle())
         .onTapGesture {
             onPlay()
         }
+        .animation(.easeInOut(duration: 0.2), value: isPlaying)
     }
+
+    
     
     private func formatDuration(_ seconds: Int) -> String {
         let minutes = seconds / 60

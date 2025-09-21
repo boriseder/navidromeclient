@@ -1,12 +1,3 @@
-//
-//  Enhanced MainTabView - Navigation Destinations in TabItem Structure
-//  NavidromeClient
-//
-//  ✅ CLEAN: Keeps generic builders intact
-//  ✅ DECLARATIVE: Navigation destinations defined with tab configuration
-//  ✅ TYPE-SAFE: Compile-time verified navigation setup
-//
-
 import SwiftUI
 
 struct MainTabView: View {
@@ -17,8 +8,9 @@ struct MainTabView: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
 
-    // MARK: - ✅ ENHANCED: TabItem with Navigation Destinations
+    @State private var selectedTab: Int = 0
     
+    // MARK: - TabItem Definition
     private struct TabItem {
         let view: AnyView
         let label: String
@@ -26,27 +18,12 @@ struct MainTabView: View {
         let badge: String?
         let navigationDestinations: [(Any.Type, (Any) -> AnyView)]
         
-        // ✅ CONVENIENCE: Simple initializer without destinations
-        init(
-            view: AnyView,
-            label: String,
-            systemImage: String,
-            badge: String? = nil
-        ) {
-            self.view = view
-            self.label = label
-            self.systemImage = systemImage
-            self.badge = badge
-            self.navigationDestinations = []
-        }
-        
-        // ✅ FULL: Initializer with navigation destinations
         init(
             view: AnyView,
             label: String,
             systemImage: String,
             badge: String? = nil,
-            navigationDestinations: [(Any.Type, (Any) -> AnyView)]
+            navigationDestinations: [(Any.Type, (Any) -> AnyView)] = []
         ) {
             self.view = view
             self.label = label
@@ -56,18 +33,14 @@ struct MainTabView: View {
         }
     }
     
-    // MARK: - ✅ CLEAN: Tab Configuration with Destinations
-    
+    // MARK: - Tab Konfiguration
     private var tabs: [TabItem] {
         [
-            // Explore - no navigation destinations needed
             TabItem(
                 view: AnyView(ExploreView()),
                 label: "Explore",
                 systemImage: "music.note.house"
             ),
-            
-            // Albums - navigates to AlbumDetailView
             TabItem(
                 view: AnyView(AlbumsView()),
                 label: "Albums",
@@ -79,8 +52,6 @@ struct MainTabView: View {
                     })
                 ]
             ),
-            
-            // Artists - navigates to ArtistDetailView
             TabItem(
                 view: AnyView(ArtistsView()),
                 label: "Artists",
@@ -91,8 +62,6 @@ struct MainTabView: View {
                     })
                 ]
             ),
-            
-            // Genres - navigates to ArtistDetailView with genre context
             TabItem(
                 view: AnyView(GenreView()),
                 label: "Genres",
@@ -103,51 +72,88 @@ struct MainTabView: View {
                     })
                 ]
             ),
-            
-            //
             TabItem(
                 view: AnyView(FavoritesView()),
                 label: "Favorites",
-                systemImage: "heart",
+                systemImage: "heart"
             )
         ]
     }
     
     var body: some View {
-        GeometryReader { geometry in  // ← ADD GeometryReader
-            
-            TabView {
-                ForEach(tabs.indices, id: \.self) { index in
-                    tabContent(tabs[index])
+        NavigationStack {   // ✅ nur ein einziger NavigationStack
+            GeometryReader { geometry in
+                ZStack {
+                    // Swipebare Tabs
+                    TabView(selection: $selectedTab) {
+                        ForEach(tabs.indices, id: \.self) { index in
+                            tabs[index].view
+                                .applyNavigationDestinations(tabs[index].navigationDestinations)
+                                .tag(index)
+                        }
+                    }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                    
+                    // Custom TabBar
+                    VStack {
+                        Spacer()
+                        customTabBar
+                            .padding(.bottom, geometry.safeAreaInsets.bottom + 10)
+                    }
+                }
+                // Overlays (z.B. MiniPlayer, Network Status)
+                .overlay(networkStatusOverlay, alignment: .top)
+                .overlay(alignment: .bottom) {
+                    MiniPlayerView()
+                        .environmentObject(playerVM)
+                        .padding(.bottom, geometry.safeAreaInsets.bottom + 60) // Platz für TabBar
                 }
             }
-            .overlay(networkStatusOverlay, alignment: .top)
-            .overlay(alignment: .bottom) {
-                MiniPlayerView()
-                    .environmentObject(playerVM)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 15)
-                
-            }
         }
     }
     
-    // MARK: - ✅ GENERIC: Builder bleibt sauber und generisch
-    
-    @ViewBuilder
-    private func tabContent(_ tab: TabItem) -> some View {
-        NavigationStack {
-            ZStack {
-                tab.view
+    // MARK: - Custom TabBar
+    private var customTabBar: some View {
+        HStack {
+            ForEach(tabs.indices, id: \.self) { index in
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut) {
+                        selectedTab = index
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: tabs[index].systemImage)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(selectedTab == index ? DSColor.accent : DSColor.secondary)
+                        
+                        Text(tabs[index].label)
+                            .font(.caption2)
+                            .foregroundStyle(selectedTab == index ? DSColor.accent : DSColor.secondary)
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if let badge = tabs[index].badge {
+                        Text(badge)
+                            .font(.caption2)
+                            .padding(4)
+                            .background(Circle().fill(DSColor.warning))
+                            .foregroundStyle(.white)
+                            .offset(x: 12, y: -4)
+                    }
+                }
+                Spacer()
             }
-            // ✅ MAGIC: Dynamically apply navigation destinations from TabItem
-            .applyNavigationDestinations(tab.navigationDestinations)
         }
-        .tabItem {
-            Label(tab.label, systemImage: tab.systemImage)
-        }
-        .badge(tab.badge)
+        .padding(.vertical, 8)
+        .background(
+            BlurView(style: .systemMaterial) // schöner Glas-Effekt
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+        )
+        .padding(.horizontal, 16)
     }
-        
+    
+    // MARK: - Network Status Overlay
     @ViewBuilder
     private var networkStatusOverlay: some View {
         if !networkMonitor.isConnected {
@@ -177,10 +183,8 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - ✅ CLEAN: Extension für dynamische Navigation Destinations
-
+// MARK: - NavigationDestinations Extension
 extension View {
-    
     @ViewBuilder
     func applyNavigationDestinations(_ destinations: [(Any.Type, (Any) -> AnyView)]) -> some View {
         self.modifier(NavigationDestinationsModifier(destinations: destinations))
@@ -207,9 +211,20 @@ struct NavigationDestinationsModifier: ViewModifier {
                     builder(item)
                 })
             }
-            // Future: Add Song.self, Playlist.self etc.
-            
             return currentView
         }
+    }
+}
+
+/// Ein einfacher Wrapper für UIVisualEffectView (Blur)
+struct BlurView: UIViewRepresentable {
+    let style: UIBlurEffect.Style
+    
+    func makeUIView(context: Context) -> UIVisualEffectView {
+        return UIVisualEffectView(effect: UIBlurEffect(style: style))
+    }
+    
+    func updateUIView(_ uiView: UIVisualEffectView, context: Context) {
+        uiView.effect = UIBlurEffect(style: style)
     }
 }

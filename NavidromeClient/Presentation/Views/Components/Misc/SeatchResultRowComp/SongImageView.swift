@@ -4,7 +4,7 @@
 //
 //  Created by Boris Eder on 21.09.25.
 //
-
+import SwiftUI
 
 struct SongImageView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
@@ -12,11 +12,9 @@ struct SongImageView: View {
     let song: Song
     let isPlaying: Bool
     
-    //  UPDATED: Uses CoverArtManager instead of ReactiveCoverArtService
-    // MIGRATED to AppDependencies
-    
-    //  REACTIVE: Get song image via centralized state
-    private var songImage: UIImage? {
+    @State private var errorMessage: String?
+
+    private var loadedimage: UIImage? {
         coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover))
     }
     
@@ -28,31 +26,27 @@ struct SongImageView: View {
     
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: DSCorners.element)
-                .fill(DSColor.surface.opacity(isPlaying ? 0.2 : 0.1))
-                .frame(width: DSLayout.listCover, height: DSLayout.listCover)
-            
-            Group {
-                if let image = songImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
-                        .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
-                        .overlay(playingOverlay)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                } else {
-                    RoundedRectangle(cornerRadius: DSCorners.element)
-                        .fill(
-                            LinearGradient(
-                                colors: [.green, .blue.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: DSLayout.miniCover, height: DSLayout.miniCover)
-                        .overlay(songImageOverlay)
-                }
+            RoundedRectangle(cornerRadius: DSCorners.tight)
+                .fill(LinearGradient(
+                    colors: [DSColor.accent.opacity(0.3), DSColor.accent.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+
+            if let image = loadedimage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
+                    .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+            } else if isLoading {
+                ProgressView()
+                    .scaleEffect(0.7)
+                    .tint(.white)
+            } else if errorMessage != nil {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(DSText.largeButton)
+                    .foregroundColor(DSColor.error)
             }
         }
         .task(id: song.albumId) {
