@@ -17,33 +17,36 @@ class AudioSessionManager: NSObject, ObservableObject {
     @Published var isHeadphonesConnected = false
     @Published var audioRoute: String = ""
     
+    // Thread-safe observer storage
+    @MainActor private var audioObservers: [NSObjectProtocol] = []
+    @MainActor private var isCleanedUp = false
+
     private let audioSession = AVAudioSession.sharedInstance()
-    
-    // Track observers for proper cleanup - nonisolated for deinit access
-    private nonisolated(unsafe) var audioObservers: [NSObjectProtocol] = []
-    
-    override init() {
+        
+    private override init() {
         super.init()
         setupAudioSession()
         setupNotifications()
         setupRemoteCommandCenter()
         checkAudioRoute()
     }
-    
-    deinit {
-        // Synchronous cleanup in deinit - no @MainActor
-        cleanupAllSync()
-    }
-    
-    // MARK: - Enhanced Cleanup
-    
-    private nonisolated func cleanupAllSync() {
-        // Remove NotificationCenter observers
+        
+    // MARK: - Cleanup
+
+    @MainActor
+    func performCleanup() {
+        guard !isCleanedUp else { return }
+        isCleanedUp = true
+        
+        print("🧹 AudioSessionManager: Starting proper cleanup")
+        
+        // Remove all observers safely
         for observer in audioObservers {
             NotificationCenter.default.removeObserver(observer)
         }
+        audioObservers.removeAll()
         
-        // Disable Command Center
+        // Disable Command Center properly
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.playCommand.isEnabled = false
         commandCenter.pauseCommand.isEnabled = false
@@ -67,8 +70,10 @@ class AudioSessionManager: NSObject, ObservableObject {
         // Clear now playing
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         
-        // Deactivate audio session
+        // Deactivate audio session safely
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        
+        print("✅ AudioSessionManager: Cleanup completed")
     }
     
     // MARK: - Audio Session Setup
@@ -99,18 +104,21 @@ class AudioSessionManager: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Enhanced Notifications Setup
+    // MARK: - Thread-safe Notifications Setup
     
+    @MainActor
     private func setupNotifications() {
         let notificationCenter = NotificationCenter.default
         
-        // Store observer tokens for proper cleanup
+        // ✅ SAFE: Store observer tokens for proper cleanup
         let interruptionObserver = notificationCenter.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: audioSession,
             queue: .main
         ) { [weak self] notification in
-            self?.handleInterruptionNotification(notification)
+            Task { @MainActor in
+                self?.handleInterruptionNotification(notification)
+            }
         }
         audioObservers.append(interruptionObserver)
         
@@ -119,7 +127,9 @@ class AudioSessionManager: NSObject, ObservableObject {
             object: audioSession,
             queue: .main
         ) { [weak self] notification in
-            self?.handleRouteChangeNotification(notification)
+            Task { @MainActor in
+                self?.handleRouteChangeNotification(notification)
+            }
         }
         audioObservers.append(routeChangeObserver)
         
@@ -128,7 +138,9 @@ class AudioSessionManager: NSObject, ObservableObject {
             object: audioSession,
             queue: .main
         ) { [weak self] _ in
-            self?.handleMediaServicesResetNotification()
+            Task { @MainActor in
+                self?.handleMediaServicesResetNotification()
+            }
         }
         audioObservers.append(mediaResetObserver)
         
@@ -137,11 +149,14 @@ class AudioSessionManager: NSObject, ObservableObject {
             object: audioSession,
             queue: .main
         ) { [weak self] notification in
-            self?.handleSilenceSecondaryAudioNotification(notification)
+            Task { @MainActor in
+                self?.handleSilenceSecondaryAudioNotification(notification)
+            }
         }
         audioObservers.append(silenceObserver)
+        
+        print("✅ AudioSessionManager: All observers setup with proper cleanup")
     }
-    
     // MARK: - Enhanced Command Center Setup
     
     private func setupRemoteCommandCenter() {

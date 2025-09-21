@@ -104,22 +104,11 @@ struct MainTabView: View {
                 ]
             ),
             
-            // Search - navigates to multiple destinations
+            //
             TabItem(
-                view: AnyView(SearchView()),
-                label: "Search",
-                systemImage: "magnifyingglass",
-                navigationDestinations: [
-                    (Artist.self, { artist in
-                        AnyView(ArtistDetailView(context: .artist(artist as! Artist)))
-                    }),
-                    (Album.self, { album in
-                        AnyView(AlbumDetailView(album: album as! Album))
-                    }),
-                    (Genre.self, { genre in
-                        AnyView(ArtistDetailView(context: .genre(genre as! Genre)))
-                    })
-                ]
+                view: AnyView(FavoritesView()),
+                label: "Favorites",
+                systemImage: "heart",
             )
         ]
     }
@@ -133,10 +122,10 @@ struct MainTabView: View {
                 }
             }
             .overlay(networkStatusOverlay, alignment: .top)
-            .overlay(alignment: .bottom) { // ← Ist das da?
+            .overlay(alignment: .bottom) {
                 MiniPlayerView()
                     .environmentObject(playerVM)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 49) // ← Standard TabBar height
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 15)
                 
             }
         }
@@ -149,11 +138,6 @@ struct MainTabView: View {
         NavigationStack {
             ZStack {
                 tab.view
-                VStack {
-                    Spacer()
-                    MiniPlayerView()
-                        .frame(height: DSLayout.miniPlayerHeight)
-                }
             }
             // ✅ MAGIC: Dynamically apply navigation destinations from TabItem
             .applyNavigationDestinations(tab.navigationDestinations)

@@ -206,7 +206,8 @@ class ConnectionService: ObservableObject {
     private func validateEndpoint(_ endpoint: String) -> Bool {
         let allowedEndpoints = [
             "ping", "getArtists", "getArtist", "getAlbum", "getAlbumList2",
-            "getSongs", "getCoverArt", "stream", "getGenres", "search2"
+            "getCoverArt", "stream", "getGenres", "search2",
+            "star", "unstar", "getStarred2"
         ]
         return allowedEndpoints.contains(endpoint) &&
                endpoint.allSatisfy { $0.isLetter || $0.isNumber }

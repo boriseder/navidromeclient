@@ -105,21 +105,6 @@ struct MiniPlayerView: View {
                         }
                 )
             }
-            .background(
-                // FIXED: Gesamter Background mit Cover Blur
-                ZStack {
-                    if let cover = playerVM.coverArt {
-                        Image(uiImage: cover)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .blur(radius: 40)
-                            .opacity(0.7)
-                            .clipped()
-                    }
-                    
-                    Color.black.opacity(0.3)
-                }
-            )
             .clipShape(RoundedRectangle(cornerRadius: 0))
             .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: -2)
             .fullScreenCover(isPresented: $showFullScreen) {

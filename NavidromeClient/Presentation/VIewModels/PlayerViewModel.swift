@@ -197,14 +197,11 @@ class PlayerViewModel: NSObject, ObservableObject {
                 return
             }
             
-            print("➡️ Determining playback source for song \(song.id)")
             
-            //  ENHANCED: Smart source selection with better logging
+            //  Smart source selection with better logging
             if let localURL = downloadManager.getLocalFileURL(for: song.id) {
-                print("🎵 Playing from local file: \(localURL)")
                 await playFromURL(localURL)
             } else if let streamURL = await getStreamURL(for: song) {
-                print("🎵 Playing from MediaService stream: \(streamURL)")
                 await playFromURL(streamURL)
             } else {
                 await MainActor.run {
@@ -224,13 +221,11 @@ class PlayerViewModel: NSObject, ObservableObject {
             return nil
         }
         
-        print("🎵 Getting stream URL via MediaService")
         return mediaService.streamURL(for: song.id)
     }
     
     //  ENHANCED: Safe URL playback with better error handling
     private func playFromURL(_ url: URL) async {
-        print("🎵 playFromURL called: \(url)")
         
         guard currentPlayTask?.isCancelled == false else { return }
         

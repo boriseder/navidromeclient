@@ -21,7 +21,8 @@ struct NavidromeClientApp: App {
     @StateObject private var offlineManager = OfflineManager.shared
     @StateObject private var coverArtManager = CoverArtManager.shared
     @StateObject private var homeScreenManager = HomeScreenManager.shared
-    
+    @StateObject private var favoritesManager = FavoritesManager.shared
+
     //  FIXED: ViewModels with proper service initialization
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
@@ -40,7 +41,6 @@ struct NavidromeClientApp: App {
         }
 
         _navidromeVM = StateObject(wrappedValue: NavidromeViewModel())
-        //  FIXED: Use correct initializer - service parameter accepts UnifiedSubsonicService?
         _playerVM = StateObject(wrappedValue: PlayerViewModel(service: service, downloadManager: DownloadManager.shared))
     }
     
@@ -57,6 +57,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(coverArtManager)
                 .environmentObject(homeScreenManager)
                 .environmentObject(MusicLibraryManager.shared)
+                .environmentObject(FavoritesManager.shared)
                 .task {
                     await setupInitialConfiguration()
                 }
@@ -121,7 +122,8 @@ struct NavidromeClientApp: App {
             //  Configure DownloadManager with UnifiedSubsonicService
             downloadManager.configure(service: unifiedService)
             downloadManager.configure(coverArtManager: coverArtManager)
-            
+            favoritesManager.configure(service: unifiedService)
+
             //  Configure CoverArtManager with focused MediaService
             let mediaService = unifiedService.getMediaService()
             coverArtManager.configure(mediaService: mediaService)
