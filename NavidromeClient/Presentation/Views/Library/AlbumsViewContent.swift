@@ -1,16 +1,12 @@
 //
-//  AlbumsView.swift - MIGRATED to Container Architecture
+//  AlbumsViewContent.swift
 //  NavidromeClient
 //
-//   PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
-//   MAINTAINS: All existing functionality
-//   REDUCES: ~60% of view code through container reuse
+//  Created by Boris Eder on 21.09.25.
 //
-/*
 import SwiftUI
 
-struct AlbumsView: View {
-    // MARK: - Dependencies (unchanged)
+struct AlbumsViewContent: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -20,12 +16,10 @@ struct AlbumsView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
     
-    // MARK: - State (unchanged)
     @State private var searchText = ""
     @State private var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - Computed Properties (unchanged)
     private var displayedAlbums: [Album] {
         let sourceAlbums = getAlbumDataSource()
         return filterAlbums(sourceAlbums)
@@ -43,49 +37,63 @@ struct AlbumsView: View {
         return displayedAlbums.isEmpty
     }
     
-    // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
-        LibraryView(
-            isLoading: shouldShowLoading,
-            isEmpty: isEmpty && !shouldShowLoading,
-            isOfflineMode: isOfflineMode,
-            emptyStateType: .albums
-        ) {
-            AlbumsGridContent()
-        }
-        .onChange(of: searchText) { _, _ in
-            handleSearchTextChange()
-        }
-        .task(id: displayedAlbums.count) {
-            await preloadAlbumImages()
+        NavigationStack {
+            ContentOnlyLibraryView(
+                isLoading: shouldShowLoading,
+                isEmpty: isEmpty && !shouldShowLoading,
+                isOfflineMode: isOfflineMode,
+                emptyStateType: .albums
+            ) {
+                AlbumsGridContent()
+            }
+            .searchable(text: $searchText, prompt: "Search albums...")
+            .refreshable { await refreshAllData() }
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
+            }
+            .task(id: displayedAlbums.count) {
+                await preloadAlbumImages()
+            }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .unifiedToolbar(.libraryWithSort(
+                title: "Albums",
+                isOffline: isOfflineMode,
+                currentSort: selectedAlbumSort,
+                sortOptions: ContentService.AlbumSortType.allCases,
+                onRefresh: {
+                    await loadAlbums(sortBy: selectedAlbumSort)
+                },
+                onToggleOffline: toggleOfflineMode,
+                onSort: { sortType in
+                    Task { await loadAlbums(sortBy: sortType) }
+                }
+            ))
         }
         .navigationTitle("Albums")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $searchText, prompt: "Search albums...")
-        .refreshable { await refreshAllData() }
-
     }
-
-    // MARK: -  FIXED: Grid Content with Load More
+    
+    
     @ViewBuilder
     private func AlbumsGridContent() -> some View {
         UnifiedContainer(
             items: displayedAlbums,
             layout: .twoColumnGrid,
             onLoadMore: { _ in
-                Task {
-                    await musicLibraryManager.loadMoreAlbumsIfNeeded()
-                }
+                Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
             }
         ) { album, index in
+            // ✅ NavigationLink mit value für zentrale Navigation
             NavigationLink(value: album) {
                 CardItemContainer(content: .album(album), index: index)
             }
         }
     }
-
-    // MARK: -  UNCHANGED: All business logic remains identical
     
+    // Business Logic (unverändert)
     private func getAlbumDataSource() -> [Album] {
         if networkMonitor.canLoadOnlineContent && !isOfflineMode {
             return musicLibraryManager.albums
@@ -130,6 +138,20 @@ struct AlbumsView: View {
     private func toggleOfflineMode() {
         offlineManager.toggleOfflineMode()
     }
+    
+    private var albumToolbarConfig: ToolbarConfiguration {
+        .libraryWithSort(
+            title: "Albums",
+            isOffline: isOfflineMode,
+            currentSort: selectedAlbumSort,
+            sortOptions: ContentService.AlbumSortType.allCases,
+            onRefresh: {
+                await loadAlbums(sortBy: selectedAlbumSort)
+            },
+            onToggleOffline: toggleOfflineMode,
+            onSort: { sortType in
+                Task { await loadAlbums(sortBy: sortType) }
+            }
+        )
     }
-
-*/
+}

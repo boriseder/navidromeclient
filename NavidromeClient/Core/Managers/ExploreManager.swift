@@ -10,8 +10,8 @@
 import Foundation
 
 @MainActor
-class HomeScreenManager: ObservableObject {
-    static let shared = HomeScreenManager()
+class ExploreManager: ObservableObject {
+    static let shared = ExploreManager()
     
     // MARK: - Home Screen Data
     @Published private(set) var recentAlbums: [Album] = []
@@ -20,15 +20,15 @@ class HomeScreenManager: ObservableObject {
     @Published private(set) var randomAlbums: [Album] = []
     
     // MARK: - State Management
-    @Published private(set) var isLoadingHomeData = false
-    @Published private(set) var homeDataError: String?
+    @Published private(set) var isLoadingExploreData = false
+    @Published private(set) var exploreError: String?
     @Published private(set) var lastHomeRefresh: Date?
     
     //  SINGLE SERVICE DEPENDENCY
     private weak var service: UnifiedSubsonicService?
     
     // Configuration
-    private let homeDataBatchSize = 10
+    private let exploreDataBatchSize = 10
     private let refreshInterval: TimeInterval = 5 * 60 // 5 minutes
     
     private init() {}
@@ -37,36 +37,36 @@ class HomeScreenManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print(" HomeScreenManager configured with UnifiedSubsonicService")
+        print(" ExploreManager configured with UnifiedSubsonicService")
     }
     
     // MARK: -  HOME SCREEN DATA LOADING
     
-    func loadHomeScreenData() async {
+    func loadExploreData() async {
         guard let service = service else {
-            homeDataError = "Service not available"
+            exploreError = "Service not available"
             return
         }
         
-        isLoadingHomeData = true
-        homeDataError = nil
-        defer { isLoadingHomeData = false }
+        isLoadingExploreData = true
+        exploreError = nil
+        defer { isLoadingExploreData = false }
         
         do {
             //  DIRECT ACCESS: service.discoveryService
-            let discoveryMix = try await service.discoveryService.getDiscoveryMix(size: homeDataBatchSize * 4)
+            let discoveryMix = try await service.discoveryService.getDiscoveryMix(size: exploreDataBatchSize * 4)
             
-            recentAlbums = Array(discoveryMix.recent.prefix(homeDataBatchSize))
-            newestAlbums = Array(discoveryMix.newest.prefix(homeDataBatchSize))
-            frequentAlbums = Array(discoveryMix.frequent.prefix(homeDataBatchSize))
-            randomAlbums = Array(discoveryMix.random.prefix(homeDataBatchSize))
+            recentAlbums = Array(discoveryMix.recent.prefix(exploreDataBatchSize))
+            newestAlbums = Array(discoveryMix.newest.prefix(exploreDataBatchSize))
+            frequentAlbums = Array(discoveryMix.frequent.prefix(exploreDataBatchSize))
+            randomAlbums = Array(discoveryMix.random.prefix(exploreDataBatchSize))
             
             lastHomeRefresh = Date()
             print(" Home screen data loaded: \(discoveryMix.totalCount) total albums")
             
         } catch {
             print("❌ Failed to load discovery mix, falling back to individual calls")
-            await loadHomeScreenDataFallback()
+            await loadExploreDataFallback()
         }
     }
     
@@ -85,7 +85,7 @@ class HomeScreenManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            randomAlbums = try await service.discoveryService.getRandomAlbums(size: homeDataBatchSize)
+            randomAlbums = try await service.discoveryService.getRandomAlbums(size: exploreDataBatchSize)
             print(" Refreshed random albums: \(randomAlbums.count)")
         } catch {
             print("❌ Failed to refresh random albums: \(error)")
@@ -94,7 +94,7 @@ class HomeScreenManager: ObservableObject {
     
     // MARK: -  SIMPLIFIED: Fallback Implementation
     
-    private func loadHomeScreenDataFallback() async {
+    private func loadExploreDataFallback() async {
         guard let service = service else { return }
         
         await withTaskGroup(of: Void.self) { group in
@@ -112,10 +112,10 @@ class HomeScreenManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            recentAlbums = try await service.discoveryService.getRecentAlbums(size: homeDataBatchSize)
+            recentAlbums = try await service.discoveryService.getRecentAlbums(size: exploreDataBatchSize)
         } catch {
             print("⚠️ Failed to load recent albums: \(error)")
-            handleHomeDataError(error, for: "recent albums")
+            handleExploreDataError(error, for: "recent albums")
         }
     }
     
@@ -123,10 +123,10 @@ class HomeScreenManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            newestAlbums = try await service.discoveryService.getNewestAlbums(size: homeDataBatchSize)
+            newestAlbums = try await service.discoveryService.getNewestAlbums(size: exploreDataBatchSize)
         } catch {
             print("⚠️ Failed to load newest albums: \(error)")
-            handleHomeDataError(error, for: "newest albums")
+            handleExploreDataError(error, for: "newest albums")
         }
     }
     
@@ -134,10 +134,10 @@ class HomeScreenManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            frequentAlbums = try await service.discoveryService.getFrequentAlbums(size: homeDataBatchSize)
+            frequentAlbums = try await service.discoveryService.getFrequentAlbums(size: exploreDataBatchSize)
         } catch {
             print("⚠️ Failed to load frequent albums: \(error)")
-            handleHomeDataError(error, for: "frequent albums")
+            handleExploreDataError(error, for: "frequent albums")
         }
     }
     
@@ -145,10 +145,10 @@ class HomeScreenManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            randomAlbums = try await service.discoveryService.getRandomAlbums(size: homeDataBatchSize)
+            randomAlbums = try await service.discoveryService.getRandomAlbums(size: exploreDataBatchSize)
         } catch {
             print("⚠️ Failed to load random albums: \(error)")
-            handleHomeDataError(error, for: "random albums")
+            handleExploreDataError(error, for: "random albums")
         }
     }
     
@@ -156,7 +156,7 @@ class HomeScreenManager: ObservableObject {
     
     func refreshIfNeeded() async {
         guard shouldRefreshHomeData else { return }
-        await loadHomeScreenData()
+        await loadExploreData()
     }
     
     private var shouldRefreshHomeData: Bool {
@@ -180,7 +180,7 @@ class HomeScreenManager: ObservableObject {
         guard isOnline, service != nil else { return }
         
         if !isHomeDataFresh {
-            await loadHomeScreenData()
+            await loadExploreData()
         }
     }
     
@@ -190,37 +190,37 @@ class HomeScreenManager: ObservableObject {
         frequentAlbums = []
         randomAlbums = []
         
-        isLoadingHomeData = false
-        homeDataError = nil
+        isLoadingExploreData = false
+        exploreError = nil
         lastHomeRefresh = nil
         
         print(" HomeScreenManager reset completed")
     }
     
-    private func handleHomeDataError(_ error: Error, for section: String) {
+    private func handleExploreDataError(_ error: Error, for section: String) {
         if case SubsonicError.unauthorized = error {
-            homeDataError = "Authentication failed"
+            exploreError = "Authentication failed"
         } else if case SubsonicError.network = error {
             print("🌐 Network error loading \(section): \(error)")
         }
     }
     
-    func getHomeScreenStats() -> HomeScreenStats {
-        return HomeScreenStats(
+    func getExploreStats() -> ExploreStats {
+        return ExploreStats(
             recentCount: recentAlbums.count,
             newestCount: newestAlbums.count,
             frequentCount: frequentAlbums.count,
             randomCount: randomAlbums.count,
-            isLoading: isLoadingHomeData,
+            isLoading: isLoadingExploreData,
             lastRefresh: lastHomeRefresh,
-            hasError: homeDataError != nil
+            hasError: exploreError != nil
         )
     }
 }
 
 // MARK: - Supporting Types (unchanged)
 
-struct HomeScreenStats {
+struct ExploreStats {
     let recentCount: Int
     let newestCount: Int
     let frequentCount: Int

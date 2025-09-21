@@ -1,24 +1,12 @@
 //
-//  AlbumsView 2.swift
+//  ArtistsViewContent.swift
 //  NavidromeClient
 //
-//  Created by Boris Eder on 18.09.25.
+//  Created by Boris Eder on 21.09.25.
 //
-
-
-//
-//  AlbumsView.swift - MIGRATED to Container Architecture
-//  NavidromeClient
-//
-//   PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
-//   MAINTAINS: All existing functionality
-//   REDUCES: ~60% of view code through container reuse
-//
-/*
 import SwiftUI
 
-struct ArtistsView: View {
-    // MARK: - Dependencies (unchanged)
+struct ArtistsViewContent: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
@@ -28,29 +16,18 @@ struct ArtistsView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
     
-    // MARK: - State (unchanged)
     @State private var searchText = ""
-    @State private var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - Computed Properties (unchanged)
     private var displayedArtists: [Artist] {
         let sourceArtists = getArtistDataSource()
         return filterArtists(sourceArtists)
     }
     
-    private var artistCount: Int {
-        return displayedArtists.count
-    }
-
     private var isOfflineMode: Bool {
         return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
     }
     
-    private var canLoadOnlineContent: Bool {
-        return networkMonitor.canLoadOnlineContent
-    }
-
     private var shouldShowLoading: Bool {
         return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
     }
@@ -59,45 +36,50 @@ struct ArtistsView: View {
         return displayedArtists.isEmpty
     }
     
-    // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
-        LibraryView(
-            isLoading: shouldShowLoading,
-            isEmpty: isEmpty && !shouldShowLoading,
-            isOfflineMode: isOfflineMode,
-            emptyStateType: .artists
-        ) {
-            ArtistListContent()
+        NavigationStack {
+            ContentOnlyLibraryView(
+                isLoading: shouldShowLoading,
+                isEmpty: isEmpty && !shouldShowLoading,
+                isOfflineMode: isOfflineMode,
+                emptyStateType: .artists
+            ) {
+                ArtistListContent()
+            }
+            .searchable(text: $searchText, prompt: "Search artists...")
+            .refreshable { await refreshAllData() }
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
+            }
+            .task(id: displayedArtists.count) {
+                await preloadArtistImages()
+            }
+            .navigationDestination(for: Artist.self) { artist in
+                ArtistDetailViewContent(context: .artist(artist))
+            }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .unifiedToolbar(albumsToolbarConfig)
         }
-        .onChange(of: searchText) { _, _ in
-            handleSearchTextChange()
-        }
-        .task(id: displayedArtists.count) {
-            await preloadArtistImages()
-        }
-        .navigationTitle("Artists")
-        .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $searchText, prompt: "Search artists...")
-        .refreshable { await refreshAllData() }
     }
-
-    // MARK: -  FIXED: Grid Content with Load More
+    
     @ViewBuilder
     private func ArtistListContent() -> some View {
         UnifiedContainer(
             items: displayedArtists,
             layout: .list
         ) { artist, index in
+            // ✅ NavigationLink mit value für zentrale Navigation
             NavigationLink(value: artist) {
                 ListItemContainer(content: .artist(artist), index: index)
             }
         }
     }
-
-    // MARK: -  UNCHANGED: All business logic remains identical
     
+    // Business Logic (unverändert)
     private func getArtistDataSource() -> [Artist] {
-        if canLoadOnlineContent && !isOfflineMode {
+        if networkMonitor.canLoadOnlineContent && !isOfflineMode {
             return musicLibraryManager.artists
         } else {
             return offlineManager.offlineArtists
@@ -133,9 +115,14 @@ struct ArtistsView: View {
         }
     }
     
-    private func toggleOfflineMode() {
-        offlineManager.toggleOfflineMode()
+    private var albumsToolbarConfig: ToolbarConfiguration {
+        .library(
+            title: "Artists",
+            isOffline: isOfflineMode,
+            onRefresh: {
+                await refreshAllData()
+            },
+            onToggleOffline: offlineManager.toggleOfflineMode
+        )
     }
 }
-
-*/

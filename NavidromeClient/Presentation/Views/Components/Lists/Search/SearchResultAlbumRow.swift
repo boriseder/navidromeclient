@@ -14,7 +14,7 @@ struct SearchResultAlbumRow: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
-        NavigationLink(destination: AlbumDetailView(album: album)) {
+        NavigationLink(destination: AlbumDetailViewContent(album: album)) {
             HStack(spacing: DSLayout.contentGap) {
                 //  REACTIVE: Uses centralized state
                 AlbumImageView(album: album, index: index)

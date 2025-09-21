@@ -66,9 +66,6 @@ struct ContentContainer<Content: View>: View {
     }
 }
 
-// MARK: - 2. ❌ REMOVED: NavigationContainer (not needed with single NavigationStack)
-// NavigationContainer entfernt da MainTabView bereits NavigationStack bereitstellt
-
 // MARK: - 3. ✅ UPDATED: LibraryView (Navigation-free for single NavigationStack)
 struct LibraryView<Content: View>: View {
     let isLoading: Bool

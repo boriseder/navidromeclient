@@ -101,7 +101,6 @@ struct SearchView: View {
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
-            .accountToolbar()
         }
         .onChange(of: query) { _, newValue in
             handleQueryChange(newValue)

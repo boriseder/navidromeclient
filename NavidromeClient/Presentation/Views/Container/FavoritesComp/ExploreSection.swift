@@ -6,7 +6,7 @@
 //
 import SwiftUI
 
-struct AlbumSection: View {
+struct ExploreSection: View {
     let title: String
     let albums: [Album]
     let icon: String
@@ -55,5 +55,7 @@ struct AlbumSection: View {
                 }
             }
         }
+        .background(.red)
     }
+    
 }

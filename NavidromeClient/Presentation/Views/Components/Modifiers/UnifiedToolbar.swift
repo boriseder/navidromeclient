@@ -292,10 +292,6 @@ extension View {
         self.modifier(UnifiedToolbar(config: config))
     }
     
-    //  REPLACES: .accountToolbar() extension
-    func accountToolbar() -> some View {
-        self.unifiedToolbar(ToolbarConfiguration(showSettings: true))
-    }
     
     //  NEW: Convenience for no toolbar
     func noToolbar() -> some View {
@@ -315,8 +311,10 @@ extension ToolbarConfiguration {
         onToggleOffline: @escaping () -> Void
     ) -> ToolbarConfiguration {
         ToolbarConfiguration(
-            leftItems: [.refresh(action: onRefresh)],
-            rightItems: [.offlineToggle(isOffline: isOffline, toggle: onToggleOffline)],
+            //leftItems: [.refresh(action: onRefresh)],
+            leftItems: [],
+            //rightItems: [.offlineToggle(isOffline: isOffline, toggle: onToggleOffline)],
+            rightItems: [],
             title: title,
             displayMode: .large,
             showSettings: true
@@ -343,7 +341,10 @@ extension ToolbarConfiguration {
         }
         
         return ToolbarConfiguration(
-            leftItems: [.refresh(action: onRefresh)],
+            // leftItems: [.refresh(action: onRefresh)],
+           
+            //we do not want a refresh => pull to refresh
+            // leftItems: [],
             rightItems: [
                 .sort(
                     current: currentSort.rawValue,
@@ -354,7 +355,7 @@ extension ToolbarConfiguration {
                         }
                     }
                 ),
-                .offlineToggle(isOffline: isOffline, toggle: onToggleOffline)
+                //.offlineToggle(isOffline: isOffline, toggle: onToggleOffline)
             ],
             title: title,
             displayMode: .large,

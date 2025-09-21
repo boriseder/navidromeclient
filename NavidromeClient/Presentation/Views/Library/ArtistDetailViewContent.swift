@@ -1,12 +1,9 @@
 //
-//  ArtistDetailView.swift - CLEAN: Pure ViewModel-Routing
+//  ArtistDetailViewContent.swift
 //  NavidromeClient
 //
-//   ELIMINIERT: Alle direkten Service-Zugriffe
-//   SAUBER: Nur ViewModel/Manager-Routing
-//   VOLLSTÄNDIG: Offline/Online-Integration
+//  Created by Boris Eder on 21.09.25.
 //
-
 import SwiftUI
 
 enum ArtistDetailContext {
@@ -14,7 +11,7 @@ enum ArtistDetailContext {
     case genre(Genre)
 }
 
-struct ArtistDetailView: View {
+struct ArtistDetailViewContent: View {
     let context: ArtistDetailContext
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
@@ -29,8 +26,6 @@ struct ArtistDetailView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    // MARK: -  COMPUTED PROPERTIES
-    
     private var artist: Artist? {
         if case .artist(let a) = context { return a }
         return nil
@@ -86,17 +81,16 @@ struct ArtistDetailView: View {
                     )
                     .screenPadding()
                 } else if !displayAlbums.isEmpty {
-                    ScrollView {
-                        LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
-                            ForEach(albums, id: \.id) { album in
-                                NavigationLink(value: album) {
-                                    CardItemContainer(content: .album(album), index: 0)
-                                }
+                    LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
+                        ForEach(albums, id: \.id) { album in
+                            // ✅ NavigationLink mit value für zentrale Navigation
+                            NavigationLink(value: album) {
+                                CardItemContainer(content: .album(album), index: 0)
                             }
                         }
-                        .screenPadding()
-                        .padding(.bottom, 100) // Approx. DS applied - könnte Sizes.miniPlayer + Padding.s sein
                     }
+                    .screenPadding()
+                    .padding(.bottom, 100)
                 }
                 
                 Color.clear.frame(height: DSLayout.miniPlayerHeight)
@@ -111,8 +105,6 @@ struct ArtistDetailView: View {
             await loadContent()
         }
     }
-    
-    // MARK: -  HEADER VIEW
     
     private var headerView: some View {
         VStack(spacing: DSLayout.sectionGap) {
@@ -217,19 +209,15 @@ struct ArtistDetailView: View {
         }
     }
     
-    // MARK: -  CONTENT LOADING (Pure ViewModel-Routing)
-    
     private func loadContent() async {
         isLoading = true
         errorMessage = nil
         
         await withTaskGroup(of: Void.self) { group in
-            // Albums via Manager laden
             group.addTask {
                 await self.loadAlbumsViaManager()
             }
             
-            // Artist Image via Manager laden
             group.addTask {
                 await self.loadArtistImageViaManager()
             }
@@ -238,7 +226,6 @@ struct ArtistDetailView: View {
         isLoading = false
     }
     
-    ///  KORREKT: Direkt über MusicLibraryManager (existierende Methode nutzen)
     private func loadAlbumsViaManager() async {
         guard !isOfflineMode else {
             albums = availableOfflineAlbums
@@ -246,18 +233,13 @@ struct ArtistDetailView: View {
         }
         
         do {
-            //  KORREKT: Nutzt existierende loadAlbums(context:) Methode
             albums = try await musicLibraryManager.loadAlbums(context: context)
-            print(" Loaded \(albums.count) albums via MusicLibraryManager")
         } catch {
-            print("❌ Failed to load albums: \(error)")
             errorMessage = "Failed to load albums: \(error.localizedDescription)"
-            // Fallback zu Offline
             albums = availableOfflineAlbums
         }
     }
     
-    ///  SAUBER: Nur Manager-Routing
     private func loadArtistImageViaManager() async {
         if case .artist(let artist) = context {
             artistImage = await coverArtManager.loadArtistImage(
@@ -267,8 +249,6 @@ struct ArtistDetailView: View {
         }
     }
     
-    // MARK: -  SHUFFLE PLAY (Pure ViewModel-Routing)
-    
     private func shufflePlayAllAlbums() async {
         let albumsToPlay = displayAlbums
         guard !albumsToPlay.isEmpty else { return }
@@ -276,15 +256,11 @@ struct ArtistDetailView: View {
         var allSongs: [Song] = []
         
         for album in albumsToPlay {
-            //  DIRECT: MusicLibraryManager für Songs
             let songs = await navidromeVM.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }
         
-        guard !allSongs.isEmpty else {
-            print("❌ No songs found in albums")
-            return
-        }
+        guard !allSongs.isEmpty else { return }
         
         let shuffledSongs = allSongs.shuffled()
         await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
@@ -292,7 +268,5 @@ struct ArtistDetailView: View {
         if !playerVM.isShuffling {
             playerVM.toggleShuffle()
         }
-        
-        print("🎵 Started shuffle play with \(shuffledSongs.count) songs")
     }
 }

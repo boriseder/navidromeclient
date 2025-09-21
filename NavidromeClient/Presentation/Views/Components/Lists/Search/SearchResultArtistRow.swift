@@ -15,9 +15,8 @@ struct SearchResultArtistRow: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
-        NavigationLink(destination: ArtistDetailView(context: .artist(artist))) {
+        NavigationLink(destination: ArtistDetailViewContent(context: .artist(artist))) {
             HStack(spacing: DSLayout.contentGap) {
-                //  REACTIVE: Uses centralized state
                 ArtistImageView(artist: artist, index: index)
                 ArtistInfoView(artist: artist)
                 Spacer()

@@ -20,7 +20,7 @@ struct NavidromeClientApp: App {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @StateObject private var offlineManager = OfflineManager.shared
     @StateObject private var coverArtManager = CoverArtManager.shared
-    @StateObject private var homeScreenManager = HomeScreenManager.shared
+    @StateObject private var exploreManager = ExploreManager.shared
     @StateObject private var favoritesManager = FavoritesManager.shared
 
     //  FIXED: ViewModels with proper service initialization
@@ -55,7 +55,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
                 .environmentObject(coverArtManager)
-                .environmentObject(homeScreenManager)
+                .environmentObject(exploreManager)
                 .environmentObject(MusicLibraryManager.shared)
                 .environmentObject(FavoritesManager.shared)
                 .task {
@@ -129,7 +129,7 @@ struct NavidromeClientApp: App {
             coverArtManager.configure(mediaService: mediaService)
             
             //  Configure HomeScreenManager
-            homeScreenManager.configure(service: unifiedService)
+            exploreManager.configure(service: unifiedService)
             
             //  Configure MusicLibraryManager
             MusicLibraryManager.shared.configure(service: unifiedService)
@@ -170,7 +170,7 @@ struct NavidromeClientApp: App {
         
         //  Notify managers about network change
         await navidromeVM.handleNetworkChange(isOnline: isConnected)
-        await homeScreenManager.handleNetworkChange(isOnline: isConnected)
+        await exploreManager.handleNetworkChange(isOnline: isConnected)
         
         //  Update NetworkMonitor diagnostics
         let networkDiag = networkMonitor.getNetworkDiagnostics()
@@ -205,7 +205,7 @@ struct NavidromeClientApp: App {
             }
             
             // Refresh home screen if needed
-            await homeScreenManager.refreshIfNeeded()
+            await exploreManager.refreshIfNeeded()
         }
     }
     
