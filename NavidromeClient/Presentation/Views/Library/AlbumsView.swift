@@ -6,7 +6,7 @@
 //   MAINTAINS: All existing functionality
 //   REDUCES: ~60% of view code through container reuse
 //
-
+/*
 import SwiftUI
 
 struct AlbumsView: View {
@@ -46,25 +46,10 @@ struct AlbumsView: View {
     // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
         LibraryView(
-            title: "Albums",
             isLoading: shouldShowLoading,
             isEmpty: isEmpty && !shouldShowLoading,
             isOfflineMode: isOfflineMode,
-            emptyStateType: .albums,
-            onRefresh: { await refreshAllData() },
-            searchText: $searchText,
-            searchPrompt: "Search albums...",
-            toolbarConfig: .libraryWithSort(
-                title: "Albums",
-                isOffline: isOfflineMode,
-                currentSort: selectedAlbumSort,
-                sortOptions: ContentService.AlbumSortType.allCases,
-                onRefresh: { await refreshAllData() },
-                onToggleOffline: { toggleOfflineMode() },
-                onSort: { sortType in
-                    Task { await loadAlbums(sortBy: sortType) }
-                }
-            )
+            emptyStateType: .albums
         ) {
             AlbumsGridContent()
         }
@@ -74,6 +59,11 @@ struct AlbumsView: View {
         .task(id: displayedAlbums.count) {
             await preloadAlbumImages()
         }
+        .navigationTitle("Albums")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: "Search albums...")
+        .refreshable { await refreshAllData() }
+
     }
 
     // MARK: -  FIXED: Grid Content with Load More
@@ -88,9 +78,7 @@ struct AlbumsView: View {
                 }
             }
         ) { album, index in
-            NavigationLink {
-                AlbumDetailView(album: album)
-            } label: {
+            NavigationLink(value: album) {
                 CardItemContainer(content: .album(album), index: index)
             }
         }
@@ -144,25 +132,4 @@ struct AlbumsView: View {
     }
     }
 
-// MARK: -  COMPARISON: Code Reduction Analysis
-
-/*
-BEFORE (Original AlbumsView): ~180 Lines
-- Complex NavigationStack setup
-- Manual ScrollView + LazyVStack
-- Duplicate loading/empty states
-- Manual padding/spacing management
-- Complex conditional rendering
-
-AFTER (Container AlbumsView): ~120 Lines
-- Simple LibraryContainer usage
-- GridContainer handles layout
-- Automatic loading/empty states
-- Container handles padding/spacing
-- Simplified conditional logic
-
-REDUCTION: ~33% less code
-MAINTAINABILITY:  Much higher
-CONSISTENCY:  Guaranteed across all library views
-RISK:  Very low - same business logic
 */

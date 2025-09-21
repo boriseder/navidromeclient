@@ -81,7 +81,7 @@ struct SearchView: View {
     // MARK: - Main View
     
     var body: some View {
-        NavigationStack {
+        Group {
             VStack(spacing: 0) {
                 if shouldUseOfflineSearch {
                     SearchModeHeader()

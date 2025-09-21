@@ -5,15 +5,7 @@
 //  Created by Boris Eder on 18.09.25.
 //
 
-
-//
-//  AlbumsView.swift - MIGRATED to Container Architecture
-//  NavidromeClient
-//
-//   PHASE 1 MIGRATION: Proof-of-Concept using LibraryContainer
-//   MAINTAINS: All existing functionality
-//   REDUCES: ~60% of view code through container reuse
-//
+/*
 
 import SwiftUI
 
@@ -59,15 +51,10 @@ struct GenreView: View {
     // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
         LibraryView(
-            title: "Genres",
             isLoading: shouldShowLoading,
             isEmpty: isEmpty && !shouldShowLoading,
             isOfflineMode: isOfflineMode,
-            emptyStateType: .genres,
-            onRefresh: { await refreshAllData() },
-            searchText: $searchText,
-            searchPrompt: "Search genres...",
-            toolbarConfig: .empty
+            emptyStateType: .genres
         ) {
             GenresListContent()
         }
@@ -77,6 +64,11 @@ struct GenreView: View {
         .task(id: displayedGenres.count) {
          //   await preloadArtistImages()
         }
+        .navigationTitle("Genres")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: "Search genres...")
+        .refreshable { await refreshAllData() }
+
     }
 
     // MARK: -  FIXED: Grid Content with Load More
@@ -86,7 +78,7 @@ struct GenreView: View {
             items: displayedGenres,
             layout: .list
         ) { genre, index in
-            NavigationLink(destination: ArtistDetailView(context: .genre(genre))) {
+            NavigationLink(value: genre) {
                 ListItemContainer(content: .genre(genre), index: index)
             }
         }
@@ -131,3 +123,4 @@ struct GenreView: View {
         offlineManager.toggleOfflineMode()
     }
 }
+*/

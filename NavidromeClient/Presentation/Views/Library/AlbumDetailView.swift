@@ -71,7 +71,6 @@ struct AlbumDetailView: View {
             .task {
                 await loadAlbumData()
             }
-            .accountToolbar()
         }
     }
     

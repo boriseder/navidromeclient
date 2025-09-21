@@ -4,7 +4,7 @@
 //
 //  CLEAN: Nutzt bestehende Komponenten und Patterns
 //
-
+/*
 import SwiftUI
 import CryptoKit
 
@@ -52,15 +52,10 @@ struct FavoritesView: View {
     
     var body: some View {
         LibraryView(
-            title: "Lieblingssongs",
             isLoading: shouldShowLoading,
             isEmpty: isEmpty && !shouldShowLoading,
             isOfflineMode: isOfflineMode,
-            emptyStateType: .favorites,
-            onRefresh: { await refreshFavorites() },
-            searchText: $searchText,
-            searchPrompt: "Search favorites...",
-            toolbarConfig: favoritesToolbarConfig
+            emptyStateType: .favorites
         ) {
             FavoritesListContent()
         }
@@ -83,6 +78,11 @@ struct FavoritesView: View {
         } message: {
             Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
         }
+        .navigationTitle("Lieblingssongs")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: "Search favorites...")
+        .refreshable { await refreshFavorites() }
+
     }
     
     // MARK: - Toolbar Configuration
@@ -403,3 +403,4 @@ struct FavoriteSongRow: View {
         return String(format: "%d:%02d", minutes, remainingSeconds)
     }
 }
+*/

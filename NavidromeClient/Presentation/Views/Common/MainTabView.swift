@@ -1,3 +1,9 @@
+//
+//  MainTabView.swift - FIXED: Single NavigationStack Architecture
+//  NavidromeClient
+// FIXED: MainTabView.swift - Navigation Destinations richtig platziert
+
+
 import SwiftUI
 
 struct MainTabView: View {
@@ -10,106 +16,65 @@ struct MainTabView: View {
 
     @State private var selectedTab: Int = 0
     
-    // MARK: - TabItem Definition
-    private struct TabItem {
-        let view: AnyView
-        let label: String
-        let systemImage: String
-        let badge: String?
-        let navigationDestinations: [(Any.Type, (Any) -> AnyView)]
-        
-        init(
-            view: AnyView,
-            label: String,
-            systemImage: String,
-            badge: String? = nil,
-            navigationDestinations: [(Any.Type, (Any) -> AnyView)] = []
-        ) {
-            self.view = view
-            self.label = label
-            self.systemImage = systemImage
-            self.badge = badge
-            self.navigationDestinations = navigationDestinations
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Swipebare Tabs
+                TabView(selection: $selectedTab) {
+                    ForEach(tabs.indices, id: \.self) { index in
+                        tabs[index].viewContent
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                
+                // Custom TabBar
+                VStack {
+                    Spacer()
+                    customTabBar
+                        .padding(.bottom, geometry.safeAreaInsets.bottom + 10)
+                }
+            }
+            // Overlays
+            .overlay(networkStatusOverlay, alignment: .top)
+            .overlay(alignment: .bottom) {
+                MiniPlayerView()
+                    .environmentObject(playerVM)
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 60)
+            }
         }
     }
     
-    // MARK: - Tab Konfiguration
-    private var tabs: [TabItem] {
+    // MARK: - Tab Configuration
+    private var tabs: [TabConfiguration] {
         [
-            TabItem(
-                view: AnyView(ExploreView()),
+            TabConfiguration(
+                viewContent: AnyView(ExploreViewContent()),
                 label: "Explore",
                 systemImage: "music.note.house"
             ),
-            TabItem(
-                view: AnyView(AlbumsView()),
+            TabConfiguration(
+                viewContent: AnyView(AlbumsViewContent()),
                 label: "Albums",
                 systemImage: "record.circle",
-                badge: offlineManager.isOfflineMode ? "📱" : nil,
-                navigationDestinations: [
-                    (Album.self, { album in
-                        AnyView(AlbumDetailView(album: album as! Album))
-                    })
-                ]
+                badge: offlineManager.isOfflineMode ? "📱" : nil
             ),
-            TabItem(
-                view: AnyView(ArtistsView()),
+            TabConfiguration(
+                viewContent: AnyView(ArtistsViewContent()),
                 label: "Artists",
-                systemImage: "person.2",
-                navigationDestinations: [
-                    (Artist.self, { artist in
-                        AnyView(ArtistDetailView(context: .artist(artist as! Artist)))
-                    })
-                ]
+                systemImage: "person.2"
             ),
-            TabItem(
-                view: AnyView(GenreView()),
+            TabConfiguration(
+                viewContent: AnyView(GenreViewContent()),
                 label: "Genres",
-                systemImage: "music.note.list",
-                navigationDestinations: [
-                    (Genre.self, { genre in
-                        AnyView(ArtistDetailView(context: .genre(genre as! Genre)))
-                    })
-                ]
+                systemImage: "music.note.list"
             ),
-            TabItem(
-                view: AnyView(FavoritesView()),
+            TabConfiguration(
+                viewContent: AnyView(FavoritesViewContent()),
                 label: "Favorites",
                 systemImage: "heart"
             )
         ]
-    }
-    
-    var body: some View {
-        NavigationStack {   // ✅ nur ein einziger NavigationStack
-            GeometryReader { geometry in
-                ZStack {
-                    // Swipebare Tabs
-                    TabView(selection: $selectedTab) {
-                        ForEach(tabs.indices, id: \.self) { index in
-                            tabs[index].view
-                                .applyNavigationDestinations(tabs[index].navigationDestinations)
-                                .tag(index)
-                        }
-                    }
-                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                    
-                    // Custom TabBar
-                    VStack {
-                        Spacer()
-                        customTabBar
-                            .padding(.bottom, geometry.safeAreaInsets.bottom + 10)
-                    }
-                }
-                // Overlays (z.B. MiniPlayer, Network Status)
-                .overlay(networkStatusOverlay, alignment: .top)
-                .overlay(alignment: .bottom) {
-                    MiniPlayerView()
-                        .environmentObject(playerVM)
-                        .padding(.bottom, geometry.safeAreaInsets.bottom + 60) // Platz für TabBar
-                }
-            }
-        }
     }
     
     // MARK: - Custom TabBar
@@ -147,7 +112,7 @@ struct MainTabView: View {
         }
         .padding(.vertical, 8)
         .background(
-            BlurView(style: .systemMaterial) // schöner Glas-Effekt
+            BlurView(style: .systemMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
         )
         .padding(.horizontal, 16)
@@ -183,40 +148,22 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - NavigationDestinations Extension
-extension View {
-    @ViewBuilder
-    func applyNavigationDestinations(_ destinations: [(Any.Type, (Any) -> AnyView)]) -> some View {
-        self.modifier(NavigationDestinationsModifier(destinations: destinations))
-    }
-}
-
-struct NavigationDestinationsModifier: ViewModifier {
-    let destinations: [(Any.Type, (Any) -> AnyView)]
+// MARK: - Tab Configuration
+struct TabConfiguration {
+    let viewContent: AnyView
+    let label: String
+    let systemImage: String
+    let badge: String?
     
-    func body(content: Content) -> some View {
-        destinations.reduce(AnyView(content)) { currentView, destination in
-            let (type, builder) = destination
-            
-            if type == Artist.self {
-                return AnyView(currentView.navigationDestination(for: Artist.self) { item in
-                    builder(item)
-                })
-            } else if type == Album.self {
-                return AnyView(currentView.navigationDestination(for: Album.self) { item in
-                    builder(item)
-                })
-            } else if type == Genre.self {
-                return AnyView(currentView.navigationDestination(for: Genre.self) { item in
-                    builder(item)
-                })
-            }
-            return currentView
-        }
+    init(viewContent: AnyView, label: String, systemImage: String, badge: String? = nil) {
+        self.viewContent = viewContent
+        self.label = label
+        self.systemImage = systemImage
+        self.badge = badge
     }
 }
 
-/// Ein einfacher Wrapper für UIVisualEffectView (Blur)
+// MARK: - BlurView
 struct BlurView: UIViewRepresentable {
     let style: UIBlurEffect.Style
     
@@ -228,3 +175,10 @@ struct BlurView: UIViewRepresentable {
         uiView.effect = UIBlurEffect(style: style)
     }
 }
+
+
+
+
+// MARK: - ✅ FIXED: View Contents OHNE NavigationStack
+
+

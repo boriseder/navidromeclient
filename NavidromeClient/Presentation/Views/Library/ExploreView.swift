@@ -5,7 +5,7 @@
 //   CLEAN: All business logic moved to HomeScreenManager
 //   ELIMINATES: ExploreViewModel dependency completely
 //
-
+/*
 import SwiftUI
 
 struct ExploreView: View {
@@ -20,8 +20,8 @@ struct ExploreView: View {
     @State private var hasLoaded = false
 
     var body: some View {
-        NavigationStack {
-            ZStack {
+     /*
+      ZStack {
                 if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
                     onlineContent
                 } else {
@@ -36,12 +36,26 @@ struct ExploreView: View {
                 await setupHomeScreenData()
                 hasLoaded = true
             }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailView(album: album)
+            }
             .refreshable {
                 print("🔄 ExploreView manual refresh triggered")
                 await homeScreenManager.loadHomeScreenData()
                 await preloadHomeScreenCovers()
             }
+      */
+        VStack {
+            Text("Simple Test")
+            
+            // ✅ KEIN Album - nur einfacher NavigationLink:
+            NavigationLink("Click me") {
+                Text("Success!")
+                    .navigationTitle("Detail")
+            }
         }
+        .navigationTitle("Music")
+
     }
     
     // MARK: - Setup
@@ -222,57 +236,6 @@ struct OfflineWelcomeHeader: View {
     }
 }
 
-struct AlbumSection: View {
-    let title: String
-    let albums: [Album]
-    let icon: String
-    let accentColor: Color
-    var showRefreshButton: Bool = false
-    var refreshAction: (() async -> Void)? = nil
-    
-    @State private var isRefreshing = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: DSLayout.contentGap) {
-            // Section Header
-            HStack {
-                Label(title, systemImage: icon)
-                    .font(DSText.prominent)
-                    .foregroundColor(DSColor.primary)
-                
-                Spacer()
-                
-                if showRefreshButton, let refreshAction = refreshAction {
-                    Button {
-                        Task {
-                            isRefreshing = true
-                            await refreshAction()
-                            isRefreshing = false
-                        }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(DSText.sectionTitle)
-                            .foregroundColor(accentColor)
-                            .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
-                            .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
-                    }
-                    .disabled(isRefreshing)
-                }
-            }
-            .screenPadding()
-            
-            // Horizontal Album Scroll
-            UnifiedContainer(
-                items: albums,
-                layout: .horizontal
-            ) { album, index in
-                NavigationLink(destination: AlbumDetailView(album: album)) {
-                    CardItemContainer(content: .album(album), index: index)
-                }
-            }
-        }
-    }
-}
 
 struct QuickAccessCard: View {
     let title: String
@@ -398,3 +361,4 @@ struct ErrorSection: View {
         .screenPadding()
     }
 }
+*/

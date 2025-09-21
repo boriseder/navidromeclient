@@ -1,14 +1,15 @@
 //
-//  CleanContainerArchitecture.swift
+//  LibraryContainer.swift - FIXED: Navigation-free Container Architecture
 //  NavidromeClient
 //
+//   FIXED: Entfernt NavigationContainer für Single NavigationStack
 //   CLEAN: Proper separation of concerns
 //   SUSTAINABLE: Each component has single responsibility
 //
 
 import SwiftUI
 
-// MARK: - 0.  REQUIRED: Extensions
+// MARK: - 0. REQUIRED: Extensions
 extension View {
     @ViewBuilder
     func conditionalSearchable(searchText: Binding<String>?, prompt: String?) -> some View {
@@ -33,7 +34,7 @@ extension View {
     }
 }
 
-// MARK: - 1.  FIXED: ContentContainer (NO Navigation)
+// MARK: - 1. CONTENT-ONLY Container (NO Navigation)
 struct ContentContainer<Content: View>: View {
     let isLoading: Bool
     let isEmpty: Bool
@@ -65,50 +66,59 @@ struct ContentContainer<Content: View>: View {
     }
 }
 
-// MARK: - 2.  FIXED: NavigationContainer (Navigation + Toolbar)
-struct NavigationContainer<Content: View>: View {
-    let title: String
-    let displayMode: NavigationBarItem.TitleDisplayMode
-    let onRefresh: (() async -> Void)?
-    let searchText: Binding<String>?
-    let searchPrompt: String?
-    let toolbarConfig: ToolbarConfiguration?
+// MARK: - 2. ❌ REMOVED: NavigationContainer (not needed with single NavigationStack)
+// NavigationContainer entfernt da MainTabView bereits NavigationStack bereitstellt
+
+// MARK: - 3. ✅ UPDATED: LibraryView (Navigation-free for single NavigationStack)
+struct LibraryView<Content: View>: View {
+    let isLoading: Bool
+    let isEmpty: Bool
+    let isOfflineMode: Bool
+    let emptyStateType: EmptyStateView.EmptyStateType
     let content: () -> Content
     
+    // ✅ SIMPLIFIED: Nur noch Content-relevante Parameter
     init(
-        title: String,
-        displayMode: NavigationBarItem.TitleDisplayMode = .large,
-        onRefresh: (() async -> Void)? = nil,
-        searchText: Binding<String>? = nil,
-        searchPrompt: String? = nil,
-        toolbarConfig: ToolbarConfiguration? = nil,
+        isLoading: Bool,
+        isEmpty: Bool,
+        isOfflineMode: Bool,
+        emptyStateType: EmptyStateView.EmptyStateType,
         @ViewBuilder content: @escaping () -> Content
     ) {
-        self.title = title
-        self.displayMode = displayMode
-        self.onRefresh = onRefresh
-        self.searchText = searchText
-        self.searchPrompt = searchPrompt
-        self.toolbarConfig = toolbarConfig
+        self.isLoading = isLoading
+        self.isEmpty = isEmpty
+        self.isOfflineMode = isOfflineMode
+        self.emptyStateType = emptyStateType
         self.content = content
     }
     
     var body: some View {
-        NavigationStack {
-            content()
-                .navigationTitle(title)
-                .navigationBarTitleDisplayMode(displayMode)
-                .conditionalSearchable(searchText: searchText, prompt: searchPrompt)
-                .refreshable {
-                    await onRefresh?()
+        // ✅ FIXED: Kein NavigationStack mehr - nutzt äußeren NavigationStack
+        Group {
+            if isLoading {
+                LoadingView()
+            } else if isEmpty {
+                EmptyStateView(type: emptyStateType)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        if isOfflineMode {
+                            OfflineStatusBanner()
+                                .screenPadding()
+                                .padding(.bottom, DSLayout.elementGap)
+                        }
+                        
+                        content()
+                    }
+                    .padding(.bottom, DSLayout.miniPlayerHeight)
                 }
-                .conditionalToolbar(toolbarConfig)
+            }
         }
     }
 }
 
-// MARK: - 3.  CLEAN: LibraryView Composition
-struct LibraryView<Content: View>: View {
+// MARK: - 4. ✅ ENHANCED: StandaloneLibraryView (for modal presentations)
+struct StandaloneLibraryView<Content: View>: View {
     let title: String
     let isLoading: Bool
     let isEmpty: Bool
@@ -120,14 +130,33 @@ struct LibraryView<Content: View>: View {
     let toolbarConfig: ToolbarConfiguration?
     let content: () -> Content
     
+    init(
+        title: String,
+        isLoading: Bool,
+        isEmpty: Bool,
+        isOfflineMode: Bool,
+        emptyStateType: EmptyStateView.EmptyStateType,
+        onRefresh: (() async -> Void)? = nil,
+        searchText: Binding<String>? = nil,
+        searchPrompt: String? = nil,
+        toolbarConfig: ToolbarConfiguration? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.isLoading = isLoading
+        self.isEmpty = isEmpty
+        self.isOfflineMode = isOfflineMode
+        self.emptyStateType = emptyStateType
+        self.onRefresh = onRefresh
+        self.searchText = searchText
+        self.searchPrompt = searchPrompt
+        self.toolbarConfig = toolbarConfig
+        self.content = content
+    }
+    
     var body: some View {
-        NavigationContainer(
-            title: title,
-            onRefresh: onRefresh,
-            searchText: searchText,
-            searchPrompt: searchPrompt,
-            toolbarConfig: toolbarConfig
-        ) {
+        // ✅ STANDALONE: Für Sheets/Modal presentations die eigenen NavigationStack brauchen
+        NavigationStack {
             ContentContainer(
                 isLoading: isLoading,
                 isEmpty: isEmpty,
@@ -135,71 +164,62 @@ struct LibraryView<Content: View>: View {
                 emptyStateType: emptyStateType,
                 content: content
             )
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.large)
+            .conditionalSearchable(searchText: searchText, prompt: searchPrompt)
+            .refreshable {
+                await onRefresh?()
+            }
+            .conditionalToolbar(toolbarConfig)
         }
     }
 }
 
-// MARK: - 4.  CLEAN: AlbumsView Implementation
-/*
-// In AlbumsView.swift - CLEAN IMPLEMENTATION:
-
-var body: some View {
-    LibraryView(
-        title: "Albums",
-        isLoading: shouldShowLoading,
-        isEmpty: isEmpty && !shouldShowLoading,
-        isOfflineMode: isOfflineMode,
-        emptyStateType: .albums,
-        onRefresh: { await refreshAllData() },
-        searchText: $searchText,
-        searchPrompt: "Search albums...",
-        toolbarConfig: .libraryWithSort(
-            title: "Albums",
-            isOffline: isOfflineMode,
-            currentSort: selectedAlbumSort,
-            sortOptions: ContentService.AlbumSortType.allCases,
-            onRefresh: { await refreshAllData() },
-            onToggleOffline: { toggleOfflineMode() },
-            onSort: { sortType in
-                Task { await loadAlbums(sortBy: sortType) }
-            }
-        )
-    ) {
-        AlbumsGridContent()
+// MARK: - 5. ✅ MIGRATION: Helper Extensions
+extension View {
+    
+    /// ✅ NEW: For views within MainTabView (no NavigationStack)
+    func libraryView(
+        isLoading: Bool,
+        isEmpty: Bool,
+        isOfflineMode: Bool,
+        emptyStateType: EmptyStateView.EmptyStateType
+    ) -> some View {
+        LibraryView(
+            isLoading: isLoading,
+            isEmpty: isEmpty,
+            isOfflineMode: isOfflineMode,
+            emptyStateType: emptyStateType
+        ) {
+            self
+        }
     }
-    .onChange(of: searchText) { _, _ in
-        handleSearchTextChange()
-    }
-    .task(id: displayedAlbums.count) {
-        await preloadAlbumImages()
+    
+    /// ✅ FOR: Modal presentations that need their own NavigationStack
+    func standaloneLibrary(
+        title: String,
+        isLoading: Bool,
+        isEmpty: Bool,
+        isOfflineMode: Bool,
+        emptyStateType: EmptyStateView.EmptyStateType,
+        onRefresh: (() async -> Void)? = nil,
+        searchText: Binding<String>? = nil,
+        searchPrompt: String? = nil,
+        toolbarConfig: ToolbarConfiguration? = nil
+    ) -> some View {
+        StandaloneLibraryView(
+            title: title,
+            isLoading: isLoading,
+            isEmpty: isEmpty,
+            isOfflineMode: isOfflineMode,
+            emptyStateType: emptyStateType,
+            onRefresh: onRefresh,
+            searchText: searchText,
+            searchPrompt: searchPrompt,
+            toolbarConfig: toolbarConfig
+        ) {
+            self
+        }
     }
 }
-*/
 
-// MARK: - 5.  ARCHITECTURE BENEFITS
-
-/*
- SINGLE RESPONSIBILITY:
-- ContentContainer: Nur Loading/Empty/Content States
-- NavigationContainer: Nur Navigation/Toolbar/Search
-- LibraryView: Composition der beiden
-
- REUSABLE:
-- ContentContainer für Non-Navigation Views
-- NavigationContainer für andere Navigation Patterns
-- LibraryView für alle Library-ähnlichen Views
-
- TESTABLE:
-- Jede Komponente isoliert testbar
-- Keine versteckten Dependencies
-
- MAINTAINABLE:
-- Änderungen an Navigation = nur NavigationContainer
-- Änderungen an Content States = nur ContentContainer
-- Toolbar-Logic bleibt in NavigationContainer wo sie hingehört
-
- SCALABLE:
-- Neue Container-Types einfach hinzufügbar
-- Bestehende Patterns wiederverwendbar
-- Keine Breaking Changes für bestehende Views
-*/

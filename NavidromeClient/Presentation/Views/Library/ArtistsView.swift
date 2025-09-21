@@ -14,7 +14,7 @@
 //   MAINTAINS: All existing functionality
 //   REDUCES: ~60% of view code through container reuse
 //
-
+/*
 import SwiftUI
 
 struct ArtistsView: View {
@@ -62,15 +62,10 @@ struct ArtistsView: View {
     // MARK: -  NEW: Simplified Body using LibraryContainer
     var body: some View {
         LibraryView(
-            title: "Artists",
             isLoading: shouldShowLoading,
             isEmpty: isEmpty && !shouldShowLoading,
             isOfflineMode: isOfflineMode,
-            emptyStateType: .artists,
-            onRefresh: { await refreshAllData() },
-            searchText: $searchText,
-            searchPrompt: "Search artists...",
-            toolbarConfig: .empty
+            emptyStateType: .artists
         ) {
             ArtistListContent()
         }
@@ -80,6 +75,10 @@ struct ArtistsView: View {
         .task(id: displayedArtists.count) {
             await preloadArtistImages()
         }
+        .navigationTitle("Artists")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: "Search artists...")
+        .refreshable { await refreshAllData() }
     }
 
     // MARK: -  FIXED: Grid Content with Load More
@@ -139,25 +138,4 @@ struct ArtistsView: View {
     }
 }
 
-// MARK: -  COMPARISON: Code Reduction Analysis
-
-/*
-BEFORE (Original AlbumsView): ~180 Lines
-- Complex NavigationStack setup
-- Manual ScrollView + LazyVStack
-- Duplicate loading/empty states
-- Manual padding/spacing management
-- Complex conditional rendering
-
-AFTER (Container AlbumsView): ~120 Lines
-- Simple LibraryContainer usage
-- GridContainer handles layout
-- Automatic loading/empty states
-- Container handles padding/spacing
-- Simplified conditional logic
-
-REDUCTION: ~33% less code
-MAINTAINABILITY:  Much higher
-CONSISTENCY:  Guaranteed across all library views
-RISK:  Very low - same business logic
 */

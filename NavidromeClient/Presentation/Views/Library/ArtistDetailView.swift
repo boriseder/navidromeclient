@@ -89,9 +89,7 @@ struct ArtistDetailView: View {
                     ScrollView {
                         LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
                             ForEach(albums, id: \.id) { album in
-                                NavigationLink {
-                                    AlbumDetailView(album: album)
-                                } label: {
+                                NavigationLink(value: album) {
                                     CardItemContainer(content: .album(album), index: 0)
                                 }
                             }
@@ -112,7 +110,6 @@ struct ArtistDetailView: View {
         .refreshable {
             await loadContent()
         }
-        .accountToolbar()
     }
     
     // MARK: -  HEADER VIEW
