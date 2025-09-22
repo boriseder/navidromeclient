@@ -59,7 +59,9 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
             } else if isEmpty {
                 EmptyStateView(type: emptyStateType)
             } else {
-                ScrollView {
+                // ✅ FIX: Nur ScrollView für non-horizontal layouts
+                if layout == .horizontal {
+                    // Horizontal braucht KEIN outer ScrollView
                     LazyVStack(spacing: 0) {
                         if isOfflineMode {
                             OfflineStatusBanner()
@@ -67,13 +69,28 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
                                 .padding(.bottom, DSLayout.elementGap)
                         }
                         
-                        layoutContent
+                        layoutContent  // horizontalLayout mit eigenem ScrollView
                     }
-                    .padding(.bottom, DSLayout.miniPlayerHeight)
+                    // KEIN .padding(.bottom, DSLayout.miniPlayerHeight) für horizontal!
+                } else {
+                    // Nur für list/grid layouts
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            if isOfflineMode {
+                                OfflineStatusBanner()
+                                    .screenPadding()
+                                    .padding(.bottom, DSLayout.elementGap)
+                            }
+                            
+                            layoutContent
+                        }
+                        .padding(.bottom, DSLayout.miniPlayerHeight)
+                    }
                 }
             }
         }
     }
+
     
     @ViewBuilder
     private var layoutContent: some View {
