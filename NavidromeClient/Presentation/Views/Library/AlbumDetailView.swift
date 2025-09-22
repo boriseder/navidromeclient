@@ -24,13 +24,14 @@ struct AlbumDetailViewContent: View {
     var body: some View {
         ScrollView {
             VStack(spacing: DSLayout.screenGap) {
+
                 AlbumHeaderView(
                     album: album,
                     cover: coverArt,
                     songs: songs,
                     isOfflineAlbum: isOfflineAlbum
                 )
-                
+
                 if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
                     HStack {
                         if downloadManager.isAlbumDownloaded(album.id) {

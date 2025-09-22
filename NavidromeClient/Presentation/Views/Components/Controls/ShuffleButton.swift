@@ -16,11 +16,18 @@ struct ShuffleButton: View {
         Button {
             Task { await playerVM.setPlaylist(songs.shuffled(), startIndex: 0, albumId: album.id) }
         } label: {
-            Image(systemName: playerVM.isShuffling ? "shuffle.circle.fill" : "shuffle")
-                .resizable()
-                .scaledToFit()
-                .frame(width: DSLayout.icon, height: DSLayout.icon)
-                .foregroundColor(DSColor.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: "shuffle")
+                    .font(.system(size: DSLayout.smallIcon, weight: .semibold))
+                //Text("Shuffle")
+                //    .font(DSText.metadata.weight(.semibold))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.orange)
+            .clipShape(Capsule())
+            .shadow(radius: 4)
         }
     }
 }

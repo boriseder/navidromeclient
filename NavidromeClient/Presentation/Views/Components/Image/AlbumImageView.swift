@@ -11,22 +11,41 @@ struct AlbumImageView: View {
 
     let album: Album
     let index: Int
+    let size: CGFloat?
+    
+    // Computed property for actual size
+    private var actualSize: CGFloat {
+        size ?? DSLayout.listCover
+    }
+    
+    // Computed property for image size (3x for high resolution)
+    private var imageSize: Int {
+        Int(actualSize * 3)
+    }
+    
+    // Initializer with optional size parameter
+    init(album: Album, index: Int, size: CGFloat? = nil) {
+        self.album = album
+        self.index = index
+        self.size = size
+    }
         
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: DSCorners.element)
                 .fill(DSColor.surface)
-                .frame(width: DSLayout.listCover, height: DSLayout.listCover)
+                .frame(width: actualSize, height: actualSize)
             
             Group {
-                if let image = coverArtManager.getAlbumImage(for: album.id, size: Int(DSLayout.listCover*3)) {
+                if let image = coverArtManager.getAlbumImage(for: album.id, size: imageSize) {
                     //  REACTIVE: Uses centralized state
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: DSLayout.listCover, height: DSLayout.listCover)
+                        .frame(width: actualSize, height: actualSize)
                         .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
                         .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+                    
                 } else {
                     RoundedRectangle(cornerRadius: DSCorners.element)
                         .fill(
@@ -36,7 +55,7 @@ struct AlbumImageView: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
+                        .frame(width: actualSize, height: actualSize)
                         .overlay(albumImageOverlay)
                 }
             }
@@ -45,7 +64,7 @@ struct AlbumImageView: View {
             //  SINGLE LINE: Manager handles staggering, caching, state
             await coverArtManager.loadAlbumImage(
                 album: album,
-                size: Int(DSLayout.listCover*3),
+                size: imageSize,
                 staggerIndex: index
             )
         }
@@ -53,12 +72,12 @@ struct AlbumImageView: View {
     
     @ViewBuilder
     private var albumImageOverlay: some View {
-        if coverArtManager.isLoadingImage(for: album.id, size: Int(DSLayout.listCover*3)) {
+        if coverArtManager.isLoadingImage(for: album.id, size: imageSize) {
             //  REACTIVE: Uses centralized loading state
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if let error = coverArtManager.getImageError(for: album.id, size: Int(DSLayout.listCover*3)) {
+        } else if let error = coverArtManager.getImageError(for: album.id, size: imageSize) {
             //  NEW: Error state handling
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))

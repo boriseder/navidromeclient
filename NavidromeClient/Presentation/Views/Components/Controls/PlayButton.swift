@@ -6,7 +6,7 @@
 //
 import SwiftUI
 
-struct CompactPlayButton: View {
+struct PlayButton: View {
     let album: Album
     let songs: [Song]
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -15,19 +15,18 @@ struct CompactPlayButton: View {
         Button {
             Task { await playerVM.setPlaylist(songs, startIndex: 0, albumId: album.id) }
         } label: {
-            HStack(spacing: DSLayout.tightGap) {
+            HStack(spacing: 4) {
                 Image(systemName: "play.fill")
                     .font(.system(size: DSLayout.smallIcon, weight: .semibold))
-                Text("Play")
-                    .font(DSText.metadata.weight(.semibold))
+                //Text("Play")
+                //    .font(DSText.metadata.weight(.semibold))
             }
-            .foregroundColor(DSColor.onDark)
-            .padding(.horizontal, DSLayout.elementPadding)
-            .padding(.vertical, DSLayout.tightPadding)
-            .background(
-                Capsule()
-                    .fill(DSColor.accent)
-            )
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.green)
+            .clipShape(Capsule())
+            .shadow(radius: 4)
         }
     }
 }

@@ -1,8 +1,8 @@
 //
-//  SongRow.swift - ENHANCED: Modern UX Patterns & Accessibility
+//  SongRow.swift - Modern UX Patterns & Accessibility
 //  NavidromeClient
 //
-//   ENHANCED: Better interaction patterns, visual hierarchy, accessibility
+//   Better interaction patterns, visual hierarchy, accessibility
 //   SUSTAINABLE: Uses existing HeartButton, design system, no new dependencies
 //
 
@@ -16,27 +16,27 @@ struct SongRow: View {
     let onMore: () -> Void
     let favoriteAction: (() -> Void)?
     
-    // ENHANCED: Interaction states for better UX
+    // Interaction states for better UX
     @State private var isPressed = false
     @State private var playIndicatorPhase = 0.0
     
-    // ENHANCED: Animation states
+    // Animation states
     @State private var showPlayIndicator = false
     private let animationTimer = Timer.publish(every: 0.8, on: .main, in: .common).autoconnect()
     
     var body: some View {
         HStack(spacing: DSLayout.elementGap) {
-            // ENHANCED: Track number with better visual feedback
+            // Track number with better visual feedback
             trackNumberSection
             
-            // ENHANCED: Song info with better typography
+            // Song info with better typography
             songInfoSection
                 .frame(maxWidth: .infinity, alignment: .leading)
             
-            // ENHANCED: Duration with better layout
+            // Duration with better layout
             durationSection
             
-            // ENHANCED: Actions with improved spacing
+            // Actions with improved spacing
             actionsSection
         }
         .padding(.horizontal, DSLayout.contentPadding)
@@ -63,7 +63,7 @@ struct SongRow: View {
                 showPlayIndicator = newValue
             }
         }
-        // ENHANCED: Better gesture handling
+        // Better gesture handling
         .contentShape(Rectangle())
         .onTapGesture {
             triggerHapticFeedback()
@@ -76,11 +76,11 @@ struct SongRow: View {
         } onRelease: {
             withAnimation(DSAnimations.easeQuick) { isPressed = false }
         }
-        // ENHANCED: Improved context menu
+        // Improved context menu
         .contextMenu {
             enhancedContextMenu
         }
-        // ENHANCED: Accessibility
+        // Accessibility
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
@@ -89,13 +89,12 @@ struct SongRow: View {
         }
     }
     
-    // MARK: - ENHANCED: Track Number Section
+    // MARK: - Track Number Section
     
     @ViewBuilder
     private var trackNumberSection: some View {
         ZStack {
             if isPlaying && showPlayIndicator {
-                // ENHANCED: More sophisticated playing indicator
                 EnhancedEqualizerBars(
                     isActive: showPlayIndicator,
                     accentColor: DSColor.playing
@@ -105,7 +104,6 @@ struct SongRow: View {
                     removal: .scale.combined(with: .opacity)
                 ))
             } else {
-                // ENHANCED: Better track number design
                 Text("\(index)")
                     .font(DSText.body.weight(.medium).monospacedDigit())
                     .foregroundStyle(trackNumberColor)
@@ -120,7 +118,7 @@ struct SongRow: View {
         .animation(DSAnimations.springSnappy, value: showPlayIndicator)
     }
     
-    // ENHANCED: Dynamic track number styling
+    // Dynamic track number styling
     private var trackNumberColor: Color {
         if isPlaying {
             return DSColor.playing
@@ -140,18 +138,18 @@ struct SongRow: View {
             )
     }
     
-    // MARK: - ENHANCED: Song Info Section
+    // MARK: - Song Info Section
     
     private var songInfoSection: some View {
         VStack(alignment: .leading, spacing: DSLayout.tightGap) {
-            // ENHANCED: Song title with better styling
+            // Song title with better styling
             Text(song.title)
                 .font(songTitleFont)
                 .foregroundStyle(songTitleColor)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
             
-            // ENHANCED: Artist with better hierarchy
+            // Artist with better hierarchy
             if let artist = song.artist, !artist.isEmpty {
                 Text(artist)
                     .font(DSText.body)
@@ -161,7 +159,7 @@ struct SongRow: View {
         }
     }
     
-    // ENHANCED: Dynamic song title styling
+    // Dynamic song title styling
     private var songTitleFont: Font {
         if isPlaying {
             return DSText.emphasized.weight(.semibold)
@@ -176,7 +174,7 @@ struct SongRow: View {
         return DSColor.primary
     }
     
-    // MARK: - ENHANCED: Duration Section
+    // MARK: - Duration Section
     
     @ViewBuilder
     private var durationSection: some View {
@@ -195,11 +193,11 @@ struct SongRow: View {
         return DSColor.tertiary
     }
     
-    // MARK: - ENHANCED: Actions Section
+    // MARK: - Actions Section
     
     private var actionsSection: some View {
         HStack(spacing: DSLayout.tightGap) {
-            // ENHANCED: Heart button with proper context
+            // Heart button with proper context
             if let favoriteAction = favoriteAction {
                 HeartButton.songRow(song: song)
                     .onTapGesture {
@@ -211,7 +209,7 @@ struct SongRow: View {
         }
     }
     
-    // MARK: - ENHANCED: Row Background
+    // MARK: - Row Background
     
     private var rowBackground: some View {
         RoundedRectangle(cornerRadius: DSCorners.element)
@@ -222,7 +220,7 @@ struct SongRow: View {
             )
     }
     
-    // ENHANCED: Dynamic background styling
+    // Dynamic background styling
     private var backgroundColor: Color {
         if isPressed {
             return DSColor.accent.opacity(0.1)
@@ -245,7 +243,7 @@ struct SongRow: View {
         isPlaying ? 1 : 0.5
     }
     
-    // MARK: - ENHANCED: Context Menu
+    // MARK: - Context Menu
     
     @ViewBuilder
     private var enhancedContextMenu: some View {
@@ -301,7 +299,7 @@ struct SongRow: View {
         return String(format: "%d:%02d", minutes, remainingSeconds)
     }
     
-    // ENHANCED: Accessibility
+    // Accessibility
     private var accessibilityLabel: String {
         var label = "Track \(index): \(song.title)"
         if let artist = song.artist {
@@ -321,7 +319,7 @@ struct SongRow: View {
     }
 }
 
-// MARK: - ENHANCED: Supporting Components
+// MARK: - Supporting Components
 
 struct EnhancedEqualizerBars: View {
     let isActive: Bool
@@ -376,7 +374,7 @@ struct EnhancedEqualizerBars: View {
     }
 }
 
-// MARK: - ENHANCED: Press Events ViewModifier
+// MARK: - Press Events ViewModifier
 
 extension View {
     func pressEvents(onPress: @escaping () -> Void, onRelease: @escaping () -> Void) -> some View {

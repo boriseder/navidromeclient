@@ -32,6 +32,9 @@ struct DownloadButton: View {
         } label: {
             buttonContent
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+
         .confirmationDialog(
             "Delete Downloaded Album?",
             isPresented: $showingDeleteConfirmation,
@@ -68,39 +71,76 @@ struct DownloadButton: View {
     }
     
     private var idleButton: some View {
-        Image(systemName: "arrow.down.circle")
-            .font(.system(size: 18))
-            .foregroundColor(.blue)
+        HStack(spacing: 8) {
+            Image(systemName: "cloud")
+            .font(.system(size: buttonSize))
+
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.blue)
+        .clipShape(Capsule())
+        .shadow(radius: 4)
     }
+    
+    
+   
     
     private var downloadingButton: some View {
         ZStack {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle")
+                .font(.system(size: buttonSize))
+
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.blue)
+            .clipShape(Capsule())
+            .shadow(radius: 4)
+
             Circle()
-                .stroke(.blue.opacity(0.3), lineWidth: 2)
+                .stroke(.white.opacity(0.3), lineWidth: 2)
             
             Circle()
                 .trim(from: 0, to: max(0.05, progress))
-                .stroke(.blue, lineWidth: 2)
+                .stroke(.white, lineWidth: 2)
                 .rotationEffect(.degrees(-90))
                 .animation(.easeInOut(duration: 0.2), value: progress)
             
             Text("\(Int(max(0.05, progress) * 100))%")
                 .font(.system(size: 8, weight: .semibold))
-                .foregroundColor(.blue)
+                .foregroundColor(.white)
         }
     }
     
     private var downloadedButton: some View {
-        Image(systemName: "checkmark.circle.fill")
-            .font(.system(size: 18))
-            .foregroundColor(.green)
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: buttonSize))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.blue)
+        .clipShape(Capsule())
+        .shadow(radius: 4)
+
     }
     
     private func errorButton(message: String) -> some View {
-        Image(systemName: "exclamationmark.triangle.fill")
-            .font(.system(size: 18))
-            .foregroundColor(.orange)
-            .help(message) // Show error on hover/long press
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: buttonSize))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.red)
+        .clipShape(Capsule())
+        .shadow(radius: 4)
     }
     
     private var cancellingButton: some View {

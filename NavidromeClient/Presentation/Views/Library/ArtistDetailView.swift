@@ -1,10 +1,3 @@
-
-
-
-enum ArtistDetailContext {
-    case artist(Artist)
-    case genre(Genre)
-}
 //
 //  ArtistDetailViewContent.swift - ENHANCED: Integration of Modern Header
 //  NavidromeClient
@@ -14,6 +7,11 @@ enum ArtistDetailContext {
 //
 
 import SwiftUI
+
+enum ArtistDetailContext {
+    case artist(Artist)
+    case genre(Genre)
+}
 
 struct ArtistDetailViewContent: View {
     let context: ArtistDetailContext
@@ -30,6 +28,11 @@ struct ArtistDetailViewContent: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
+    private var artist: Artist? {
+        if case .artist(let a) = context { return a }
+        return nil
+    }
+    
     private var isOfflineMode: Bool {
         !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
     }
@@ -57,15 +60,81 @@ struct ArtistDetailViewContent: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: DSLayout.screenGap) {
-                // ENHANCED: Use new header component
-                ArtistDetailHeader(
-                    context: context,
-                    albums: albums,
-                    availableOfflineAlbums: availableOfflineAlbums,
-                    artistImage: artistImage,
-                    isOfflineMode: isOfflineMode,
-                    onShuffleAll: shufflePlayAllAlbums
-                )
+                // MARK: - Header
+                VStack(spacing: 0) {
+                    ZStack {
+                        // Hintergrund aus Avatar (blur + gradient)
+                        if let artistImage = artistImage {
+                            Image(uiImage: artistImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(height: 300)
+                                .clipped()
+                                .blur(radius: 30)
+                                .overlay(
+                                    LinearGradient(
+                                        colors: [.black.opacity(0.5), .clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .ignoresSafeArea(edges: .top)
+                        } else {
+                            Color.gray.opacity(0.3)
+                                .frame(height: 300)
+                                .ignoresSafeArea(edges: .top)
+                        }
+                        
+                        
+                        
+                        // Avatar + Name
+                        VStack(spacing: 16) {
+                            if let artistImage = artistImage {
+                                Image(uiImage: artistImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 200, height: 200)
+                                    .clipShape(Circle())
+                                    .overlay(
+                                        Circle()
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [.blue, .purple],
+                                                    startPoint: .topLeading,
+                                                    endPoint: .bottomTrailing
+                                                ),
+                                                lineWidth: 4
+                                            )
+                                    )
+                                    .shadow(radius: 8)
+                            } else {
+                                Circle()
+                                    .fill(LinearGradient(colors: [.blue, .purple],
+                                                         startPoint: .topLeading,
+                                                         endPoint: .bottomTrailing))
+                                    .frame(width: 140, height: 140)
+                                    .overlay(
+                                        Image(systemName: "music.mic")
+                                            .font(.system(size: 50))
+                                            .foregroundColor(.white)
+                                    )
+                            }
+                            
+                            if let name = artist?.name {
+                                Text(name)
+                                    .font(.title.bold())
+                                    .foregroundColor(.white)
+                            }
+                        }
+                    }
+                    .padding(.bottom, 24)
+                    
+                    // MARK: - Action Buttons
+                    HStack(spacing: 16) {
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
                 .screenPadding()
                 
                 // ENHANCED: Content section with better empty states
@@ -213,4 +282,36 @@ struct ArtistDetailViewContent: View {
             return "No \(genre.value) albums are downloaded for offline listening."
         }
     }
+    
+    private var headerBackground: some View {
+        ZStack {
+            // Base background
+            DSColor.surface
+            
+            // ENHANCED: Subtle gradient overlay
+            LinearGradient(
+                colors: [
+                    DSColor.surface,
+                    DSColor.surface.opacity(0.8)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            // ENHANCED: Artist image background blur (if available)
+            if let artistImage = artistImage {
+                Image(uiImage: artistImage)
+                    .resizable()
+                    .scaledToFill()
+                    .blur(radius: 30)
+                    .opacity(0.08)
+                    .clipped()
+            }
+        }
+    }
+
+    private var totalAlbumCount: Int {
+        isOfflineMode ? availableOfflineAlbums.count : albums.count
+    }
+
 }
