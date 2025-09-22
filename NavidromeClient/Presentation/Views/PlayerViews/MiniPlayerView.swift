@@ -1,8 +1,9 @@
 //
-//  MiniPlayerView.swift - FIXED: Background Blur vom Cover
+//  MiniPlayerView.swift - REFACTORED: HeartButton Integration
 //  NavidromeClient
 //
-//   FIXED: Cover-Blur Background statt hellem Surface
+//   REFACTORED: Eigene Heart-Logic durch zentrale HeartButton ersetzt
+//   ADDED: Funktionalität statt TODO-Kommentar
 //
 
 import SwiftUI
@@ -46,13 +47,8 @@ struct MiniPlayerView: View {
                     
                     // Right: Controls
                     HStack(spacing: 16) {
-                        Button {
-                            // TODO: Implement favorite
-                        } label: {
-                            Image(systemName: "heart")
-                                .font(.system(size: 18))
-                                .foregroundStyle(.white.opacity(0.7))
-                        }
+                        // ✅ REFACTORED: HeartButton statt eigene Implementation
+                        HeartButton.miniPlayer(song: song)
                         
                         Button {
                             playerVM.togglePlayPause()
@@ -76,7 +72,7 @@ struct MiniPlayerView: View {
                 .padding(.vertical, 12)
                 .background(
                     ZStack {
-                        // FIXED: Cover Blur Background
+                        // Cover Blur Background
                         if let cover = playerVM.coverArt {
                             Image(uiImage: cover)
                                 .resizable()
@@ -116,7 +112,8 @@ struct MiniPlayerView: View {
     }
 }
 
-// MARK: - Progress Bar mit Spotify-Grün
+// MARK: - Progress Bar mit Spotify-Grün (unchanged)
+
 struct ProgressBarView: View {
     @ObservedObject var playerVM: PlayerViewModel
     @Binding var isDragging: Bool
@@ -129,7 +126,7 @@ struct ProgressBarView: View {
                     .fill(Color.gray.opacity(0.4))
                     .frame(height: 2)
                 
-                // FIXED: Spotify-grüner Progress
+                // Spotify-grüner Progress
                 Rectangle()
                     .fill(Color.green)
                     .frame(width: geometry.size.width * progressPercentage, height: 2)
@@ -158,7 +155,8 @@ struct ProgressBarView: View {
     }
 }
 
-// MARK: - Album Art (unverändert)
+// MARK: - Album Art (unchanged)
+
 struct AlbumArtView: View {
     let cover: UIImage?
     

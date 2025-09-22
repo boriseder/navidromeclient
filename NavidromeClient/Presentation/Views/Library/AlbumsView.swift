@@ -82,8 +82,6 @@ struct AlbumsViewContent: View {
                 }
             ))
         }
-        .navigationTitle("Albums")
-        .navigationBarTitleDisplayMode(.large)
     }
     
     // Business Logic (unverändert)

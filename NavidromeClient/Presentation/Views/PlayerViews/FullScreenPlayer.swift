@@ -1,8 +1,9 @@
 //
-//  FullScreenPlayerView.swift - FIXED: Layout & High-Res
+//  FullScreenPlayerView.swift - REFACTORED: HeartButton Integration
 //  NavidromeClient
 //
-//   FIXED: Alles bleibt im Screen, echte High-Res, Timeline-Indikator
+//   REFACTORED: Eigene Heart-Logic durch zentrale HeartButton ersetzt
+//   ADDED: Funktionalität statt TODO-Kommentar
 //
 
 import SwiftUI
@@ -22,12 +23,8 @@ struct FullScreenPlayerView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-
-               //SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
-                
                 VStack(spacing: 5) {
                     // Top Bar
-                    
                     TopBar(dismiss: dismiss, showingQueue: $showingQueue)
                         .padding(.horizontal, 20)
                     Spacer(minLength: 30)
@@ -43,7 +40,7 @@ struct FullScreenPlayerView: View {
                                         
                     Spacer(minLength: 16)
                     
-                    // FIXED: Progress mit Timeline-Indikator
+                    // Progress mit Timeline-Indikator
                     ProgressSection(playerVM: playerVM, screenWidth: geometry.size.width)
                     
                     Spacer(minLength: 24)
@@ -52,19 +49,14 @@ struct FullScreenPlayerView: View {
                     
                     Spacer()
                     BottomControls(playerVM: playerVM, audioSessionManager: audioSessionManager, screenWidth: geometry.size.width)
-                      //  .padding(.bottom, max(20, geometry.safeAreaInsets.bottom))
-
                 }
                 .frame(maxWidth: geometry.size.width*0.95, maxHeight: geometry.size.height*0.95)
-                // FOR DEBUG only
-                //.background(.red)
                 .padding(.horizontal, 10)
                 .padding(.top, 70)
                 .padding(.bottom, 20)
                 .background {
                     SpotifyBackground(image: highResCoverArt ?? playerVM.coverArt)
                 }
-
             }
             .ignoresSafeArea(.container, edges: [.top, .bottom])
             .offset(y: dragOffset)
@@ -96,20 +88,17 @@ struct FullScreenPlayerView: View {
             }
     }
     
-    // FIXED: Force echte High-Res mit size parameter
     private func loadTrueHighResCoverArt() async {
         guard let song = playerVM.currentSong,
               let albumId = song.albumId else { return }
         
         if let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            // ✅ FIXED: Load 800px + Check if bereits geladen
             if let existingHighRes = coverArtManager.getAlbumImage(for: albumId, size: 800) {
                 print("🎯 High-res cache hit: \(existingHighRes.size.width)x\(existingHighRes.size.height)")
                 highResCoverArt = existingHighRes
                 return
             }
             
-            // Load fresh 800px
             let highRes = await coverArtManager.loadAlbumImage(
                 album: cachedAlbum,
                 size: 800,
@@ -126,30 +115,28 @@ struct FullScreenPlayerView: View {
     }
 }
 
-// MARK: - FIXED: Noch intensiverer Background Blur
+// MARK: - Background (unchanged)
 struct SpotifyBackground: View {
     let image: UIImage?
     
     var body: some View {
         ZStack {
-            //Color.black.ignoresSafeArea()
             Color.black
             
             if let cover = image {
                 Image(uiImage: cover)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    //.ignoresSafeArea()
-                    .blur(radius: 20)     // FIXED: Noch stärker
-                    .opacity(0.9)          // FIXED: Noch sichtbarer
-                    .scaleEffect(1.4)      // FIXED: Noch größer
-                    .brightness(-0.4)      // FIXED: Noch dunkler
+                    .blur(radius: 20)
+                    .opacity(0.9)
+                    .scaleEffect(1.4)
+                    .brightness(-0.4)
             }
         }
     }
 }
 
-// MARK: - Top Bar (unverändert)
+// MARK: - Top Bar (unchanged)
 struct TopBar: View {
     let dismiss: DismissAction
     @Binding var showingQueue: Bool
@@ -177,7 +164,7 @@ struct TopBar: View {
     }
 }
 
-// MARK: - FIXED: Album Art mit fester Breite
+// MARK: - Album Art (unchanged)
 struct SpotifyAlbumArt: View {
     let cover: UIImage?
     let screenWidth: CGFloat
@@ -205,7 +192,7 @@ struct SpotifyAlbumArt: View {
     }
 }
 
-// MARK: - FIXED: Song Info ohne Overflow
+// MARK: - ✅ REFACTORED: Song Info mit HeartButton
 struct SpotifySongInfoView: View {
     let song: Song
     let screenWidth: CGFloat
@@ -228,19 +215,14 @@ struct SpotifySongInfoView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            Button {
-                // TODO: Implement favorite
-            } label: {
-                Image(systemName: "heart")
-                    .font(.system(size: 26))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
+            // ✅ REFACTORED: HeartButton statt eigene Implementation
+            HeartButton.fullScreen(song: song)
         }
         .padding(.horizontal, 20)
     }
 }
 
-// MARK: - FIXED: Progress Section mit Timeline-Indikator
+// MARK: - Progress Section (unchanged)
 struct ProgressSection: View {
     @ObservedObject var playerVM: PlayerViewModel
     let screenWidth: CGFloat
@@ -249,7 +231,6 @@ struct ProgressSection: View {
     
     var body: some View {
         VStack(spacing: 8) {
-
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     // Background track
@@ -316,7 +297,7 @@ struct ProgressSection: View {
     }
 }
 
-// MARK: - FIXED: Main Controls ohne Overflow
+// MARK: - Main Controls (unchanged)
 struct MainControls: View {
     @ObservedObject var playerVM: PlayerViewModel
     
@@ -393,7 +374,7 @@ struct MainControls: View {
     }
 }
 
-// MARK: - FIXED: Bottom Controls mit Audio Source
+// MARK: - Bottom Controls (unchanged)
 struct BottomControls: View {
     @ObservedObject var playerVM: PlayerViewModel
     let audioSessionManager: AudioSessionManager
@@ -410,7 +391,7 @@ struct BottomControls: View {
     }
 }
 
-// MARK: - Audio Source Button
+// MARK: - Audio Source Button (unchanged)
 struct AudioSourceButton: View {
     let audioSessionManager: AudioSessionManager
     
@@ -453,7 +434,7 @@ struct AudioSourceButton: View {
     }
 }
 
-// MARK: - AVRoutePickerView
+// MARK: - AVRoutePickerView (unchanged)
 struct AudioRoutePickerViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let routePickerView = AVRoutePickerView()

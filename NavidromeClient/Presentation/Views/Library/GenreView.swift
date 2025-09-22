@@ -64,8 +64,6 @@ struct GenreViewContent: View {
             }
             .unifiedToolbar(genreToolbarConfig)
         }
-        .navigationTitle("Genres")
-        .navigationBarTitleDisplayMode(.large)
     }
     
     // Business Logic (unverändert)
