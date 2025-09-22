@@ -207,35 +207,14 @@ struct WelcomeHeader: View {
                         .minimumScaleFactor(0.75)
                 }
                 
-                Button (action: {
-                    showingCoverArtDebugView.toggle()
-                })
-                {
-                    Text("click me")
-                }
-                .sheet(isPresented: $showingCoverArtDebugView){
-                    CoverArtDebugView() // deine View, die aufgehen soll
-                }
-
-                
-                
-                
                 Spacer()
                 
-                Button(action: {
-                    // z. B. ein Sheet öffnen
-                    showingNetworkTestView.toggle()
-                }) {
                     Image(systemName: nowPlaying == nil ? "music.note" : "waveform")
                         .font(.system(size: 36, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.9))
                         .padding()
                         .background(.white.opacity(0.15))
                         .clipShape(Circle())
-                }
-                .sheet(isPresented: $showingNetworkTestView){
-                    NetworkTestView() // deine View, die aufgehen soll
-                }
             }
             .padding(.horizontal, 20)
         }

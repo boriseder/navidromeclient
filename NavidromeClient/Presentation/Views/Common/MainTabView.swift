@@ -32,7 +32,7 @@ struct MainTabView: View {
                 VStack {
                     Spacer()
                     customTabBar
-                        .padding(.bottom, geometry.safeAreaInsets.bottom + 10)
+                        .padding(.bottom, geometry.safeAreaInsets.bottom)
                 }
             }
             // Overlays
@@ -40,7 +40,7 @@ struct MainTabView: View {
             .overlay(alignment: .bottom) {
                 MiniPlayerView()
                     .environmentObject(playerVM)
-                    .padding(.bottom, geometry.safeAreaInsets.bottom + 60)
+                    .padding(.bottom, geometry.safeAreaInsets.bottom + 85)
             }
         }
     }
@@ -175,10 +175,4 @@ struct BlurView: UIViewRepresentable {
         uiView.effect = UIBlurEffect(style: style)
     }
 }
-
-
-
-
-// MARK: - ✅ FIXED: View Contents OHNE NavigationStack
-
 
