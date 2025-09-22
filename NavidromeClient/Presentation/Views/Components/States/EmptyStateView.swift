@@ -1,15 +1,14 @@
 //
-//  ConsolidatedStateViews.swift
+//  ConsolidatedStateViews.swift - FIXED: Compile Error
 //  NavidromeClient
 //
-//   CONSOLIDATED: Universal EmptyState and Loading components
-//   REUSABLE: Single source of truth for all empty states
-//   CONSISTENT: Design system applied throughout
+//   FIXED: EmptyStateType Equatable Conformance
+//   ERWEITERT: noConnection, serverError, unauthorized, syncInProgress
 //
 
 import SwiftUI
 
-// MARK: -  Universal Loading View
+// MARK: - Universal Loading View (unchanged)
 
 struct LoadingView: View {
     let title: String
@@ -23,7 +22,6 @@ struct LoadingView: View {
     
     var body: some View {
         VStack(spacing: DSLayout.sectionGap) {
-            // Animated loading circles
             HStack(spacing: DSLayout.elementGap) {
                 ForEach(0..<3) { index in
                     Circle()
@@ -63,7 +61,7 @@ struct LoadingView: View {
     }
 }
 
-// MARK: -  Universal Empty State View
+// MARK: - Universal Empty State View
 
 struct EmptyStateView: View {
     let type: EmptyStateType
@@ -93,7 +91,7 @@ struct EmptyStateView: View {
         VStack(spacing: DSLayout.sectionGap) {
             Image(systemName: iconName)
                 .font(.system(size: 60))
-                .foregroundStyle(DSColor.secondary)
+                .foregroundStyle(iconColor)
             
             VStack(spacing: DSLayout.elementGap) {
                 Text(titleText)
@@ -106,12 +104,10 @@ struct EmptyStateView: View {
                     .multilineTextAlignment(.center)
             }
             
-            // Action buttons
             VStack(spacing: DSLayout.contentGap) {
                 if let primaryAction = primaryAction {
                     Button(primaryAction.title, action: primaryAction.action)
-                } else if !isOnline && !isOfflineMode {
-                    // Auto-generated action for offline scenarios
+                } else if !isOnline && !isOfflineMode && !isNoConnectionType {
                     Button("Switch to Downloaded Music") {
                         offlineManager.switchToOfflineMode()
                     }
@@ -136,17 +132,36 @@ struct EmptyStateView: View {
         return offlineManager.isOfflineMode
     }
     
+    // ✅ FIXED: Helper property instead of comparison
+    private var isNoConnectionType: Bool {
+        switch type {
+        case .noConnection:
+            return true
+        default:
+            return false
+        }
+    }
+    
     private var iconName: String {
         if let customIcon = type.customIcon {
             return customIcon
         }
         
         if !isOnline {
-            return "wifi.slash"
+            return type.noConnectionIcon
         } else if isOfflineMode {
             return type.offlineIcon
         } else {
             return type.onlineIcon
+        }
+    }
+    
+    private var iconColor: Color {
+        switch type {
+        case .serverError, .unauthorized: return DSColor.error
+        case .noConnection: return DSColor.warning
+        case .syncInProgress: return DSColor.accent
+        default: return DSColor.secondary
         }
     }
     
@@ -156,7 +171,7 @@ struct EmptyStateView: View {
         }
         
         if !isOnline {
-            return "No Connection"
+            return type.noConnectionTitle
         } else if isOfflineMode {
             return type.offlineTitle
         } else {
@@ -178,7 +193,8 @@ struct EmptyStateView: View {
         }
     }
     
-    enum EmptyStateType {
+    // ✅ FIXED: EmptyStateType mit Equatable Conformance
+    enum EmptyStateType: Equatable {
         case artists
         case albums
         case songs
@@ -188,7 +204,36 @@ struct EmptyStateView: View {
         case downloads
         case playlists
         case favorites
+        case noConnection
+        case serverError
+        case unauthorized
+        case syncInProgress
         case custom(icon: String, onlineTitle: String, onlineMessage: String)
+        
+        // ✅ FIXED: Equatable implementation
+        static func == (lhs: EmptyStateType, rhs: EmptyStateType) -> Bool {
+            switch (lhs, rhs) {
+            case (.artists, .artists),
+                 (.albums, .albums),
+                 (.songs, .songs),
+                 (.genres, .genres),
+                 (.search, .search),
+                 (.notConfigured, .notConfigured),
+                 (.downloads, .downloads),
+                 (.playlists, .playlists),
+                 (.favorites, .favorites),
+                 (.noConnection, .noConnection),
+                 (.serverError, .serverError),
+                 (.unauthorized, .unauthorized),
+                 (.syncInProgress, .syncInProgress):
+                return true
+            case (.custom(let lIcon, let lTitle, let lMessage),
+                  .custom(let rIcon, let rTitle, let rMessage)):
+                return lIcon == rIcon && lTitle == rTitle && lMessage == rMessage
+            default:
+                return false
+            }
+        }
         
         var customIcon: String? {
             switch self {
@@ -210,6 +255,10 @@ struct EmptyStateView: View {
             case .downloads: return "arrow.down.circle"
             case .playlists: return "music.note.list"
             case .favorites: return "heart"
+            case .noConnection: return "wifi.slash"
+            case .serverError: return "exclamationmark.triangle.fill"
+            case .unauthorized: return "lock.fill"
+            case .syncInProgress: return "arrow.triangle.2.circlepath"
             case .custom(let icon, _, _): return icon
             }
         }
@@ -224,8 +273,16 @@ struct EmptyStateView: View {
             case .downloads: return "arrow.down.circle.slash"
             case .playlists: return "music.note.list.slash"
             case .favorites: return "heart.slash"
+            case .noConnection: return "wifi.slash"
+            case .serverError: return "exclamationmark.triangle.fill"
+            case .unauthorized: return "lock.slash"
+            case .syncInProgress: return "arrow.triangle.2.circlepath"
             default: return onlineIcon
             }
+        }
+        
+        var noConnectionIcon: String {
+            return "wifi.slash"
         }
         
         var onlineTitle: String {
@@ -239,6 +296,10 @@ struct EmptyStateView: View {
             case .downloads: return "No Downloads"
             case .playlists: return "No Playlists"
             case .favorites: return "No Favorites"
+            case .noConnection: return "No Connection"
+            case .serverError: return "Server Error"
+            case .unauthorized: return "Authentication Required"
+            case .syncInProgress: return "Sync in Progress"
             case .custom(_, let title, _): return title
             }
         }
@@ -253,8 +314,16 @@ struct EmptyStateView: View {
             case .downloads: return "No Downloads"
             case .playlists: return "No Offline Playlists"
             case .favorites: return "No Offline Favorites"
+            case .noConnection: return "No Connection"
+            case .serverError: return "Server Error"
+            case .unauthorized: return "Authentication Required"
+            case .syncInProgress: return "Sync in Progress"
             default: return onlineTitle
             }
+        }
+        
+        var noConnectionTitle: String {
+            return "No Connection"
         }
         
         var onlineMessage: String {
@@ -268,6 +337,10 @@ struct EmptyStateView: View {
             case .downloads: return "Download albums while online to enjoy them offline"
             case .playlists: return "Create playlists to organize your music"
             case .favorites: return "Favorite songs and albums to see them here"
+            case .noConnection: return "Check your internet connection and try again"
+            case .serverError: return "The server encountered an error. Please try again later"
+            case .unauthorized: return "Please check your username and password in Settings"
+            case .syncInProgress: return "Your music library is being synchronized. Please wait"
             case .custom(_, _, let message): return message
             }
         }
@@ -282,6 +355,10 @@ struct EmptyStateView: View {
             case .downloads: return "Download content while connected to enjoy offline"
             case .playlists: return "Download playlists to access them offline"
             case .favorites: return "Download your favorite content for offline access"
+            case .noConnection: return "Check your internet connection and try again"
+            case .serverError: return "The server encountered an error. Please try again later"
+            case .unauthorized: return "Please check your username and password in Settings"
+            case .syncInProgress: return "Your music library is being synchronized. Please wait"
             default: return onlineMessage
             }
         }
@@ -296,17 +373,17 @@ struct EmptyStateView: View {
             case .downloads: return "Connection required to download music"
             case .playlists: return "Connect to WiFi or cellular to access playlists"
             case .favorites: return "Connect to WiFi or cellular to access favorites"
+            case .noConnection: return "Check your internet connection and try again"
+            case .serverError: return "The server encountered an error. Please try again later"
+            case .unauthorized: return "Please check your username and password in Settings"
+            case .syncInProgress: return "Your music library is being synchronized. Please wait"
             default: return "Connect to internet to access this content"
             }
         }
     }
-
 }
 
-// MARK: -  Empty State Types
-
-
-// MARK: -  Empty State Action
+// MARK: - Empty State Action
 
 struct EmptyStateAction {
     let title: String
@@ -318,11 +395,10 @@ struct EmptyStateAction {
     }
 }
 
-// MARK: -  Convenience Extensions
+// MARK: - Convenience Extensions
 
 extension EmptyStateView {
     
-    // Quick initializers for common cases
     static func artists() -> EmptyStateView {
         EmptyStateView(type: .artists)
     }
@@ -361,9 +437,34 @@ extension EmptyStateView {
     static func favorites() -> EmptyStateView {
         EmptyStateView(type: .favorites)
     }
+    
+    static func noConnection(onRetry: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            type: .noConnection,
+            primaryAction: EmptyStateAction("Try Again", action: onRetry)
+        )
+    }
+    
+    static func serverError(onRetry: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            type: .serverError,
+            primaryAction: EmptyStateAction("Try Again", action: onRetry)
+        )
+    }
+    
+    static func unauthorized(onOpenSettings: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            type: .unauthorized,
+            primaryAction: EmptyStateAction("Open Settings", action: onOpenSettings)
+        )
+    }
+    
+    static func syncInProgress() -> EmptyStateView {
+        EmptyStateView(type: .syncInProgress)
+    }
 }
 
-// MARK: -  Loading View Variants
+// MARK: - Loading View Variants
 
 extension LoadingView {
     
