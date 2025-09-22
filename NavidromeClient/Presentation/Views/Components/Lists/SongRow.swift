@@ -13,7 +13,8 @@ struct SongRow: View {
     let isPlaying: Bool
     let action: () -> Void
     let onMore: () -> Void
-    
+    let favoriteAction: (() -> Void)? // NEU: Optional für Favorites
+
     @State private var showPlayIndicator = false
     
     var body: some View {
@@ -103,14 +104,22 @@ struct SongRow: View {
     
     // MARK: - Duration (Enhanced)
     private var durationView: some View {
-        Group {
+        HStack(spacing: DSLayout.elementGap) {
             if let duration = song.duration, duration > 0 {
                 Text(formatDuration(duration))
                     .font(DSText.numbers)
                     .foregroundStyle(DSColor.onLight)
                     .monospacedDigit()
-            } else {
-                EmptyView()
+            }
+            
+            // NEU: Herzbutton nur wenn favoriteAction vorhanden
+            if let favoriteAction = favoriteAction {
+                Button(action: favoriteAction) {
+                    Image(systemName: "heart.fill")
+                        .font(.title3)
+                        .foregroundStyle(DSColor.error)
+                }
+                .buttonStyle(.borderless)
             }
         }
     }
@@ -173,5 +182,12 @@ struct EqualizerBars: View {
                 barScales = Array(repeating: 0.3, count: barScales.count)
             }
         }
+    }
+}
+
+// Convenience Initializer für normale Verwendung (ohne Favorite)
+extension SongRow {
+    init(song: Song, index: Int, isPlaying: Bool, action: @escaping () -> Void, onMore: @escaping () -> Void) {
+        self.init(song: song, index: index, isPlaying: isPlaying, action: action, onMore: onMore, favoriteAction: nil)
     }
 }

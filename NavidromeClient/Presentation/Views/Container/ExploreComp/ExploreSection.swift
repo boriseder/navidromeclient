@@ -44,7 +44,7 @@ struct ExploreSectionMigrated: View {
                      .disabled(isRefreshing)
                  }
              }
-             .screenPadding()
+             .padding(.horizontal, DSLayout.screenPadding) // Direkt statt screenPadding()
              UnifiedLibraryContainer(
                  items: albums,
                  isLoading: false,
@@ -58,7 +58,6 @@ struct ExploreSectionMigrated: View {
                  }
              }
          }
-         .frame(height: 250) // feste Höhe für die Reihe
      }
 }
 

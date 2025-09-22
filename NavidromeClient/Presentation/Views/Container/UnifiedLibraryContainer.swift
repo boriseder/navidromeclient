@@ -108,12 +108,11 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
     @ViewBuilder
     private var horizontalLayout: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: spacing) {
+            LazyHStack(spacing: spacing) {
                 itemsWithoutLoadMore()
             }
             .padding(.horizontal, DSLayout.screenPadding)
         }
-        .frame(height: 260)
     }
     
     // MARK: - Item Builders

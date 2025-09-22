@@ -45,7 +45,7 @@ struct ExploreViewContent: View {
     
     private var onlineContent: some View {
         ScrollView {
-            LazyVStack(spacing: DSLayout.screenGap) {
+            LazyVStack(spacing: DSLayout.contentGap) {
                 WelcomeHeader(
                     username: "User",
                     nowPlaying: playerVM.currentSong

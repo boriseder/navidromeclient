@@ -12,6 +12,7 @@ struct CardItemContainer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
+            
             coverImageView()
                 .task(id: content.id) {
                     await loadImage()
@@ -59,6 +60,7 @@ struct CardItemContainer: View {
     @ViewBuilder
     private func coverImageView() -> some View {
         ZStack {
+
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .fill(LinearGradient(
                     colors: [DSColor.accent.opacity(0.3), DSColor.accent.opacity(0.1)],
@@ -66,25 +68,21 @@ struct CardItemContainer: View {
                     endPoint: .bottomTrailing
                 ))
 
-            if let image = loadedImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
-                    .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-            } else if isLoading {
-                ProgressView()
-                    .scaleEffect(0.7)
-                    .tint(.white)
-            } else if errorMessage != nil {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(DSText.largeButton)
-                    .foregroundColor(DSColor.error)
-            } else {
-                Image(systemName: content.iconName)
-                    .font(DSText.largeButton)
-                    .foregroundColor(DSColor.primary.opacity(0.7))
+            // Content mit stabilem frame
+            Group {
+                if let image = loadedImage {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else if isLoading {
+                    ProgressView().scaleEffect(0.7)
+                } else if errorMessage != nil {
+                    Image(systemName: "exclamationmark.triangle")
+                } else {
+                    Image(systemName: content.iconName)
+                }
             }
+            .frame(width: DSLayout.cardCover, height: DSLayout.cardCover) // CRITICAL: Stable frame
         }
         .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
         .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))

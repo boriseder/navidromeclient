@@ -70,11 +70,11 @@ struct FavoritesViewContent: View {
                                 ForEach(displayedSongs.indices, id: \.self) { index in
                                     let song = displayedSongs[index]
                                     
-                                    FavoriteSongRow(
+                                    SongRow(
                                         song: song,
                                         index: index + 1,
                                         isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                                        onPlay: {
+                                        action: {
                                             Task {
                                                 await playerVM.setPlaylist(
                                                     displayedSongs,
@@ -83,7 +83,8 @@ struct FavoritesViewContent: View {
                                                 )
                                             }
                                         },
-                                        onToggleFavorite: {
+                                        onMore: { /* existing more action */ },
+                                        favoriteAction: {
                                             Task {
                                                 await favoritesManager.toggleFavorite(song)
                                             }
