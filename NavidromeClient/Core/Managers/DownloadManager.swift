@@ -1,10 +1,9 @@
 //
-//  DownloadManager.swift - CLEANED: Pure Focused Service Architecture
+//  DownloadManager.swift - FIXED: Missing Metadata Issue
 //  NavidromeClient
 //
-//   ELIMINATED: All legacy service patterns completely
-//   PURE: Only UnifiedSubsonicService dependency for service access
-//   CLEAN: Single configuration path, no dual service patterns
+//   FIXED: Album metadata caching before download starts
+//   CLEAN: Proactive metadata storage to prevent missingMetadata errors
 //
 
 import Foundation
@@ -82,15 +81,15 @@ class DownloadManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print(" DownloadManager configured with UnifiedSubsonicService")
+        print("✅ DownloadManager configured with UnifiedSubsonicService")
     }
     
     func configure(coverArtManager: CoverArtManager) {
         self.coverArtManager = coverArtManager
-        print(" DownloadManager configured with CoverArtManager")
+        print("✅ DownloadManager configured with CoverArtManager")
     }
     
-    // MARK: -  PURE: Download Operations
+    // MARK: -  FIXED: Download Operations with Metadata Caching
     
     func startDownload(album: Album, songs: [Song]) async {
         guard getDownloadState(for: album.id).canStartDownload else {
@@ -105,6 +104,10 @@ class DownloadManager: ObservableObject {
             print("❌ UnifiedSubsonicService not configured for DownloadManager")
             return
         }
+        
+        // ✅ FIXED: Cache album metadata BEFORE download starts
+        AlbumMetadataCache.shared.cacheAlbum(album)
+        print("📦 Cached album metadata for download: \(album.name) (ID: \(album.id))")
         
         setDownloadState(.downloading, for: album.id)
         downloadErrors.removeValue(forKey: album.id)
@@ -146,6 +149,7 @@ class DownloadManager: ObservableObject {
             throw DownloadError.alreadyInProgress
         }
         
+        // ✅ FIXED: Album metadata is now guaranteed to be available
         guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
             throw DownloadError.missingMetadata
         }
@@ -224,7 +228,7 @@ class DownloadManager: ObservableObject {
                     downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
                 }
                 
-                print(" Downloaded: \(song.title) (\(data.count) bytes)")
+                print("✅ Downloaded: \(song.title) (\(data.count) bytes)")
                 
             } catch {
                 print("❌ Download error for \(song.title): \(error)")
@@ -253,7 +257,7 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            print(" Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
+            print("✅ Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
         } else {
             throw DownloadError.noSongsDownloaded
         }
@@ -285,7 +289,7 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        print(" Cached album cover art for \(album.id) in \(sizes.count) sizes")
+        print("✅ Cached album cover art for \(album.id) in \(sizes.count) sizes")
     }
     
     private func downloadArtistImage(for album: Album) async {
@@ -312,7 +316,7 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        print(" Cached artist image for \(artist.name) in \(sizes.count) sizes")
+        print("✅ Cached artist image for \(artist.name) in \(sizes.count) sizes")
     }
     
     // MARK: -  PURE: Stream URL Resolution
@@ -526,7 +530,7 @@ class DownloadManager: ObservableObject {
             NotificationCenter.default.post(name: .downloadDeleted, object: nil)
             objectWillChange.send()
 
-            print(" Deleted album: \(album.albumName)")
+            print("✅ Deleted album: \(album.albumName)")
         }
     }
     
@@ -556,7 +560,7 @@ class DownloadManager: ObservableObject {
         NotificationCenter.default.post(name: .downloadDeleted, object: nil)
         objectWillChange.send()
         
-        print(" Cleared all downloads and notified observers")
+        print("✅ Cleared all downloads and notified observers")
     }
 
     // MARK: - Persistence
@@ -651,7 +655,7 @@ class DownloadManager: ObservableObject {
             let score = healthScore * 100
             
             switch score {
-            case 90...100: return " Excellent"
+            case 90...100: return "✅ Excellent"
             case 70..<90: return "🟢 Good"
             case 50..<70: return "🟡 Fair"
             default: return "🟠 Needs attention"
@@ -661,8 +665,8 @@ class DownloadManager: ObservableObject {
         var summary: String {
             return """
             📊 DOWNLOAD SERVICE DIAGNOSTICS:
-            - UnifiedSubsonicService: \(hasService ? "" : "❌")
-            - CoverArtManager: \(hasCoverArtManager ? "" : "❌")
+            - UnifiedSubsonicService: \(hasService ? "✅" : "❌")
+            - CoverArtManager: \(hasCoverArtManager ? "✅" : "❌")
             - Active Downloads: \(activeDownloads)
             - Total Downloads: \(totalDownloads)
             - Errors: \(errorCount)

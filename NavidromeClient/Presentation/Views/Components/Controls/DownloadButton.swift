@@ -1,9 +1,9 @@
 //
-//  DownloadButton.swift - REFACTORED to Pure UI
+//  DownloadButton.swift - FIXED: Reactive State & Clean Icons
 //  NavidromeClient
 //
-//   CLEAN: All state management moved to DownloadManager
-//   REACTIVE: Uses centralized download state instead of local @State
+//   FIXED: Reactive state observation with proper UI updates
+//   CLEAN: Proper icon symbolism and proportions
 //
 
 import SwiftUI
@@ -16,15 +16,9 @@ struct DownloadButton: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @State private var showingDeleteConfirmation = false
     
-    private let buttonSize: CGFloat = 24
-    
-    private var downloadState: DownloadManager.DownloadState {
-        downloadManager.getDownloadState(for: album.id)
-    }
-    
-    private var progress: Double {
-        downloadManager.downloadProgress[album.id] ?? 0
-    }
+    // ✅ FIXED: Direct state observation for reactivity
+    @State private var currentState: DownloadManager.DownloadState = .idle
+    @State private var currentProgress: Double = 0.0
     
     var body: some View {
         Button {
@@ -32,9 +26,12 @@ struct DownloadButton: View {
         } label: {
             buttonContent
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-
+        .onAppear {
+            updateState()
+        }
+        .onReceive(downloadManager.objectWillChange) { _ in
+            updateState()
+        }
         .confirmationDialog(
             "Delete Downloaded Album?",
             isPresented: $showingDeleteConfirmation,
@@ -49,115 +46,73 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: -  Pure UI Content
+    // ✅ FIXED: Manual state synchronization
+    private func updateState() {
+        currentState = downloadManager.getDownloadState(for: album.id)
+        currentProgress = downloadManager.downloadProgress[album.id] ?? 0.0
+    }
     
+    // ✅ CLEAN: Fixed layout with consistent frame
     @ViewBuilder
     private var buttonContent: some View {
-        ZStack {
-            switch downloadState {
-            case .idle:
-                idleButton
-            case .downloading:
-                downloadingButton
-            case .downloaded:
-                downloadedButton
-            case .error(let message):
-                errorButton(message: message)
-            case .cancelling:
-                cancellingButton
+        HStack(spacing: 8) {
+            // ✅ FIXED: Consistent 20x20 frame for all states
+            Group {
+                switch currentState {
+                case .idle:
+                    Image(systemName: "icloud.and.arrow.down")
+                        .font(.system(size: 18, weight: .medium))
+                case .downloading:
+                    ZStack {
+                        Circle()
+                            .stroke(.white.opacity(0.3), lineWidth: 2)
+                        
+                        Circle()
+                            .trim(from: 0, to: max(0.05, currentProgress))
+                            .stroke(.white, lineWidth: 2)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.easeInOut(duration: 0.2), value: currentProgress)
+                        
+                        Text("\(Int(max(0.05, currentProgress) * 100))%")
+                            .font(.system(size: 6, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                case .downloaded:
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 18, weight: .medium))
+                case .error:
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 18, weight: .medium))
+                case .cancelling:
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .tint(.white)
+                }
             }
-        }
-        .frame(width: buttonSize, height: buttonSize)
-    }
-    
-    private var idleButton: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "cloud")
-            .font(.system(size: buttonSize))
-
+            .frame(width: 20, height: 20) // ✅ FIXED: Consistent frame prevents layout shifts
         }
         .foregroundColor(.white)
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(.blue)
+        .background(buttonBackgroundColor)
         .clipShape(Capsule())
         .shadow(radius: 4)
     }
     
-    
-   
-    
-    private var downloadingButton: some View {
-        ZStack {
-            HStack(spacing: 8) {
-                Image(systemName: "arrow.down.circle")
-                .font(.system(size: buttonSize))
-
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(.blue)
-            .clipShape(Capsule())
-            .shadow(radius: 4)
-
-            Circle()
-                .stroke(.white.opacity(0.3), lineWidth: 2)
-            
-            Circle()
-                .trim(from: 0, to: max(0.05, progress))
-                .stroke(.white, lineWidth: 2)
-                .rotationEffect(.degrees(-90))
-                .animation(.easeInOut(duration: 0.2), value: progress)
-            
-            Text("\(Int(max(0.05, progress) * 100))%")
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundColor(.white)
+    // ✅ CLEAN: Centralized background color logic
+    private var buttonBackgroundColor: Color {
+        switch currentState {
+        case .idle, .downloading: return .blue
+        case .downloaded: return .green
+        case .error: return .red
+        case .cancelling: return .gray
         }
     }
     
-    private var downloadedButton: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: buttonSize))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.blue)
-        .clipShape(Capsule())
-        .shadow(radius: 4)
-
-    }
-    
-    private func errorButton(message: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: buttonSize))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.red)
-        .clipShape(Capsule())
-        .shadow(radius: 4)
-    }
-    
-    private var cancellingButton: some View {
-        ZStack {
-            Circle()
-                .stroke(.gray.opacity(0.3), lineWidth: 2)
-            
-            ProgressView()
-                .scaleEffect(0.7)
-                .tint(.gray)
-        }
-    }
-    
-    // MARK: -  Simple Action Handler
+    // MARK: - Action Handling
     
     private func handleButtonTap() {
-        switch downloadState {
+        switch currentState {
         case .idle, .error:
             startDownload()
         case .downloading:
@@ -169,9 +124,7 @@ struct DownloadButton: View {
         }
     }
     
-    //  FOCUSED: Route through DownloadManager only (no direct service access)
     private func startDownload() {
-        //  ROUTE: DownloadManager handles service access internally
         Task {
             await downloadManager.startDownload(
                 album: album,

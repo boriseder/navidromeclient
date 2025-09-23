@@ -63,7 +63,7 @@ struct AlbumDetailViewContent: View {
             .screenPadding()
             .padding(.bottom, DSLayout.miniPlayerHeight + DSLayout.contentGap)
         }
-        .navigationTitle(album.name)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadAlbumData()

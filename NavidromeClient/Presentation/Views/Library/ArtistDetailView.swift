@@ -1,9 +1,10 @@
 //
-//  ArtistDetailViewContent.swift - ENHANCED: Integration of Modern Header
+//  ArtistDetailViewContent.swift - FIXED: Button Actions & View Issues
 //  NavidromeClient
 //
-//   ENHANCED: Uses new ArtistDetailHeader component
-//   CLEAN: Simplified existing code, better separation of concerns
+//   FIXED: Play All and Shuffle All button implementations
+//   FIXED: Navigation destinations and view structure
+//   CLEAN: Proper error handling and loading states
 //
 
 import SwiftUI
@@ -60,144 +61,68 @@ struct ArtistDetailViewContent: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: DSLayout.screenGap) {
-                // MARK: - Header
-                VStack(spacing: 0) {
-                    ZStack {
-                        // Hintergrund aus Avatar (blur + gradient)
-                        if let artistImage = artistImage {
-                            Image(uiImage: artistImage)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(height: 300)
-                                .clipped()
-                                .blur(radius: 30)
-                                .overlay(
-                                    LinearGradient(
-                                        colors: [.black.opacity(0.5), .clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .ignoresSafeArea(edges: .top)
-                        } else {
-                            Color.gray.opacity(0.3)
-                                .frame(height: 300)
-                                .ignoresSafeArea(edges: .top)
+                // MARK: - Header Section
+                ArtistDetailHeaderView(
+                    context: context,
+                    artistImage: artistImage,
+                    contextTitle: contextTitle,
+                    albumCountText: albumCountText,
+                    contextIcon: contextIcon
+                )
+
+                // MARK: - Action Buttons (FIXED)
+                if !displayAlbums.isEmpty {
+                    HStack(spacing: DSLayout.contentGap) {
+                        Button {
+                            Task { await playAllAlbums() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Play All")
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(.green)
+                            .clipShape(Capsule())
+                            .shadow(radius: 4)
                         }
                         
-                        
-                        
-                        // Avatar + Name
-                        VStack(spacing: 16) {
-                            if let artistImage = artistImage {
-                                Image(uiImage: artistImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 200, height: 200)
-                                    .clipShape(Circle())
-                                    .overlay(
-                                        Circle()
-                                            .stroke(
-                                                LinearGradient(
-                                                    colors: [.blue, .purple],
-                                                    startPoint: .topLeading,
-                                                    endPoint: .bottomTrailing
-                                                ),
-                                                lineWidth: 4
-                                            )
-                                    )
-                                    .shadow(radius: 8)
-                            } else {
-                                Circle()
-                                    .fill(LinearGradient(colors: [.blue, .purple],
-                                                         startPoint: .topLeading,
-                                                         endPoint: .bottomTrailing))
-                                    .frame(width: 140, height: 140)
-                                    .overlay(
-                                        Image(systemName: "music.mic")
-                                            .font(.system(size: 50))
-                                            .foregroundColor(.white)
-                                    )
+                        // Shuffle All Button with correct implementation
+                        Button {
+                            Task { await shuffleAllAlbums() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "shuffle")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Shuffle All")
+                                    .font(.system(size: 16, weight: .semibold))
                             }
-                            
-                            if let name = artist?.name {
-                                Text(name)
-                                    .font(.title.bold())
-                                    .foregroundColor(.white)
-                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 12)
+                            .background(.orange)
+                            .clipShape(Capsule())
+                            .shadow(radius: 4)
                         }
                     }
-                    .padding(.bottom, 24)
-                    
-                    // MARK: - Action Buttons
-                    HStack(spacing: 16) {
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, DSLayout.screenPadding)
+
                 }
-                .screenPadding()
                 
-                // ENHANCED: Content section with better empty states
-                if isLoading {
-                    LoadingView(
-                        title: "Loading Albums...",
-                        subtitle: "Discovering \(contextTitle)'s music"
-                    )
-                    .screenPadding()
-                } else if let error = errorMessage {
-                    // ENHANCED: Error state with retry
-                    VStack(spacing: DSLayout.contentGap) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 40))
-                            .foregroundStyle(DSColor.warning)
-                        
-                        Text("Unable to Load Albums")
-                            .font(DSText.itemTitle)
-                            .foregroundStyle(DSColor.primary)
-                        
-                        Text(error)
-                            .font(DSText.body)
-                            .foregroundStyle(DSColor.secondary)
-                            .multilineTextAlignment(.center)
-                        
-                        Button("Try Again") {
-                            Task { await loadContent() }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    .screenPadding()
-                } else if isOfflineMode && availableOfflineAlbums.isEmpty {
-                    // ENHANCED: Offline empty state
-                    EmptyStateView(
-                        type: .artists,
-                        customTitle: "No Downloaded Content",
-                        customMessage: emptyMessageForContext,
-                        primaryAction: EmptyStateAction("Browse Online Content") {
-                            offlineManager.switchToOnlineMode()
-                        }
-                    )
-                    .screenPadding()
-                } else if !displayAlbums.isEmpty {
-                    // ENHANCED: Albums grid
-                    UnifiedLibraryContainer(
-                        items: displayAlbums,
-                        isLoading: false,
-                        isEmpty: false,
-                        isOfflineMode: isOfflineMode,
-                        emptyStateType: .albums,
-                        layout: .twoColumnGrid
-                    ) { album, index in
-                        NavigationLink(value: album) {
-                            CardItemContainer(content: .album(album), index: index)
-                        }
-                    }
-                }
+                // MARK: - Content Section
+                contentSection
                 
                 Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
         }
-        .navigationTitle(contextTitle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(for: Album.self) { album in
+            AlbumDetailViewContent(album: album)
+        }
         .task {
             await loadContent()
         }
@@ -205,8 +130,157 @@ struct ArtistDetailViewContent: View {
             await loadContent()
         }
     }
+        
     
-    // MARK: - ENHANCED: Data Loading
+    // MARK: - Content Section
+    
+    @ViewBuilder
+    private var contentSection: some View {
+            if isLoading {
+                LoadingView(
+                    title: "Loading Albums...",
+                    subtitle: "Discovering \(contextTitle)'s music"
+                )
+                .screenPadding()
+            } else if let error = errorMessage {
+                errorStateView
+            } else if isOfflineMode && availableOfflineAlbums.isEmpty {
+                offlineEmptyStateView
+            } else if !displayAlbums.isEmpty {
+                albumsGridView
+            } else {
+                EmptyStateView(
+                    type: .albums,
+                    customTitle: "No Albums Found",
+                    customMessage: "No albums available for \(contextTitle)"
+                )
+                .screenPadding()
+            }
+    }
+    
+    @ViewBuilder
+    private var errorStateView: some View {
+        VStack(spacing: DSLayout.contentGap) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 40))
+                .foregroundStyle(DSColor.warning)
+            
+            Text("Unable to Load Albums")
+                .font(DSText.itemTitle)
+                .foregroundStyle(DSColor.primary)
+            
+            Text(errorMessage ?? "Unknown error occurred")
+                .font(DSText.body)
+                .foregroundStyle(DSColor.secondary)
+                .multilineTextAlignment(.center)
+            
+            Button("Try Again") {
+                Task { await loadContent() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .screenPadding()
+    }
+    
+    @ViewBuilder
+    private var offlineEmptyStateView: some View {
+        EmptyStateView(
+            type: .artists,
+            customTitle: "No Downloaded Content",
+            customMessage: emptyMessageForContext,
+            primaryAction: EmptyStateAction("Browse Online Content") {
+                offlineManager.switchToOnlineMode()
+            }
+        )
+        .screenPadding()
+    }
+    
+    @ViewBuilder
+    private var albumsGridView: some View {
+        UnifiedLibraryContainer(
+            items: displayAlbums,
+            isLoading: false,
+            isEmpty: false,
+            isOfflineMode: isOfflineMode,
+            emptyStateType: .albums,
+            layout: .twoColumnGrid
+        ) { album, index in
+            NavigationLink(value: album) {
+                CardItemContainer(content: .album(album), index: index)
+            }
+        }
+    }
+    
+    // MARK: - Button Action Methods
+    
+    /// Play all albums sequentially
+    private func playAllAlbums() async {
+        let albumsToPlay = displayAlbums
+        guard !albumsToPlay.isEmpty else {
+            print("⚠️ No albums to play")
+            return
+        }
+        
+        print("🎵 Playing all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
+        
+        var allSongs: [Song] = []
+        
+        // Load songs from all albums
+        for album in albumsToPlay {
+            let songs = await navidromeVM.loadSongs(for: album.id)
+            allSongs.append(contentsOf: songs)
+        }
+        
+        guard !allSongs.isEmpty else {
+            print("⚠️ No songs found in albums")
+            return
+        }
+        
+        print("🎵 Starting playback with \(allSongs.count) songs")
+        await playerVM.setPlaylist(allSongs, startIndex: 0, albumId: nil)
+        
+        // Ensure shuffle is OFF for play all
+        if playerVM.isShuffling {
+            playerVM.toggleShuffle()
+        }
+    }
+    
+    /// Shuffle all albums
+    private func shuffleAllAlbums() async {
+        let albumsToPlay = displayAlbums
+        guard !albumsToPlay.isEmpty else {
+            print("⚠️ No albums to shuffle")
+            return
+        }
+        
+        print("🔀 Shuffling all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
+        
+        var allSongs: [Song] = []
+        
+        // Load songs from all albums
+        for album in albumsToPlay {
+            let songs = await navidromeVM.loadSongs(for: album.id)
+            allSongs.append(contentsOf: songs)
+        }
+        
+        guard !allSongs.isEmpty else {
+            print("⚠️ No songs found in albums")
+            return
+        }
+        
+        // Shuffle the complete song list
+        let shuffledSongs = allSongs.shuffled()
+        
+        print("🔀 Starting shuffled playback with \(shuffledSongs.count) songs")
+        await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
+        
+        // Ensure shuffle is ON for shuffle all
+        if !playerVM.isShuffling {
+            playerVM.toggleShuffle()
+        }
+    }
+    
+    // MARK: - Data Loading
     
     @MainActor
     private func loadContent() async {
@@ -234,9 +308,11 @@ struct ArtistDetailViewContent: View {
         
         do {
             albums = try await musicLibraryManager.loadAlbums(context: context)
+            print("✅ Loaded \(albums.count) albums for \(contextTitle)")
         } catch {
             errorMessage = "Failed to load albums: \(error.localizedDescription)"
             albums = availableOfflineAlbums
+            print("❌ Failed to load albums: \(error)")
         }
     }
     
@@ -249,30 +325,24 @@ struct ArtistDetailViewContent: View {
         }
     }
     
-    // ENHANCED: Shuffle functionality moved from header
-    private func shufflePlayAllAlbums() async {
-        let albumsToPlay = displayAlbums
-        guard !albumsToPlay.isEmpty else { return }
-        
-        var allSongs: [Song] = []
-        
-        // Load songs from all albums
-        for album in albumsToPlay {
-            let songs = await navidromeVM.loadSongs(for: album.id)
-            allSongs.append(contentsOf: songs)
-        }
-        
-        guard !allSongs.isEmpty else { return }
-        
-        let shuffledSongs = allSongs.shuffled()
-        await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
-        
-        if !playerVM.isShuffling {
-            playerVM.toggleShuffle()
+    // MARK: - Helper Properties
+    
+    private var contextIcon: String {
+        switch context {
+        case .artist: return "music.mic"
+        case .genre: return "music.note.list"
         }
     }
     
-    // MARK: - Helper Properties
+    private var albumCountText: String {
+        let count = displayAlbums.count
+        switch context {
+        case .artist:
+            return "\(count) Album\(count != 1 ? "s" : "")"
+        case .genre:
+            return "\(count) Album\(count != 1 ? "s" : "") in this genre"
+        }
+    }
     
     private var emptyMessageForContext: String {
         switch context {
@@ -282,36 +352,4 @@ struct ArtistDetailViewContent: View {
             return "No \(genre.value) albums are downloaded for offline listening."
         }
     }
-    
-    private var headerBackground: some View {
-        ZStack {
-            // Base background
-            DSColor.surface
-            
-            // ENHANCED: Subtle gradient overlay
-            LinearGradient(
-                colors: [
-                    DSColor.surface,
-                    DSColor.surface.opacity(0.8)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            // ENHANCED: Artist image background blur (if available)
-            if let artistImage = artistImage {
-                Image(uiImage: artistImage)
-                    .resizable()
-                    .scaledToFill()
-                    .blur(radius: 30)
-                    .opacity(0.08)
-                    .clipped()
-            }
-        }
-    }
-
-    private var totalAlbumCount: Int {
-        isOfflineMode ? availableOfflineAlbums.count : albums.count
-    }
-
 }
