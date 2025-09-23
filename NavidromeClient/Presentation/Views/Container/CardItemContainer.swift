@@ -12,9 +12,16 @@ struct CardItemContainer: View {
     let content: CardContent
     let index: Int
     
+    private let textHeight: CGFloat = 70 // fixe Höhe für Titel/Subtitel/Year
+    
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
             imageView
+                .resizable()
+                .scaledToFill()
+                .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
+                .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
+                .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
             
             VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text(content.title)
@@ -22,14 +29,12 @@ struct CardItemContainer: View {
                     .foregroundColor(DSColor.primary)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
-
+                
                 Text(content.subtitle)
                     .font(DSText.metadata)
                     .foregroundColor(DSColor.secondary)
                     .lineLimit(2)
-                    .multilineTextAlignment(.leading)
                     .truncationMode(.tail)
-                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 if let year = content.year {
@@ -37,21 +42,21 @@ struct CardItemContainer: View {
                         .font(DSText.footnote)
                         .foregroundColor(DSColor.tertiary)
                 } else {
-                    Text("").hidden()
+                    Text("").hidden() // Platzhalter, damit Höhe gleich bleibt
                 }
             }
-            .frame(maxWidth: DSLayout.cardCover)
+            .frame(height: textHeight)
+            .frame(maxWidth: DSLayout.cardCover, alignment: .leading)
         }
         .padding(DSLayout.elementPadding)
-        .background(
-            Color(DSColor.surfaceLight)
-                .opacity(0.5)
-        )
+        .background(.ultraThinMaterial) // Material-Hintergrund
         .overlay(
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .stroke(Color(.systemGray4), lineWidth: 0.5)
         )
         .cornerRadius(DSCorners.tight)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(content.title), \(content.subtitle), \(content.year ?? "")")
     }
     
     @ViewBuilder
