@@ -159,7 +159,7 @@ class NavidromeViewModel: ObservableObject {
     }
     
     //  FOCUSED: Artist/Genre Detail via ContentService only
-    func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
+    func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {
         guard let contentService = contentService else {
             throw URLError(.networkConnectionLost)
         }

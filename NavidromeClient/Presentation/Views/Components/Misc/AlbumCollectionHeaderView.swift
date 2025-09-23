@@ -8,8 +8,8 @@ import SwiftUI
 
 // MARK: - Extracted Header View
 
-struct ArtistDetailHeaderView: View {
-    let context: ArtistDetailContext
+struct AlbumCollectionHeaderView: View {
+    let context: AlbumCollectionContext
     let artistImage: UIImage?
     let contextTitle: String
     let albumCountText: String

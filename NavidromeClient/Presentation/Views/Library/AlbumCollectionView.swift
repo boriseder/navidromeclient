@@ -9,13 +9,13 @@
 
 import SwiftUI
 
-enum ArtistDetailContext {
+enum AlbumCollectionContext {
     case artist(Artist)
     case genre(Genre)
 }
 
-struct ArtistDetailViewContent: View {
-    let context: ArtistDetailContext
+struct AlbumCollectionView: View {
+    let context: AlbumCollectionContext
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -62,7 +62,7 @@ struct ArtistDetailViewContent: View {
         ScrollView {
             LazyVStack(spacing: DSLayout.screenGap) {
                 // MARK: - Header Section
-                ArtistDetailHeaderView(
+                AlbumCollectionHeaderView(
                     context: context,
                     artistImage: artistImage,
                     contextTitle: contextTitle,

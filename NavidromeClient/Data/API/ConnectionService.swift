@@ -155,19 +155,20 @@ class ConnectionService: ObservableObject {
             URLQueryItem(name: "c", value: "NavidromeClient")
         ]
         
-        // Validate and add parameters
+        // Validate and add parameters mit proper encoding
         for (key, value) in params {
             guard validateParameter(key: key, value: value) else {
                 print("❌ Invalid parameter: \(key)")
                 continue
             }
+            
+            // URL-encode den Wert für Sonderzeichen
             queryItems.append(URLQueryItem(name: key, value: value))
         }
         
         components.queryItems = queryItems
         return components.url
     }
-    
     // MARK: -  HEALTH MONITORING
     
     func performHealthCheck() async -> ConnectionHealth {
@@ -216,7 +217,8 @@ class ConnectionService: ObservableObject {
     private func validateParameter(key: String, value: String) -> Bool {
         guard key.count <= 50, value.count <= 1000 else { return false }
         
-        let dangerousChars = CharacterSet(charactersIn: "<>\"'&;")
+        // Nur echte Security-Risiken blocken, nicht Genre-Zeichen
+        let dangerousChars = CharacterSet(charactersIn: "<>\"'")
         return key.rangeOfCharacter(from: dangerousChars) == nil &&
                value.rangeOfCharacter(from: dangerousChars) == nil
     }

@@ -298,7 +298,7 @@ class MusicLibraryManager: ObservableObject {
     // MARK: -  ARTIST/GENRE DETAIL SUPPORT with Direct Service Access
     
     
-    func loadAlbums(context: ArtistDetailContext) async throws -> [Album] {
+    func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {
         //  DIRECT SERVICE ACCESS
         guard let service = service else {
             print("❌ UnifiedSubsonicService not available for context loading")

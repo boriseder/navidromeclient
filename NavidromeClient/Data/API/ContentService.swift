@@ -66,13 +66,49 @@ class ContentService {
     func getAlbumsByGenre(genre: String) async throws -> [Album] {
         guard !genre.isEmpty else { return [] }
         
-        let decoded: SubsonicResponse<AlbumListContainer> = try await fetchData(
-            endpoint: "getAlbumList2",
-            params: ["type": "byGenre", "genre": genre],
-            type: SubsonicResponse<AlbumListContainer>.self
-        )
+        print("🎵 DEBUG: Original genre: '\(genre)'")
         
-        return decoded.subsonicResponse.albumList2.album
+        let params = ["type": "byGenre", "genre": genre]
+        print("🎵 DEBUG: Request params: \(params)")
+        
+        // Test URL building
+        if let testURL = connectionService.buildURL(endpoint: "getAlbumList2", params: params) {
+            print("🎵 DEBUG: Built URL: \(testURL.absoluteString)")
+        } else {
+            print("❌ DEBUG: Failed to build URL")
+        }
+        
+        do {
+            let decoded: SubsonicResponse<AlbumListContainer> = try await fetchData(
+                endpoint: "getAlbumList2",
+                params: params,
+                type: SubsonicResponse<AlbumListContainer>.self
+            )
+            
+            let albums = decoded.subsonicResponse.albumList2.album
+            print("✅ DEBUG: Found \(albums.count) albums for genre '\(genre)'")
+            return albums
+            
+        } catch {
+            print("❌ DEBUG: getAlbumsByGenre failed with error: \(error)")
+            
+            // Fallback: Test mit fetchDataWithFallback
+            print("🔄 DEBUG: Trying fallback method...")
+            
+            let emptyAlbumList = AlbumList(album: [])
+            let emptyContainer = AlbumListContainer(albumList2: emptyAlbumList)
+            let fallbackResponse = SubsonicResponse<AlbumListContainer>(subsonicResponse: emptyContainer)
+            
+            let result = try await fetchDataWithFallback(
+                endpoint: "getAlbumList2",
+                params: params,
+                type: SubsonicResponse<AlbumListContainer>.self,
+                fallback: fallbackResponse
+            )
+            
+            print("✅ DEBUG: Fallback returned \(result.subsonicResponse.albumList2.album.count) albums")
+            return result.subsonicResponse.albumList2.album
+        }
     }
     
     // MARK: -  ARTISTS API
