@@ -17,7 +17,6 @@ struct CardItemContainer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
             imageView
-                .resizable()
                 .scaledToFill()
                 .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
                 .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
