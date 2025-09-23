@@ -50,7 +50,7 @@ struct ArtistsViewContent: View {
                 layout: .list
             ) { artist, index in
                 NavigationLink(value: artist) {
-                    ListItemContainer(content: .artist(artist), index: index)
+                    ListItemContainer(content: CardContent.artist(artist), index: index)
                 }
             }
             .searchable(text: $searchText, prompt: "Search artists...")

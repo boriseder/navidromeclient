@@ -49,9 +49,9 @@ struct GenreViewContent: View {
                 onItemTap: { _ in } // Still empty, but NavigationLink should handle it
             ) { genre, index in
                 NavigationLink(value: genre) {
-                    ListItemContainer(content: .genre(genre), index: index)
+                    ListItemContainer(content: CardContent.genre(genre), index: index)
                 }
-                
+
             }
             .searchable(text: $searchText, prompt: "Search genres...")
             .refreshable { await refreshAllData() }

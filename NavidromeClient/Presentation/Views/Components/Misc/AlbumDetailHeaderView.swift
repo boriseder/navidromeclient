@@ -1,8 +1,12 @@
+//
+//  AlbumDetailHeaderView.swift - UPDATED: Consistent Image Loading
+//
+
 import SwiftUI
 
 struct AlbumHeaderView: View {
     let album: Album
-    let cover: UIImage?
+    let cover: UIImage? // DEPRECATED: Will be removed
     let songs: [Song]
     let isOfflineAlbum: Bool
     
@@ -12,20 +16,15 @@ struct AlbumHeaderView: View {
     
     var body: some View {
         VStack(spacing: DSLayout.sectionGap) {
+            let size = UIScreen.main.bounds.width * 0.7
             
-                let size = UIScreen.main.bounds.width * 0.7
-                // Großes Cover, zentral
-                AlbumImageView(album: album, index: 0, size: size)
-                .frame(
-                    width: size,
-                    height: size
-                )
+            // UPDATED: Use AlbumImageView instead of custom logic
+            AlbumImageView(album: album, index: 0, size: size)
                 .clipShape(RoundedRectangle(cornerRadius: DSCorners.content))
                 .shadow(radius: 10)
                 .padding(.top, DSLayout.screenGap)
             
-            
-            // Album Infos
+            // Album Info (unchanged)
             VStack(spacing: DSLayout.elementGap) {
                 Text(album.name)
                     .font(DSText.itemTitle)
@@ -42,7 +41,7 @@ struct AlbumHeaderView: View {
             }
             .padding(.horizontal, DSLayout.contentPadding)
             
-            // MARK: - Action Buttons            
+            // Action Buttons (unchanged)
             HStack(spacing: DSLayout.contentGap) {
                 PlayButton(album: album, songs: songs)
                 ShuffleButton(album: album, songs: songs)
@@ -59,6 +58,7 @@ struct AlbumHeaderView: View {
         }
     }
     
+    // Helper methods unchanged
     private func buildMetadataString() -> String {
         var parts: [String] = []
         
@@ -79,23 +79,5 @@ struct AlbumHeaderView: View {
         let minutes = seconds / 60
         let remaining = seconds % 60
         return String(format: "%d:%02d", minutes, remaining)
-    }
-}
-
-struct CircleButton: View {
-    let systemName: String
-    let color: Color
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(.white)
-                .frame(width: 60, height: 60)
-                .background(color)
-                .clipShape(Circle())
-                .shadow(radius: 6)
-        }
     }
 }

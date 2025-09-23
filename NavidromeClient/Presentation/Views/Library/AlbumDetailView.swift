@@ -9,7 +9,7 @@ import SwiftUI
 struct AlbumDetailViewContent: View {
     let album: Album
     @State private var scrollOffset: CGFloat = 0
-    
+
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
@@ -18,16 +18,15 @@ struct AlbumDetailViewContent: View {
     @EnvironmentObject var offlineManager: OfflineManager
     
     @State private var songs: [Song] = []
-    @State private var coverArt: UIImage?
     @State private var isOfflineAlbum = false
     
     var body: some View {
         ScrollView {
             VStack(spacing: DSLayout.screenGap) {
-
+                // UPDATED: Remove coverArt parameter
                 AlbumHeaderView(
                     album: album,
-                    cover: coverArt,
+                    cover: nil, // DEPRECATED: Parameter will be removed in next version
                     songs: songs,
                     isOfflineAlbum: isOfflineAlbum
                 )
@@ -74,7 +73,6 @@ struct AlbumDetailViewContent: View {
     private func loadAlbumData() async {
         isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
         
-        coverArt = await coverArtManager.loadAlbumImage(album: album, size: Int(DSLayout.fullCover))
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }

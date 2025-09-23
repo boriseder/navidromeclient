@@ -54,7 +54,7 @@ struct AlbumsViewContent: View {
                 }
             ) { album, index in
                 NavigationLink(value: album) {
-                    CardItemContainer(content: .album(album), index: index)
+                    CardItemContainer(content: CardContent.album(album), index: index)
                 }
             }
             .searchable(text: $searchText, prompt: "Search albums...")

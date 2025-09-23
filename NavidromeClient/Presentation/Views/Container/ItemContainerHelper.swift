@@ -1,12 +1,13 @@
 //
-//  Helper.swift
+//  ItemContainerHelper.swift - UPDATED: CardContent extensions
 //  NavidromeClient
 //
-//  Created by Boris Eder on 18.09.25.
+//  Extension to CardContent for presentation logic
 //
+
 import SwiftUI
 
-// MARK: - Extension to CoverCardContent
+// MARK: - Extension to CardContent
 // This extension handles the presentation logic based on the enum type
 extension CardContent {
     var id: String {

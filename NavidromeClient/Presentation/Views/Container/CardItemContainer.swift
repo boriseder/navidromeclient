@@ -1,22 +1,21 @@
+//
+//  CardItemContainer.swift - FIXED: Import CardContent
+//  NavidromeClient
+//
+//  ELIMINATED: Custom image loading states and logic
+//  CLEAN: Delegates to specialized image views
+//
+
 import SwiftUI
 
 struct CardItemContainer: View {
-    @EnvironmentObject var coverArtManager: CoverArtManager
-
     let content: CardContent
     let index: Int
     
-    @State private var loadedImage: UIImage?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
-            coverImageView()
-                .task(id: content.id) {
-                    await loadImage()
-                }
-
+            imageView
+            
             VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text(content.title)
                     .font(DSText.emphasized)
@@ -53,11 +52,22 @@ struct CardItemContainer: View {
                 .stroke(Color(.systemGray4), lineWidth: 0.5)
         )
         .cornerRadius(DSCorners.tight)
-
     }
     
     @ViewBuilder
-    private func coverImageView() -> some View {
+    private var imageView: some View {
+        switch content {
+        case .album(let album):
+            AlbumImageView(album: album, index: index, size: DSLayout.cardCover)
+        case .artist(let artist):
+            ArtistImageView(artist: artist, index: index, size: DSLayout.cardCover)
+        case .genre:
+            staticGenreIcon
+        }
+    }
+    
+    @ViewBuilder
+    private var staticGenreIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .fill(LinearGradient(
@@ -65,58 +75,12 @@ struct CardItemContainer: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ))
-
-            if let image = loadedImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
-                    .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-            } else if isLoading {
-                ProgressView()
-                    .scaleEffect(0.7)
-                    .tint(.white)
-            } else if errorMessage != nil {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(DSText.largeButton)
-                    .foregroundColor(DSColor.error)
-            } else {
-                Image(systemName: content.iconName)
-                    .font(DSText.largeButton)
-                    .foregroundColor(DSColor.primary.opacity(0.7))
-            }
+            
+            Image(systemName: "music.note.list")
+                .font(.system(size: DSLayout.largeIcon))
+                .foregroundColor(DSColor.primary.opacity(0.7))
         }
         .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
         .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
-    }
-    
-    private func loadImage() async {
-        let imageSize = Int(DSLayout.cardCover * 3) // High res for sharp display
-        
-        isLoading = true
-        defer { isLoading = false }
-        
-        switch content {
-        case .album(let album):
-            loadedImage = await coverArtManager.loadAlbumImage(
-                album: album,
-                size: imageSize,
-                staggerIndex: index
-            )
-        case .artist(let artist):
-            loadedImage = await coverArtManager.loadArtistImage(
-                artist: artist,
-                size: imageSize,
-                staggerIndex: index
-            )
-        case .genre:
-            // Genres don't have images
-            break
-        }
-        if loadedImage == nil {
-            errorMessage = "Image load failed"
-        }
-        isLoading = false
-
     }
 }

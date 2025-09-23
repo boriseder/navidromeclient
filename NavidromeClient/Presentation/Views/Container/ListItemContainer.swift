@@ -1,3 +1,11 @@
+//
+//  ListItemContainer.swift - REFACTORED: Eliminated Custom Loading
+//  NavidromeClient
+//
+//  ELIMINATED: Custom image loading states and logic
+//  CLEAN: Delegates to specialized image views
+//
+
 import SwiftUI
 
 enum CardContent {
@@ -7,22 +15,13 @@ enum CardContent {
 }
 
 struct ListItemContainer: View {
-    @EnvironmentObject var coverArtManager: CoverArtManager
-
     let content: CardContent
     let index: Int
     
-    @State private var loadedImage: UIImage?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-
     var body: some View {
         HStack(spacing: DSLayout.tightGap) {
-            coverImageOrIconView()
-                .task(id: content.id) {
-                    await loadImage()
-                }
-
+            imageView
+            
             VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text(content.title)
                     .font(DSText.emphasized)
@@ -51,81 +50,35 @@ struct ListItemContainer: View {
                 .stroke(Color(.systemGray4), lineWidth: 0.5)
         )
         .cornerRadius(DSCorners.tight)
-
     }
     
     @ViewBuilder
-    private func coverImageOrIconView() -> some View {
-        ZStack {
-            Circle()
-                .fill(DSColor.overlayLight)
-                .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
-            
-            switch content {
-            case .artist, .album:
-                if let loadedImage = loadedImage {
-                    Image(uiImage: loadedImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
-                        .clipShape(content.clipShape)
-                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                } else if isLoading {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .tint(.white)
-                } else if errorMessage != nil {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(DSText.largeButton)
-                        .foregroundColor(DSColor.error)
-                } else {
-                    Image(systemName: content.iconName)
-                        .font(.system(size: DSLayout.largeIcon))
-                        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
-                        .scaledToFill()
-                        .foregroundColor(DSColor.primary.opacity(0.7))
-                }
-            case .genre:
-                Image(systemName: content.iconName)
-                    .font(.system(size: DSLayout.largeIcon))
-                    .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
-                    .scaledToFill()
-                    .foregroundColor(DSColor.primary.opacity(0.7))
-            }
-                
-        }
-        .frame(width: DSLayout.avatar, height: DSLayout.avatar)
-    }
-    
-    
-    private func loadImage() async {
-        let imageSize = Int(DSLayout.smallAvatar * 3) // High res for sharp display
-
-        isLoading = true
-        defer { isLoading = false }
-
+    private var imageView: some View {
         switch content {
         case .album(let album):
-            loadedImage = await coverArtManager.loadAlbumImage(
-                album: album,
-                size: imageSize,
-                staggerIndex: index
-            )
+            AlbumImageView(album: album, index: index, size: DSLayout.smallAvatar)
+                .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
         case .artist(let artist):
-            loadedImage = await coverArtManager.loadArtistImage(
-                artist: artist,
-                size: imageSize,
-                staggerIndex: index
-            )
+            ArtistImageView(artist: artist, index: index, size: DSLayout.smallAvatar)
         case .genre:
-            // Genres don't have images
-            break
+            staticGenreIcon
         }
-        
-        if loadedImage == nil {
-            errorMessage = "Image load failed"
+    }
+    
+    @ViewBuilder
+    private var staticGenreIcon: some View {
+        ZStack {
+            Circle()
+                .fill(LinearGradient(
+                    colors: [DSColor.accent.opacity(0.3), DSColor.accent.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+            
+            Image(systemName: "music.note.list")
+                .font(.system(size: DSLayout.icon))
+                .foregroundColor(DSColor.primary.opacity(0.7))
         }
-        isLoading = false
-
+        .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)
     }
 }
