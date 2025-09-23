@@ -353,8 +353,6 @@ class MusicLibraryManager: ObservableObject {
     
     private func handleImmediateOfflineSwitch() async {
         OfflineManager.shared.switchToOfflineMode()
-        await NetworkMonitor.shared.checkServerConnection()
-        print("⚡ Immediate offline switch completed")
     }
     
     private func handleOfflineFallback() async {

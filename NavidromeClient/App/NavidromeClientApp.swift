@@ -213,8 +213,6 @@ struct NavidromeClientApp: App {
     private func performAppActivationHealthCheck() async {
         print("🔄 App activation health check...")
         
-        // Force NetworkMonitor server health check
-        await networkMonitor.forceServerHealthCheck()
         
         // NavidromeViewModel connection health check
         await navidromeVM.performConnectionHealthCheck()

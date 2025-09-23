@@ -1,109 +1,217 @@
 //
-//  OfflineManager.swift - ENHANCED with Complete Reset Logic
+//  OfflineManager.swift - CLEAN: State Machine Pattern
+//  NavidromeClient
+//
+//   REPLACED: Boolean offline mode with proper state machine
+//   CLEAN: Clear distinction between user choice and network-forced offline
+//   SIMPLIFIED: Reactive data loading from unified sources
 //
 
 import Foundation
 import SwiftUI
+import Combine
 
-// MARK: - Offline Manager
+
 @MainActor
 class OfflineManager: ObservableObject {
     static let shared = OfflineManager()
     
-    @Published var isOfflineMode = false
-    @Published var offlineAlbums: [Album] = []
+    // MARK: - State Machine
     
-    private let downloadManager: DownloadManager
-    private let networkMonitor: NetworkMonitor
+    enum Mode: Equatable {
+        case online
+        case offline(userChoice: Bool) // true = user chose, false = forced by network
+        
+        var isOffline: Bool {
+            switch self {
+            case .online: return false
+            case .offline: return true
+            }
+        }
+                
+        var displayDescription: String {
+            switch self {
+            case .online: return "Online Mode"
+            case .offline(userChoice: true): return "Offline Mode (User Choice)"
+            case .offline(userChoice: false): return "Offline Mode (No Connection)"
+            }
+        }
+    }
+    
+    @Published private(set) var currentMode: Mode = .online
+    
+    // MARK: - Offline Data (Computed from UnifiedOfflineStore)
+    
+    var offlineAlbums: [Album] {
+        let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
+        return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
+    }
+    
+    var offlineArtists: [Artist] {
+        extractUniqueArtists(from: offlineAlbums)
+    }
+    
+    var offlineGenres: [Genre] {
+        extractUniqueGenres(from: offlineAlbums)
+    }
+    
+    // MARK: - Dependencies
+    
+    private let downloadManager = DownloadManager.shared
+    private let networkMonitor = NetworkMonitor.shared
     
     private init() {
-        self.downloadManager = DownloadManager.shared
-        self.networkMonitor = NetworkMonitor.shared
+        observeNetworkChanges()
+        observeDownloadChanges()
+    }
+    
+    // MARK: - Public API
+    
+    func switchToOnlineMode() {
+        guard networkMonitor.isConnected && networkMonitor.canLoadOnlineContent else {
+            print("⚠️ Cannot switch to online: network unavailable")
+            return
+        }
         
-        loadOfflineAlbumsSync()
+        print("🌐 Switching to online mode")
+        currentMode = .online
+        notifyModeChange()
+    }
+
+    func switchToOfflineMode() {
+        print("📱 Switching to offline mode (user choice)")
+        currentMode = .offline(userChoice: true)
+        notifyModeChange()
+    }
+    
+    func toggleOfflineMode() {
+        switch currentMode {
+        case .online:
+            switchToOfflineMode()
+        case .offline(userChoice: true):
+            switchToOnlineMode()
+        case .offline:
+            print("⚠️ Cannot switch to online: network unavailable")
+        }
+    }
+    
+    func handleNetworkLoss() {
+        if case .online = currentMode {
+            print("📵 Network lost - forcing offline mode")
+            currentMode = .offline(userChoice: false)
+            notifyModeChange()
+        }
+    }
+    
+    func handleNetworkRestored() {
+        if case .offline(userChoice: false) = currentMode {
+            print("📶 Network restored - switching back to online mode")
+            currentMode = .online
+            notifyModeChange()
+        }
+    }
+    
+    // MARK: - Convenience Properties
+    
+    var isOfflineMode: Bool {
+        currentMode.isOffline
+    }
+    
+    // MARK: - Album/Artist/Genre Queries
+    
+    func getOfflineAlbums(for artist: Artist) -> [Album] {
+        return offlineAlbums.filter { $0.artist == artist.name }
+    }
+    
+    func getOfflineAlbums(for genre: Genre) -> [Album] {
+        return offlineAlbums.filter { $0.genre == genre.value }
+    }
+    
+    func isAlbumAvailableOffline(_ albumId: String) -> Bool {
+        return downloadManager.isAlbumDownloaded(albumId)
+    }
+    
+    func isArtistAvailableOffline(_ artistName: String) -> Bool {
+        return offlineAlbums.contains { $0.artist == artistName }
+    }
+    
+    func isGenreAvailableOffline(_ genreName: String) -> Bool {
+        return offlineAlbums.contains { $0.genre == genreName }
+    }
+    
+    // MARK: - Statistics
+    
+    var offlineStats: OfflineStats {
+        return OfflineStats(
+            albumCount: offlineAlbums.count,
+            artistCount: offlineArtists.count,
+            genreCount: offlineGenres.count,
+            totalSongs: offlineAlbums.reduce(0) { $0 + ($1.songCount ?? 0) }
+        )
+    }
+    
+    // MARK: - Reset
+    
+    func performCompleteReset() {
+        print("🔄 OfflineManager: Performing complete reset...")
         
-        // Überwache Download-Änderungen
+        currentMode = .online
+        objectWillChange.send()
+        
+        print("✅ OfflineManager: Reset completed")
+    }
+    
+    // MARK: - Private Implementation
+    
+    private func observeNetworkChanges() {
+        networkMonitor.$isConnected
+            .sink { [weak self] isConnected in
+                if isConnected {
+                    self?.handleNetworkRestored()
+                } else {
+                    self?.handleNetworkLoss()
+                }
+            }
+            .store(in: &cancellables)
+        
+        networkMonitor.$canLoadOnlineContent
+            .sink { [weak self] canLoad in
+                if !canLoad && self?.currentMode == .online {
+                    self?.handleNetworkLoss()
+                } else if canLoad {
+                    self?.handleNetworkRestored()
+                }
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func observeDownloadChanges() {
         NotificationCenter.default.addObserver(
             forName: .downloadCompleted,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
-                self?.loadOfflineAlbums()
-            }
+            self?.objectWillChange.send()
         }
         
-        //  NEW: Überwache Download-Löschungen
         NotificationCenter.default.addObserver(
             forName: .downloadDeleted,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
-                self?.loadOfflineAlbums()
-            }
+            self?.objectWillChange.send()
         }
     }
     
-    private func loadOfflineAlbumsSync() {
-        let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
-        offlineAlbums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
-        print("📦 Initially loaded \(offlineAlbums.count) offline albums")
-    }
-    
-    func loadOfflineAlbums() {
-        let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
-        offlineAlbums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
-        print("📦 Loaded \(offlineAlbums.count) offline albums")
-    }
-    
-    func switchToOfflineMode() {
-        isOfflineMode = true
-        loadOfflineAlbums()
-        objectWillChange.send() // Force UI update
-    }
-    
-    func switchToOnlineMode() {
-        isOfflineMode = false
-        objectWillChange.send() // Force UI update
-    }
-    
-    func toggleOfflineMode() {
-        if networkMonitor.isConnected {
-            isOfflineMode.toggle()
-        } else {
-            isOfflineMode = true // Zwinge Offline-Modus wenn kein Netz
-        }
-        objectWillChange.send() // Force UI update
-    }
-    
-    //  NEW: Complete Reset Method
-    func performCompleteReset() {
-        print("🔄 OfflineManager: Performing complete reset...")
-        
-        isOfflineMode = false
-        offlineAlbums.removeAll()
-        
-        // Force UI update
+    private func notifyModeChange() {
         objectWillChange.send()
-        
-        print(" OfflineManager: Reset completed")
+        NotificationCenter.default.post(
+            name: .offlineModeChanged,
+            object: currentMode
+        )
     }
     
-    // Prüfe ob ein Album offline verfügbar ist
-    func isAlbumAvailableOffline(_ albumId: String) -> Bool {
-        return downloadManager.isAlbumDownloaded(albumId)
-    }
-    
-    var offlineArtists: [Artist] {
-        return extractArtistsFromOfflineAlbums(offlineAlbums)
-    }
-    
-    var offlineGenres: [Genre] {
-        return extractGenresFromOfflineAlbums(offlineAlbums)
-    }
-    
-    private func extractArtistsFromOfflineAlbums(_ albums: [Album]) -> [Artist] {
+    private func extractUniqueArtists(from albums: [Album]) -> [Artist] {
         let uniqueArtists = Set(albums.map { $0.artist })
         
         return uniqueArtists.compactMap { artistName in
@@ -117,7 +225,7 @@ class OfflineManager: ObservableObject {
         }.sorted { $0.name < $1.name }
     }
     
-    private func extractGenresFromOfflineAlbums(_ albums: [Album]) -> [Genre] {
+    private func extractUniqueGenres(from albums: [Album]) -> [Genre] {
         let genreGroups = Dictionary(grouping: albums) { $0.genre ?? "Unknown" }
         
         return genreGroups.map { genreName, albumsInGenre in
@@ -129,35 +237,11 @@ class OfflineManager: ObservableObject {
         }.sorted { $0.value < $1.value }
     }
     
-    func getOfflineAlbums(for artist: Artist) -> [Album] {
-        return offlineAlbums.filter { $0.artist == artist.name }
-    }
-    
-    func getOfflineAlbums(for genre: Genre) -> [Album] {
-        return offlineAlbums.filter { $0.genre == genre.value }
-    }
-    
-    func isArtistAvailableOffline(_ artistName: String) -> Bool {
-        return offlineAlbums.contains { $0.artist == artistName }
-    }
-    
-    func isGenreAvailableOffline(_ genreName: String) -> Bool {
-        return offlineAlbums.contains { $0.genre == genreName }
-    }
-    
-    var offlineStats: OfflineStats {
-        return OfflineStats(
-            albumCount: offlineAlbums.count,
-            artistCount: offlineArtists.count,
-            genreCount: offlineGenres.count,
-            totalSongs: offlineAlbums.reduce(0) { $0 + ($1.songCount ?? 0) }
-        )
-    }
+    private var cancellables = Set<AnyCancellable>()
 }
 
+// MARK: - Supporting Types
 
-
-// MARK: -  NEW: Stats Helper
 struct OfflineStats {
     let albumCount: Int
     let artistCount: Int
@@ -182,4 +266,7 @@ struct OfflineStats {
     }
 }
 
-
+// MARK: - Notification Names
+extension Notification.Name {
+    static let offlineModeChanged = Notification.Name("offlineModeChanged")
+}

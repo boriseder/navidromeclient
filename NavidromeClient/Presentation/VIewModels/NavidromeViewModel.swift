@@ -50,10 +50,7 @@ class NavidromeViewModel: ObservableObject {
         //  FOCUSED: Pass specialized services to managers
         musicLibraryManager.configure(service: service)
         songManager.configure(service: service)
-        
-        //  FOCUSED: Configure connection via ConnectionManager
-        NetworkMonitor.shared.setConnectionManager(connectionManager)
-        
+                
         print(" All managers configured with focused services")
     }
     
@@ -237,7 +234,6 @@ class NavidromeViewModel: ObservableObject {
         songManager.reset()
         unifiedService = nil
         
-        NetworkMonitor.shared.setConnectionManager(nil)
         objectWillChange.send()
         print(" NavidromeViewModel: Complete reset including all focused services")
     }
@@ -295,8 +291,8 @@ class NavidromeViewModel: ObservableObject {
         var overallHealth: String {
             let connection = connectionDiagnostics.isConnected
             let network = networkDiagnostics.isConnected
-            let server = networkDiagnostics.isServerReachable
-            
+            let server = networkDiagnostics.canLoadOnlineContent
+
             if connection && network && server {
                 return " All systems operational"
             } else if network {

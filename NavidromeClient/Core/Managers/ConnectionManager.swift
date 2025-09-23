@@ -211,6 +211,5 @@ extension ConnectionManager {
     
     /// Update NetworkMonitor with current service
     func configureNetworkMonitor() {
-        NetworkMonitor.shared.setConnectionManager(self)
     }
 }

@@ -45,8 +45,6 @@ final class AppConfig: ObservableObject {
         
         // Update NetworkMonitor
         let service = SubsonicService(baseURL: baseURL, username: username, password: password)
-        NetworkMonitor.shared.setService(service)
-        print(" Credentials configured and NetworkMonitor updated")
     }
     
     func getCredentials() -> ServerCredentials? {
@@ -70,10 +68,7 @@ final class AppConfig: ObservableObject {
         // 3. Reset local state
         credentials = nil
         isConfigured = false
-        
-        // 4. Clear NetworkMonitor
-        NetworkMonitor.shared.setService(nil)
-        
+                
         // 5. Reset all managers and clear data
         await resetAllManagers()
         
@@ -168,8 +163,6 @@ final class AppConfig: ObservableObject {
                 username: creds.username,
                 password: sessionPassword
             )
-            NetworkMonitor.shared.setService(service)
-            print(" NetworkMonitor updated with loaded credentials")
         }
         
         isConfigured = true
@@ -208,8 +201,6 @@ final class AppConfig: ObservableObject {
                 username: creds.username,
                 password: password
             )
-            NetworkMonitor.shared.setService(service)
-            print(" NetworkMonitor updated with restored password")
             
             return true
         }
