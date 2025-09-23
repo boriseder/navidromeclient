@@ -19,7 +19,7 @@ struct AlbumCollectionHeaderView: View {
         VStack(spacing: 0) {
             ZStack {
                 // MARK: - Background with artist image blur
-                if case .artist = context, let artistImage {
+                if case .byArtist = context, let artistImage {
                     Image(uiImage: artistImage)
                         .resizable()
                         .scaledToFill()
@@ -45,7 +45,7 @@ struct AlbumCollectionHeaderView: View {
                 
                 // MARK: - Avatar / Placeholder + Title + Album count
                 VStack(spacing: 16) {
-                    if case .artist = context, let artistImage {
+                    if case .byArtist = context, let artistImage {
                         Image(uiImage: artistImage)
                             .resizable()
                             .scaledToFill()

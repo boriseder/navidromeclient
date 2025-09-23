@@ -60,7 +60,7 @@ struct GenreViewContent: View {
             }
             
             .navigationDestination(for: Genre.self) { genre in
-                AlbumCollectionView(context: .genre(genre))
+                AlbumCollectionView(context: .byGenre(genre))
             }
             .unifiedToolbar(genreToolbarConfig)
         }

@@ -10,8 +10,8 @@
 import SwiftUI
 
 enum AlbumCollectionContext {
-    case artist(Artist)
-    case genre(Genre)
+    case byArtist(Artist)
+    case byGenre(Genre)
 }
 
 struct AlbumCollectionView: View {
@@ -30,7 +30,7 @@ struct AlbumCollectionView: View {
     @State private var errorMessage: String?
 
     private var artist: Artist? {
-        if case .artist(let a) = context { return a }
+        if case .byArtist(let a) = context { return a }
         return nil
     }
     
@@ -40,17 +40,17 @@ struct AlbumCollectionView: View {
     
     private var availableOfflineAlbums: [Album] {
         switch context {
-        case .artist(let artist):
+        case .byArtist(let artist):
             return offlineManager.getOfflineAlbums(for: artist)
-        case .genre(let genre):
+        case .byGenre(let genre):
             return offlineManager.getOfflineAlbums(for: genre)
         }
     }
     
     private var contextTitle: String {
         switch context {
-        case .artist(let artist): return artist.name
-        case .genre(let genre): return genre.value
+        case .byArtist(let artist): return artist.name
+        case .byGenre(let genre): return genre.value
         }
     }
     
@@ -317,7 +317,7 @@ struct AlbumCollectionView: View {
     }
     
     private func loadArtistImageViaManager() async {
-        if case .artist(let artist) = context {
+        if case .byArtist(let artist) = context {
             artistImage = await coverArtManager.loadArtistImage(
                 artist: artist,
                 size: Int(DSLayout.avatar * 2) // Higher resolution for header
@@ -329,26 +329,26 @@ struct AlbumCollectionView: View {
     
     private var contextIcon: String {
         switch context {
-        case .artist: return "music.mic"
-        case .genre: return "music.note.list"
+        case .byArtist: return "music.mic"
+        case .byGenre: return "music.note.list"
         }
     }
     
     private var albumCountText: String {
         let count = displayAlbums.count
         switch context {
-        case .artist:
+        case .byArtist:
             return "\(count) Album\(count != 1 ? "s" : "")"
-        case .genre:
+        case .byGenre:
             return "\(count) Album\(count != 1 ? "s" : "") in this genre"
         }
     }
     
     private var emptyMessageForContext: String {
         switch context {
-        case .artist(let artist):
+        case .byArtist(let artist):
             return "No albums from \(artist.name) are downloaded for offline listening."
-        case .genre(let genre):
+        case .byGenre(let genre):
             return "No \(genre.value) albums are downloaded for offline listening."
         }
     }

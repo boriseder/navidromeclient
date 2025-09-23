@@ -149,7 +149,7 @@ struct SearchView: View {
                 Spacer()
             }
             .navigationDestination(for: Artist.self) { artist in
-                AlbumCollectionView(context: .artist(artist))
+                AlbumCollectionView(context: .byArtist(artist))
             }
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)

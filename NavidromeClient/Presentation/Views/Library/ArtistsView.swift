@@ -62,7 +62,7 @@ struct ArtistsViewContent: View {
                 await preloadArtistImages()
             }
             .navigationDestination(for: Artist.self) { artist in
-                AlbumCollectionView(context: .artist(artist))
+                AlbumCollectionView(context: .byArtist(artist))
             }
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)

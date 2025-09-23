@@ -165,9 +165,9 @@ class NavidromeViewModel: ObservableObject {
         }
         
         switch context {
-        case .artist(let artist):
+        case .byArtist(let artist):
             return try await contentService.getAlbumsByArtist(artistId: artist.id)
-        case .genre(let genre):
+        case .byGenre(let genre):
             return try await contentService.getAlbumsByGenre(genre: genre.value)
         }
     }

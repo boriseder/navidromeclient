@@ -306,10 +306,10 @@ class MusicLibraryManager: ObservableObject {
         }
         
         switch context {
-        case .artist(let artist):
+        case .byArtist(let artist):
             //  DIRECT ACCESS: service.contentService
             return try await service.contentService.getAlbumsByArtist(artistId: artist.id)
-        case .genre(let genre):
+        case .byGenre(let genre):
             //  DIRECT ACCESS: service.contentService
             return try await service.contentService.getAlbumsByGenre(genre: genre.value)
         }
