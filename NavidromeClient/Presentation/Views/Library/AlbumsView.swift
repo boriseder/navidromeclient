@@ -1,9 +1,9 @@
 //
-//  AlbumsViewContent.swift - MIGRIERT: UnifiedLibraryContainer
+//  AlbumsViewContent.swift - PHASE 3: Standardized View Logic
 //  NavidromeClient
 //
-//   MIGRIERT: Von LibraryView + UnifiedContainer zu UnifiedLibraryContainer
-//   CLEAN: Single Container-Pattern
+//   STANDARDIZED: Consistent state handling across all views
+//   ELIMINATED: Inconsistent loading patterns
 //
 
 import SwiftUI
@@ -22,34 +22,47 @@ struct AlbumsViewContent: View {
     @State private var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
     @StateObject private var debouncer = Debouncer()
     
-    private var displayedAlbums: [Album] {
-        let sourceAlbums = getAlbumDataSource()
-        return filterAlbums(sourceAlbums)
+    // MARK: - PHASE 3: Standardized State Logic
+    
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
     }
     
-    private var isOfflineMode: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    private var displayedAlbums: [Album] {
+        switch connectionState {
+        case .online:
+            return filterAlbums(musicLibraryManager.albums)
+        case .userOffline, .serverUnreachable, .disconnected:
+            return filterAlbums(getOfflineAlbums())
+        }
     }
     
     private var shouldShowLoading: Bool {
-        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+        return connectionState.shouldLoadOnlineContent &&
+               musicLibraryManager.isLoading &&
+               !musicLibraryManager.hasLoadedInitialData
     }
     
     private var isEmpty: Bool {
         return displayedAlbums.isEmpty
     }
     
+    private var isEffectivelyOffline: Bool {
+        return connectionState.isEffectivelyOffline
+    }
+    
     var body: some View {
         NavigationStack {
-            // ✅ MIGRIERT: Unified Container mit allen Features
             UnifiedLibraryContainer(
                 items: displayedAlbums,
                 isLoading: shouldShowLoading,
                 isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isOfflineMode,
+                isOfflineMode: isEffectivelyOffline,
                 emptyStateType: .albums,
                 layout: .twoColumnGrid,
                 onLoadMore: { _ in
+                    // PHASE 3: Only load more if we should load online content
+                    guard connectionState.shouldLoadOnlineContent else { return }
                     Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
                 }
             ) { album, index in
@@ -58,7 +71,11 @@ struct AlbumsViewContent: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search albums...")
-            .refreshable { await refreshAllData() }
+            .refreshable {
+                // PHASE 3: Only refresh if we should load online content
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshAllData()
+            }
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
@@ -70,28 +87,27 @@ struct AlbumsViewContent: View {
             }
             .unifiedToolbar(.libraryWithSort(
                 title: "Albums",
-                isOffline: isOfflineMode,
+                isOffline: isEffectivelyOffline,
                 currentSort: selectedAlbumSort,
                 sortOptions: ContentService.AlbumSortType.allCases,
                 onRefresh: {
+                    guard connectionState.shouldLoadOnlineContent else { return }
                     await loadAlbums(sortBy: selectedAlbumSort)
                 },
                 onToggleOffline: toggleOfflineMode,
                 onSort: { sortType in
+                    guard connectionState.shouldLoadOnlineContent else { return }
                     Task { await loadAlbums(sortBy: sortType) }
                 }
             ))
         }
     }
     
-    // Business Logic (unverändert)
-    private func getAlbumDataSource() -> [Album] {
-        if networkMonitor.canLoadOnlineContent && !isOfflineMode {
-            return musicLibraryManager.albums
-        } else {
-            let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
-            return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
-        }
+    // MARK: - PHASE 3: Standardized Business Logic
+    
+    private func getOfflineAlbums() -> [Album] {
+        let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
+        return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
     }
     
     private func filterAlbums(_ albums: [Album]) -> [Album] {

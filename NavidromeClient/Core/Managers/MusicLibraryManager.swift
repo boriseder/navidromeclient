@@ -1,10 +1,9 @@
 //
-//  MusicLibraryManager.swift - SIMPLIFIED: Direct UnifiedSubsonicService
+//  MusicLibraryManager.swift - PHASE 2: Loading State Coordination
 //  NavidromeClient
 //
-//   REMOVED: ContentService dependency, legacy compatibility
-//   SIMPLIFIED: Single service dependency via UnifiedSubsonicService
-//   CLEAN: Direct access to service.contentService
+//   FIXED: Race conditions and parallel loading issues
+//   ADDED: Centralized loading coordination
 //
 
 import Foundation
@@ -12,10 +11,9 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
-    //  SINGLETON PATTERN (unchanged)
     static let shared = MusicLibraryManager()
     
-    //  PROGRESSIVE LIBRARY DATA (unchanged)
+    // MARK: - Progressive Library Data (unchanged)
     @Published private(set) var loadedAlbums: [Album] = []
     @Published private(set) var totalAlbumCount: Int = 0
     @Published private(set) var albumLoadingState: DataLoadingState = .idle
@@ -27,15 +25,17 @@ class MusicLibraryManager: ObservableObject {
     @Published private(set) var loadedGenres: [Genre] = []
     @Published private(set) var genreLoadingState: DataLoadingState = .idle
     
-    //  STATE MANAGEMENT (unchanged)
+    // MARK: - State Management (unchanged)
     @Published private(set) var hasLoadedInitialData = false
     @Published private(set) var lastRefreshDate: Date?
     @Published private(set) var backgroundLoadingProgress: String = ""
     
-    //  SINGLE SERVICE DEPENDENCY
+    // MARK: - PHASE 2: Loading Coordination
+    private var isCurrentlyLoading = false
+    private var pendingNetworkStateChange: EffectiveConnectionState?
+    
     private weak var service: UnifiedSubsonicService?
     
-    //  CONFIGURATION (unchanged)
     private struct LoadingConfig {
         static let albumBatchSize = 20
         static let artistBatchSize = 25
@@ -43,10 +43,11 @@ class MusicLibraryManager: ObservableObject {
         static let batchDelay: UInt64 = 200_000_000   // 200ms
     }
     
-    //  SINGLETON INIT (unchanged)
-    private init() {}
+    private init() {
+        setupNetworkStateObserver()
+    }
     
-    // MARK: -  PUBLIC API (unchanged)
+    // MARK: - PUBLIC API (unchanged)
     var albums: [Album] { loadedAlbums }
     var artists: [Artist] { loadedArtists }
     var genres: [Genre] { loadedGenres }
@@ -65,13 +66,131 @@ class MusicLibraryManager: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) < freshnessDuration
     }
     
-    //  SIMPLIFIED: Single configuration method
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print(" MusicLibraryManager configured with UnifiedSubsonicService")
+        print("✅ MusicLibraryManager configured with UnifiedSubsonicService")
     }
     
-    // MARK: -  ALBUMS LOADING with Direct Service Access
+    // MARK: - PHASE 2: Coordinated Loading
+    
+    func loadInitialDataIfNeeded() async {
+        // PHASE 2: Check centralized state and prevent parallel loading
+        guard !hasLoadedInitialData,
+              !isCurrentlyLoading,
+              let service = service,
+              NetworkMonitor.shared.shouldLoadOnlineContent else {
+            print("⚠️ Skipping initial data load - Already loaded: \(hasLoadedInitialData), Loading: \(isCurrentlyLoading), Should load online: \(NetworkMonitor.shared.shouldLoadOnlineContent)")
+            return
+        }
+        
+        isCurrentlyLoading = true
+        defer { isCurrentlyLoading = false }
+        
+        print("🚀 Starting coordinated initial data load...")
+        
+        // Load first batch of each type with staggered timing (unchanged)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await self.loadAlbumsProgressively(reset: true)
+            }
+            
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
+                await self.loadArtistsProgressively(reset: true)
+            }
+            
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms delay
+                await self.loadGenresProgressively(reset: true)
+            }
+        }
+        
+        print("✅ Coordinated initial data load completed")
+    }
+    
+    func refreshAllData() async {
+        // PHASE 2: Prevent parallel refreshes
+        guard !isCurrentlyLoading,
+              NetworkMonitor.shared.shouldLoadOnlineContent else {
+            print("⚠️ Skipping refresh - Loading: \(isCurrentlyLoading), Should load online: \(NetworkMonitor.shared.shouldLoadOnlineContent)")
+            return
+        }
+        
+        isCurrentlyLoading = true
+        defer { isCurrentlyLoading = false }
+        
+        print("🔄 Starting coordinated data refresh...")
+        
+        // Reset all states and reload (unchanged)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await self.loadAlbumsProgressively(reset: true)
+            }
+            group.addTask {
+                await self.loadArtistsProgressively(reset: true)
+            }
+            group.addTask {
+                await self.loadGenresProgressively(reset: true)
+            }
+        }
+        
+        lastRefreshDate = Date()
+        print("✅ Coordinated data refresh completed")
+    }
+    
+    // MARK: - PHASE 2: Network State Handling
+    
+    private func setupNetworkStateObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .networkStateChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let newState = notification.object as? EffectiveConnectionState {
+                Task { @MainActor in
+                    await self?.handleNetworkStateChange(newState)
+                }
+            }
+        }
+    }
+    
+    func handleNetworkChange(isOnline: Bool) async {
+        // PHASE 2: Use centralized state instead of parameter
+        await handleNetworkStateChange(NetworkMonitor.shared.effectiveConnectionState)
+    }
+    
+    private func handleNetworkStateChange(_ newState: EffectiveConnectionState) async {
+        // PHASE 2: Prevent handling during active loading
+        if isCurrentlyLoading {
+            pendingNetworkStateChange = newState
+            print("📦 Network state change queued during loading: \(newState.displayName)")
+            return
+        }
+        
+        pendingNetworkStateChange = nil
+        
+        switch newState {
+        case .online:
+            if !isDataFresh && service != nil {
+                print("🌐 Network online - refreshing stale data")
+                await refreshAllData()
+            } else {
+                print("🌐 Network online - data is fresh, triggering UI update")
+                objectWillChange.send()
+            }
+            
+        case .userOffline, .serverUnreachable, .disconnected:
+            print("📵 Network effectively offline - triggering UI update for offline content")
+            objectWillChange.send()
+        }
+        
+        // Handle any pending state changes
+        if let pendingState = pendingNetworkStateChange {
+            await handleNetworkStateChange(pendingState)
+        }
+    }
+    
+    // MARK: - ALBUMS LOADING (unchanged core logic, added coordination)
     
     func loadAlbumsProgressively(
         sortBy: ContentService.AlbumSortType = .alphabetical,
@@ -86,10 +205,16 @@ class MusicLibraryManager: ObservableObject {
         
         guard albumLoadingState.canLoadMore else { return }
         
-        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             albumLoadingState = .error("Service not available")
             print("❌ UnifiedSubsonicService not configured")
+            return
+        }
+        
+        // PHASE 2: Check centralized state before loading
+        guard NetworkMonitor.shared.shouldLoadOnlineContent else {
+            albumLoadingState = .completed
+            print("⚠️ Not loading albums - should not load online content")
             return
         }
         
@@ -105,7 +230,6 @@ class MusicLibraryManager: ObservableObject {
                 try await Task.sleep(nanoseconds: LoadingConfig.batchDelay)
             }
             
-            //  DIRECT ACCESS: service.contentService
             let newAlbums = try await service.contentService.getAllAlbums(
                 sortBy: sortBy,
                 size: batchSize,
@@ -141,14 +265,14 @@ class MusicLibraryManager: ObservableObject {
             
             backgroundLoadingProgress = ""
             
-            print(" Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
+            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
             
         } catch {
             await handleLoadingError(error, for: "albums")
         }
     }
     
-    // MARK: -  ARTISTS LOADING with Direct Service Access
+    // MARK: - ARTISTS LOADING (unchanged core logic, added coordination)
     
     func loadArtistsProgressively(reset: Bool = false) async {
         
@@ -160,10 +284,16 @@ class MusicLibraryManager: ObservableObject {
         
         guard artistLoadingState.canLoadMore else { return }
         
-        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             artistLoadingState = .error("Service not available")
             print("❌ UnifiedSubsonicService not configured")
+            return
+        }
+        
+        // PHASE 2: Check centralized state before loading
+        guard NetworkMonitor.shared.shouldLoadOnlineContent else {
+            artistLoadingState = .completed
+            print("⚠️ Not loading artists - should not load online content")
             return
         }
         
@@ -171,7 +301,6 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading artists..."
         
         do {
-            //  DIRECT ACCESS: service.contentService
             let allArtists = try await service.contentService.getArtists()
             
             loadedArtists = allArtists
@@ -179,14 +308,14 @@ class MusicLibraryManager: ObservableObject {
             artistLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print(" Loaded artists: \(allArtists.count)")
+            print("✅ Loaded artists: \(allArtists.count)")
             
         } catch {
             await handleLoadingError(error, for: "artists")
         }
     }
     
-    // MARK: -  GENRES LOADING with Direct Service Access
+    // MARK: - GENRES LOADING (unchanged core logic, added coordination)
     
     func loadGenresProgressively(reset: Bool = false) async {
         
@@ -197,10 +326,16 @@ class MusicLibraryManager: ObservableObject {
         
         guard genreLoadingState.canLoadMore else { return }
         
-        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             genreLoadingState = .error("Service not available")
             print("❌ UnifiedSubsonicService not configured")
+            return
+        }
+        
+        // PHASE 2: Check centralized state before loading
+        guard NetworkMonitor.shared.shouldLoadOnlineContent else {
+            genreLoadingState = .completed
+            print("⚠️ Not loading genres - should not load online content")
             return
         }
         
@@ -208,114 +343,48 @@ class MusicLibraryManager: ObservableObject {
         backgroundLoadingProgress = "Loading genres..."
         
         do {
-            //  DIRECT ACCESS: service.contentService
             let allGenres = try await service.contentService.getGenres()
             
             loadedGenres = allGenres
             genreLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print(" Loaded genres: \(allGenres.count)")
+            print("✅ Loaded genres: \(allGenres.count)")
             
         } catch {
             await handleLoadingError(error, for: "genres")
         }
     }
     
-    // MARK: -  COORDINATED LOADING (simplified logic, direct service calls)
-    
-    func loadInitialDataIfNeeded() async {
-        guard !hasLoadedInitialData,
-              let service = service,
-              NetworkMonitor.shared.canLoadOnlineContent else {
-            print("⚠️ Skipping initial data load - Service: \(service != nil), Network: \(NetworkMonitor.shared.canLoadOnlineContent)")
-            return
-        }
-        
-        print("🚀 Starting progressive initial data load...")
-        
-        // Load first batch of each type with staggered timing (unchanged)
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await self.loadAlbumsProgressively(reset: true)
-            }
-            
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
-                await self.loadArtistsProgressively(reset: true)
-            }
-            
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms delay
-                await self.loadGenresProgressively(reset: true)
-            }
-        }
-        
-        print(" Initial progressive data load completed")
-    }
+    // MARK: - Load More (unchanged)
     
     func loadMoreAlbumsIfNeeded() async {
         await loadAlbumsProgressively()
     }
     
-    func refreshAllData() async {
-        print("🔄 Starting progressive data refresh...")
-        
-        // Reset all states and reload (unchanged)
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await self.loadAlbumsProgressively(reset: true)
-            }
-            group.addTask {
-                await self.loadArtistsProgressively(reset: true)
-            }
-            group.addTask {
-                await self.loadGenresProgressively(reset: true)
-            }
-        }
-        
-        lastRefreshDate = Date()
-        print(" Progressive data refresh completed")
-    }
-    
-    // MARK: -  NETWORK STATE HANDLING (unchanged)
-    
-    func handleNetworkChange(isOnline: Bool) async {
-        guard isOnline,
-              !OfflineManager.shared.isOfflineMode,
-              let service = service else {
-            return
-        }
-        
-        if !isDataFresh {
-            print("🌐 Network restored - refreshing stale data")
-            await refreshAllData()
-        } else {
-            print("🌐 Network restored - data is fresh, skipping refresh")
-        }
-    }
-    
-    // MARK: -  ARTIST/GENRE DETAIL SUPPORT with Direct Service Access
-    
+    // MARK: - Artist/Genre Detail Support (updated with centralized state)
     
     func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {
-        //  DIRECT SERVICE ACCESS
         guard let service = service else {
             print("❌ UnifiedSubsonicService not available for context loading")
             throw URLError(.networkConnectionLost)
         }
         
+        // PHASE 2: Check centralized state
+        guard NetworkMonitor.shared.shouldLoadOnlineContent else {
+            print("⚠️ Cannot load albums for context - should not load online content")
+            throw URLError(.notConnectedToInternet)
+        }
+        
         switch context {
         case .byArtist(let artist):
-            //  DIRECT ACCESS: service.contentService
             return try await service.contentService.getAlbumsByArtist(artistId: artist.id)
         case .byGenre(let genre):
-            //  DIRECT ACCESS: service.contentService
             return try await service.contentService.getAlbumsByGenre(genre: genre.value)
         }
     }
     
-    // MARK: -  PRIVATE IMPLEMENTATION (simplified error messages)
+    // MARK: - Private Implementation (unchanged)
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
         print("❌ Failed to load \(dataType): \(error)")
@@ -359,9 +428,12 @@ class MusicLibraryManager: ObservableObject {
         OfflineManager.shared.switchToOfflineMode()
     }
     
-    // MARK: -  RESET (unchanged)
+    // MARK: - Reset (unchanged)
     
     func reset() {
+        isCurrentlyLoading = false
+        pendingNetworkStateChange = nil
+        
         loadedAlbums = []
         loadedArtists = []
         loadedGenres = []
@@ -376,11 +448,11 @@ class MusicLibraryManager: ObservableObject {
         totalAlbumCount = 0
         totalArtistCount = 0
         
-        print(" MusicLibraryManager reset completed")
+        print("✅ MusicLibraryManager reset completed with coordination")
     }
 }
 
-// MARK: -  DATA LOADING STATE (unchanged)
+// MARK: - DATA LOADING STATE (unchanged)
 
 enum DataLoadingState: Equatable {
     case idle

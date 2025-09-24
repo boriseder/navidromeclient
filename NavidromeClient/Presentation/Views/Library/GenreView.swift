@@ -1,9 +1,9 @@
 //
-//  GenreViewContent.swift - MIGRIERT: UnifiedLibraryContainer
+//  GenreViewContent.swift - PHASE 3: Standardized View Logic
 //  NavidromeClient
 //
-//   MIGRIERT: Von LibraryView + UnifiedContainer zu UnifiedLibraryContainer
-//   CLEAN: Single Container-Pattern
+//   STANDARDIZED: Consistent state handling across all views
+//   ELIMINATED: Inconsistent loading patterns
 //
 
 import SwiftUI
@@ -19,46 +19,59 @@ struct GenreViewContent: View {
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     
-    private var displayedGenres: [Genre] {
-        let sourceGenres = getGenreDataSource()
-        return filterGenres(sourceGenres)
+    // MARK: - PHASE 3: Standardized State Logic
+    
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
     }
     
-    private var isOfflineMode: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    private var displayedGenres: [Genre] {
+        switch connectionState {
+        case .online:
+            return filterGenres(musicLibraryManager.genres)
+        case .userOffline, .serverUnreachable, .disconnected:
+            return filterGenres(offlineManager.offlineGenres)
+        }
     }
     
     private var shouldShowLoading: Bool {
-        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+        return connectionState.shouldLoadOnlineContent &&
+               musicLibraryManager.isLoading &&
+               !musicLibraryManager.hasLoadedInitialData
     }
     
     private var isEmpty: Bool {
         return displayedGenres.isEmpty
     }
     
+    private var isEffectivelyOffline: Bool {
+        return connectionState.isEffectivelyOffline
+    }
+    
     var body: some View {
         NavigationStack {
-            // ✅ MIGRIERT: Unified Container mit allen Features
             UnifiedLibraryContainer(
                 items: displayedGenres,
                 isLoading: shouldShowLoading,
                 isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isOfflineMode,
+                isOfflineMode: isEffectivelyOffline,
                 emptyStateType: .genres,
                 layout: .list,
-                onItemTap: { _ in } // Still empty, but NavigationLink should handle it
+                onItemTap: { _ in } // NavigationLink handles tap
             ) { genre, index in
                 NavigationLink(value: genre) {
                     ListItemContainer(content: CardContent.genre(genre), index: index)
                 }
-
             }
             .searchable(text: $searchText, prompt: "Search genres...")
-            .refreshable { await refreshAllData() }
+            .refreshable {
+                // PHASE 3: Only refresh if we should load online content
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshAllData()
+            }
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            
             .navigationDestination(for: Genre.self) { genre in
                 AlbumCollectionView(context: .byGenre(genre))
             }
@@ -66,14 +79,7 @@ struct GenreViewContent: View {
         }
     }
     
-    // Business Logic (unverändert)
-    private func getGenreDataSource() -> [Genre] {
-        if networkMonitor.canLoadOnlineContent && !isOfflineMode {
-            return musicLibraryManager.genres
-        } else {
-            return offlineManager.offlineGenres
-        }
-    }
+    // MARK: - PHASE 3: Standardized Business Logic
     
     private func filterGenres(_ genres: [Genre]) -> [Genre] {
         let filteredGenres: [Genre]
@@ -102,8 +108,9 @@ struct GenreViewContent: View {
     private var genreToolbarConfig: ToolbarConfiguration {
         .library(
             title: "Genres",
-            isOffline: isOfflineMode,
+            isOffline: isEffectivelyOffline,
             onRefresh: {
+                guard connectionState.shouldLoadOnlineContent else { return }
                 await refreshAllData()
             },
             onToggleOffline: offlineManager.toggleOfflineMode

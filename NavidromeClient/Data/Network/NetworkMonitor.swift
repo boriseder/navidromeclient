@@ -1,11 +1,9 @@
 //
-//  NetworkMonitor.swift - CLEAN: Network State Only
+//  NetworkMonitor.swift - FIXED: Centralized Network State Logic
 //  NavidromeClient
 //
-//   REMOVED: All server health checking logic
-//   REMOVED: All service dependencies and dual configuration patterns
-//   REMOVED: All timers and complex diagnostics
-//   CLEAN: Pure network connectivity monitoring only
+//   ADDED: Single source of truth for network/offline decisions
+//   FIXED: Consistent state across all views
 //
 
 import Foundation
@@ -47,6 +45,26 @@ class NetworkMonitor: ObservableObject {
         monitor.cancel()
     }
     
+    // MARK: - PHASE 1: Centralized State Logic
+    
+    /// Single source of truth for whether online content should be loaded
+    var shouldLoadOnlineContent: Bool {
+        return isConnected && canLoadOnlineContent && !OfflineManager.shared.isOfflineMode
+    }
+    
+    /// Complete connection state for UI decisions
+    var effectiveConnectionState: EffectiveConnectionState {
+        if !isConnected {
+            return .disconnected
+        } else if !canLoadOnlineContent {
+            return .serverUnreachable
+        } else if OfflineManager.shared.isOfflineMode {
+            return .userOffline
+        } else {
+            return .online
+        }
+    }
+    
     // MARK: - Network Monitoring Only
     
     private func startNetworkMonitoring() {
@@ -63,13 +81,9 @@ class NetworkMonitor: ObservableObject {
                     self?.canLoadOnlineContent = false
                 }
                 
-                // Log significant changes only
+                // PHASE 1: Notify dependent managers of state changes
                 if wasConnected != isNowConnected {
-                    if isNowConnected {
-                        print("📶 Network connected: \(self?.connectionType.displayName ?? "Unknown")")
-                    } else {
-                        print("📵 Network disconnected")
-                    }
+                    self?.notifyStateChange(wasConnected: wasConnected, isNowConnected: isNowConnected)
                 }
             }
         }
@@ -88,21 +102,45 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
+    // MARK: - PHASE 1: State Change Coordination
+    
+    private func notifyStateChange(wasConnected: Bool, isNowConnected: Bool) {
+        if isNowConnected {
+            print("📶 Network connected: \(connectionType.displayName)")
+            // Trigger reactive updates in dependent managers
+            MusicLibraryManager.shared.objectWillChange.send()
+        } else {
+            print("📵 Network disconnected")
+            // Force offline mode when network is lost
+            OfflineManager.shared.handleNetworkLoss()
+        }
+        
+        // Notify all views that need to update
+        NotificationCenter.default.post(name: .networkStateChanged, object: effectiveConnectionState)
+    }
+    
     // MARK: - External Server Health Updates
     
     func updateServerAvailability(_ isAvailable: Bool) {
+        let wasAvailable = canLoadOnlineContent
         canLoadOnlineContent = isAvailable
+        
+        // Notify if availability changed
+        if wasAvailable != isAvailable {
+            print("🏥 Server availability changed: \(isAvailable)")
+            MusicLibraryManager.shared.objectWillChange.send()
+            NotificationCenter.default.post(name: .networkStateChanged, object: effectiveConnectionState)
+        }
     }
     
     // MARK: - Computed Properties
     
     var connectionStatusDescription: String {
-        if !isConnected {
-            return "No Internet"
-        } else if !canLoadOnlineContent {
-            return "Server Unreachable"
-        } else {
-            return "Online"
+        switch effectiveConnectionState {
+        case .online: return "Online"
+        case .userOffline: return "Offline Mode"
+        case .serverUnreachable: return "Server Unreachable"
+        case .disconnected: return "No Internet"
         }
     }
     
@@ -112,7 +150,8 @@ class NetworkMonitor: ObservableObject {
         return NetworkDiagnostics(
             isConnected: isConnected,
             connectionType: connectionType,
-            canLoadOnlineContent: canLoadOnlineContent
+            canLoadOnlineContent: canLoadOnlineContent,
+            effectiveState: effectiveConnectionState
         )
     }
     
@@ -120,6 +159,7 @@ class NetworkMonitor: ObservableObject {
         let isConnected: Bool
         let connectionType: NetworkConnectionType
         let canLoadOnlineContent: Bool
+        let effectiveState: EffectiveConnectionState
         
         var summary: String {
             var status: [String] = []
@@ -127,12 +167,13 @@ class NetworkMonitor: ObservableObject {
             status.append("Network: \(isConnected ? "✅" : "❌")")
             status.append("Type: \(connectionType.displayName)")
             status.append("Server: \(canLoadOnlineContent ? "✅" : "❌")")
+            status.append("State: \(effectiveState.displayName)")
             
             return status.joined(separator: " | ")
         }
         
         var canLoadContent: Bool {
-            return isConnected && canLoadOnlineContent
+            return effectiveState.shouldLoadOnlineContent
         }
     }
     
@@ -154,13 +195,38 @@ class NetworkMonitor: ObservableObject {
         \(diagnostics.summary)
         
         Network Architecture:
-        - Network Monitor: ✅ Pure network state only
-        - Server Health: External coordination
-        - Timers: ❌ Removed
-        - Services: ❌ Removed
+        - Centralized State Logic: ✅
+        - Effective State: \(effectiveConnectionState.displayName)
+        - Should Load Online: \(shouldLoadOnlineContent)
         """)
     }
     #endif
+}
+
+// MARK: - PHASE 1: Effective Connection State
+
+enum EffectiveConnectionState {
+    case online
+    case userOffline
+    case serverUnreachable
+    case disconnected
+    
+    var shouldLoadOnlineContent: Bool {
+        return self == .online
+    }
+    
+    var displayName: String {
+        switch self {
+        case .online: return "Online"
+        case .userOffline: return "User Offline"
+        case .serverUnreachable: return "Server Unreachable"
+        case .disconnected: return "Disconnected"
+        }
+    }
+    
+    var isEffectivelyOffline: Bool {
+        return !shouldLoadOnlineContent
+    }
 }
 
 // MARK: - Notification Names

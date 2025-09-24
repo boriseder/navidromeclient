@@ -1,22 +1,20 @@
 //
-//  OfflineManager.swift - CLEAN: State Machine Pattern
+//  OfflineManager.swift - PHASE 4: Enhanced Reactive Updates
 //  NavidromeClient
 //
-//   REPLACED: Boolean offline mode with proper state machine
-//   CLEAN: Clear distinction between user choice and network-forced offline
-//   SIMPLIFIED: Reactive data loading from unified sources
+//   ENHANCED: Proper reactive chain notifications
+//   COORDINATED: State changes with NetworkMonitor and dependent managers
 //
 
 import Foundation
 import SwiftUI
 import Combine
 
-
 @MainActor
 class OfflineManager: ObservableObject {
     static let shared = OfflineManager()
     
-    // MARK: - State Machine
+    // MARK: - State Machine (unchanged)
     
     enum Mode: Equatable {
         case online
@@ -40,7 +38,7 @@ class OfflineManager: ObservableObject {
     
     @Published private(set) var currentMode: Mode = .online
     
-    // MARK: - Offline Data (Computed from UnifiedOfflineStore)
+    // MARK: - Offline Data (unchanged)
     
     var offlineAlbums: [Album] {
         let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
@@ -55,7 +53,7 @@ class OfflineManager: ObservableObject {
         extractUniqueGenres(from: offlineAlbums)
     }
     
-    // MARK: - Dependencies
+    // MARK: - Dependencies (unchanged)
     
     private let downloadManager = DownloadManager.shared
     private let networkMonitor = NetworkMonitor.shared
@@ -65,7 +63,7 @@ class OfflineManager: ObservableObject {
         observeDownloadChanges()
     }
     
-    // MARK: - Public API
+    // MARK: - Public API (enhanced with coordination)
     
     func switchToOnlineMode() {
         guard networkMonitor.isConnected && networkMonitor.canLoadOnlineContent else {
@@ -111,13 +109,13 @@ class OfflineManager: ObservableObject {
         }
     }
     
-    // MARK: - Convenience Properties
+    // MARK: - Convenience Properties (unchanged)
     
     var isOfflineMode: Bool {
         currentMode.isOffline
     }
     
-    // MARK: - Album/Artist/Genre Queries
+    // MARK: - Album/Artist/Genre Queries (unchanged)
     
     func getOfflineAlbums(for artist: Artist) -> [Album] {
         return offlineAlbums.filter { $0.artist == artist.name }
@@ -139,7 +137,7 @@ class OfflineManager: ObservableObject {
         return offlineAlbums.contains { $0.genre == genreName }
     }
     
-    // MARK: - Statistics
+    // MARK: - Statistics (unchanged)
     
     var offlineStats: OfflineStats {
         return OfflineStats(
@@ -150,7 +148,7 @@ class OfflineManager: ObservableObject {
         )
     }
     
-    // MARK: - Reset
+    // MARK: - Reset (unchanged)
     
     func performCompleteReset() {
         print("🔄 OfflineManager: Performing complete reset...")
@@ -161,7 +159,41 @@ class OfflineManager: ObservableObject {
         print("✅ OfflineManager: Reset completed")
     }
     
-    // MARK: - Private Implementation
+    // MARK: - PHASE 4: Enhanced Reactive Updates
+    
+    private func notifyModeChange() {
+        // PHASE 4: Trigger reactive updates in proper order
+        objectWillChange.send()
+        
+        // Notify NetworkMonitor to trigger its reactive chain
+        Task { @MainActor in
+            networkMonitor.objectWillChange.send()
+            
+            // Notify MusicLibraryManager for data source changes
+            MusicLibraryManager.shared.objectWillChange.send()
+            
+            // Notify dependent managers that might need to update their state
+            await notifyDependentManagers()
+        }
+        
+        // Send system notification for any remaining observers
+        NotificationCenter.default.post(
+            name: .offlineModeChanged,
+            object: currentMode
+        )
+        
+        print("🔄 Offline mode change notifications sent: \(currentMode.displayDescription)")
+    }
+    
+    private func notifyDependentManagers() async {
+        // Trigger any manager-specific updates based on offline mode change
+        // This ensures all UI components get updated consistently
+        
+        // Example: If we had other managers that need to know about offline state
+        // they would be notified here to maintain consistency
+    }
+    
+    // MARK: - Private Implementation (unchanged)
     
     private func observeNetworkChanges() {
         networkMonitor.$isConnected
@@ -203,14 +235,6 @@ class OfflineManager: ObservableObject {
         }
     }
     
-    private func notifyModeChange() {
-        objectWillChange.send()
-        NotificationCenter.default.post(
-            name: .offlineModeChanged,
-            object: currentMode
-        )
-    }
-    
     private func extractUniqueArtists(from albums: [Album]) -> [Artist] {
         let uniqueArtists = Set(albums.map { $0.artist })
         
@@ -240,7 +264,7 @@ class OfflineManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
 }
 
-// MARK: - Supporting Types
+// MARK: - Supporting Types (unchanged)
 
 struct OfflineStats {
     let albumCount: Int
@@ -266,7 +290,7 @@ struct OfflineStats {
     }
 }
 
-// MARK: - Notification Names
+// MARK: - Notification Names (unchanged)
 extension Notification.Name {
     static let offlineModeChanged = Notification.Name("offlineModeChanged")
 }

@@ -1,9 +1,9 @@
 //
-//  ArtistsViewContent.swift - MIGRIERT: UnifiedLibraryContainer
+//  ArtistsViewContent.swift - PHASE 3: Standardized View Logic
 //  NavidromeClient
 //
-//   MIGRIERT: Von LibraryView + UnifiedContainer zu UnifiedLibraryContainer
-//   CLEAN: Single Container-Pattern
+//   STANDARDIZED: Consistent state handling across all views
+//   ELIMINATED: Inconsistent loading patterns
 //
 
 import SwiftUI
@@ -21,31 +21,42 @@ struct ArtistsViewContent: View {
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     
-    private var displayedArtists: [Artist] {
-        let sourceArtists = getArtistDataSource()
-        return filterArtists(sourceArtists)
+    // MARK: - PHASE 3: Standardized State Logic
+    
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
     }
     
-    private var isOfflineMode: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    private var displayedArtists: [Artist] {
+        switch connectionState {
+        case .online:
+            return filterArtists(musicLibraryManager.artists)
+        case .userOffline, .serverUnreachable, .disconnected:
+            return filterArtists(offlineManager.offlineArtists)
+        }
     }
     
     private var shouldShowLoading: Bool {
-        return musicLibraryManager.isLoading && !musicLibraryManager.hasLoadedInitialData
+        return connectionState.shouldLoadOnlineContent &&
+               musicLibraryManager.isLoading &&
+               !musicLibraryManager.hasLoadedInitialData
     }
     
     private var isEmpty: Bool {
         return displayedArtists.isEmpty
     }
     
+    private var isEffectivelyOffline: Bool {
+        return connectionState.isEffectivelyOffline
+    }
+    
     var body: some View {
         NavigationStack {
-            // ✅ MIGRIERT: Unified Container mit allen Features
             UnifiedLibraryContainer(
                 items: displayedArtists,
                 isLoading: shouldShowLoading,
                 isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isOfflineMode,
+                isOfflineMode: isEffectivelyOffline,
                 emptyStateType: .artists,
                 layout: .list
             ) { artist, index in
@@ -54,7 +65,11 @@ struct ArtistsViewContent: View {
                 }
             }
             .searchable(text: $searchText, prompt: "Search artists...")
-            .refreshable { await refreshAllData() }
+            .refreshable {
+                // PHASE 3: Only refresh if we should load online content
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshAllData()
+            }
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
@@ -71,14 +86,7 @@ struct ArtistsViewContent: View {
         }
     }
     
-    // Business Logic (unverändert)
-    private func getArtistDataSource() -> [Artist] {
-        if networkMonitor.canLoadOnlineContent && !isOfflineMode {
-            return musicLibraryManager.artists
-        } else {
-            return offlineManager.offlineArtists
-        }
-    }
+    // MARK: - PHASE 3: Standardized Business Logic
     
     private func filterArtists(_ artists: [Artist]) -> [Artist] {
         let filteredArtists: [Artist]
@@ -112,8 +120,9 @@ struct ArtistsViewContent: View {
     private var artistsToolbarConfig: ToolbarConfiguration {
         .library(
             title: "Artists",
-            isOffline: isOfflineMode,
+            isOffline: isEffectivelyOffline,
             onRefresh: {
+                guard connectionState.shouldLoadOnlineContent else { return }
                 await refreshAllData()
             },
             onToggleOffline: offlineManager.toggleOfflineMode
