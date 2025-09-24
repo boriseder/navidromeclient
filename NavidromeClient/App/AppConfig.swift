@@ -11,8 +11,9 @@ final class AppConfig: ObservableObject {
     static let shared = AppConfig()
     
     @Published var isConfigured = false
+    @Published private(set) var isInitializingServices = false // New centralized state
     private var credentials: ServerCredentials?
-    
+
     private init() {
         loadCredentials()
     }
@@ -40,13 +41,18 @@ final class AppConfig: ObservableObject {
         _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
         
         // Set credentials for current session
-        self.credentials = ServerCredentials(baseURL: baseURL, username: username, password: password)
+        let fullCredentials = ServerCredentials(baseURL: baseURL, username: username, password: password)
+        self.credentials = fullCredentials
         isConfigured = true
         
-        // Update NetworkMonitor
-        let service = SubsonicService(baseURL: baseURL, username: username, password: password)
+        // Trigger service initialization via notification
+        NotificationCenter.default.post(name: .servicesNeedInitialization, object: fullCredentials)
     }
     
+    func setInitializingServices(_ isInitializing: Bool) {
+        isInitializingServices = isInitializing
+    }
+
     func getCredentials() -> ServerCredentials? {
         return credentials
     }

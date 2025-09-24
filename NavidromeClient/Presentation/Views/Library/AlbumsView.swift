@@ -24,6 +24,13 @@ struct AlbumsViewContent: View {
     
     // MARK: - PHASE 3: Standardized State Logic
     
+    private var shouldShowLoading: Bool {
+        return appConfig.isInitializingServices ||
+               (connectionState.shouldLoadOnlineContent &&
+                musicLibraryManager.isLoading &&
+                !musicLibraryManager.hasLoadedInitialData)
+    }
+
     private var connectionState: EffectiveConnectionState {
         networkMonitor.effectiveConnectionState
     }
@@ -37,11 +44,6 @@ struct AlbumsViewContent: View {
         }
     }
     
-    private var shouldShowLoading: Bool {
-        return connectionState.shouldLoadOnlineContent &&
-               musicLibraryManager.isLoading &&
-               !musicLibraryManager.hasLoadedInitialData
-    }
     
     private var isEmpty: Bool {
         return displayedAlbums.isEmpty

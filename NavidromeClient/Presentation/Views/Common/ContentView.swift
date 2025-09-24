@@ -1,3 +1,4 @@
+// ContentView.swift - Navigation direkt zu MainTabView
 import SwiftUI
 
 struct ContentView: View {
@@ -12,7 +13,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if appConfig.isConfigured {
-                MainTabView()
+                MainTabView() // Direct navigation to MainTabView with ExploreView as first tab
             } else {
                 WelcomeView {
                     showingSettings = true

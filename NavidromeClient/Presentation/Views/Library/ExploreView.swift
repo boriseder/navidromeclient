@@ -9,6 +9,7 @@
 import SwiftUI
 
 struct ExploreViewContent: View {
+    @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
@@ -21,7 +22,12 @@ struct ExploreViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+                if appConfig.isInitializingServices {
+                    LoadingView(
+                        title: "Setting up your music library...",
+                        subtitle: "This may take a moment"
+                    )
+                } else if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
                     onlineContent
                 } else {
                     offlineContent
@@ -88,8 +94,6 @@ struct ExploreViewContent: View {
                         refreshAction: { await refreshRandomAlbums() }
                     )
                 }
-                
-                //Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
             .padding(.top, DSLayout.elementGap)
         }
@@ -151,5 +155,3 @@ struct ExploreViewContent: View {
         )
     }
 }
-
-

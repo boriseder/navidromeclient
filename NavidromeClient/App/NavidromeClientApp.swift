@@ -69,10 +69,71 @@ struct NavidromeClientApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     handleAppBecameActive()
                 }
+                // Add service initialization listener
+                .onReceive(NotificationCenter.default.publisher(for: .servicesNeedInitialization)) { notification in
+                    if let credentials = notification.object as? ServerCredentials {
+                        Task {
+                            await initializeServicesAfterLogin(credentials: credentials)
+                    }
+                }
+            }
+
         }
     }
     
     // MARK: -  FIXED: Enhanced Service Configuration
+    private func initializeServicesAfterLogin(credentials: ServerCredentials) async {
+        print("🚀 Starting post-login service initialization...")
+        
+        await MainActor.run {
+            appConfig.setInitializingServices(true)
+        }
+        
+        // Create unified service with new credentials
+        let unifiedService = UnifiedSubsonicService(
+            baseURL: credentials.baseURL,
+            username: credentials.username,
+            password: credentials.password
+        )
+        
+        // Configure all managers with the new service
+        await configureManagersWithServices(unifiedService: unifiedService)
+        
+        // Load initial data for all views in parallel
+        await loadInitialDataForAllViews()
+        
+        await MainActor.run {
+            appConfig.setInitializingServices(false)
+        }
+        
+        print("✅ Post-login service initialization completed")
+    }
+    
+    private func loadInitialDataForAllViews() async {
+        print("📚 Loading initial data for all views...")
+        
+        await withTaskGroup(of: Void.self) { group in
+            // ExploreView data
+            group.addTask {
+                await self.exploreManager.loadExploreData()
+                print("✅ ExploreView data loaded")
+            }
+            
+            // Library data
+            group.addTask {
+                await MusicLibraryManager.shared.loadInitialDataIfNeeded()
+                print("✅ Library data loaded")
+            }
+            
+            // Favorites data
+            group.addTask {
+                await self.favoritesManager.loadFavoriteSongs()
+                print("✅ Favorites data loaded")
+            }
+        }
+        
+        print("📚 All initial data loading completed")
+    }
     
     private func setupInitialConfiguration() async {
         guard appConfig.isConfigured else {

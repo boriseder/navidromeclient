@@ -35,11 +35,12 @@ struct GenreViewContent: View {
     }
     
     private var shouldShowLoading: Bool {
-        return connectionState.shouldLoadOnlineContent &&
-               musicLibraryManager.isLoading &&
-               !musicLibraryManager.hasLoadedInitialData
+        return appConfig.isInitializingServices ||
+               (connectionState.shouldLoadOnlineContent &&
+                musicLibraryManager.isLoading &&
+                !musicLibraryManager.hasLoadedInitialData)
     }
-    
+
     private var isEmpty: Bool {
         return displayedGenres.isEmpty
     }

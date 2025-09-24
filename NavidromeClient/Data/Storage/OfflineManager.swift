@@ -294,3 +294,7 @@ struct OfflineStats {
 extension Notification.Name {
     static let offlineModeChanged = Notification.Name("offlineModeChanged")
 }
+
+extension Notification.Name {
+    static let servicesNeedInitialization = Notification.Name("servicesNeedInitialization")
+}
