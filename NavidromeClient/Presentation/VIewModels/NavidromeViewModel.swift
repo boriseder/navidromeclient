@@ -71,29 +71,7 @@ class NavidromeViewModel: ObservableObject {
     // Connection State (via ConnectionManager only)
     var connectionStatus: Bool { connectionManager.isConnected }
     var errorMessage: String? { connectionManager.connectionError }
-    
-    // UI Form Bindings (delegated to ConnectionManager)
-    var scheme: String {
-        get { connectionManager.scheme }
-        set { connectionManager.scheme = newValue }
-    }
-    var host: String {
-        get { connectionManager.host }
-        set { connectionManager.host = newValue }
-    }
-    var port: String {
-        get { connectionManager.port }
-        set { connectionManager.port = newValue }
-    }
-    var username: String {
-        get { connectionManager.username }
-        set { connectionManager.username = newValue }
-    }
-    var password: String {
-        get { connectionManager.password }
-        set { connectionManager.password = newValue }
-    }
-    
+        
     // Song Cache (delegated to SongManager)
     var albumSongs: [String: [Song]] { songManager.albumSongs }
     
