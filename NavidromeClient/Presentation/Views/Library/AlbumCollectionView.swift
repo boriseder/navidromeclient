@@ -136,28 +136,57 @@ struct AlbumCollectionView: View {
     
     @ViewBuilder
     private var contentSection: some View {
-            if isLoading {
-                LoadingView(
-                    title: "Loading Albums...",
-                    subtitle: "Discovering \(contextTitle)'s music"
-                )
-                .screenPadding()
-            } else if let error = errorMessage {
-                errorStateView
-            } else if isOfflineMode && availableOfflineAlbums.isEmpty {
-                offlineEmptyStateView
-            } else if !displayAlbums.isEmpty {
-                albumsGridView
-            } else {
-                EmptyStateView(
-                    type: .albums,
-                    customTitle: "No Albums Found",
-                    customMessage: "No albums available for \(contextTitle)"
-                )
-                .screenPadding()
-            }
+        if isLoading {
+            LoadingView(
+                title: "Loading Albums...",
+                subtitle: "Discovering \(contextTitle)'s music"
+            )
+            .screenPadding()
+        } else if let error = errorMessage {
+            errorStateView
+        } else if isOfflineMode && availableOfflineAlbums.isEmpty {
+            offlineEmptyStateView
+        } else if !displayAlbums.isEmpty {
+            albumsGridView
+        } else {
+            EmptyStateView(
+                type: .albums,
+                customTitle: "No Albums Found",
+                customMessage: "No albums available for \(contextTitle)"
+            )
+            .screenPadding()
+        }
     }
     
+    @ViewBuilder
+    private var albumsGridView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if isOfflineMode {
+                    OfflineStatusBanner()
+                        .padding(.horizontal, DSLayout.screenPadding)
+                        .padding(.bottom, DSLayout.elementGap)
+                }
+                
+                LazyVGrid(
+                    columns: GridColumns.two,
+                    alignment: .leading,
+                    spacing: DSLayout.elementGap
+                ) {
+                    ForEach(displayAlbums.indices, id: \.self) { index in
+                        let album = displayAlbums[index]
+                        
+                        NavigationLink(value: album) {
+                            CardItemContainer(content: .album(album), index: index)
+                        }
+                    }
+                }
+                .padding(.horizontal, DSLayout.screenPadding)
+                .padding(.bottom, DSLayout.miniPlayerHeight)
+            }
+        }
+    }
+ 
     @ViewBuilder
     private var errorStateView: some View {
         VStack(spacing: DSLayout.contentGap) {
@@ -193,22 +222,6 @@ struct AlbumCollectionView: View {
             }
         )
         .screenPadding()
-    }
-    
-    @ViewBuilder
-    private var albumsGridView: some View {
-        UnifiedLibraryContainer(
-            items: displayAlbums,
-            isLoading: false,
-            isEmpty: false,
-            isOfflineMode: isOfflineMode,
-            emptyStateType: .albums,
-            layout: .twoColumnGrid
-        ) { album, index in
-            NavigationLink(value: album) {
-                CardItemContainer(content: .album(album), index: index)
-            }
-        }
     }
     
     // MARK: - Button Action Methods

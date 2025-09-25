@@ -43,17 +43,12 @@ struct FavoritesStatsHeader: View {
                 label: "Duration"
             )
         }
-        .padding(DSLayout.elementGap)
         .frame(maxWidth: .infinity) // volle Breite wie Song-Rows
         .background(
-            Color(DSColor.surfaceLight)
-                .opacity(0.5)
+            Color(DSColor.background)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: DSCorners.tight)
-                .stroke(Color(.systemGray4), lineWidth: 0.5)
-        )
-        .cornerRadius(DSCorners.tight)
+        .shadow(radius:DSCorners.element, y: 4)
+        .cornerRadius(DSCorners.element)
     }
 }
 

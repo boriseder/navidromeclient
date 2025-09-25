@@ -28,20 +28,23 @@ struct SongRow: View {
         HStack(spacing: DSLayout.elementGap) {
             // Track number with better visual feedback
             trackNumberSection
+                .padding(.leading, DSLayout.elementGap)
             
             // Song info with better typography
             songInfoSection
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
+
             // Duration with better layout
             durationSection
+
             
             // Actions with improved spacing
             actionsSection
+                .padding(.trailing, DSLayout.elementGap)
+
         }
-        .padding(.horizontal, DSLayout.contentPadding)
         .padding(.vertical, DSLayout.elementPadding)
-        .background(rowBackground)
+        .background(DSColor.background)
         .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .shadow(
@@ -106,67 +109,66 @@ struct SongRow: View {
             } else {
                 Text("\(song.track ?? index)")
                     .font(DSText.body.weight(.medium).monospacedDigit())
-                    .foregroundStyle(trackNumberColor)
-                    .frame(minWidth: 28)  // ← minWidth statt width
-                    .background(trackNumberBackground)
+                    .foregroundStyle(isPlaying ? DSColor.playing : DSColor.onLight)
+                    .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon) // Kreis deutlich größer als Text
+                    .background(
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        isPlaying ? DSColor.playing.opacity(0.25) : DSColor.surface,
+                                        isPlaying ? DSColor.playing.opacity(0.05) : DSColor.surface.opacity(0.9)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        isPlaying ? DSColor.playing.opacity(0.5) : DSColor.quaternary.opacity(0.4),
+                                        lineWidth: 1.2
+                                    )
+                            )
+                            .shadow(color: .black.opacity(0.12), radius: 3, x: 0, y: 1)
+                    )
                     .transition(.asymmetric(
                         insertion: .scale.combined(with: .opacity),
                         removal: .scale.combined(with: .opacity)
                     ))
+                
+                
             }
         }
         .animation(DSAnimations.springSnappy, value: showPlayIndicator)
+        .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
+        .scaledToFit()
+
     }
     
-    // Dynamic track number styling
-    private var trackNumberColor: Color {
-        if isPlaying {
-            return DSColor.playing
-        }
-        return DSColor.secondary
-    }
-    
-    private var trackNumberBackground: some View {
-        Circle()
-            .fill(isPlaying ? DSColor.playing.opacity(0.15) : DSColor.surface)
-            .overlay(
-                Circle()
-                    .stroke(
-                        isPlaying ? DSColor.playing.opacity(0.3) : DSColor.quaternary.opacity(0.5),
-                        lineWidth: 1
-                    )
-            )
-    }
     
     // MARK: - Song Info Section
     
     private var songInfoSection: some View {
-        VStack(alignment: .leading, spacing: DSLayout.tightGap) {
-            // Song title with better styling
+        VStack(alignment: .leading, spacing: DSLayout.elementGap) {
+            // Song title
             Text(song.title)
-                .font(songTitleFont)
+                .font(DSText.emphasized)
                 .foregroundStyle(songTitleColor)
                 .lineLimit(2)
+                .frame(height: DSLayout.icon, alignment: .bottomLeading)
                 .multilineTextAlignment(.leading)
             
-            // Artist with better hierarchy
+            // Artist
             if let artist = song.artist, !artist.isEmpty {
                 Text(artist)
-                    .font(DSText.body)
-                    .foregroundStyle(DSColor.secondary)
+                    .font(DSText.detail)
+                    .foregroundStyle(songTitleColor)
                     .lineLimit(1)
             }
         }
     }
-    
-    // Dynamic song title styling
-    private var songTitleFont: Font {
-        if isPlaying {
-            return DSText.emphasized.weight(.semibold)
-        }
-        return DSText.emphasized
-    }
-    
+      
     private var songTitleColor: Color {
         if isPlaying {
             return DSColor.playing
@@ -180,17 +182,8 @@ struct SongRow: View {
     private var durationSection: some View {
         if let duration = song.duration, duration > 0 {
             Text(formatDuration(duration))
-                .font(DSText.numbers.weight(.medium))
-                .foregroundStyle(durationColor)
-                .monospacedDigit()
+                .font(DSText.numbers)
         }
-    }
-    
-    private var durationColor: Color {
-        if isPlaying {
-            return DSColor.playing.opacity(0.8)
-        }
-        return DSColor.tertiary
     }
     
     // MARK: - Actions Section

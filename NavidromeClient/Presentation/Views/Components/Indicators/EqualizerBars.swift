@@ -28,7 +28,7 @@ struct EqualizerBars: View {
                     )
             }
         }
-        .frame(width: 28, height: 28)
+        .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
         .background(
             Circle()
                 .fill(accentColor.opacity(0.15))

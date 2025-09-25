@@ -46,28 +46,28 @@ struct FavoritesViewContent: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DynamicMusicBackground()
-                Group {
-                    if shouldShowLoading {
-                        LoadingView()
-                    } else if isEmpty && !shouldShowLoading {
-                        EmptyStateView(type: .favorites)
-                    } else {
-                        ZStack {
-                            DynamicMusicBackground()
+            NavigationStack {
+                ZStack {
+                    DynamicMusicBackground()
+                    
+                    VStack(alignment: .leading) {
+                        if shouldShowLoading {
+                            LoadingView()
+                        } else if isEmpty && !shouldShowLoading {
+                            EmptyStateView(type: .favorites)
+                        } else {
                             ScrollView {
-                                LazyVStack(spacing: 0) {
+                                LazyVStack(alignment: .leading, spacing: 0) {
                                     if isOfflineMode {
                                         OfflineStatusBanner()
-                                            .screenPadding()
-                                            .padding(.bottom, DSLayout.elementGap)
                                     }
                                     
                                     LazyVStack(spacing: DSLayout.elementGap) {
                                         if !favoritesManager.favoriteSongs.isEmpty {
                                             FavoritesStatsHeader()
+                                                .padding(.top, DSLayout.tightGap)
+                                                .padding(.bottom, DSLayout.sectionGap)
+
                                         }
                                         
                                         ForEach(displayedSongs.indices, id: \.self) { index in
@@ -92,43 +92,45 @@ struct FavoritesViewContent: View {
                                                         await favoritesManager.toggleFavorite(song)
                                                     }
                                                 }
+
                                             )
                                         }
                                     }
-                                    .screenPadding()
+                                    .padding(.bottom, DSLayout.miniPlayerHeight)
                                 }
-                                .padding(.bottom, DSLayout.miniPlayerHeight)
                             }
                         }
                     }
-                }
-                .searchable(text: $searchText, prompt: "Search favorites...")
-                .refreshable { await refreshFavorites() }
-                .task {
-                    await favoritesManager.loadFavoriteSongs()
-                }
-                .onChange(of: searchText) { _, _ in
-                    handleSearchTextChange()
-                }
-                .navigationDestination(for: Album.self) { album in
-                    AlbumDetailViewContent(album: album)
-                }
-                .unifiedToolbar(favoritesToolbarConfig)
-                .confirmationDialog(
-                    "Clear All Favorites?",
-                    isPresented: $showingClearConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Clear All", role: .destructive) {
-                        Task { await clearAllFavorites() }
+                    .padding(.horizontal, DSLayout.screenPadding)
+                    .searchable(text: $searchText, prompt: "Search favorites...")
+                    .refreshable { await refreshFavorites() }
+                    .task {
+                        await favoritesManager.loadFavoriteSongs()
                     }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
-                }}
+                    .onChange(of: searchText) { _, _ in
+                        handleSearchTextChange()
+                    }
+                    .navigationDestination(for: Album.self) { album in
+                        AlbumDetailViewContent(album: album)
+                    }
+                    .unifiedToolbar(favoritesToolbarConfig)
+                    .confirmationDialog(
+                        "Clear All Favorites?",
+                        isPresented: $showingClearConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Clear All", role: .destructive) {
+                            Task { await clearAllFavorites() }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
+                    }
+                }
+            }
+            .overlay( DebugLines() )
+
         }
-    }
-    
     // Business Logic (unverändert)
     private func refreshFavorites() async {
         await favoritesManager.loadFavoriteSongs(forceRefresh: true)

@@ -12,7 +12,7 @@ struct StatsItem: View {
     let label: String
     
     var body: some View {
-        VStack(spacing: DSLayout.tightGap) {
+        VStack {
             Image(systemName: icon)
                 .font(DSText.body)
                 .foregroundStyle(DSColor.accent)
@@ -26,5 +26,6 @@ struct StatsItem: View {
                 .foregroundStyle(DSColor.secondary)
         }
         .frame(minWidth: 60)
+        .padding(.vertical, DSLayout.elementPadding)
     }
 }

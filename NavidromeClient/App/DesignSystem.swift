@@ -23,7 +23,7 @@ enum DSLayout {
     static let elementPadding: CGFloat = 8  // Button-Inhalt, kleine Elemente
     static let contentPadding: CGFloat = 16 // Standard Card/Container-Inhalt
     static let comfortPadding: CGFloat = 24 // Große Container
-    static let screenPadding: CGFloat = 20  // Screen-Ränder (16 war zu eng)
+    static let screenPadding: CGFloat = 30  // Screen-Ränder (16 war zu eng)
     
     // MARK: Feste UI Größen
     static let buttonHeight: CGFloat = 44
@@ -39,7 +39,7 @@ enum DSLayout {
     // MARK: Cover/Avatar Größen (Use-Case spezifisch)
     static let miniCover: CGFloat = 50      // Song rows, mini player
     static let listCover: CGFloat = 70      // List items
-    static let cardCover: CGFloat = 150     // Grid cards
+    static let cardCover: CGFloat = 160     // Grid cards
     static let detailCover: CGFloat = 300   // Detail views
     static let fullCover: CGFloat = 400     // Full screen
     static let smallAvatar: CGFloat = 72    // User avatars
@@ -143,9 +143,9 @@ enum DSAnimations {
 
 // MARK: - Grid Helpers
 enum GridColumns {
-    static let two = Array(repeating: GridItem(.flexible(), spacing: DSLayout.contentGap), count: 2)
-    static let three = Array(repeating: GridItem(.flexible(), spacing: DSLayout.elementGap), count: 3)
-    static let four = Array(repeating: GridItem(.flexible(), spacing: DSLayout.elementGap), count: 4)
+    static let two = Array(repeating: GridItem(.flexible(), spacing: DSLayout.contentGap, alignment: .leading), count: 2)
+    static let three = Array(repeating: GridItem(.flexible(), spacing: DSLayout.elementGap, alignment: .leading), count: 3)
+    static let four = Array(repeating: GridItem(.flexible(), spacing: DSLayout.elementGap, alignment: .leading), count: 4)
 }
 
 

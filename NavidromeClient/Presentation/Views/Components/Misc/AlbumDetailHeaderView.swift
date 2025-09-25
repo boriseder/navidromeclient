@@ -6,7 +6,6 @@ import SwiftUI
 
 struct AlbumHeaderView: View {
     let album: Album
-    let cover: UIImage? // DEPRECATED: Will be removed
     let songs: [Song]
     let isOfflineAlbum: Bool
     
@@ -16,32 +15,47 @@ struct AlbumHeaderView: View {
     
     var body: some View {
         VStack(spacing: DSLayout.sectionGap) {
-            let size = UIScreen.main.bounds.width * 0.7
+            let size = UIScreen.main.bounds.width * 0.9
             
-            // UPDATED: Use AlbumImageView instead of custom logic
-            AlbumImageView(album: album, index: 0, size: size)
-                .clipShape(RoundedRectangle(cornerRadius: DSCorners.content))
-                .shadow(radius: 10)
-                .padding(.top, DSLayout.screenGap)
-            
-            // Album Info (unchanged)
-            VStack(spacing: DSLayout.elementGap) {
-                Text(album.name)
-                    .font(DSText.itemTitle)
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(DSColor.primary)
-                
-                Text(album.artist)
-                    .font(DSText.emphasized)
-                    .foregroundColor(DSColor.secondary)
-                
-                Text(buildMetadataString())
-                    .font(DSText.metadata)
-                    .foregroundColor(DSColor.tertiary)
+            // Cover + Infos im Cover
+            ZStack(alignment: .bottom) {
+                AlbumImageView(album: album, index: 0, size: size)
+                    .clipShape(RoundedRectangle(cornerRadius: DSCorners.content))
+                    .shadow(radius: 10)
+                    .padding(.top, DSLayout.screenGap)
+
+                VStack(spacing: DSLayout.elementGap) {
+                    Text(album.name)
+                        .font(DSText.itemTitle)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white)
+                    
+                    Text(album.artist)
+                        .font(DSText.emphasized)
+                        .foregroundColor(.white.opacity(0.9))
+                    
+                    Text(buildMetadataString())
+                        .font(DSText.metadata)
+                        .foregroundColor(.white.opacity(0.85))
+                }
+                .padding(DSLayout.contentPadding)
+                .frame(maxWidth: .infinity)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.75), // deutlich dunkler unten
+                            Color.black.opacity(0.4),  // mittlerer Übergang
+                            Color.black.opacity(0.0)   // nach oben transparent
+                        ],
+                        startPoint: .bottom,
+                        endPoint: .top
+                    )
+                )
             }
-            .padding(.horizontal, DSLayout.contentPadding)
+            .clipShape(RoundedRectangle(cornerRadius: DSCorners.content))
+            .shadow(radius: 10)
             
-            // Action Buttons (unchanged)
+            // Buttons direkt unter dem Cover
             HStack(spacing: DSLayout.contentGap) {
                 PlayButton(album: album, songs: songs)
                 ShuffleButton(album: album, songs: songs)
@@ -54,8 +68,8 @@ struct AlbumHeaderView: View {
                 }
             }
             .padding(.horizontal, DSLayout.screenPadding)
-            .padding(.bottom, DSLayout.contentPadding)
-        }
+            .padding(.top, DSLayout.elementGap)
+            .padding(.bottom, DSLayout.contentPadding)        }
     }
     
     // Helper methods unchanged

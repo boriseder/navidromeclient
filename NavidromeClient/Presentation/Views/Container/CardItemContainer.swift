@@ -50,7 +50,7 @@ struct CardItemContainer: View {
             .padding(DSLayout.elementPadding)
 
         }
-        .background(.orange) // Material-Hintergrund
+        .background(DSColor.background) 
         .overlay(
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .stroke(Color(.systemGray4), lineWidth: 0.5)

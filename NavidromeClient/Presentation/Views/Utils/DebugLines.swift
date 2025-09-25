@@ -30,8 +30,16 @@ struct DebugLines: View {
                     .fill(Color.green)
                     .frame(height: 1)               // dünne Linie
                     .frame(maxWidth: .infinity)     // über ganze Breite
-                    .position(x: UIScreen.main.bounds.width / 2, y: 121)
+                    .position(x: UIScreen.main.bounds.width / 2, y: 130)
             )
+            .overlay(
+                Rectangle()
+                    .fill(Color.green)
+                    .frame(height: 1)               // dünne Linie
+                    .frame(maxWidth: .infinity)     // über ganze Breite
+                    .position(x: UIScreen.main.bounds.width / 2, y: 170)
+            )
+
     }
 }
 

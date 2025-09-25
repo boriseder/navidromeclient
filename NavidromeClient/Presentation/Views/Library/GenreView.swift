@@ -50,40 +50,56 @@ struct GenreViewContent: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DynamicMusicBackground()
-                
-                UnifiedLibraryContainer(
-                    items: displayedGenres,
-                    isLoading: shouldShowLoading,
-                    isEmpty: isEmpty && !shouldShowLoading,
-                    isOfflineMode: isEffectivelyOffline,
-                    emptyStateType: .genres,
-                    layout: .list,
-                    onItemTap: { _ in } // NavigationLink handles tap
-                ) { genre, index in
-                    NavigationLink(value: genre) {
-                        ListItemContainer(content: CardContent.genre(genre), index: index)
+            NavigationStack {
+                ZStack {
+                    DynamicMusicBackground()
+                    
+                    VStack(alignment: .leading) {
+                        if shouldShowLoading {
+                            LoadingView()
+                        } else if isEmpty && !shouldShowLoading {
+                            EmptyStateView(type: .genres)
+                        } else {
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
+                                    if isEffectivelyOffline {
+                                        OfflineStatusBanner()
+                                    }
+                                    
+                                    LazyVStack(spacing: DSLayout.elementGap) {
+                                        ForEach(displayedGenres.indices, id: \.self) { index in
+                                            let genre = displayedGenres[index]
+                                            
+                                            NavigationLink(value: genre) {
+                                                ListItemContainer(content: CardContent.genre(genre), index: index)
+                                            }
+                                        }
+                                    }
+                                    .padding(.bottom, DSLayout.miniPlayerHeight)
+                                }
+                            }
+                        }
                     }
+                    .padding(.horizontal, DSLayout.screenPadding)
+                    .padding(.top, DSLayout.tightGap)
+                    .searchable(text: $searchText, prompt: "Search genres...")
+                    .refreshable {
+                        // PHASE 3: Only refresh if we should load online content
+                        guard connectionState.shouldLoadOnlineContent else { return }
+                        await refreshAllData()
+                    }
+                    .onChange(of: searchText) { _, _ in
+                        handleSearchTextChange()
+                    }
+                    .navigationDestination(for: Genre.self) { genre in
+                        AlbumCollectionView(context: .byGenre(genre))
+                    }
+                    .unifiedToolbar(genreToolbarConfig)
                 }
-                .searchable(text: $searchText, prompt: "Search genres...")
-                .refreshable {
-                    // PHASE 3: Only refresh if we should load online content
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    await refreshAllData()
-                }
-                .onChange(of: searchText) { _, _ in
-                    handleSearchTextChange()
-                }
-                .navigationDestination(for: Genre.self) { genre in
-                    AlbumCollectionView(context: .byGenre(genre))
-                }
-                .unifiedToolbar(genreToolbarConfig)
             }
+            .overlay( DebugLines() )
+
         }
-    }
-    
     // MARK: - PHASE 3: Standardized Business Logic
     
     private func filterGenres(_ genres: [Genre]) -> [Genre] {

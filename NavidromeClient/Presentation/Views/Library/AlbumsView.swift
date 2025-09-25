@@ -58,27 +58,48 @@ struct AlbumsViewContent: View {
             ZStack {
                 DynamicMusicBackground()
                 
-                VStack {
-                    UnifiedLibraryContainer(
-                        items: displayedAlbums,
-                        isLoading: shouldShowLoading,
-                        isEmpty: isEmpty && !shouldShowLoading,
-                        isOfflineMode: isEffectivelyOffline,
-                        emptyStateType: .albums,
-                        layout: .twoColumnGrid,
-                        onLoadMore: { _ in
-                            // PHASE 3: Only load more if we should load online content
-                            guard connectionState.shouldLoadOnlineContent else { return }
-                            Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
-                        }
-                    ) { album, index in
-                        NavigationLink(value: album) {
-                            CardItemContainer(content: CardContent.album(album), index: index)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading) {
+                    if shouldShowLoading {
+                        LoadingView()
+                    } else if isEmpty && !shouldShowLoading {
+                        EmptyStateView(type: .albums)
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
+                                if isEffectivelyOffline {
+                                    OfflineStatusBanner()
+                                        .padding(.bottom, DSLayout.elementGap)
+                                }
+                                
+                                // Direktes LazyVGrid ohne UnifiedLibraryContainer
+                                LazyVGrid(
+                                    columns: GridColumns.two,
+                                    alignment: .leading,
+                                    spacing: DSLayout.contentGap
+                                ) {
+                                    ForEach(displayedAlbums.indices, id: \.self) { index in
+                                        let album = displayedAlbums[index]
+                                        
+                                        NavigationLink(value: album) {
+                                            CardItemContainer(content: CardContent.album(album), index: index)
+                                        }
+                                        .onAppear {
+                                            // Load more trigger
+                                            if connectionState.shouldLoadOnlineContent && index >= displayedAlbums.count - 5 {
+                                                Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
+                                            }
+                                        }
+                                    }
+                                    .padding(.bottom, DSLayout.elementGap)
+
+                                }
+                                .padding(.bottom, DSLayout.miniPlayerHeight)
+                            }
                         }
                     }
                 }
                 .padding(.horizontal, DSLayout.screenPadding)
+                .padding(.top, DSLayout.tightGap)
                 .searchable(text: $searchText, prompt: "Search albums...")
                 .refreshable {
                     // PHASE 3: Only refresh if we should load online content
@@ -112,9 +133,7 @@ struct AlbumsViewContent: View {
                 )
             }
         }
-        .overlay(
-            DebugLines() // Debug-Linien absolut
-        )
+        .overlay( DebugLines() )
     }
     
     // MARK: - PHASE 3: Standardized Business Logic

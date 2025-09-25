@@ -21,52 +21,54 @@ struct AlbumDetailViewContent: View {
     @State private var isOfflineAlbum = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: DSLayout.screenGap) {
-                // UPDATED: Remove coverArt parameter
-                AlbumHeaderView(
-                    album: album,
-                    cover: nil, // DEPRECATED: Parameter will be removed in next version
-                    songs: songs,
-                    isOfflineAlbum: isOfflineAlbum
-                )
-
-                if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
-                    HStack {
-                        if downloadManager.isAlbumDownloaded(album.id) {
-                            OfflineStatusBadge(album: album)
-                        } else {
-                            NetworkStatusIndicator(showText: true)
-                        }
-                        Spacer()
-                    }
-                    .screenPadding()
-                }
-                
-                if songs.isEmpty {
-                    EmptyStateView(
-                        type: .songs,
-                        customTitle: "No Songs Available",
-                        customMessage: isOfflineAlbum ?
-                            "This album is not downloaded for offline listening." :
-                            "No songs found in this album."
-                    )
-                    .screenPadding()
-                } else {
-                    AlbumSongsListView(
+        ZStack {
+            DynamicMusicBackground()
+            
+            
+            ScrollView {
+                VStack(spacing: DSLayout.screenGap) {
+                    AlbumHeaderView(
+                        album: album,
                         songs: songs,
-                        album: album
+                        isOfflineAlbum: isOfflineAlbum
                     )
+                    
+                    if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
+                        HStack {
+                            if downloadManager.isAlbumDownloaded(album.id) {
+                                OfflineStatusBadge(album: album)
+                            } else {
+                                NetworkStatusIndicator(showText: true)
+                            }
+                            Spacer()
+                        }
+                    }
+                    
+                    if songs.isEmpty {
+                        EmptyStateView(
+                            type: .songs,
+                            customTitle: "No Songs Available",
+                            customMessage: isOfflineAlbum ?
+                            "This album is not downloaded for offline listening." :
+                                "No songs found in this album."
+                        )
+                    } else {
+                        AlbumSongsListView(
+                            songs: songs,
+                            album: album
+                        )
+                    }
                 }
+                .padding(.horizontal, DSLayout.screenPadding)
+                .padding(.bottom, DSLayout.miniPlayerHeight + DSLayout.contentGap)
             }
-            .screenPadding()
-            .padding(.bottom, DSLayout.miniPlayerHeight + DSLayout.contentGap)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await loadAlbumData()
+            }
         }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await loadAlbumData()
-        }
+        .overlay( DebugLines() )
     }
     
     @MainActor

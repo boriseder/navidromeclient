@@ -167,55 +167,61 @@ struct SearchView: View {
     
     // ✅ REFACTORED: UnifiedLibraryContainer für Suchergebnisse
     @ViewBuilder
-    private var searchResultsContainer: some View {
-        switch selectedTab {
-        case .artists:
-            UnifiedLibraryContainer(
-                items: searchResults.artists,
-                isLoading: false,
-                isEmpty: false,
-                isOfflineMode: shouldUseOfflineSearch,
-                emptyStateType: .search,
-                layout: .list
-            ) { artist, index in
-                NavigationLink(value: artist) {
-                    SearchResultArtistRow(artist: artist, index: index)
+        private var searchResultsContainer: some View {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if shouldUseOfflineSearch {
+                        OfflineStatusBanner()
+                            .padding(.horizontal, DSLayout.screenPadding)
+                            .padding(.bottom, DSLayout.elementGap)
+                    }
+                    
+                    switch selectedTab {
+                    case .artists:
+                        LazyVStack(spacing: DSLayout.elementGap) {
+                            ForEach(searchResults.artists.indices, id: \.self) { index in
+                                let artist = searchResults.artists[index]
+                                
+                                NavigationLink(value: artist) {
+                                    SearchResultArtistRow(artist: artist, index: index)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, DSLayout.screenPadding)
+                        .padding(.bottom, DSLayout.miniPlayerHeight)
+                        
+                    case .albums:
+                        LazyVStack(spacing: DSLayout.elementGap) {
+                            ForEach(searchResults.albums.indices, id: \.self) { index in
+                                let album = searchResults.albums[index]
+                                
+                                NavigationLink(value: album) {
+                                    SearchResultAlbumRow(album: album, index: index)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, DSLayout.screenPadding)
+                        .padding(.bottom, DSLayout.miniPlayerHeight)
+                        
+                    case .songs:
+                        LazyVStack(spacing: DSLayout.elementGap) {
+                            ForEach(searchResults.songs.indices, id: \.self) { index in
+                                let song = searchResults.songs[index]
+                                
+                                SearchResultSongRow(
+                                    song: song,
+                                    index: index + 1,
+                                    isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                                    action: { handleSongTap(at: index) }
+                                )
+                            }
+                        }
+                        .padding(.horizontal, DSLayout.screenPadding)
+                        .padding(.bottom, DSLayout.miniPlayerHeight)
+                    }
                 }
-            }
-            
-        case .albums:
-            UnifiedLibraryContainer(
-                items: searchResults.albums,
-                isLoading: false,
-                isEmpty: false,
-                isOfflineMode: shouldUseOfflineSearch,
-                emptyStateType: .search,
-                layout: .list
-            ) { album, index in
-                NavigationLink(value: album) {
-                    SearchResultAlbumRow(album: album, index: index)
-                }
-            }
-            
-        case .songs:
-            UnifiedLibraryContainer(
-                items: searchResults.songs,
-                isLoading: false,
-                isEmpty: false,
-                isOfflineMode: shouldUseOfflineSearch,
-                emptyStateType: .search,
-                layout: .list
-            ) { song, index in
-                SearchResultSongRow(
-                    song: song,
-                    index: index + 1,
-                    isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                    action: { handleSongTap(at: index) }
-                )
             }
         }
-    }
-    
     // MARK: - Search Logic (unchanged)
     
     private func handleQueryChange(_ newValue: String) {

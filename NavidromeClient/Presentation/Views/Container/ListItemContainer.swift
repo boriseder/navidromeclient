@@ -19,10 +19,10 @@ struct ListItemContainer: View {
     let index: Int
     
     var body: some View {
-        HStack(spacing: DSLayout.tightGap) {
+        HStack(spacing: DSLayout.contentGap) {
             imageView
             
-            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
+            VStack(alignment: .leading, spacing: DSLayout.elementGap) {
                 Text(content.title)
                     .font(DSText.emphasized)
                     .foregroundColor(DSColor.primary)
@@ -39,17 +39,18 @@ struct ListItemContainer: View {
             if content.hasChevron {
                 Image(systemName: "chevron.right")
                     .foregroundColor(DSColor.secondary)
+                    .padding(.trailing, DSLayout.elementPadding)
             }
+            
         }
         .background(
-            Color(DSColor.surfaceLight)
-                .opacity(0.5)
+            Color(DSColor.background)
         )
         .overlay(
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .stroke(Color(.systemGray4), lineWidth: 0.5)
         )
-        .cornerRadius(DSCorners.tight)
+        .cornerRadius(DSCorners.element)
     }
     
     @ViewBuilder
@@ -60,8 +61,11 @@ struct ListItemContainer: View {
                 .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
         case .artist(let artist):
             ArtistImageView(artist: artist, index: index, size: DSLayout.smallAvatar)
+                .padding(DSLayout.elementGap)
         case .genre:
             staticGenreIcon
+                .padding(DSLayout.elementGap)
+
         }
     }
     
@@ -69,14 +73,14 @@ struct ListItemContainer: View {
     private var staticGenreIcon: some View {
         ZStack {
             Circle()
-                .fill(LinearGradient(
-                    colors: [DSColor.accent.opacity(0.3), DSColor.accent.opacity(0.1)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-            
+                .fill(.ultraThinMaterial) // iOS blur-glass Effekt
+                .overlay(
+                    Circle().stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+
             Image(systemName: "music.note.list")
-                .font(.system(size: DSLayout.icon))
+                .font(.system(size: DSLayout.largeIcon))
                 .foregroundColor(DSColor.primary.opacity(0.7))
         }
         .frame(width: DSLayout.smallAvatar, height: DSLayout.smallAvatar)

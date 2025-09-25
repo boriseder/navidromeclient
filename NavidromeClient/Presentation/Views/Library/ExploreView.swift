@@ -1,9 +1,9 @@
 //
-//  ExploreViewContent.swift - MIGRIERT: UnifiedLibraryContainer
+//  ExploreViewContent.swift - DIRECT: Ohne UnifiedLibraryContainer
 //  NavidromeClient
 //
-//   MIGRIERT: ExploreSection nutzt jetzt UnifiedLibraryContainer für horizontal layout
-//   CLEAN: Single Container-Pattern
+//   DIRECT: Alle Container durch direkte LazyVStack/LazyHStack ersetzt
+//   CLEAN: Keine Container-Abstraktionen mehr
 //
 
 import SwiftUI
@@ -24,20 +24,20 @@ struct ExploreViewContent: View {
             ZStack {
                 DynamicMusicBackground()
                 
-                    VStack {
-                        if appConfig.isInitializingServices {
-                            LoadingView(
-                                title: "Setting up your music library...",
-                                subtitle: "This may take a moment"
-                            )
-                        } else if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-                            onlineContent
-                            
-                        } else {
-                            offlineContent
-                        }
+                VStack(alignment: .leading) {
+                    if appConfig.isInitializingServices {
+                        LoadingView(
+                            title: "Setting up your music library...",
+                            subtitle: "This may take a moment"
+                        )
+                    } else if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+                        onlineContent
+
+                    } else {
+                        offlineContent
                     }
-                .padding(.horizontal, DSLayout.screenPadding*1.5)
+                }
+                .padding(.horizontal, DSLayout.screenPadding)
                 .task(id: hasLoaded) {
                     guard !hasLoaded else { return }
                     await setupHomeScreenData()
@@ -53,14 +53,12 @@ struct ExploreViewContent: View {
                 .unifiedToolbar(exploreToolbarConfig)
             }
         }
-        .overlay(
-            DebugLines() // Debug-Linien absolut
-        )
+        .overlay( DebugLines() )
     }
     
     private var onlineContent: some View {
         ScrollView {
-            LazyVStack(spacing: DSLayout.contentGap) {
+            LazyVStack(alignment: .leading) {
                 WelcomeHeader(
                     username: appConfig.getCredentials()!.username,
                     nowPlaying: playerVM.currentSong
@@ -103,13 +101,17 @@ struct ExploreViewContent: View {
                         refreshAction: { await refreshRandomAlbums() }
                     )
                 }
+                
+                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
+            .padding(.top, DSLayout.elementGap)
+
         }
     }
     
     private var offlineContent: some View {
         ScrollView {
-            LazyVStack(spacing: DSLayout.screenGap) {
+            LazyVStack(alignment: .leading, spacing: DSLayout.screenGap) {
                 OfflineWelcomeHeader(
                     downloadedAlbums: downloadManager.downloadedAlbums.count,
                     isConnected: networkMonitor.isConnected
@@ -159,5 +161,74 @@ struct ExploreViewContent: View {
             },
             onToggleOffline: offlineManager.toggleOfflineMode
         )
+    }
+}
+
+// MARK: - ExploreSection - Direct Implementation
+
+struct ExploreSection: View {
+    let title: String
+    let albums: [Album]
+    let icon: String
+    let accentColor: Color
+    var showRefreshButton: Bool = false
+    var refreshAction: (() async -> Void)? = nil
+    
+    @State private var isRefreshing = false
+    
+    var body: some View {
+        VStack(alignment: .leading) {
+            // Section Header
+            HStack {
+                Label(title, systemImage: icon)
+                    .font(DSText.prominent)
+                    .foregroundColor(DSColor.primary)
+                
+                Spacer()
+                
+                if showRefreshButton, let refreshAction = refreshAction {
+                    Button {
+                        Task {
+                            isRefreshing = true
+                            await refreshAction()
+                            isRefreshing = false
+                        }
+                    } label: {
+                        if isRefreshing {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                    }
+                    .disabled(isRefreshing)
+                    .foregroundColor(accentColor)
+                }
+            }
+            
+            if albums.isEmpty {
+                EmptyStateView(
+                    type: .albums,
+                    customTitle: "No Albums",
+                    customMessage: "No albums available for \(title)"
+                )
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top) {
+                        ForEach(albums.indices, id: \.self) { index in
+                            let album = albums[index]
+                            
+                            NavigationLink(value: album) {
+                                CardItemContainer(content: .album(album), index: index)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.top, DSLayout.sectionGap)
+
     }
 }
