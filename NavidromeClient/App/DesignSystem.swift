@@ -39,7 +39,7 @@ enum DSLayout {
     // MARK: Cover/Avatar Größen (Use-Case spezifisch)
     static let miniCover: CGFloat = 50      // Song rows, mini player
     static let listCover: CGFloat = 70      // List items
-    static let cardCover: CGFloat = 140     // Grid cards
+    static let cardCover: CGFloat = 150     // Grid cards
     static let detailCover: CGFloat = 300   // Detail views
     static let fullCover: CGFloat = 400     // Full screen
     static let smallAvatar: CGFloat = 72    // User avatars

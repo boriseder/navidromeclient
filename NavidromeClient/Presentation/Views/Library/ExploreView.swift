@@ -22,43 +22,52 @@ struct ExploreViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if appConfig.isInitializingServices {
-                    LoadingView(
-                        title: "Setting up your music library...",
-                        subtitle: "This may take a moment"
-                    )
-                } else if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-                    onlineContent
-                } else {
-                    offlineContent
+                DynamicMusicBackground()
+                
+                    VStack {
+                        if appConfig.isInitializingServices {
+                            LoadingView(
+                                title: "Setting up your music library...",
+                                subtitle: "This may take a moment"
+                            )
+                        } else if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+                            onlineContent
+                            
+                        } else {
+                            offlineContent
+                        }
+                    }
+                .padding(.horizontal, DSLayout.screenPadding*1.5)
+                .task(id: hasLoaded) {
+                    guard !hasLoaded else { return }
+                    await setupHomeScreenData()
+                    hasLoaded = true
                 }
+                .refreshable {
+                    await exploreManager.loadExploreData()
+                    await preloadHomeScreenCovers()
+                }
+                .navigationDestination(for: Album.self) { album in
+                    AlbumDetailViewContent(album: album)
+                }
+                .unifiedToolbar(exploreToolbarConfig)
             }
-            .task(id: hasLoaded) {
-                guard !hasLoaded else { return }
-                await setupHomeScreenData()
-                hasLoaded = true
-            }
-            .refreshable {
-                await exploreManager.loadExploreData()
-                await preloadHomeScreenCovers()
-            }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
-            }
-            .unifiedToolbar(exploreToolbarConfig)
         }
+        .overlay(
+            DebugLines() // Debug-Linien absolut
+        )
     }
     
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(spacing: DSLayout.contentGap) {
                 WelcomeHeader(
-                    username: "User",
+                    username: appConfig.getCredentials()!.username,
                     nowPlaying: playerVM.currentSong
                 )
                 
                 if !exploreManager.recentAlbums.isEmpty {
-                    ExploreSectionMigrated(
+                    ExploreSection(
                         title: "Recently played",
                         albums: exploreManager.recentAlbums,
                         icon: "clock.fill",
@@ -67,7 +76,7 @@ struct ExploreViewContent: View {
                 }
                 
                 if !exploreManager.newestAlbums.isEmpty {
-                    ExploreSectionMigrated(
+                    ExploreSection(
                         title: "Newly added",
                         albums: exploreManager.newestAlbums,
                         icon: "sparkles",
@@ -76,7 +85,7 @@ struct ExploreViewContent: View {
                 }
                 
                 if !exploreManager.frequentAlbums.isEmpty {
-                    ExploreSectionMigrated(
+                    ExploreSection(
                         title: "Often played",
                         albums: exploreManager.frequentAlbums,
                         icon: "chart.bar.fill",
@@ -85,7 +94,7 @@ struct ExploreViewContent: View {
                 }
                 
                 if !exploreManager.randomAlbums.isEmpty {
-                    ExploreSectionMigrated(
+                    ExploreSection(
                         title: "Explore",
                         albums: exploreManager.randomAlbums,
                         icon: "dice.fill",
@@ -95,7 +104,6 @@ struct ExploreViewContent: View {
                     )
                 }
             }
-            .padding(.top, DSLayout.elementGap)
         }
     }
     
@@ -106,10 +114,9 @@ struct ExploreViewContent: View {
                     downloadedAlbums: downloadManager.downloadedAlbums.count,
                     isConnected: networkMonitor.isConnected
                 )
-                .screenPadding()
                 
                 if !offlineManager.offlineAlbums.isEmpty {
-                    ExploreSectionMigrated(
+                    ExploreSection(
                         title: "Downloaded Albums",
                         albums: Array(offlineManager.offlineAlbums.prefix(10)),
                         icon: "arrow.down.circle.fill",
@@ -119,7 +126,6 @@ struct ExploreViewContent: View {
                 
                 Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
-            .padding(.top, DSLayout.elementGap)
         }
     }
     

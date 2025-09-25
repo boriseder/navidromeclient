@@ -51,32 +51,36 @@ struct GenreViewContent: View {
     
     var body: some View {
         NavigationStack {
-            UnifiedLibraryContainer(
-                items: displayedGenres,
-                isLoading: shouldShowLoading,
-                isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isEffectivelyOffline,
-                emptyStateType: .genres,
-                layout: .list,
-                onItemTap: { _ in } // NavigationLink handles tap
-            ) { genre, index in
-                NavigationLink(value: genre) {
-                    ListItemContainer(content: CardContent.genre(genre), index: index)
+            ZStack {
+                DynamicMusicBackground()
+                
+                UnifiedLibraryContainer(
+                    items: displayedGenres,
+                    isLoading: shouldShowLoading,
+                    isEmpty: isEmpty && !shouldShowLoading,
+                    isOfflineMode: isEffectivelyOffline,
+                    emptyStateType: .genres,
+                    layout: .list,
+                    onItemTap: { _ in } // NavigationLink handles tap
+                ) { genre, index in
+                    NavigationLink(value: genre) {
+                        ListItemContainer(content: CardContent.genre(genre), index: index)
+                    }
                 }
+                .searchable(text: $searchText, prompt: "Search genres...")
+                .refreshable {
+                    // PHASE 3: Only refresh if we should load online content
+                    guard connectionState.shouldLoadOnlineContent else { return }
+                    await refreshAllData()
+                }
+                .onChange(of: searchText) { _, _ in
+                    handleSearchTextChange()
+                }
+                .navigationDestination(for: Genre.self) { genre in
+                    AlbumCollectionView(context: .byGenre(genre))
+                }
+                .unifiedToolbar(genreToolbarConfig)
             }
-            .searchable(text: $searchText, prompt: "Search genres...")
-            .refreshable {
-                // PHASE 3: Only refresh if we should load online content
-                guard connectionState.shouldLoadOnlineContent else { return }
-                await refreshAllData()
-            }
-            .onChange(of: searchText) { _, _ in
-                handleSearchTextChange()
-            }
-            .navigationDestination(for: Genre.self) { genre in
-                AlbumCollectionView(context: .byGenre(genre))
-            }
-            .unifiedToolbar(genreToolbarConfig)
         }
     }
     

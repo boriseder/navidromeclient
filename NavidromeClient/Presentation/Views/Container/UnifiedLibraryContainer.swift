@@ -59,7 +59,7 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
             } else if isEmpty {
                 EmptyStateView(type: emptyStateType)
             } else {
-                // ✅ FIX: Nur ScrollView für non-horizontal layouts
+                // FIX: Nur ScrollView für non-horizontal layouts
                 if layout == .horizontal {
                     // Horizontal braucht KEIN outer ScrollView
                     LazyVStack(spacing: 0) {
@@ -71,7 +71,6 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
                         
                         layoutContent  // horizontalLayout mit eigenem ScrollView
                     }
-                    // KEIN .padding(.bottom, DSLayout.miniPlayerHeight) für horizontal!
                 } else {
                     // Nur für list/grid layouts
                     ScrollView {
@@ -84,6 +83,7 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
                             
                             layoutContent
                         }
+                        .padding(.horizontal, DSLayout.screenPadding)
                         .padding(.bottom, DSLayout.miniPlayerHeight)
                     }
                 }
@@ -111,7 +111,6 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
         LazyVStack(spacing: spacing) {
             itemsWithLoadMore()
         }
-        .screenPadding()
     }
     
     @ViewBuilder
@@ -119,7 +118,6 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
         LazyVGrid(columns: columns, spacing: spacing) {
             itemsWithLoadMore()
         }
-        .screenPadding()
     }
     
     @ViewBuilder
@@ -128,7 +126,6 @@ struct UnifiedLibraryContainer<Item: Identifiable, Content: View>: View {
             LazyHStack(spacing: spacing) {
                 itemsWithoutLoadMore()
             }
-            .padding(.horizontal, DSLayout.screenPadding)
         }
     }
     

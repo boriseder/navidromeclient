@@ -53,37 +53,41 @@ struct ArtistsViewContent: View {
     
     var body: some View {
         NavigationStack {
-            UnifiedLibraryContainer(
-                items: displayedArtists,
-                isLoading: shouldShowLoading,
-                isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isEffectivelyOffline,
-                emptyStateType: .artists,
-                layout: .list
-            ) { artist, index in
-                NavigationLink(value: artist) {
-                    ListItemContainer(content: CardContent.artist(artist), index: index)
+            ZStack {
+                DynamicMusicBackground()
+                
+                UnifiedLibraryContainer(
+                    items: displayedArtists,
+                    isLoading: shouldShowLoading,
+                    isEmpty: isEmpty && !shouldShowLoading,
+                    isOfflineMode: isEffectivelyOffline,
+                    emptyStateType: .artists,
+                    layout: .list
+                ) { artist, index in
+                    NavigationLink(value: artist) {
+                        ListItemContainer(content: CardContent.artist(artist), index: index)
+                    }
                 }
+                .searchable(text: $searchText, prompt: "Search artists...")
+                .refreshable {
+                    // PHASE 3: Only refresh if we should load online content
+                    guard connectionState.shouldLoadOnlineContent else { return }
+                    await refreshAllData()
+                }
+                .onChange(of: searchText) { _, _ in
+                    handleSearchTextChange()
+                }
+                .task(id: displayedArtists.count) {
+                    await preloadArtistImages()
+                }
+                .navigationDestination(for: Artist.self) { artist in
+                    AlbumCollectionView(context: .byArtist(artist))
+                }
+                .navigationDestination(for: Album.self) { album in
+                    AlbumDetailViewContent(album: album)
+                }
+                .unifiedToolbar(artistsToolbarConfig)
             }
-            .searchable(text: $searchText, prompt: "Search artists...")
-            .refreshable {
-                // PHASE 3: Only refresh if we should load online content
-                guard connectionState.shouldLoadOnlineContent else { return }
-                await refreshAllData()
-            }
-            .onChange(of: searchText) { _, _ in
-                handleSearchTextChange()
-            }
-            .task(id: displayedArtists.count) {
-                await preloadArtistImages()
-            }
-            .navigationDestination(for: Artist.self) { artist in
-                AlbumCollectionView(context: .byArtist(artist))
-            }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
-            }
-            .unifiedToolbar(artistsToolbarConfig)
         }
     }
     

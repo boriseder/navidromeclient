@@ -37,7 +37,6 @@ struct MainTabView: View {
                     Image(systemName: "record.circle")
                     Text("Albums")
                 }
-                .badge(offlineManager.isOfflineMode ? "📱" : nil)
                 .tag(1)
             
             ArtistsViewContent()

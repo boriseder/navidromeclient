@@ -21,8 +21,9 @@ struct CardItemContainer: View {
                 .frame(width: DSLayout.cardCover, height: DSLayout.cardCover)
                 .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                .padding(DSLayout.elementPadding)
             
-            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
+            VStack(alignment: .leading, spacing: DSLayout.elementGap) {
                 Text(content.title)
                     .font(DSText.emphasized)
                     .foregroundColor(DSColor.primary)
@@ -46,9 +47,10 @@ struct CardItemContainer: View {
             }
             .frame(height: textHeight)
             .frame(maxWidth: DSLayout.cardCover, alignment: .leading)
+            .padding(DSLayout.elementPadding)
+
         }
-        .padding(DSLayout.elementPadding)
-        .background(.ultraThinMaterial) // Material-Hintergrund
+        .background(.orange) // Material-Hintergrund
         .overlay(
             RoundedRectangle(cornerRadius: DSCorners.tight)
                 .stroke(Color(.systemGray4), lineWidth: 0.5)

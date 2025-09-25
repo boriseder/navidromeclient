@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct ExploreSectionMigrated: View {
+struct ExploreSection: View {
     let title: String
     let albums: [Album]
     let icon: String
@@ -28,7 +28,7 @@ struct ExploreSectionMigrated: View {
                 Spacer()
                 // refresh button...
             }
-            .padding(.horizontal, DSLayout.screenPadding)
+            .padding(.top, DSLayout.contentPadding)
             
             UnifiedLibraryContainer(
                 items: albums,

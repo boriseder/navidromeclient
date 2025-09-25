@@ -45,6 +45,7 @@ struct AlbumImageView: View {
                         .frame(width: actualSize, height: actualSize)
                         .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
                         .transition(.opacity.animation(.easeInOut(duration: 0.3)))
+        
                     
                 } else {
                     RoundedRectangle(cornerRadius: DSCorners.element)

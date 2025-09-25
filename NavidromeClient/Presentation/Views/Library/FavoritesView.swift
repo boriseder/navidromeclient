@@ -47,81 +47,85 @@ struct FavoritesViewContent: View {
     
     var body: some View {
         NavigationStack {
-            // ✅ MIGRIERT: Custom Layout für Favorites mit Header
-            Group {
-                if shouldShowLoading {
-                    LoadingView()
-                } else if isEmpty && !shouldShowLoading {
-                    EmptyStateView(type: .favorites)
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 0) {
-                            if isOfflineMode {
-                                OfflineStatusBanner()
-                                    .screenPadding()
-                                    .padding(.bottom, DSLayout.elementGap)
-                            }
-                            
-                            LazyVStack(spacing: DSLayout.elementGap) {
-                                if !favoritesManager.favoriteSongs.isEmpty {
-                                    FavoritesStatsHeader()
-                                }
-                                
-                                ForEach(displayedSongs.indices, id: \.self) { index in
-                                    let song = displayedSongs[index]
+            ZStack {
+                DynamicMusicBackground()
+                Group {
+                    if shouldShowLoading {
+                        LoadingView()
+                    } else if isEmpty && !shouldShowLoading {
+                        EmptyStateView(type: .favorites)
+                    } else {
+                        ZStack {
+                            DynamicMusicBackground()
+                            ScrollView {
+                                LazyVStack(spacing: 0) {
+                                    if isOfflineMode {
+                                        OfflineStatusBanner()
+                                            .screenPadding()
+                                            .padding(.bottom, DSLayout.elementGap)
+                                    }
                                     
-                                    SongRow(
-                                        song: song,
-                                        index: index + 1,
-                                        isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                                        action: {
-                                            Task {
-                                                await playerVM.setPlaylist(
-                                                    displayedSongs,
-                                                    startIndex: index,
-                                                    albumId: nil
-                                                )
-                                            }
-                                        },
-                                        onMore: { /* existing more action */ },
-                                        favoriteAction: {
-                                            Task {
-                                                await favoritesManager.toggleFavorite(song)
-                                            }
+                                    LazyVStack(spacing: DSLayout.elementGap) {
+                                        if !favoritesManager.favoriteSongs.isEmpty {
+                                            FavoritesStatsHeader()
                                         }
-                                    )
+                                        
+                                        ForEach(displayedSongs.indices, id: \.self) { index in
+                                            let song = displayedSongs[index]
+                                            
+                                            SongRow(
+                                                song: song,
+                                                index: index + 1,
+                                                isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                                                action: {
+                                                    Task {
+                                                        await playerVM.setPlaylist(
+                                                            displayedSongs,
+                                                            startIndex: index,
+                                                            albumId: nil
+                                                        )
+                                                    }
+                                                },
+                                                onMore: { /* existing more action */ },
+                                                favoriteAction: {
+                                                    Task {
+                                                        await favoritesManager.toggleFavorite(song)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                    .screenPadding()
                                 }
+                                .padding(.bottom, DSLayout.miniPlayerHeight)
                             }
-                            .screenPadding()
                         }
-                        .padding(.bottom, DSLayout.miniPlayerHeight)
                     }
                 }
-            }
-            .searchable(text: $searchText, prompt: "Search favorites...")
-            .refreshable { await refreshFavorites() }
-            .task {
-                await favoritesManager.loadFavoriteSongs()
-            }
-            .onChange(of: searchText) { _, _ in
-                handleSearchTextChange()
-            }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
-            }
-            .unifiedToolbar(favoritesToolbarConfig)
-            .confirmationDialog(
-                "Clear All Favorites?",
-                isPresented: $showingClearConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Clear All", role: .destructive) {
-                    Task { await clearAllFavorites() }
+                .searchable(text: $searchText, prompt: "Search favorites...")
+                .refreshable { await refreshFavorites() }
+                .task {
+                    await favoritesManager.loadFavoriteSongs()
                 }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
-            }
+                .onChange(of: searchText) { _, _ in
+                    handleSearchTextChange()
+                }
+                .navigationDestination(for: Album.self) { album in
+                    AlbumDetailViewContent(album: album)
+                }
+                .unifiedToolbar(favoritesToolbarConfig)
+                .confirmationDialog(
+                    "Clear All Favorites?",
+                    isPresented: $showingClearConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Clear All", role: .destructive) {
+                        Task { await clearAllFavorites() }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
+                }}
         }
     }
     

@@ -216,10 +216,9 @@ struct WelcomeHeader: View {
                         .background(.white.opacity(0.15))
                         .clipShape(Circle())
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSLayout.contentPadding)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.top, DSLayout.contentPadding)
     }
 
     // MARK: - Helper Methods

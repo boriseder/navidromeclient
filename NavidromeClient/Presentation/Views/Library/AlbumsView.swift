@@ -55,54 +55,66 @@ struct AlbumsViewContent: View {
     
     var body: some View {
         NavigationStack {
-            UnifiedLibraryContainer(
-                items: displayedAlbums,
-                isLoading: shouldShowLoading,
-                isEmpty: isEmpty && !shouldShowLoading,
-                isOfflineMode: isEffectivelyOffline,
-                emptyStateType: .albums,
-                layout: .twoColumnGrid,
-                onLoadMore: { _ in
-                    // PHASE 3: Only load more if we should load online content
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
+            ZStack {
+                DynamicMusicBackground()
+                
+                VStack {
+                    UnifiedLibraryContainer(
+                        items: displayedAlbums,
+                        isLoading: shouldShowLoading,
+                        isEmpty: isEmpty && !shouldShowLoading,
+                        isOfflineMode: isEffectivelyOffline,
+                        emptyStateType: .albums,
+                        layout: .twoColumnGrid,
+                        onLoadMore: { _ in
+                            // PHASE 3: Only load more if we should load online content
+                            guard connectionState.shouldLoadOnlineContent else { return }
+                            Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
+                        }
+                    ) { album, index in
+                        NavigationLink(value: album) {
+                            CardItemContainer(content: CardContent.album(album), index: index)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                 }
-            ) { album, index in
-                NavigationLink(value: album) {
-                    CardItemContainer(content: CardContent.album(album), index: index)
-                }
-            }
-            .searchable(text: $searchText, prompt: "Search albums...")
-            .refreshable {
-                // PHASE 3: Only refresh if we should load online content
-                guard connectionState.shouldLoadOnlineContent else { return }
-                await refreshAllData()
-            }
-            .onChange(of: searchText) { _, _ in
-                handleSearchTextChange()
-            }
-            .task(id: displayedAlbums.count) {
-                await preloadAlbumImages()
-            }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
-            }
-            .unifiedToolbar(.libraryWithSort(
-                title: "Albums",
-                isOffline: isEffectivelyOffline,
-                currentSort: selectedAlbumSort,
-                sortOptions: ContentService.AlbumSortType.allCases,
-                onRefresh: {
+                .padding(.horizontal, DSLayout.screenPadding)
+                .searchable(text: $searchText, prompt: "Search albums...")
+                .refreshable {
+                    // PHASE 3: Only refresh if we should load online content
                     guard connectionState.shouldLoadOnlineContent else { return }
-                    await loadAlbums(sortBy: selectedAlbumSort)
-                },
-                onToggleOffline: toggleOfflineMode,
-                onSort: { sortType in
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    Task { await loadAlbums(sortBy: sortType) }
+                    await refreshAllData()
                 }
-            ))
+                .onChange(of: searchText) { _, _ in
+                    handleSearchTextChange()
+                }
+                .task(id: displayedAlbums.count) {
+                    await preloadAlbumImages()
+                }
+                .navigationDestination(for: Album.self) { album in
+                    AlbumDetailViewContent(album: album)
+                }
+                .unifiedToolbar(.libraryWithSort(
+                    title: "Albums",
+                    isOffline: isEffectivelyOffline,
+                    currentSort: selectedAlbumSort,
+                    sortOptions: ContentService.AlbumSortType.allCases,
+                    onRefresh: {
+                        guard connectionState.shouldLoadOnlineContent else { return }
+                        await loadAlbums(sortBy: selectedAlbumSort)
+                    },
+                    onToggleOffline: toggleOfflineMode,
+                    onSort: { sortType in
+                        guard connectionState.shouldLoadOnlineContent else { return }
+                        Task { await loadAlbums(sortBy: sortType) }
+                    }
+                )
+                )
+            }
         }
+        .overlay(
+            DebugLines() // Debug-Linien absolut
+        )
     }
     
     // MARK: - PHASE 3: Standardized Business Logic
