@@ -1,9 +1,3 @@
-//
-//  AlbumDetailViewContent.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 21.09.25.
-//
 import SwiftUI
 
 struct AlbumDetailViewContent: View {
@@ -20,9 +14,22 @@ struct AlbumDetailViewContent: View {
     @State private var songs: [Song] = []
     @State private var isOfflineAlbum = false
     
+    // UNIFIED: Complete Offline Pattern
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
+    }
+    
+    private var currentState: ViewState? {
+        if songs.isEmpty {
+            return .empty(type: .songs)
+        }
+        return nil
+    }
+
     var body: some View {
         ZStack {
             DynamicMusicBackground()
+            
             ScrollView {
                 VStack(spacing: DSLayout.screenGap) {
                     AlbumHeaderView(
@@ -31,7 +38,7 @@ struct AlbumDetailViewContent: View {
                         isOfflineAlbum: isOfflineAlbum
                     )
                     
-                    if isOfflineAlbum || !networkMonitor.canLoadOnlineContent {
+                    if connectionState.isEffectivelyOffline || isOfflineAlbum {
                         HStack {
                             if downloadManager.isAlbumDownloaded(album.id) {
                                 OfflineStatusBadge(album: album)
@@ -40,16 +47,20 @@ struct AlbumDetailViewContent: View {
                             }
                             Spacer()
                         }
+                        .padding(.horizontal, DSLayout.screenPadding)
                     }
                     
-                    if songs.isEmpty {
-                        EmptyStateView(
-                            type: .songs,
-                            customTitle: "No Songs Available",
-                            customMessage: isOfflineAlbum ?
-                            "This album is not downloaded for offline listening." :
-                                "No songs found in this album."
+                    // UNIFIED: Single component handles empty state
+                    if let state = currentState {
+                        UnifiedStateView(
+                            state: state,
+                            primaryAction: StateAction("Refresh") {
+                                Task {
+                                    await loadAlbumData()
+                                }
+                            }
                         )
+                        .padding(.horizontal, DSLayout.screenPadding)
                     } else {
                         AlbumSongsListView(
                             songs: songs,
@@ -65,13 +76,11 @@ struct AlbumDetailViewContent: View {
                 await loadAlbumData()
             }
         }
-        .overlay( DebugLines() )
     }
     
     @MainActor
     private func loadAlbumData() async {
-        isOfflineAlbum = !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
-        
+        isOfflineAlbum = connectionState.isEffectivelyOffline
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }

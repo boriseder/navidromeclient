@@ -16,28 +16,23 @@ struct AlbumSongsListView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     
     var body: some View {
-        if songs.isEmpty {
-            LoadingView()
-        } else {
-            VStack(spacing: 5) {
-                ForEach(songs.indices, id: \.self) { index in
-                    let song = songs[index]
-                    SongRow(
-                        song: song,
-                        index: index + 1,
-                        isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                        action: {
-                            Task { await playerVM.setPlaylist(songs, startIndex: index, albumId: album.id) }
-                        },
-                        onMore: {
-                            playerVM.stop()
-                        }
-                    )
-                    
-                }
+        VStack(spacing: 5) {
+            ForEach(songs.indices, id: \.self) { index in
+                let song = songs[index]
+                SongRow(
+                    song: song,
+                    index: index + 1,
+                    isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                    action: {
+                        Task { await playerVM.setPlaylist(songs, startIndex: index, albumId: album.id) }
+                    },
+                    onMore: {
+                        playerVM.stop()
+                    }
+                )
+                
             }
-            .padding(.horizontal, DSLayout.screenPadding)
-
         }
+        .padding(.horizontal, DSLayout.screenPadding)
     }
 }

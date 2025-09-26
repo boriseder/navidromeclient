@@ -18,6 +18,11 @@ struct FavoritesViewContent: View {
     @StateObject private var debouncer = Debouncer()
     @State private var showingClearConfirmation = false
 
+    // UNIFIED: Complete Offline Pattern
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
+    }
+    
     private var displayedSongs: [Song] {
         let songs = favoritesManager.favoriteSongs
         
@@ -33,105 +38,114 @@ struct FavoritesViewContent: View {
         }
     }
     
-    private var shouldShowLoading: Bool {
-        return favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty
-    }
-    
-    private var isEmpty: Bool {
-        return displayedSongs.isEmpty
-    }
-    
-    private var isOfflineMode: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    private var currentState: ViewState? {
+        if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
+            return .loading("Loading favorites")
+        } else if displayedSongs.isEmpty {
+            return .empty(type: .favorites)
+        }
+        return nil
     }
     
     var body: some View {
-            NavigationStack {
-                ZStack {
-                    DynamicMusicBackground()
-                    
-                    VStack(alignment: .leading) {
-                        if shouldShowLoading {
-                            LoadingView()
-                        } else if isEmpty && !shouldShowLoading {
-                            EmptyStateView(type: .favorites)
-                        } else {
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 0) {
-                                    if isOfflineMode {
-                                        OfflineStatusBanner()
-                                    }
-                                    
-                                    LazyVStack(spacing: DSLayout.elementGap) {
-                                        if !favoritesManager.favoriteSongs.isEmpty {
-                                            FavoritesStatsHeader()
-                                                .padding(.top, DSLayout.tightGap)
-                                                .padding(.bottom, DSLayout.sectionGap)
-
-                                        }
-                                        
-                                        ForEach(displayedSongs.indices, id: \.self) { index in
-                                            let song = displayedSongs[index]
-                                            
-                                            SongRow(
-                                                song: song,
-                                                index: index + 1,
-                                                isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                                                action: {
-                                                    Task {
-                                                        await playerVM.setPlaylist(
-                                                            displayedSongs,
-                                                            startIndex: index,
-                                                            albumId: nil
-                                                        )
-                                                    }
-                                                },
-                                                onMore: { /* existing more action */ },
-                                                favoriteAction: {
-                                                    Task {
-                                                        await favoritesManager.toggleFavorite(song)
-                                                    }
-                                                }
-
-                                            )
-                                        }
-                                    }
-                                    .padding(.bottom, DSLayout.miniPlayerHeight)
-                                }
+        NavigationStack {
+            ZStack {
+                DynamicMusicBackground()
+                
+                // UNIFIED: Single component handles all states
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Refresh") {
+                            Task {
+                                guard connectionState.shouldLoadOnlineContent else { return }
+                                await favoritesManager.loadFavoriteSongs(forceRefresh: true)
                             }
                         }
-                    }
-                    .padding(.horizontal, DSLayout.screenPadding)
-                    .searchable(text: $searchText, prompt: "Search favorites...")
-                    .refreshable { await refreshFavorites() }
-                    .task {
-                        await favoritesManager.loadFavoriteSongs()
-                    }
-                    .onChange(of: searchText) { _, _ in
-                        handleSearchTextChange()
-                    }
-                    .navigationDestination(for: Album.self) { album in
-                        AlbumDetailViewContent(album: album)
-                    }
-                    .unifiedToolbar(favoritesToolbarConfig)
-                    .confirmationDialog(
-                        "Clear All Favorites?",
-                        isPresented: $showingClearConfirmation,
-                        titleVisibility: .visible
-                    ) {
-                        Button("Clear All", role: .destructive) {
-                            Task { await clearAllFavorites() }
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    } message: {
-                        Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
-                    }
+                    )
+                } else {
+                    contentView
                 }
             }
-            .overlay( DebugLines() )
-
+            .searchable(text: $searchText, prompt: "Search favorites...")
+            .refreshable {
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshFavorites()
+            }
+            .task {
+                await favoritesManager.loadFavoriteSongs()
+            }
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
+            }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .unifiedToolbar(favoritesToolbarConfig)
+            .confirmationDialog(
+                "Clear All Favorites?",
+                isPresented: $showingClearConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Clear All", role: .destructive) {
+                    Task { await clearAllFavorites() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
+            }
         }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if connectionState.isEffectivelyOffline {
+                    OfflineStatusBanner()
+                        .padding(.horizontal, DSLayout.screenPadding)
+                }
+                
+                LazyVStack(spacing: DSLayout.elementGap) {
+                    if !favoritesManager.favoriteSongs.isEmpty {
+                        FavoritesStatsHeader()
+                            .padding(.top, DSLayout.tightGap)
+                            .padding(.bottom, DSLayout.sectionGap)
+                    }
+                    
+                    ForEach(displayedSongs.indices, id: \.self) { index in
+                        let song = displayedSongs[index]
+                        
+                        SongRow(
+                            song: song,
+                            index: index + 1,
+                            isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                            action: {
+                                Task {
+                                    await playerVM.setPlaylist(
+                                        displayedSongs,
+                                        startIndex: index,
+                                        albumId: nil
+                                    )
+                                }
+                            },
+                            onMore: { /* existing more action */ },
+                            favoriteAction: {
+                                Task {
+                                    await favoritesManager.toggleFavorite(song)
+                                }
+                            }
+                        )
+                    }
+                }
+                .padding(.bottom, DSLayout.miniPlayerHeight)
+            }
+        }
+        .padding(.horizontal, DSLayout.screenPadding)
+    }
+
     // Business Logic (unverändert)
+    
     private func refreshFavorites() async {
         await favoritesManager.loadFavoriteSongs(forceRefresh: true)
     }

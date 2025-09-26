@@ -10,6 +10,8 @@
 
 import SwiftUI
 
+
+
 struct SearchView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -25,85 +27,32 @@ struct SearchView: View {
     @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
     
-    enum SearchTab: String, CaseIterable {
-        case artists = "Artists"
-        case albums = "Albums"
-        case songs = "Songs"
-        
-        var icon: String {
-            switch self {
-            case .artists: return "person.2.fill"
-            case .albums: return "record.circle.fill"
-            case .songs: return "music.note"
-            }
+    // UNIFIED: Complete Offline Pattern
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
+    }
+    
+    private var hasQuery: Bool {
+        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    private var currentState: ViewState? {
+        if let error = searchError, !isSearching {
+            return .serverError
+        } else if !hasQuery && !isSearching {
+            return .empty(type: .search)
+        } else if isSearching {
+            return .loading("Searching your music")
+        } else if hasQuery && searchResults.isEmpty && !isSearching {
+            return .empty(type: .search)
         }
+        return nil
     }
-    
-    struct SearchResults {
-        var artists: [Artist] = []
-        var albums: [Album] = []
-        var songs: [Song] = []
-        
-        var isEmpty: Bool {
-            artists.isEmpty && albums.isEmpty && songs.isEmpty
-        }
-        
-        var totalCount: Int {
-            artists.count + albums.count + songs.count
-        }
-        
-        func count(for type: SearchTab) -> Int {
-            switch type {
-            case .artists: return artists.count
-            case .albums: return albums.count
-            case .songs: return songs.count
-            }
-        }
-        
-        func items(for type: SearchTab) -> [any Identifiable] {
-            switch type {
-            case .artists: return artists
-            case .albums: return albums
-            case .songs: return songs
-            }
-        }
-    }
-    
-    // MARK: - Computed Properties
-    
-    private var shouldUseOfflineSearch: Bool {
-        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
-    }
-    
-    private var hasResults: Bool {
-        return !searchResults.isEmpty && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-    
-    private var shouldShowInitialState: Bool {
-        return query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSearching
-    }
-    
-    private var shouldShowLoading: Bool {
-        return isSearching
-    }
-    
-    private var shouldShowError: Bool {
-        return searchError != nil && !isSearching
-    }
-    
-    private var shouldShowEmpty: Bool {
-        return !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-               searchResults.isEmpty &&
-               !isSearching &&
-               searchError == nil
-    }
-    
-    // MARK: - Main View
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if shouldUseOfflineSearch {
+                if connectionState.isEffectivelyOffline {
                     SearchModeHeader()
                 }
                 
@@ -115,35 +64,16 @@ struct SearchView: View {
                     onClear: clearSearch
                 )
                 
-                // ✅ REFACTORED: Zentrale State Views nutzen
-                Group {
-                    if shouldShowError {
-                        EmptyStateView(
-                            type: .custom(
-                                icon: "exclamationmark.triangle.fill",
-                                onlineTitle: "Search Error",
-                                onlineMessage: searchError ?? "Unknown error occurred"
-                            ),
-                            primaryAction: EmptyStateAction("Try Again") {
-                                performSearch()
-                            }
-                        )
-                    } else if shouldShowInitialState {
-                        EmptyStateView(
-                            type: .search,
-                            customTitle: shouldUseOfflineSearch ? "Search Downloads" : "Search Music",
-                            customMessage: shouldUseOfflineSearch ?
-                                "Search through your downloaded albums" :
-                                "Search for artists, albums, or songs"
-                        )
-                    } else if shouldShowLoading {
-                        LoadingView.search
-                    } else if shouldShowEmpty {
-                        EmptyStateView(type: .search)
-                    } else if hasResults {
-                        // ✅ REFACTORED: UnifiedLibraryContainer nutzen
-                        searchResultsContainer
-                    }
+                // UNIFIED: Single component handles all states
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Try Again") {
+                            performSearch()
+                        }
+                    )
+                } else if searchResults.totalCount > 0 {
+                    searchResultsContainer
                 }
                 
                 Spacer()
@@ -154,7 +84,6 @@ struct SearchView: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            // ✅ REFACTORED: UnifiedToolbar hinzugefügt
             .unifiedToolbar(.search())
         }
         .onChange(of: query) { _, newValue in
@@ -164,18 +93,17 @@ struct SearchView: View {
             searchTask?.cancel()
         }
     }
-    
-    // ✅ REFACTORED: UnifiedLibraryContainer für Suchergebnisse
+
     @ViewBuilder
-        private var searchResultsContainer: some View {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if shouldUseOfflineSearch {
-                        OfflineStatusBanner()
-                            .padding(.horizontal, DSLayout.screenPadding)
-                            .padding(.bottom, DSLayout.elementGap)
-                    }
-                    
+    private var searchResultsContainer: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                if connectionState.isEffectivelyOffline {
+                    OfflineStatusBanner()
+                        .padding(.horizontal, DSLayout.screenPadding)
+                        .padding(.bottom, DSLayout.elementGap)
+                }
+
                     switch selectedTab {
                     case .artists:
                         LazyVStack(spacing: DSLayout.elementGap) {
@@ -222,6 +150,59 @@ struct SearchView: View {
                 }
             }
         }
+
+    
+    private var shouldUseOfflineSearch: Bool {
+        return !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
+    }
+    
+
+    
+    enum SearchTab: String, CaseIterable {
+        case artists = "Artists"
+        case albums = "Albums"
+        case songs = "Songs"
+        
+        var icon: String {
+            switch self {
+            case .artists: return "person.2.fill"
+            case .albums: return "record.circle.fill"
+            case .songs: return "music.note"
+            }
+        }
+    }
+
+    struct SearchResults {
+        var artists: [Artist] = []
+        var albums: [Album] = []
+        var songs: [Song] = []
+        
+        var isEmpty: Bool {
+            artists.isEmpty && albums.isEmpty && songs.isEmpty
+        }
+        
+        var totalCount: Int {
+            artists.count + albums.count + songs.count
+        }
+        
+        func count(for type: SearchTab) -> Int {
+            switch type {
+            case .artists: return artists.count
+            case .albums: return albums.count
+            case .songs: return songs.count
+            }
+        }
+        
+        func items(for type: SearchTab) -> [any Identifiable] {
+            switch type {
+            case .artists: return artists
+            case .albums: return albums
+            case .songs: return songs
+            }
+        }
+    }
+
+
     // MARK: - Search Logic (unchanged)
     
     private func handleQueryChange(_ newValue: String) {

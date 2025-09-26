@@ -19,43 +19,87 @@ struct ExploreViewContent: View {
     @StateObject private var exploreManager = ExploreManager.shared
     @State private var hasLoaded = false
 
+    // UNIFIED: Complete Offline Pattern
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
+    }
+    
+    private var hasContent: Bool {
+        if connectionState.shouldLoadOnlineContent {
+            return exploreManager.hasHomeScreenData
+        } else {
+            return !offlineManager.offlineAlbums.isEmpty
+        }
+    }
+    
+    private var currentState: ViewState? {
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        } else if exploreManager.isLoadingExploreData && !hasContent {
+            return .loading("Loading your music")
+        } else if !hasContent {
+            return .empty(type: .albums)
+        }
+        return nil
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
                 
-                VStack(alignment: .leading) {
-                    if appConfig.isInitializingServices {
-                        LoadingView(
-                            title: "Setting up your music library...",
-                            subtitle: "This may take a moment"
-                        )
-                    } else if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
-                        onlineContent
-
-                    } else {
-                        offlineContent
-                    }
+                // UNIFIED: Single component handles all states
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Refresh") {
+                            Task {
+                                guard connectionState.shouldLoadOnlineContent else { return }
+                                await exploreManager.loadExploreData()
+                                await preloadHomeScreenCovers()
+                            }
+                        }
+                    )
+                } else {
+                    contentView
                 }
-                .padding(.horizontal, DSLayout.screenPadding)
-                .task(id: hasLoaded) {
-                    guard !hasLoaded else { return }
-                    await setupHomeScreenData()
-                    hasLoaded = true
-                }
-                .refreshable {
-                    await exploreManager.loadExploreData()
-                    await preloadHomeScreenCovers()
-                }
-                .navigationDestination(for: Album.self) { album in
-                    AlbumDetailViewContent(album: album)
-                }
-                .unifiedToolbar(exploreToolbarConfig)
             }
+            .task(id: hasLoaded) {
+                guard !hasLoaded else { return }
+                await setupHomeScreenData()
+                hasLoaded = true
+            }
+            .refreshable {
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await exploreManager.loadExploreData()
+                await preloadHomeScreenCovers()
+            }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .unifiedToolbar(exploreToolbarConfig)
         }
-        .overlay( DebugLines() )
     }
     
+    @ViewBuilder
+    private var contentView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading) {
+                if connectionState.isEffectivelyOffline {
+                    OfflineStatusBanner()
+                        .padding(.horizontal, DSLayout.screenPadding)
+                }
+                
+                if connectionState.shouldLoadOnlineContent {
+                    onlineContent
+                } else {
+                    offlineContent
+                }
+            }
+            .padding(.top, DSLayout.elementGap)
+        }
+    }
+
     private var onlineContent: some View {
         ScrollView {
             LazyVStack(alignment: .leading) {
@@ -107,6 +151,7 @@ struct ExploreViewContent: View {
             .padding(.top, DSLayout.elementGap)
 
         }
+        .padding(.horizontal, DSLayout.screenPadding)
     }
     
     private var offlineContent: some View {
@@ -129,6 +174,8 @@ struct ExploreViewContent: View {
                 Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
         }
+        .padding(.horizontal, DSLayout.screenPadding)
+
     }
     
     private func setupHomeScreenData() async {
@@ -208,21 +255,13 @@ struct ExploreSection: View {
                 }
             }
             
-            if albums.isEmpty {
-                EmptyStateView(
-                    type: .albums,
-                    customTitle: "No Albums",
-                    customMessage: "No albums available for \(title)"
-                )
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(alignment: .top) {
-                        ForEach(albums.indices, id: \.self) { index in
-                            let album = albums[index]
-                            
-                            NavigationLink(value: album) {
-                                CardItemContainer(content: .album(album), index: index)
-                            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top) {
+                    ForEach(albums.indices, id: \.self) { index in
+                        let album = albums[index]
+                        
+                        NavigationLink(value: album) {
+                            CardItemContainer(content: .album(album), index: index)
                         }
                     }
                 }

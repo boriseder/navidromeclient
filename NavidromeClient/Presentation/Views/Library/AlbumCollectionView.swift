@@ -1,10 +1,10 @@
 //
-//  ArtistDetailViewContent.swift - FIXED: Button Actions & View Issues
+//  AlbumCollectionView.swift - MIGRATED: Unified State System
 //  NavidromeClient
 //
-//   FIXED: Play All and Shuffle All button implementations
-//   FIXED: Navigation destinations and view structure
-//   CLEAN: Proper error handling and loading states
+//   ELIMINATED: Custom LoadingView, EmptyStateView (~40 LOC)
+//   UNIFIED: Complete offline pattern with 4-line state logic
+//   CLEAN: Single state component handles all scenarios
 //
 
 import SwiftUI
@@ -29,13 +29,29 @@ struct AlbumCollectionView: View {
     @State private var isLoading = false
     @State private var errorMessage: String?
 
+    // UNIFIED: Complete Offline Pattern
+    private var connectionState: EffectiveConnectionState {
+        networkMonitor.effectiveConnectionState
+    }
+    
+    private var displayedAlbums: [Album] {
+        return connectionState.shouldLoadOnlineContent ? albums : availableOfflineAlbums
+    }
+    
+    private var currentState: ViewState? {
+        if isLoading && displayedAlbums.isEmpty {
+            return .loading("Loading albums")
+        } else if let error = errorMessage {
+            return .serverError
+        } else if displayedAlbums.isEmpty {
+            return .empty(type: .albums)
+        }
+        return nil
+    }
+
     private var artist: Artist? {
         if case .byArtist(let a) = context { return a }
         return nil
-    }
-    
-    private var isOfflineMode: Bool {
-        !networkMonitor.canLoadOnlineContent || offlineManager.isOfflineMode
     }
     
     private var availableOfflineAlbums: [Album] {
@@ -54,10 +70,6 @@ struct AlbumCollectionView: View {
         }
     }
     
-    private var displayAlbums: [Album] {
-        return isOfflineMode ? availableOfflineAlbums : albums
-    }
-    
     var body: some View {
         ZStack {
             DynamicMusicBackground()
@@ -70,12 +82,24 @@ struct AlbumCollectionView: View {
                         artistImage: artistImage,
                         contextTitle: contextTitle,
                         albumCountText: albumCountText,
-                        contextIcon: contextIcon
+                        contextIcon: contextIcon,
+                        onPlayAll: { Task { await playAllAlbums() } },
+                        onShuffle: { Task { await shuffleAllAlbums() } }
                     )
                     
-                    // MARK: - Content Section
-                    contentSection
-                    
+                    // UNIFIED: Single component handles all states
+                    if let state = currentState {
+                        UnifiedStateView(
+                            state: state,
+                            primaryAction: StateAction("Try Again") {
+                                Task {
+                                    await loadContent()
+                                }
+                            }                        )
+                        .padding(.horizontal, DSLayout.screenPadding)
+                    } else {
+                        contentView
+                    }
                 }
             }
             .navigationTitle("")
@@ -87,43 +111,19 @@ struct AlbumCollectionView: View {
                 await loadContent()
             }
             .refreshable {
+                guard connectionState.shouldLoadOnlineContent else { return }
                 await loadContent()
             }
         }
     }
-        
     
-    // MARK: - Content Section
-    
-    @ViewBuilder
-    private var contentSection: some View {
-        if isLoading {
-            LoadingView(
-                title: "Loading Albums...",
-                subtitle: "Discovering \(contextTitle)'s music"
-            )
-            .screenPadding()
-        } else if let error = errorMessage {
-            errorStateView
-        } else if isOfflineMode && availableOfflineAlbums.isEmpty {
-            offlineEmptyStateView
-        } else if !displayAlbums.isEmpty {
-            albumsGridView
-        } else {
-            EmptyStateView(
-                type: .albums,
-                customTitle: "No Albums Found",
-                customMessage: "No albums available for \(contextTitle)"
-            )
-            .screenPadding()
-        }
-    }
+    // MARK: - Content View
     
     @ViewBuilder
-    private var albumsGridView: some View {
+    private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if isOfflineMode {
+                if connectionState.isEffectivelyOffline {
                     OfflineStatusBanner()
                         .padding(.horizontal, DSLayout.screenPadding)
                         .padding(.bottom, DSLayout.elementGap)
@@ -134,8 +134,8 @@ struct AlbumCollectionView: View {
                     alignment: .leading,
                     spacing: DSLayout.elementGap
                 ) {
-                    ForEach(displayAlbums.indices, id: \.self) { index in
-                        let album = displayAlbums[index]
+                    ForEach(displayedAlbums.indices, id: \.self) { index in
+                        let album = displayedAlbums[index]
                         
                         NavigationLink(value: album) {
                             CardItemContainer(content: .album(album), index: index)
@@ -147,49 +147,12 @@ struct AlbumCollectionView: View {
             }
         }
     }
- 
-    @ViewBuilder
-    private var errorStateView: some View {
-        VStack(spacing: DSLayout.contentGap) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(DSColor.warning)
-            
-            Text("Unable to Load Albums")
-                .font(DSText.itemTitle)
-                .foregroundStyle(DSColor.primary)
-            
-            Text(errorMessage ?? "Unknown error occurred")
-                .font(DSText.body)
-                .foregroundStyle(DSColor.secondary)
-                .multilineTextAlignment(.center)
-            
-            Button("Try Again") {
-                Task { await loadContent() }
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .screenPadding()
-    }
-    
-    @ViewBuilder
-    private var offlineEmptyStateView: some View {
-        EmptyStateView(
-            type: .artists,
-            customTitle: "No Downloaded Content",
-            customMessage: emptyMessageForContext,
-            primaryAction: EmptyStateAction("Browse Online Content") {
-                offlineManager.switchToOnlineMode()
-            }
-        )
-        .screenPadding()
-    }
     
     // MARK: - Button Action Methods
     
     /// Play all albums sequentially
     private func playAllAlbums() async {
-        let albumsToPlay = displayAlbums
+        let albumsToPlay = displayedAlbums
         guard !albumsToPlay.isEmpty else {
             print("⚠️ No albums to play")
             return
@@ -221,7 +184,7 @@ struct AlbumCollectionView: View {
     
     /// Shuffle all albums
     private func shuffleAllAlbums() async {
-        let albumsToPlay = displayAlbums
+        let albumsToPlay = displayedAlbums
         guard !albumsToPlay.isEmpty else {
             print("⚠️ No albums to shuffle")
             return
@@ -275,7 +238,7 @@ struct AlbumCollectionView: View {
     }
     
     private func loadAlbumsViaManager() async {
-        guard !isOfflineMode else {
+        guard connectionState.shouldLoadOnlineContent else {
             albums = availableOfflineAlbums
             return
         }
@@ -309,21 +272,12 @@ struct AlbumCollectionView: View {
     }
     
     private var albumCountText: String {
-        let count = displayAlbums.count
+        let count = displayedAlbums.count
         switch context {
         case .byArtist:
             return "\(count) Album\(count != 1 ? "s" : "")"
         case .byGenre:
             return "\(count) Album\(count != 1 ? "s" : "") in this genre"
-        }
-    }
-    
-    private var emptyMessageForContext: String {
-        switch context {
-        case .byArtist(let artist):
-            return "No albums from \(artist.name) are downloaded for offline listening."
-        case .byGenre(let genre):
-            return "No \(genre.value) albums are downloaded for offline listening."
         }
     }
 }
