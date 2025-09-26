@@ -58,8 +58,14 @@ struct GenreViewContent: View {
                     )
                 } else {
                     contentView
+
                 }
             }
+            .navigationTitle("Genres")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
+            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
+
             .searchable(text: $searchText, prompt: "Search genres...")
             .refreshable {
                 guard connectionState.shouldLoadOnlineContent else { return }
@@ -71,16 +77,8 @@ struct GenreViewContent: View {
             .navigationDestination(for: Genre.self) { genre in
                 AlbumCollectionView(context: .byGenre(genre))
             }
-            .unifiedToolbar(.library(
-                title: "Genres",
-                isOffline: connectionState.isEffectivelyOffline,
-                onRefresh: {
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    await refreshAllData()
-                },
-                onToggleOffline: offlineManager.toggleOfflineMode
-            ))
         }
+
     }
     
     @ViewBuilder

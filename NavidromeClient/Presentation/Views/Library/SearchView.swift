@@ -84,8 +84,15 @@ struct SearchView: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .unifiedToolbar(.search())
+            .navigationTitle("Search your music")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
+            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
+
+
         }
+        .toolbarColorScheme(.dark, for: .navigationBar)
+
         .onChange(of: query) { _, newValue in
             handleQueryChange(newValue)
         }

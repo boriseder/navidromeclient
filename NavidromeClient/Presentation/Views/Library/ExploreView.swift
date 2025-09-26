@@ -16,6 +16,7 @@ struct ExploreViewContent: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var coverArtManager: CoverArtManager
     
+    
     @StateObject private var exploreManager = ExploreManager.shared
     @State private var hasLoaded = false
 
@@ -64,6 +65,10 @@ struct ExploreViewContent: View {
                     contentView
                 }
             }
+            .navigationTitle("Explore your music")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
+            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
             .task(id: hasLoaded) {
                 guard !hasLoaded else { return }
                 await setupHomeScreenData()
@@ -77,7 +82,6 @@ struct ExploreViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .unifiedToolbar(exploreToolbarConfig)
         }
     }
     
@@ -199,6 +203,7 @@ struct ExploreViewContent: View {
         await coverArtManager.preloadAlbums(exploreManager.randomAlbums, size: 200)
     }
     
+    /*
     private var exploreToolbarConfig: ToolbarConfiguration {
         .library(
             title: "Explore your music",
@@ -209,6 +214,7 @@ struct ExploreViewContent: View {
             onToggleOffline: offlineManager.toggleOfflineMode
         )
     }
+     */
 }
 
 // MARK: - ExploreSection - Direct Implementation

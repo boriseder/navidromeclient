@@ -60,8 +60,14 @@ struct ArtistsViewContent: View {
                     )
                 } else {
                     contentView
+
                 }
             }
+            .navigationTitle("Artists")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
+            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
+
             .searchable(text: $searchText, prompt: "Search artists...")
             .refreshable {
                 guard connectionState.shouldLoadOnlineContent else { return }
@@ -79,16 +85,8 @@ struct ArtistsViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .unifiedToolbar(.library(
-                title: "Artists",
-                isOffline: connectionState.isEffectivelyOffline,
-                onRefresh: {
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    await refreshAllData()
-                },
-                onToggleOffline: offlineManager.toggleOfflineMode
-            ))
         }
+
     }
     
     @ViewBuilder

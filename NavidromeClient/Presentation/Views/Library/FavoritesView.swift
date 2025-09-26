@@ -81,19 +81,6 @@ struct FavoritesViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .unifiedToolbar(favoritesToolbarConfig)
-            .confirmationDialog(
-                "Clear All Favorites?",
-                isPresented: $showingClearConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Clear All", role: .destructive) {
-                    Task { await clearAllFavorites() }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This will remove all \(favoritesManager.favoriteCount) songs from your favorites.")
-            }
         }
     }
 
@@ -142,6 +129,11 @@ struct FavoritesViewContent: View {
             }
         }
         .padding(.horizontal, DSLayout.screenPadding)
+        .navigationTitle("Your favorites")
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
+        .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
+
     }
 
     // Business Logic (unverändert)
@@ -184,7 +176,7 @@ struct FavoritesViewContent: View {
             // Search filtering happens automatically via computed property
         }
     }
-    
+    /*
     private var favoritesToolbarConfig: ToolbarConfiguration {
         let left: [ToolbarElement] = []
         
@@ -210,4 +202,5 @@ struct FavoritesViewContent: View {
             showSettings: true
         )
     }
+     */
 }

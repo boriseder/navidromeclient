@@ -61,8 +61,13 @@ struct AlbumsViewContent: View {
                     )
                 } else {
                     contentView
+
                 }
             }
+            .navigationTitle("Albums")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
+            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
             .searchable(text: $searchText, prompt: "Search albums...")
             .refreshable {
                 guard connectionState.shouldLoadOnlineContent else { return }
@@ -77,22 +82,8 @@ struct AlbumsViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .unifiedToolbar(.libraryWithSort(
-                title: "Albums",
-                isOffline: connectionState.isEffectivelyOffline,
-                currentSort: selectedAlbumSort,
-                sortOptions: ContentService.AlbumSortType.allCases,
-                onRefresh: {
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    await loadAlbums(sortBy: selectedAlbumSort)
-                },
-                onToggleOffline: toggleOfflineMode,
-                onSort: { sortType in
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    Task { await loadAlbums(sortBy: sortType) }
-                }
-            ))
         }
+
     }
     
     @ViewBuilder
