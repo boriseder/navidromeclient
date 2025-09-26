@@ -15,7 +15,16 @@ struct MiniPlayerView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     @State private var showFullScreen = false
     @State private var isDragging = false
-    @State private var coverArt: UIImage? // Add local state
+    
+    private var coverArt: UIImage? {
+        guard let albumId = playerVM.currentSong?.albumId else {
+            print("🎨 DEBUG: No albumId")
+            return nil
+        }
+        let image = coverArtManager.getAlbumImage(for: albumId, size: 150)
+        print("🎨 DEBUG: Got image for \(albumId): \(image != nil)")
+        return image
+    }
     
     var body: some View {
         if let song = playerVM.currentSong {
@@ -103,38 +112,6 @@ struct MiniPlayerView: View {
                 FullScreenPlayerView()
                     .environmentObject(playerVM)
                     .environmentObject(audioSessionManager)
-            }
-            // FIXED: Reactive loading
-            .task(id: song.id) {
-                await loadCoverArt(for: song)
-            }
-            .onReceive(coverArtManager.objectWillChange) { _ in
-                // Update when CoverArtManager cache changes
-                if let albumId = song.albumId {
-                    coverArt = coverArtManager.getAlbumImage(for: albumId, size: 150)
-                }
-            }
-        }
-    }
-    
-    private func loadCoverArt(for song: Song) async {
-        // Try to get from cache first
-        if let albumId = song.albumId {
-            coverArt = coverArtManager.getAlbumImage(for: albumId, size: 150)
-        }
-        
-        // If not in cache, load async
-        if coverArt == nil,
-           let albumId = song.albumId,
-           let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            
-            let loadedImage = await coverArtManager.loadAlbumImage(
-                album: cachedAlbum,
-                size: 150
-            )
-            
-            await MainActor.run {
-                self.coverArt = loadedImage
             }
         }
     }

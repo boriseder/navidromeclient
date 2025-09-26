@@ -1,10 +1,6 @@
 //
-//  CoverArtManager.swift - COMPLETE: Thread-Safe NSCache with UI Updates
+//  CoverArtManager.swift - UPDATED: Multi-Size Cache Implementation
 //  NavidromeClient
-//
-//   FIXED: Thread safety with request deduplication
-//   FIXED: NSCache with automatic memory management
-//   FIXED: UI updates trigger for SwiftUI reactivity
 //
 
 import Foundation
@@ -14,19 +10,20 @@ import SwiftUI
 class CoverArtManager: ObservableObject {
     static let shared = CoverArtManager()
     
-    // MARK: - NSCache Storage
-    private let memoryCache = NSCache<NSString, UIImage>()
+    // MARK: - UPDATED: Multi-Size Cache Storage
+    private let albumCache = NSCache<NSString, AlbumCoverArt>()
+    private let artistCache = NSCache<NSString, AlbumCoverArt>()
     
-    // MARK: - UI State Management
-    @Published private var cacheUpdateTrigger = 0  // Triggers UI updates
+    // MARK: - UI State Management (unchanged)
+    @Published private var cacheUpdateTrigger = 0
     @Published private(set) var loadingStates: [String: Bool] = [:]
     @Published private(set) var errorStates: [String: String] = [:]
     
-    // MARK: - Thread Safety
+    // MARK: - Thread Safety (unchanged)
     private let requestQueue = DispatchQueue(label: "coverart.requests")
     private var _activeRequests: Set<String> = []
     
-    // MARK: - Dependencies
+    // MARK: - Dependencies (unchanged)
     private weak var mediaService: MediaService?
     private let persistentCache = PersistentImageCache.shared
     
@@ -34,7 +31,7 @@ class CoverArtManager: ObservableObject {
         setupMemoryCache()
     }
     
-    // MARK: - Configuration
+    // MARK: - UPDATED: Configuration
     
     func configure(mediaService: MediaService) {
         self.mediaService = mediaService
@@ -42,12 +39,15 @@ class CoverArtManager: ObservableObject {
     }
     
     private func setupMemoryCache() {
-        memoryCache.countLimit = 100
-        memoryCache.totalCostLimit = 100 * 1024 * 1024 // 100MB
-        print("NSCache configured: 100 items, 100MB limit")
+        // Fewer items since each holds multiple sizes
+        albumCache.countLimit = 50
+        artistCache.countLimit = 50
+        albumCache.totalCostLimit = 100 * 1024 * 1024 // 100MB
+        artistCache.totalCostLimit = 50 * 1024 * 1024  // 50MB
+        print("Multi-size NSCache configured: Albums=50, Artists=50")
     }
     
-    // MARK: - Thread-Safe Request Management
+    // MARK: - Thread-Safe Request Management (unchanged)
     
     private func isRequestActive(_ key: String) -> Bool {
         return requestQueue.sync { _activeRequests.contains(key) }
@@ -61,44 +61,70 @@ class CoverArtManager: ObservableObject {
         requestQueue.sync { _activeRequests.remove(key) }
     }
     
-    // MARK: - Cache Management with UI Updates
+    // MARK: - UPDATED: Cache Management
     
-    private func storeImageInCache(_ image: UIImage, forKey key: String) {
-        let cost = Int(image.size.width * image.size.height * 4) // 4 bytes per pixel
-        memoryCache.setObject(image, forKey: key as NSString, cost: cost)
+    private func storeAlbumImage(_ image: UIImage, forAlbumId albumId: String, size: Int) {
+        let key = albumId as NSString
         
-        // Trigger UI update for SwiftUI reactivity
+        if let existing = albumCache.object(forKey: key) {
+            existing.setImage(image, for: size)
+        } else {
+            let coverArt = AlbumCoverArt()
+            coverArt.setImage(image, for: size)
+            
+            let cost = Int(image.size.width * image.size.height * 4)
+            albumCache.setObject(coverArt, forKey: key, cost: cost)
+        }
+        
         cacheUpdateTrigger += 1
+        print("🎨 Stored album image: \(albumId) @ \(size)px")
     }
     
-    // MARK: - Album Loading
+    private func storeArtistImage(_ image: UIImage, forArtistId artistId: String, size: Int) {
+        let key = artistId as NSString
+        
+        if let existing = artistCache.object(forKey: key) {
+            existing.setImage(image, for: size)
+        } else {
+            let coverArt = AlbumCoverArt()
+            coverArt.setImage(image, for: size)
+            
+            let cost = Int(image.size.width * image.size.height * 4)
+            artistCache.setObject(coverArt, forKey: key, cost: cost)
+        }
+        
+        cacheUpdateTrigger += 1
+        print("🎨 Stored artist image: \(artistId) @ \(size)px")
+    }
+    
+    // MARK: - UPDATED: Album Loading
     
     func loadAlbumImage(album: Album, size: Int = 400, staggerIndex: Int = 0) async -> UIImage? {
-        let memoryKey = "album_\(album.id)_\(size)"
+        let albumKey = album.id as NSString
+        let requestKey = "album_\(album.id)_\(size)" // Keep for request deduplication
         
-        // Check memory cache
-        if let cached = memoryCache.object(forKey: memoryKey as NSString) {
-            print("Album memory hit: \(album.id) @ \(size)px")
+        // UPDATED: Check memory cache (now size-agnostic)
+        if let cached = albumCache.object(forKey: albumKey)?.getImage(for: size) {
+            print("🎨 Album memory hit: \(album.id) @ \(size)px")
             return cached
         }
         
         // Check if request is already active
-        if isRequestActive(memoryKey) {
-            print("Album request already active: \(album.id) @ \(size)px")
+        if isRequestActive(requestKey) {
+            print("🎨 Album request already active: \(album.id) @ \(size)px")
             return nil
         }
         
-        // Mark request as active
-        addActiveRequest(memoryKey)
-        defer { removeActiveRequest(memoryKey) }
+        addActiveRequest(requestKey)
+        defer { removeActiveRequest(requestKey) }
         
         // Check persistent cache
         let cacheKey = "album_\(album.id)_\(size)"
         if let cached = persistentCache.image(for: cacheKey) {
-            print("Album disk hit: \(album.id) @ \(size)px")
+            print("🎨 Album disk hit: \(album.id) @ \(size)px")
             
             await MainActor.run {
-                storeImageInCache(cached, forKey: memoryKey)
+                storeAlbumImage(cached, forAlbumId: album.id, size: size)
             }
             
             return cached
@@ -106,18 +132,18 @@ class CoverArtManager: ObservableObject {
         
         guard let service = mediaService else {
             await MainActor.run {
-                errorStates[memoryKey] = "Media service not available"
+                errorStates[requestKey] = "Media service not available"
             }
             return nil
         }
         
         await MainActor.run {
-            loadingStates[memoryKey] = true
+            loadingStates[requestKey] = true
         }
         
         defer {
             Task { @MainActor in
-                loadingStates[memoryKey] = false
+                loadingStates[requestKey] = false
             }
         }
         
@@ -126,51 +152,49 @@ class CoverArtManager: ObservableObject {
         }
         
         if let image = await service.getCoverArt(for: album.id, size: size) {
-            print("Album network load: \(album.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
+            print("🎨 Album network load: \(album.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
             
             await MainActor.run {
-                storeImageInCache(image, forKey: memoryKey)
-                errorStates.removeValue(forKey: memoryKey)
+                storeAlbumImage(image, forAlbumId: album.id, size: size)
+                errorStates.removeValue(forKey: requestKey)
             }
             
             persistentCache.store(image, for: cacheKey)
             return image
         } else {
             await MainActor.run {
-                errorStates[memoryKey] = "Failed to load album image"
+                errorStates[requestKey] = "Failed to load album image"
             }
             return nil
         }
     }
     
-    // MARK: - Artist Loading
+    // MARK: - UPDATED: Artist Loading
     
     func loadArtistImage(artist: Artist, size: Int = 240, staggerIndex: Int = 0) async -> UIImage? {
-        let memoryKey = "artist_\(artist.id)_\(size)"
+        let artistKey = artist.id as NSString
+        let requestKey = "artist_\(artist.id)_\(size)"
         
-        // Check memory cache
-        if let cached = memoryCache.object(forKey: memoryKey as NSString) {
-            print("Artist memory hit: \(artist.id) @ \(size)px")
+        // UPDATED: Check memory cache (now size-agnostic)
+        if let cached = artistCache.object(forKey: artistKey)?.getImage(for: size) {
+            print("🎨 Artist memory hit: \(artist.id) @ \(size)px")
             return cached
         }
         
-        // Check if request is already active
-        if isRequestActive(memoryKey) {
-            print("Artist request already active: \(artist.id) @ \(size)px")
+        if isRequestActive(requestKey) {
+            print("🎨 Artist request already active: \(artist.id) @ \(size)px")
             return nil
         }
         
-        // Mark request as active
-        addActiveRequest(memoryKey)
-        defer { removeActiveRequest(memoryKey) }
+        addActiveRequest(requestKey)
+        defer { removeActiveRequest(requestKey) }
         
-        // Check persistent cache
         let cacheKey = "artist_\(artist.id)_\(size)"
         if let cached = persistentCache.image(for: cacheKey) {
-            print("Artist disk hit: \(artist.id) @ \(size)px")
+            print("🎨 Artist disk hit: \(artist.id) @ \(size)px")
             
             await MainActor.run {
-                storeImageInCache(cached, forKey: memoryKey)
+                storeArtistImage(cached, forArtistId: artist.id, size: size)
             }
             
             return cached
@@ -178,18 +202,18 @@ class CoverArtManager: ObservableObject {
         
         guard let service = mediaService else {
             await MainActor.run {
-                errorStates[memoryKey] = "Media service not available"
+                errorStates[requestKey] = "Media service not available"
             }
             return nil
         }
         
         await MainActor.run {
-            loadingStates[memoryKey] = true
+            loadingStates[requestKey] = true
         }
         
         defer {
             Task { @MainActor in
-                loadingStates[memoryKey] = false
+                loadingStates[requestKey] = false
             }
         }
         
@@ -198,24 +222,45 @@ class CoverArtManager: ObservableObject {
         }
         
         if let image = await service.getCoverArt(for: artist.id, size: size) {
-            print("Artist network load: \(artist.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
+            print("🎨 Artist network load: \(artist.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
             
             await MainActor.run {
-                storeImageInCache(image, forKey: memoryKey)
-                errorStates.removeValue(forKey: memoryKey)
+                storeArtistImage(image, forArtistId: artist.id, size: size)
+                errorStates.removeValue(forKey: requestKey)
             }
             
             persistentCache.store(image, for: cacheKey)
             return image
         } else {
             await MainActor.run {
-                errorStates[memoryKey] = "Failed to load artist image"
+                errorStates[requestKey] = "Failed to load artist image"
             }
             return nil
         }
     }
     
-    // MARK: - Song Images
+    // MARK: - UPDATED: Image Getters
+    
+    func getAlbumImage(for albumId: String, size: Int) -> UIImage? {
+        let key = albumId as NSString
+        let image = albumCache.object(forKey: key)?.getImage(for: size)
+        print("🎨 Get album image: \(albumId) @ \(size)px = \(image != nil)")
+        return image
+    }
+
+    func getArtistImage(for artistId: String, size: Int) -> UIImage? {
+        let key = artistId as NSString
+        let image = artistCache.object(forKey: key)?.getImage(for: size)
+        print("🎨 Get artist image: \(artistId) @ \(size)px = \(image != nil)")
+        return image
+    }
+    
+    func getSongImage(for song: Song, size: Int) -> UIImage? {
+        guard let albumId = song.albumId else { return nil }
+        return getAlbumImage(for: albumId, size: size)
+    }
+    
+    // MARK: - Song Images (unchanged)
     
     func loadSongImage(song: Song, size: Int = 100) async -> UIImage? {
         guard let albumId = song.albumId else { return nil }
@@ -237,25 +282,7 @@ class CoverArtManager: ObservableObject {
         return await loadAlbumImage(album: album, size: size)
     }
     
-    // MARK: - Image Getters
-    
-    func getAlbumImage(for albumId: String, size: Int) -> UIImage? {
-        let memoryKey = "album_\(albumId)_\(size)"
-        return memoryCache.object(forKey: memoryKey as NSString)
-    }
-
-    func getArtistImage(for artistId: String, size: Int) -> UIImage? {
-        let memoryKey = "artist_\(artistId)_\(size)"
-        return memoryCache.object(forKey: memoryKey as NSString)
-    }
-    
-    func getSongImage(for song: Song, size: Int) -> UIImage? {
-        guard let albumId = song.albumId else { return nil }
-        let memoryKey = "album_\(albumId)_\(size)"
-        return memoryCache.object(forKey: memoryKey as NSString)
-    }
-    
-    // MARK: - State Queries
+    // MARK: - State Queries (unchanged)
     
     func isLoadingImage(for key: String, size: Int) -> Bool {
         let memoryKey = "\(key)_\(size)"
@@ -267,7 +294,7 @@ class CoverArtManager: ObservableObject {
         return errorStates[memoryKey]
     }
     
-    // MARK: - Batch Operations
+    // MARK: - Batch Operations (unchanged)
     
     func preloadAlbums(_ albums: [Album], size: Int = 400) async {
         guard mediaService != nil else { return }
@@ -301,31 +328,31 @@ class CoverArtManager: ObservableObject {
         print("Batch preloaded artist images for \(min(artists.count, 5)) artists @ \(size)px")
     }
     
-    // MARK: - Cache Management
+    // MARK: - UPDATED: Cache Management
     
     func clearMemoryCache() {
-        memoryCache.removeAllObjects()
+        albumCache.removeAllObjects()
+        artistCache.removeAllObjects()
         loadingStates.removeAll()
         errorStates.removeAll()
         persistentCache.clearCache()
         
-        // Trigger UI update
         cacheUpdateTrigger += 1
         
         print("Cleared all image caches")
     }
     
-    // MARK: - Diagnostics
+    // MARK: - UPDATED: Diagnostics
     
     func getCacheStats() -> CoverArtCacheStats {
         let persistentStats = persistentCache.getCacheStats()
         
-        // NSCache doesn't provide direct access to count
-        // Estimate based on loading states and active requests
-        let estimatedMemoryCount = max(0, 100 - loadingStates.count)
+        // Estimate memory count from both caches
+        let estimatedAlbumCount = max(0, 50 - (loadingStates.count / 2))
+        let estimatedArtistCount = max(0, 50 - (loadingStates.count / 2))
         
         return CoverArtCacheStats(
-            memoryCount: estimatedMemoryCount,
+            memoryCount: estimatedAlbumCount + estimatedArtistCount,
             diskCount: persistentStats.diskCount,
             diskSize: persistentStats.diskSize,
             activeRequests: loadingStates.count,
@@ -366,16 +393,17 @@ class CoverArtManager: ObservableObject {
         Health: \(health.statusDescription)
         \(stats.summary)
         
-        Cache Architecture:
-        - NSCache Memory Management: Auto-eviction enabled
-        - Memory Limit: 100MB, Item Limit: 100
+        Multi-Size Cache Architecture:
+        - Album Cache: 50 entities, auto-scaling
+        - Artist Cache: 50 entities, auto-scaling
+        - Memory Limit: 150MB total
         
         Service: \(mediaService != nil ? "✅" : "❌")
         """)
     }
 }
 
-// MARK: - Supporting Types
+// MARK: - Supporting Types (unchanged)
 struct CoverArtCacheStats {
     let memoryCount: Int
     let diskCount: Int
@@ -408,7 +436,7 @@ struct CoverArtHealthStatus {
     let statusDescription: String
 }
 
-// MARK: - Album Extension
+// MARK: - Album Extension (unchanged)
 extension Album {
     init(
         id: String,

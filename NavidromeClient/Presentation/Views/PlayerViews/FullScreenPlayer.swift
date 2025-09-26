@@ -19,7 +19,17 @@ struct FullScreenPlayerView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
     @State private var showingQueue = false
-    @State private var highResCoverArt: UIImage?
+
+    private var regularCoverArt: UIImage? {
+        guard let albumId = playerVM.currentSong?.albumId else { return nil }
+        return coverArtManager.getAlbumImage(for: albumId, size: 300)
+    }
+
+    private var highResCoverArt: UIImage? {
+        guard let albumId = playerVM.currentSong?.albumId else { return nil }
+        return coverArtManager.getAlbumImage(for: albumId, size: 800)
+    }
+
     
     var body: some View {
         GeometryReader { geometry in
@@ -72,9 +82,6 @@ struct FullScreenPlayerView: View {
             .gesture(dismissGesture)
         }
         .animation(.interactiveSpring(), value: dragOffset)
-        .task(id: playerVM.currentSong?.id) {
-            await loadTrueHighResCoverArt()
-        }
     }
     
     private var dismissGesture: some Gesture {
@@ -96,32 +103,6 @@ struct FullScreenPlayerView: View {
                 }
             }
     }
-    
-    private func loadTrueHighResCoverArt() async {
-        guard let song = playerVM.currentSong,
-              let albumId = song.albumId else { return }
-        
-        if let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
-            if let existingHighRes = coverArtManager.getAlbumImage(for: albumId, size: 800) {
-                print("🎯 High-res cache hit: \(existingHighRes.size.width)x\(existingHighRes.size.height)")
-                highResCoverArt = existingHighRes
-                return
-            }
-            
-            let highRes = await coverArtManager.loadAlbumImage(
-                album: cachedAlbum,
-                size: 800,
-                staggerIndex: 0
-            )
-            
-            if let image = highRes {
-                print("🖼️ High-res loaded: \(image.size.width)x\(image.size.height)")
-                await MainActor.run {
-                    self.highResCoverArt = image
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Background unchanged
@@ -142,6 +123,7 @@ struct SpotifyBackground: View {
                     .brightness(-0.4)
             }
         }
+        .ignoresSafeArea()
     }
 }
 
