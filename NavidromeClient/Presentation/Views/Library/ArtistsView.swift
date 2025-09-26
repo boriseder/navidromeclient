@@ -48,7 +48,8 @@ struct ArtistsViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
-                
+                    .ignoresSafeArea()
+
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
@@ -73,7 +74,6 @@ struct ArtistsViewContent: View {
                 await preloadArtistImages()
             }
             .navigationTitle("Artists")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {

@@ -51,7 +51,8 @@ struct AlbumsViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
-                
+                    .ignoresSafeArea()
+
                 if let state = currentState {
                     UnifiedStateView(
                         state: state,
@@ -64,9 +65,6 @@ struct AlbumsViewContent: View {
                 }
             }
             .navigationTitle("Albums")
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
-            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
             .searchable(text: $searchText, prompt: "Search albums...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }

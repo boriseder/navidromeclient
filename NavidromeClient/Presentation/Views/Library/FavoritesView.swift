@@ -59,6 +59,7 @@ struct FavoritesViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
+                    .ignoresSafeArea()
                 
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
@@ -90,9 +91,6 @@ struct FavoritesViewContent: View {
                 AlbumDetailViewContent(album: album)
             }
             .navigationTitle("Your favorites")
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.black, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {

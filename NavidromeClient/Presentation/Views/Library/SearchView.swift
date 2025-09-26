@@ -82,9 +82,7 @@ struct SearchView: View {
                 AlbumDetailViewContent(album: album)
             }
             .navigationTitle("Search your music")
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.black, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+
         }
         .onChange(of: query) { _, newValue in
             handleQueryChange(newValue)

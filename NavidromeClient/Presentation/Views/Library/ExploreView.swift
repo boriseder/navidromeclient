@@ -53,6 +53,7 @@ struct ExploreViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
+                    .ignoresSafeArea()
                 
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
@@ -71,9 +72,6 @@ struct ExploreViewContent: View {
                 }
             }
             .navigationTitle("Explore your music")
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.black, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .task(id: hasLoaded) {
                 guard !hasLoaded else { return }
                 await setupHomeScreenData()

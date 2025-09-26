@@ -8,8 +8,8 @@ struct DynamicMusicBackground: View {
             // 1. Basis: dunkler, aber erkennbarer Gradient
             LinearGradient(
                 colors: [
-                    Color(red: 0.08, green: 0.08, blue: 0.15),
-                    Color(red: 0.15, green: 0.0, blue: 0.25)
+                    Color(red: 0.68, green: 0.48, blue: 0.35),
+                    Color(red: 0.45, green: 0.20, blue: 0.35)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing

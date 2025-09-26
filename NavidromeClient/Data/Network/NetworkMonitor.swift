@@ -1,10 +1,10 @@
 //
-//  NetworkMonitor.swift - UNIFIED: Single Source of Truth for Content Loading
+//  NetworkMonitor.swift - REFACTORED: Central Content Loading Authority
 //  NavidromeClient
 //
-//   UNIFIED: Single ContentLoadingStrategy eliminates state inconsistencies
-//   CENTRALIZED: All state decisions flow through one coordinator
-//   CLEAN: Eliminates race conditions and redundant state logic
+//   UNIFIED: Single authority for all content loading decisions
+//   ELIMINATED: State fragmentation and race conditions
+//   DERIVED: All state computed from core facts
 //
 
 import Foundation
@@ -18,10 +18,13 @@ class NetworkMonitor: ObservableObject {
     // MARK: - Core Network State
     @Published var isConnected = true
     @Published var connectionType: NetworkConnectionType = .unknown
-    @Published var canLoadOnlineContent = true
     
-    // MARK: - SINGLE SOURCE OF TRUTH
+    // MARK: - Content Loading Authority (Single Source of Truth)
     @Published private(set) var contentLoadingStrategy: ContentLoadingStrategy = .online
+    
+    // MARK: - Internal State (Derived Logic Components)
+    @Published private(set) var hasRecentServerErrors = false
+    @Published private(set) var manualOfflineMode = false
     
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "NetworkMonitor")
@@ -41,21 +44,28 @@ class NetworkMonitor: ObservableObject {
     
     private init() {
         startNetworkMonitoring()
-        observeOfflineModeChanges()
+        observeAppConfigChanges()
     }
     
     deinit {
         monitor.cancel()
     }
     
-    // MARK: - Content Loading Strategy (Single Source of Truth)
+    // MARK: - Computed Properties (Derived State)
     
-    /// The authoritative source for all content loading decisions
+    /// The authoritative decision for content loading
     var shouldLoadOnlineContent: Bool {
         contentLoadingStrategy.shouldLoadOnlineContent
     }
     
-    /// Legacy compatibility - maps to new strategy system
+    /// Derived server availability (no separate state)
+    var canLoadOnlineContent: Bool {
+        guard isConnected else { return false }
+        guard AppConfig.shared.isConfigured else { return false }
+        return !hasRecentServerErrors
+    }
+    
+    /// Legacy compatibility
     var effectiveConnectionState: EffectiveConnectionState {
         switch contentLoadingStrategy {
         case .online: return .online
@@ -68,16 +78,18 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
-    // MARK: - CENTRALIZED STATE CALCULATION
+    // MARK: - Content Loading Strategy (Central Authority)
     
     private func updateContentLoadingStrategy() {
         let newStrategy: ContentLoadingStrategy
         
         if !isConnected {
             newStrategy = .offlineOnly(reason: .noNetwork)
-        } else if !canLoadOnlineContent {
+        } else if !AppConfig.shared.isConfigured {
             newStrategy = .offlineOnly(reason: .serverUnreachable)
-        } else if OfflineManager.shared.isOfflineMode {
+        } else if hasRecentServerErrors {
+            newStrategy = .offlineOnly(reason: .serverUnreachable)
+        } else if manualOfflineMode {
             newStrategy = .offlineOnly(reason: .userChoice)
         } else {
             newStrategy = .online
@@ -89,7 +101,7 @@ class NetworkMonitor: ObservableObject {
             
             print("📊 Content loading strategy: \(previousStrategy.displayName) → \(newStrategy.displayName)")
             
-            // Trigger reactive updates in dependent managers
+            // Trigger reactive updates
             objectWillChange.send()
             
             // Notify other systems
@@ -97,10 +109,35 @@ class NetworkMonitor: ObservableObject {
                 name: .contentLoadingStrategyChanged,
                 object: newStrategy
             )
-            
-            // Update dependent managers
-            MusicLibraryManager.shared.objectWillChange.send()
         }
+    }
+    
+    // MARK: - Public API (Manual Control)
+    
+    func setManualOfflineMode(_ enabled: Bool) {
+        guard isConnected && canLoadOnlineContent else {
+            print("⚠️ Cannot change offline mode: network or server unavailable")
+            return
+        }
+        
+        manualOfflineMode = enabled
+        updateContentLoadingStrategy()
+        
+        print("📱 Manual offline mode: \(enabled ? "enabled" : "disabled")")
+    }
+    
+    func reportServerError() {
+        hasRecentServerErrors = true
+        updateContentLoadingStrategy()
+        
+        print("🚨 Server error reported - switching to offline mode")
+    }
+    
+    func clearServerErrors() {
+        hasRecentServerErrors = false
+        updateContentLoadingStrategy()
+        
+        print("✅ Server errors cleared")
     }
     
     // MARK: - Network Monitoring
@@ -116,18 +153,7 @@ class NetworkMonitor: ObservableObject {
                 self.isConnected = isNowConnected
                 self.connectionType = self.getConnectionType(path)
                 
-                // Reset server availability when network disconnects
-                if !isNowConnected && wasConnected {
-                    self.canLoadOnlineContent = false
-                }
-                
-                // Update the unified strategy
-                self.updateContentLoadingStrategy()
-                
-                // Handle network state changes
-                if wasConnected != isNowConnected {
-                    self.handleNetworkStateChange(wasConnected: wasConnected, isNowConnected: isNowConnected)
-                }
+                self.handleNetworkStateChange(wasConnected: wasConnected, isNowConnected: isNowConnected)
             }
         }
         monitor.start(queue: queue)
@@ -149,45 +175,38 @@ class NetworkMonitor: ObservableObject {
         if isNowConnected && !wasConnected {
             print("📶 Network restored: \(connectionType.displayName)")
             
-            // Notify OfflineManager to handle automatic mode switching
-            OfflineManager.shared.handleNetworkRestored()
+            // Auto-heal: Clear server errors on network restore
+            hasRecentServerErrors = false
+            updateContentLoadingStrategy()
             
         } else if !isNowConnected && wasConnected {
             print("📵 Network lost")
-            
-            // Force offline mode when network is completely lost
-            OfflineManager.shared.handleNetworkLoss()
-        }
-    }
-    
-    // MARK: - Server Availability Management
-    
-    func updateServerAvailability(_ isAvailable: Bool) {
-        let wasAvailable = canLoadOnlineContent
-        canLoadOnlineContent = isAvailable
-        
-        if wasAvailable != isAvailable {
-            print("🏥 Server availability: \(wasAvailable ? "✅" : "❌") → \(isAvailable ? "✅" : "❌")")
+            updateContentLoadingStrategy()
+        } else {
+            // Network state unchanged, but might need strategy update
             updateContentLoadingStrategy()
         }
     }
     
-    // MARK: - Offline Mode Integration
+    // MARK: - AppConfig Integration
     
-    private func observeOfflineModeChanges() {
+    private func observeAppConfigChanges() {
+        // Listen for service configuration changes
         NotificationCenter.default.addObserver(
-            forName: .offlineModeChanged,
+            forName: .servicesNeedInitialization,
             object: nil,
             queue: .main
-        ) { [weak self] notification in
-            self?.updateContentLoadingStrategy()
+        ) { [weak self] _ in
+            self?.handleServiceConfigurationChange()
         }
     }
     
-    // MARK: - Public State Queries
-    
-    var connectionStatusDescription: String {
-        contentLoadingStrategy.displayName
+    private func handleServiceConfigurationChange() {
+        // Clear errors when services are reconfigured
+        hasRecentServerErrors = false
+        updateContentLoadingStrategy()
+        
+        print("🔧 Service configuration detected - updating content loading strategy")
     }
     
     // MARK: - Diagnostics
@@ -197,7 +216,9 @@ class NetworkMonitor: ObservableObject {
             isConnected: isConnected,
             connectionType: connectionType,
             canLoadOnlineContent: canLoadOnlineContent,
-            contentLoadingStrategy: contentLoadingStrategy
+            contentLoadingStrategy: contentLoadingStrategy,
+            hasRecentServerErrors: hasRecentServerErrors,
+            manualOfflineMode: manualOfflineMode
         )
     }
     
@@ -206,6 +227,8 @@ class NetworkMonitor: ObservableObject {
         let connectionType: NetworkConnectionType
         let canLoadOnlineContent: Bool
         let contentLoadingStrategy: ContentLoadingStrategy
+        let hasRecentServerErrors: Bool
+        let manualOfflineMode: Bool
         
         var summary: String {
             var status: [String] = []
@@ -215,6 +238,13 @@ class NetworkMonitor: ObservableObject {
             status.append("Server: \(canLoadOnlineContent ? "✅" : "❌")")
             status.append("Strategy: \(contentLoadingStrategy.displayName)")
             
+            if hasRecentServerErrors {
+                status.append("Errors: ⚠️")
+            }
+            if manualOfflineMode {
+                status.append("Manual: 📱")
+            }
+            
             return status.joined(separator: " | ")
         }
         
@@ -223,10 +253,15 @@ class NetworkMonitor: ObservableObject {
         }
     }
     
+    var connectionStatusDescription: String {
+        contentLoadingStrategy.displayName
+    }
+    
     // MARK: - Reset & Debug
     
     func reset() {
-        canLoadOnlineContent = false
+        hasRecentServerErrors = false
+        manualOfflineMode = false
         updateContentLoadingStrategy()
         print("🔄 NetworkMonitor: Reset completed")
     }
@@ -236,14 +271,14 @@ class NetworkMonitor: ObservableObject {
         let diagnostics = getNetworkDiagnostics()
         
         print("""
-        🌐 NETWORKMONITOR UNIFIED STATE DIAGNOSTICS:
+        🌐 NETWORKMONITOR CENTRAL AUTHORITY DIAGNOSTICS:
         \(diagnostics.summary)
         
-        Unified Architecture:
-        - Single Source of Truth: ContentLoadingStrategy
+        Content Loading Authority:
+        - Single Source: ContentLoadingStrategy
         - Strategy: \(contentLoadingStrategy.displayName)
         - Should Load Online: \(shouldLoadOnlineContent)
-        - Eliminates Race Conditions: ✅
+        - Derived State: All computed from core facts
         """)
     }
     
@@ -264,7 +299,7 @@ enum ContentLoadingStrategy: Equatable {
     
     enum OfflineReason: Equatable {
         case noNetwork            // Device has no internet
-        case serverUnreachable    // Network exists but server down
+        case serverUnreachable    // Network exists but server down/unconfigured
         case userChoice          // User manually went offline
     }
     

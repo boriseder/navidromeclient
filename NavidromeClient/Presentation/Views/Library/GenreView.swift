@@ -46,6 +46,7 @@ struct GenreViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
+                    .ignoresSafeArea()
                 
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
@@ -68,7 +69,6 @@ struct GenreViewContent: View {
                 handleSearchTextChange()
             }
             .navigationTitle("Genres")
-            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
