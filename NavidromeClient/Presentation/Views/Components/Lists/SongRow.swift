@@ -44,7 +44,7 @@ struct SongRow: View {
 
         }
         .padding(.vertical, DSLayout.elementPadding)
-        .background(DSColor.background)
+        .background(DSMaterial.background)
         .clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .shadow(
@@ -66,7 +66,7 @@ struct SongRow: View {
                 showPlayIndicator = newValue
             }
         }
-        // Better gesture handling
+        // Replace the current gesture section with:
         .contentShape(Rectangle())
         .onTapGesture {
             triggerHapticFeedback()
@@ -74,11 +74,11 @@ struct SongRow: View {
                 action()
             }
         }
-        .pressEvents {
-            withAnimation(DSAnimations.easeQuick) { isPressed = true }
-        } onRelease: {
-            withAnimation(DSAnimations.easeQuick) { isPressed = false }
-        }
+        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+            withAnimation(DSAnimations.easeQuick) {
+                isPressed = pressing
+            }
+        }, perform: {})
         // Improved context menu
         .contextMenu {
             enhancedContextMenu
@@ -108,7 +108,7 @@ struct SongRow: View {
                 ))
             } else {
                 Text("\(song.track ?? index)")
-                    .font(DSText.body.weight(.medium).monospacedDigit())
+                    .font(DSText.emphasized)
                     .foregroundStyle(isPlaying ? DSColor.playing : DSColor.onLight)
                     .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon) // Kreis deutlich größer als Text
                     .background(
@@ -150,22 +150,23 @@ struct SongRow: View {
     // MARK: - Song Info Section
     
     private var songInfoSection: some View {
-        VStack(alignment: .leading, spacing: DSLayout.elementGap) {
+        VStack(alignment: .leading, spacing: DSLayout.tightGap) {
             // Song title
             Text(song.title)
                 .font(DSText.emphasized)
                 .foregroundStyle(songTitleColor)
-                .lineLimit(2)
-                .frame(height: DSLayout.icon, alignment: .bottomLeading)
+                .lineLimit(1)
                 .multilineTextAlignment(.leading)
             
             // Artist
-            if let artist = song.artist, !artist.isEmpty {
+            // TODO: only display song.artist when song.artist != album.artist
+            /*if let artist = song.artist, !artist.isEmpty {
                 Text(artist)
-                    .font(DSText.detail)
+                    .font(DSText.metadata)
                     .foregroundStyle(songTitleColor)
                     .lineLimit(1)
             }
+             */
         }
     }
       
@@ -317,19 +318,6 @@ struct SongRow: View {
 
 // MARK: - Press Events ViewModifier
 
-extension View {
-    func pressEvents(onPress: @escaping () -> Void, onRelease: @escaping () -> Void) -> some View {
-        self.simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    onPress()
-                }
-                .onEnded { _ in
-                    onRelease()
-                }
-        )
-    }
-}
 
 // MARK: - Convenience Initializers (unchanged)
 

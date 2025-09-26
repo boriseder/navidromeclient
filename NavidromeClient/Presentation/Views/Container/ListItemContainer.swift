@@ -44,7 +44,7 @@ struct ListItemContainer: View {
             
         }
         .background(
-            Color(DSColor.background)
+            DSMaterial.background
         )
         .overlay(
             RoundedRectangle(cornerRadius: DSCorners.tight)

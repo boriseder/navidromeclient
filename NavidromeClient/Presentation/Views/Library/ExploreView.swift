@@ -182,7 +182,7 @@ struct ExploreSection: View {
             HStack {
                 Label(title, systemImage: icon)
                     .font(DSText.prominent)
-                    .foregroundColor(DSColor.primary)
+                    .foregroundColor(DSColor.onDark)
                 
                 Spacer()
                 

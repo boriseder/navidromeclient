@@ -23,8 +23,6 @@ struct AlbumDetailViewContent: View {
     var body: some View {
         ZStack {
             DynamicMusicBackground()
-            
-            
             ScrollView {
                 VStack(spacing: DSLayout.screenGap) {
                     AlbumHeaderView(
@@ -59,7 +57,6 @@ struct AlbumDetailViewContent: View {
                         )
                     }
                 }
-                .padding(.horizontal, DSLayout.screenPadding)
                 .padding(.bottom, DSLayout.miniPlayerHeight + DSLayout.contentGap)
             }
             .navigationTitle("")

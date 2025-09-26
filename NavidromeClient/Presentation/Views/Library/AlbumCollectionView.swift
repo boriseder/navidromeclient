@@ -59,75 +59,36 @@ struct AlbumCollectionView: View {
     }
     
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: DSLayout.screenGap) {
-                // MARK: - Header Section
-                AlbumCollectionHeaderView(
-                    context: context,
-                    artistImage: artistImage,
-                    contextTitle: contextTitle,
-                    albumCountText: albumCountText,
-                    contextIcon: contextIcon
-                )
-
-                // MARK: - Action Buttons (FIXED)
-                if !displayAlbums.isEmpty {
-                    HStack(spacing: DSLayout.contentGap) {
-                        Button {
-                            Task { await playAllAlbums() }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Play All")
-                                    .font(.system(size: 16, weight: .semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(.green)
-                            .clipShape(Capsule())
-                            .shadow(radius: 4)
-                        }
-                        
-                        // Shuffle All Button with correct implementation
-                        Button {
-                            Task { await shuffleAllAlbums() }
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "shuffle")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Shuffle All")
-                                    .font(.system(size: 16, weight: .semibold))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(.orange)
-                            .clipShape(Capsule())
-                            .shadow(radius: 4)
-                        }
-                    }
-                    .padding(.horizontal, DSLayout.screenPadding)
-
+        ZStack {
+            DynamicMusicBackground()
+            
+            ScrollView {
+                LazyVStack(spacing: DSLayout.screenGap) {
+                    // MARK: - Header Section
+                    AlbumCollectionHeaderView(
+                        context: context,
+                        artistImage: artistImage,
+                        contextTitle: contextTitle,
+                        albumCountText: albumCountText,
+                        contextIcon: contextIcon
+                    )
+                    
+                    // MARK: - Content Section
+                    contentSection
+                    
                 }
-                
-                // MARK: - Content Section
-                contentSection
-                
-                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
-        }
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(for: Album.self) { album in
-            AlbumDetailViewContent(album: album)
-        }
-        .task {
-            await loadContent()
-        }
-        .refreshable {
-            await loadContent()
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .task {
+                await loadContent()
+            }
+            .refreshable {
+                await loadContent()
+            }
         }
     }
         

@@ -110,6 +110,7 @@ struct UnifiedToolbar: ViewModifier {
         content
             .navigationTitle(config.title ?? "")
             .navigationBarTitleDisplayMode(config.displayMode)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 // Left Items
                 ToolbarItemGroup(placement: .navigationBarLeading) {

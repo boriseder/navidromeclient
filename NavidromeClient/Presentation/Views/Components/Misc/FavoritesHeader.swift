@@ -45,7 +45,7 @@ struct FavoritesStatsHeader: View {
         }
         .frame(maxWidth: .infinity) // volle Breite wie Song-Rows
         .background(
-            Color(DSColor.background)
+            DSMaterial.background
         )
         .shadow(radius:DSCorners.element, y: 4)
         .cornerRadius(DSCorners.element)

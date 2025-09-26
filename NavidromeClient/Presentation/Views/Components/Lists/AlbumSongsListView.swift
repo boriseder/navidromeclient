@@ -36,6 +36,8 @@ struct AlbumSongsListView: View {
                     
                 }
             }
+            .padding(.horizontal, DSLayout.screenPadding)
+
         }
     }
 }

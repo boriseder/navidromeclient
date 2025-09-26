@@ -23,7 +23,7 @@ enum DSLayout {
     static let elementPadding: CGFloat = 8  // Button-Inhalt, kleine Elemente
     static let contentPadding: CGFloat = 16 // Standard Card/Container-Inhalt
     static let comfortPadding: CGFloat = 24 // Große Container
-    static let screenPadding: CGFloat = 30  // Screen-Ränder (16 war zu eng)
+    static let screenPadding: CGFloat = 20  // Screen-Ränder (16 war zu eng)
     
     // MARK: Feste UI Größen
     static let buttonHeight: CGFloat = 44
@@ -129,6 +129,10 @@ enum DSColor {
     static let overlayHeavy = SwiftUI.Color.black.opacity(0.6)
 }
 
+enum DSMaterial {
+    static let background: Material = .regularMaterial
+}
+
 enum DSAnimations {
     static let spring = Animation.spring(response: 0.4, dampingFraction: 0.8)
     static let springSnappy = Animation.spring(response: 0.3, dampingFraction: 0.7)
@@ -209,3 +213,4 @@ extension View {
             .contentCorners()
     }
 }
+

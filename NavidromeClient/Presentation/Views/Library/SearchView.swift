@@ -469,7 +469,7 @@ struct SearchHeaderView: View {
             }
             .padding(.horizontal, DSLayout.contentPadding)
             .padding(.vertical, DSLayout.elementPadding)
-            .background(DSColor.background, in: RoundedRectangle(cornerRadius: DSCorners.comfortable))
+            .background(DSMaterial.background, in: RoundedRectangle(cornerRadius: DSCorners.comfortable))
             .animation(DSAnimations.ease, value: query.isEmpty)
             
             HStack(spacing: DSLayout.elementGap) {
@@ -484,7 +484,7 @@ struct SearchHeaderView: View {
             }
         }
         .listItemPadding()
-        .background(DSColor.background)
+        .background(DSMaterial.background)
     }
 }
 
