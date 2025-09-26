@@ -192,7 +192,7 @@ struct NavidromeClientApp: App {
             //  Configure CoverArtManager with focused MediaService
             let mediaService = unifiedService.getMediaService()
             coverArtManager.configure(mediaService: mediaService)
-            
+                        
             //  Configure HomeScreenManager
             exploreManager.configure(service: unifiedService)
             

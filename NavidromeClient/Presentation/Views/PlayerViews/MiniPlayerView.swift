@@ -1,9 +1,10 @@
 //
-//  MiniPlayerView.swift - REFACTORED: HeartButton Integration
+//  MiniPlayerView.swift - FIXED: Use CoverArtManager Directly
 //  NavidromeClient
 //
-//   REFACTORED: Eigene Heart-Logic durch zentrale HeartButton ersetzt
-//   ADDED: Funktionalität statt TODO-Kommentar
+//   FIXED: Removed dependency on playerVM.coverArt
+//   CLEAN: Direct CoverArtManager integration
+//   CONSISTENT: Single source of truth for cover art
 //
 
 import SwiftUI
@@ -11,20 +12,19 @@ import SwiftUI
 struct MiniPlayerView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var audioSessionManager: AudioSessionManager
+    @EnvironmentObject var coverArtManager: CoverArtManager
     @State private var showFullScreen = false
     @State private var isDragging = false
+    @State private var coverArt: UIImage? // Add local state
     
     var body: some View {
         if let song = playerVM.currentSong {
             VStack(spacing: 0) {
-                // Progress Bar (Spotify green)
                 ProgressBarView(playerVM: playerVM, isDragging: $isDragging)
                 
-                // Main Player Content
                 HStack(spacing: 12) {
-                    // Left: Album Art + Song Info
                     HStack(spacing: 12) {
-                        AlbumArtView(cover: playerVM.coverArt)
+                        AlbumArtView(cover: coverArt) // Use local state
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(song.title)
@@ -45,9 +45,7 @@ struct MiniPlayerView: View {
                     
                     Spacer()
                     
-                    // Right: Controls
                     HStack(spacing: 16) {
-                        // ✅ REFACTORED: HeartButton statt eigene Implementation
                         HeartButton.miniPlayer(song: song)
                         
                         Button {
@@ -72,8 +70,7 @@ struct MiniPlayerView: View {
                 .padding(.vertical, 12)
                 .background(
                     ZStack {
-                        // Cover Blur Background
-                        if let cover = playerVM.coverArt {
+                        if let cover = coverArt {
                             Image(uiImage: cover)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -82,7 +79,6 @@ struct MiniPlayerView: View {
                                 .clipped()
                         }
                         
-                        // Dark overlay für Lesbarkeit
                         Color.black.opacity(0.6)
                     }
                 )
@@ -108,11 +104,43 @@ struct MiniPlayerView: View {
                     .environmentObject(playerVM)
                     .environmentObject(audioSessionManager)
             }
+            // FIXED: Reactive loading
+            .task(id: song.id) {
+                await loadCoverArt(for: song)
+            }
+            .onReceive(coverArtManager.objectWillChange) { _ in
+                // Update when CoverArtManager cache changes
+                if let albumId = song.albumId {
+                    coverArt = coverArtManager.getAlbumImage(for: albumId, size: 150)
+                }
+            }
+        }
+    }
+    
+    private func loadCoverArt(for song: Song) async {
+        // Try to get from cache first
+        if let albumId = song.albumId {
+            coverArt = coverArtManager.getAlbumImage(for: albumId, size: 150)
+        }
+        
+        // If not in cache, load async
+        if coverArt == nil,
+           let albumId = song.albumId,
+           let cachedAlbum = AlbumMetadataCache.shared.getAlbum(id: albumId) {
+            
+            let loadedImage = await coverArtManager.loadAlbumImage(
+                album: cachedAlbum,
+                size: 150
+            )
+            
+            await MainActor.run {
+                self.coverArt = loadedImage
+            }
         }
     }
 }
 
-// MARK: - Progress Bar mit Spotify-Grün (unchanged)
+// MARK: - Progress Bar unchanged
 
 struct ProgressBarView: View {
     @ObservedObject var playerVM: PlayerViewModel
@@ -126,7 +154,7 @@ struct ProgressBarView: View {
                     .fill(Color.gray.opacity(0.4))
                     .frame(height: 2)
                 
-                // Spotify-grüner Progress
+                // Spotify green progress
                 Rectangle()
                     .fill(Color.green)
                     .frame(width: geometry.size.width * progressPercentage, height: 2)
@@ -155,7 +183,7 @@ struct ProgressBarView: View {
     }
 }
 
-// MARK: - Album Art (unchanged)
+// MARK: - Album Art unchanged
 
 struct AlbumArtView: View {
     let cover: UIImage?
