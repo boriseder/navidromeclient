@@ -1,9 +1,10 @@
 //
-//  GenreViewContent.swift - PHASE 3: Standardized View Logic
+//  GenreViewContent.swift - MIGRATED: Unified State System
 //  NavidromeClient
 //
-//   STANDARDIZED: Consistent state handling across all views
-//   ELIMINATED: Inconsistent loading patterns
+//   ELIMINATED: Custom LoadingView, EmptyStateView (~80 LOC)
+//   UNIFIED: 4-line state logic with modern design
+//   CLEAN: Single state component handles all scenarios
 //
 
 import SwiftUI
@@ -19,88 +20,94 @@ struct GenreViewContent: View {
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - PHASE 3: Standardized State Logic
+    // MARK: - UNIFIED: Single State Logic (4 lines)
     
     private var connectionState: EffectiveConnectionState {
         networkMonitor.effectiveConnectionState
     }
     
     private var displayedGenres: [Genre] {
-        switch connectionState {
-        case .online:
-            return filterGenres(musicLibraryManager.genres)
-        case .userOffline, .serverUnreachable, .disconnected:
-            return filterGenres(offlineManager.offlineGenres)
+        let genres = connectionState.shouldLoadOnlineContent ?
+                     musicLibraryManager.genres : offlineManager.offlineGenres
+        return filterGenres(genres)
+    }
+    
+    private var currentState: ViewState? {
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        } else if musicLibraryManager.isLoading && displayedGenres.isEmpty {
+            return .loading("Loading genres")
+        } else if displayedGenres.isEmpty {
+            return .empty(type: .genres)
         }
-    }
-    
-    private var shouldShowLoading: Bool {
-        return appConfig.isInitializingServices ||
-               (connectionState.shouldLoadOnlineContent &&
-                musicLibraryManager.isLoading &&
-                !musicLibraryManager.hasLoadedInitialData)
-    }
-
-    private var isEmpty: Bool {
-        return displayedGenres.isEmpty
-    }
-    
-    private var isEffectivelyOffline: Bool {
-        return connectionState.isEffectivelyOffline
+        return nil
     }
     
     var body: some View {
-            NavigationStack {
-                ZStack {
-                    DynamicMusicBackground()
-                    
-                    VStack(alignment: .leading) {
-                        if shouldShowLoading {
-                            LoadingView()
-                        } else if isEmpty && !shouldShowLoading {
-                            EmptyStateView(type: .genres)
-                        } else {
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
-                                    if isEffectivelyOffline {
-                                        OfflineStatusBanner()
-                                    }
-                                    
-                                    LazyVStack(spacing: DSLayout.elementGap) {
-                                        ForEach(displayedGenres.indices, id: \.self) { index in
-                                            let genre = displayedGenres[index]
-                                            
-                                            NavigationLink(value: genre) {
-                                                ListItemContainer(content: CardContent.genre(genre), index: index)
-                                            }
-                                        }
-                                    }
-                                    .padding(.bottom, DSLayout.miniPlayerHeight)
-                                }
-                            }
+        NavigationStack {
+            ZStack {
+                DynamicMusicBackground()
+                
+                // UNIFIED: Single component handles all states
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Refresh") {
+                            Task { await refreshAllData() }
                         }
-                    }
-                    .padding(.horizontal, DSLayout.screenPadding)
-                    .padding(.top, DSLayout.tightGap)
-                    .searchable(text: $searchText, prompt: "Search genres...")
-                    .refreshable {
-                        // PHASE 3: Only refresh if we should load online content
-                        guard connectionState.shouldLoadOnlineContent else { return }
-                        await refreshAllData()
-                    }
-                    .onChange(of: searchText) { _, _ in
-                        handleSearchTextChange()
-                    }
-                    .navigationDestination(for: Genre.self) { genre in
-                        AlbumCollectionView(context: .byGenre(genre))
-                    }
-                    .unifiedToolbar(genreToolbarConfig)
+                    )
+                } else {
+                    contentView
                 }
             }
-            .overlay( DebugLines() )
-
+            .searchable(text: $searchText, prompt: "Search genres...")
+            .refreshable {
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshAllData()
+            }
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
+            }
+            .navigationDestination(for: Genre.self) { genre in
+                AlbumCollectionView(context: .byGenre(genre))
+            }
+            .unifiedToolbar(.library(
+                title: "Genres",
+                isOffline: connectionState.isEffectivelyOffline,
+                onRefresh: {
+                    guard connectionState.shouldLoadOnlineContent else { return }
+                    await refreshAllData()
+                },
+                onToggleOffline: offlineManager.toggleOfflineMode
+            ))
         }
-    // MARK: - PHASE 3: Standardized Business Logic
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
+                if connectionState.isEffectivelyOffline {
+                    OfflineStatusBanner()
+                }
+                
+                LazyVStack(spacing: DSLayout.elementGap) {
+                    ForEach(displayedGenres.indices, id: \.self) { index in
+                        let genre = displayedGenres[index]
+                        
+                        NavigationLink(value: genre) {
+                            ListItemContainer(content: .genre(genre), index: index)
+                        }
+                    }
+                }
+                .padding(.bottom, DSLayout.miniPlayerHeight)
+            }
+        }
+        .padding(.horizontal, DSLayout.screenPadding)
+        .padding(.top, DSLayout.tightGap)
+    }
+    
+    // MARK: - Business Logic (unchanged)
     
     private func filterGenres(_ genres: [Genre]) -> [Genre] {
         let filteredGenres: [Genre]
@@ -124,17 +131,5 @@ struct GenreViewContent: View {
         debouncer.debounce {
             // Search filtering happens automatically via computed property
         }
-    }
-    
-    private var genreToolbarConfig: ToolbarConfiguration {
-        .library(
-            title: "Genres",
-            isOffline: isEffectivelyOffline,
-            onRefresh: {
-                guard connectionState.shouldLoadOnlineContent else { return }
-                await refreshAllData()
-            },
-            onToggleOffline: offlineManager.toggleOfflineMode
-        )
     }
 }

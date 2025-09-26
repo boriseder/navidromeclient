@@ -1,9 +1,10 @@
 //
-//  AlbumsViewContent.swift - PHASE 3: Standardized View Logic
+//  AlbumsViewContent.swift - MIGRATED: Unified State System
 //  NavidromeClient
 //
-//   STANDARDIZED: Consistent state handling across all views
-//   ELIMINATED: Inconsistent loading patterns
+//   ELIMINATED: Custom LoadingView, EmptyStateView (~80 LOC)
+//   UNIFIED: 4-line state logic with modern design
+//   CLEAN: Single state component handles all scenarios
 //
 
 import SwiftUI
@@ -22,35 +23,27 @@ struct AlbumsViewContent: View {
     @State private var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - PHASE 3: Standardized State Logic
+    // MARK: - UNIFIED: Single State Logic (4 lines)
     
-    private var shouldShowLoading: Bool {
-        return appConfig.isInitializingServices ||
-               (connectionState.shouldLoadOnlineContent &&
-                musicLibraryManager.isLoading &&
-                !musicLibraryManager.hasLoadedInitialData)
-    }
-
     private var connectionState: EffectiveConnectionState {
         networkMonitor.effectiveConnectionState
     }
     
     private var displayedAlbums: [Album] {
-        switch connectionState {
-        case .online:
-            return filterAlbums(musicLibraryManager.albums)
-        case .userOffline, .serverUnreachable, .disconnected:
-            return filterAlbums(getOfflineAlbums())
+        let albums = connectionState.shouldLoadOnlineContent ?
+                     musicLibraryManager.albums : getOfflineAlbums()
+        return filterAlbums(albums)
+    }
+    
+    private var currentState: ViewState? {
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
+            return .loading("Loading albums")
+        } else if displayedAlbums.isEmpty {
+            return .empty(type: .albums)
         }
-    }
-    
-    
-    private var isEmpty: Bool {
-        return displayedAlbums.isEmpty
-    }
-    
-    private var isEffectivelyOffline: Bool {
-        return connectionState.isEffectivelyOffline
+        return nil
     }
     
     var body: some View {
@@ -58,85 +51,82 @@ struct AlbumsViewContent: View {
             ZStack {
                 DynamicMusicBackground()
                 
-                VStack(alignment: .leading) {
-                    if shouldShowLoading {
-                        LoadingView()
-                    } else if isEmpty && !shouldShowLoading {
-                        EmptyStateView(type: .albums)
-                    } else {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
-                                if isEffectivelyOffline {
-                                    OfflineStatusBanner()
-                                        .padding(.bottom, DSLayout.elementGap)
-                                }
-                                
-                                // Direktes LazyVGrid ohne UnifiedLibraryContainer
-                                LazyVGrid(
-                                    columns: GridColumns.two,
-                                    alignment: .leading,
-                                    spacing: DSLayout.contentGap
-                                ) {
-                                    ForEach(displayedAlbums.indices, id: \.self) { index in
-                                        let album = displayedAlbums[index]
-                                        
-                                        NavigationLink(value: album) {
-                                            CardItemContainer(content: CardContent.album(album), index: index)
-                                        }
-                                        .onAppear {
-                                            // Load more trigger
-                                            if connectionState.shouldLoadOnlineContent && index >= displayedAlbums.count - 5 {
-                                                Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
-                                            }
-                                        }
-                                    }
-                                    .padding(.bottom, DSLayout.elementGap)
-
-                                }
-                                .padding(.bottom, DSLayout.miniPlayerHeight)
+                // UNIFIED: Single component handles all states
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Refresh") {
+                            Task { await refreshAllData() }
+                        }
+                    )
+                } else {
+                    contentView
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search albums...")
+            .refreshable {
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshAllData()
+            }
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
+            }
+            .task(id: displayedAlbums.count) {
+                await preloadAlbumImages()
+            }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .unifiedToolbar(.libraryWithSort(
+                title: "Albums",
+                isOffline: connectionState.isEffectivelyOffline,
+                currentSort: selectedAlbumSort,
+                sortOptions: ContentService.AlbumSortType.allCases,
+                onRefresh: {
+                    guard connectionState.shouldLoadOnlineContent else { return }
+                    await loadAlbums(sortBy: selectedAlbumSort)
+                },
+                onToggleOffline: toggleOfflineMode,
+                onSort: { sortType in
+                    guard connectionState.shouldLoadOnlineContent else { return }
+                    Task { await loadAlbums(sortBy: sortType) }
+                }
+            ))
+        }
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
+                if connectionState.isEffectivelyOffline {
+                    OfflineStatusBanner()
+                        .padding(.bottom, DSLayout.elementGap)
+                }
+                
+                LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
+                    ForEach(displayedAlbums.indices, id: \.self) { index in
+                        let album = displayedAlbums[index]
+                        
+                        NavigationLink(value: album) {
+                            CardItemContainer(content: .album(album), index: index)
+                        }
+                        .onAppear {
+                            if connectionState.shouldLoadOnlineContent &&
+                               index >= displayedAlbums.count - 5 {
+                                Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
                             }
                         }
                     }
                 }
-                .padding(.horizontal, DSLayout.screenPadding)
-                .padding(.top, DSLayout.tightGap)
-                .searchable(text: $searchText, prompt: "Search albums...")
-                .refreshable {
-                    // PHASE 3: Only refresh if we should load online content
-                    guard connectionState.shouldLoadOnlineContent else { return }
-                    await refreshAllData()
-                }
-                .onChange(of: searchText) { _, _ in
-                    handleSearchTextChange()
-                }
-                .task(id: displayedAlbums.count) {
-                    await preloadAlbumImages()
-                }
-                .navigationDestination(for: Album.self) { album in
-                    AlbumDetailViewContent(album: album)
-                }
-                .unifiedToolbar(.libraryWithSort(
-                    title: "Albums",
-                    isOffline: isEffectivelyOffline,
-                    currentSort: selectedAlbumSort,
-                    sortOptions: ContentService.AlbumSortType.allCases,
-                    onRefresh: {
-                        guard connectionState.shouldLoadOnlineContent else { return }
-                        await loadAlbums(sortBy: selectedAlbumSort)
-                    },
-                    onToggleOffline: toggleOfflineMode,
-                    onSort: { sortType in
-                        guard connectionState.shouldLoadOnlineContent else { return }
-                        Task { await loadAlbums(sortBy: sortType) }
-                    }
-                )
-                )
+                .padding(.bottom, DSLayout.miniPlayerHeight)
             }
         }
-        .overlay( DebugLines() )
+        .padding(.horizontal, DSLayout.screenPadding)
+        .padding(.top, DSLayout.tightGap)
     }
     
-    // MARK: - PHASE 3: Standardized Business Logic
+    // MARK: - Business Logic (unchanged)
     
     private func getOfflineAlbums() -> [Album] {
         let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
@@ -148,9 +138,8 @@ struct AlbumsViewContent: View {
             return albums
         } else {
             return albums.filter { album in
-                let nameMatches = album.name.localizedCaseInsensitiveContains(searchText)
-                let artistMatches = album.artist.localizedCaseInsensitiveContains(searchText)
-                return nameMatches || artistMatches
+                album.name.localizedCaseInsensitiveContains(searchText) ||
+                album.artist.localizedCaseInsensitiveContains(searchText)
             }
         }
     }

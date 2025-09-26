@@ -1,9 +1,10 @@
 //
-//  ArtistsViewContent.swift - PHASE 3: Standardized View Logic
+//  ArtistsViewContent.swift - MIGRATED: Unified State System
 //  NavidromeClient
 //
-//   STANDARDIZED: Consistent state handling across all views
-//   ELIMINATED: Inconsistent loading patterns
+//   ELIMINATED: Custom LoadingView, EmptyStateView (~80 LOC)
+//   UNIFIED: 4-line state logic with modern design
+//   CLEAN: Single state component handles all scenarios
 //
 
 import SwiftUI
@@ -21,94 +22,100 @@ struct ArtistsViewContent: View {
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - PHASE 3: Standardized State Logic
+    // MARK: - UNIFIED: Single State Logic (4 lines)
     
-    private var shouldShowLoading: Bool {
-        return appConfig.isInitializingServices ||
-               (connectionState.shouldLoadOnlineContent &&
-                musicLibraryManager.isLoading &&
-                !musicLibraryManager.hasLoadedInitialData)
-    }
-
     private var connectionState: EffectiveConnectionState {
         networkMonitor.effectiveConnectionState
     }
     
     private var displayedArtists: [Artist] {
-        switch connectionState {
-        case .online:
-            return filterArtists(musicLibraryManager.artists)
-        case .userOffline, .serverUnreachable, .disconnected:
-            return filterArtists(offlineManager.offlineArtists)
-        }
-    }
-        
-    private var isEmpty: Bool {
-        return displayedArtists.isEmpty
+        let artists = connectionState.shouldLoadOnlineContent ?
+                      musicLibraryManager.artists : offlineManager.offlineArtists
+        return filterArtists(artists)
     }
     
-    private var isEffectivelyOffline: Bool {
-        return connectionState.isEffectivelyOffline
+    private var currentState: ViewState? {
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        } else if musicLibraryManager.isLoading && displayedArtists.isEmpty {
+            return .loading("Loading artists")
+        } else if displayedArtists.isEmpty {
+            return .empty(type: .artists)
+        }
+        return nil
     }
     
     var body: some View {
-            NavigationStack {
-                ZStack {
-                    DynamicMusicBackground()
-                    
-                    VStack(alignment: .leading) {
-                        if shouldShowLoading {
-                            LoadingView()
-                        } else if isEmpty && !shouldShowLoading {
-                            EmptyStateView(type: .artists)
-                        } else {
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
-                                    if isEffectivelyOffline {
-                                        OfflineStatusBanner()
-                                    }
-                                    
-                                    LazyVStack(spacing: DSLayout.elementGap) {
-                                        ForEach(displayedArtists.indices, id: \.self) { index in
-                                            let artist = displayedArtists[index]
-                                            
-                                            NavigationLink(value: artist) {
-                                                ListItemContainer(content: CardContent.artist(artist), index: index)
-                                            }
-                                        }
-                                    }
-                                    .padding(.bottom, DSLayout.miniPlayerHeight)
-                                }
-                            }
+        NavigationStack {
+            ZStack {
+                DynamicMusicBackground()
+                
+                // UNIFIED: Single component handles all states
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Refresh") {
+                            Task { await refreshAllData() }
                         }
-                    }
-                    .padding(.horizontal, DSLayout.screenPadding)
-                    .padding(.top, DSLayout.tightGap)
-                    .searchable(text: $searchText, prompt: "Search artists...")
-                    .refreshable {
-                        // PHASE 3: Only refresh if we should load online content
-                        guard connectionState.shouldLoadOnlineContent else { return }
-                        await refreshAllData()
-                    }
-                    .onChange(of: searchText) { _, _ in
-                        handleSearchTextChange()
-                    }
-                    .task(id: displayedArtists.count) {
-                        await preloadArtistImages()
-                    }
-                    .navigationDestination(for: Artist.self) { artist in
-                        AlbumCollectionView(context: .byArtist(artist))
-                    }
-                    .navigationDestination(for: Album.self) { album in
-                        AlbumDetailViewContent(album: album)
-                    }
-                    .unifiedToolbar(artistsToolbarConfig)
+                    )
+                } else {
+                    contentView
                 }
             }
-            .overlay( DebugLines() )
-
+            .searchable(text: $searchText, prompt: "Search artists...")
+            .refreshable {
+                guard connectionState.shouldLoadOnlineContent else { return }
+                await refreshAllData()
+            }
+            .onChange(of: searchText) { _, _ in
+                handleSearchTextChange()
+            }
+            .task(id: displayedArtists.count) {
+                await preloadArtistImages()
+            }
+            .navigationDestination(for: Artist.self) { artist in
+                AlbumCollectionView(context: .byArtist(artist))
+            }
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
+            .unifiedToolbar(.library(
+                title: "Artists",
+                isOffline: connectionState.isEffectivelyOffline,
+                onRefresh: {
+                    guard connectionState.shouldLoadOnlineContent else { return }
+                    await refreshAllData()
+                },
+                onToggleOffline: offlineManager.toggleOfflineMode
+            ))
         }
-    // MARK: - PHASE 3: Standardized Business Logic
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
+                if connectionState.isEffectivelyOffline {
+                    OfflineStatusBanner()
+                }
+                
+                LazyVStack(spacing: DSLayout.elementGap) {
+                    ForEach(displayedArtists.indices, id: \.self) { index in
+                        let artist = displayedArtists[index]
+                        
+                        NavigationLink(value: artist) {
+                            ListItemContainer(content: .artist(artist), index: index)
+                        }
+                    }
+                }
+                .padding(.bottom, DSLayout.miniPlayerHeight)
+            }
+        }
+        .padding(.horizontal, DSLayout.screenPadding)
+        .padding(.top, DSLayout.tightGap)
+    }
+    
+    // MARK: - Business Logic (unchanged)
     
     private func filterArtists(_ artists: [Artist]) -> [Artist] {
         let filteredArtists: [Artist]
@@ -137,17 +144,5 @@ struct ArtistsViewContent: View {
         debouncer.debounce {
             // Search filtering happens automatically via computed property
         }
-    }
-    
-    private var artistsToolbarConfig: ToolbarConfiguration {
-        .library(
-            title: "Artists",
-            isOffline: isEffectivelyOffline,
-            onRefresh: {
-                guard connectionState.shouldLoadOnlineContent else { return }
-                await refreshAllData()
-            },
-            onToggleOffline: offlineManager.toggleOfflineMode
-        )
     }
 }
