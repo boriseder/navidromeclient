@@ -25,14 +25,13 @@ struct AlbumsViewContent: View {
     
     // MARK: - UNIFIED: Single State Logic (4 lines)
     
-    private var connectionState: EffectiveConnectionState {
-        networkMonitor.effectiveConnectionState
-    }
-    
     private var displayedAlbums: [Album] {
-        let albums = connectionState.shouldLoadOnlineContent ?
-                     musicLibraryManager.albums : getOfflineAlbums()
-        return filterAlbums(albums)
+        switch networkMonitor.contentLoadingStrategy {
+        case .online:
+            return musicLibraryManager.albums
+        case .offlineOnly:
+            return getOfflineAlbums()
+        }
     }
     
     private var currentState: ViewState? {
@@ -46,22 +45,22 @@ struct AlbumsViewContent: View {
         return nil
     }
     
+
+    
     var body: some View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
                 
-                // UNIFIED: Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
                         state: state,
                         primaryAction: StateAction("Refresh") {
-                            Task { await refreshAllData() }
+                            Task { await refreshData() }
                         }
                     )
                 } else {
                     contentView
-
                 }
             }
             .navigationTitle("Albums")
@@ -70,7 +69,7 @@ struct AlbumsViewContent: View {
             .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
             .searchable(text: $searchText, prompt: "Search albums...")
             .refreshable {
-                guard connectionState.shouldLoadOnlineContent else { return }
+                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await refreshAllData()
             }
             .onChange(of: searchText) { _, _ in
@@ -90,11 +89,12 @@ struct AlbumsViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
-                if connectionState.isEffectivelyOffline {
-                    OfflineStatusBanner()
-                        .padding(.bottom, DSLayout.elementGap)
-                }
                 
+                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
+                    OfflineReasonBanner(reason: reason)
+                        .padding(.bottom, DSLayout.elementPadding)
+                }
+
                 LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
                     ForEach(displayedAlbums.indices, id: \.self) { index in
                         let album = displayedAlbums[index]
