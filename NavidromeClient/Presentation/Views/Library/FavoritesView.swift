@@ -1,9 +1,10 @@
 //
-//  FavoritesViewContent.swift - MIGRIERT: UnifiedLibraryContainer
+//  FavoritesViewContent.swift - MIGRATED: Unified State System
 //  NavidromeClient
 //
-//   MIGRIERT: Von ContentOnlyLibraryView zu UnifiedLibraryContainer
-//   CLEAN: Single Container-Pattern
+//   UNIFIED: Single ContentLoadingStrategy for consistent state
+//   CLEAN: Proper offline favorites handling
+//   FIXED: Consistent state management pattern
 //
 
 import SwiftUI
@@ -12,19 +13,24 @@ struct FavoritesViewContent: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var appConfig: AppConfig
     
     @StateObject private var favoritesManager = FavoritesManager.shared
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     @State private var showingClearConfirmation = false
 
-    // UNIFIED: Complete Offline Pattern
-    private var connectionState: EffectiveConnectionState {
-        networkMonitor.effectiveConnectionState
-    }
-    
+    // UNIFIED: Single state logic following the pattern
     private var displayedSongs: [Song] {
-        let songs = favoritesManager.favoriteSongs
+        let songs = switch networkMonitor.contentLoadingStrategy {
+        case .online:
+            favoritesManager.favoriteSongs
+        case .offlineOnly:
+            // In offline mode, show only favorites that are downloaded
+            favoritesManager.favoriteSongs.filter { song in
+                DownloadManager.shared.isSongDownloaded(song.id)
+            }
+        }
         
         if searchText.isEmpty {
             return songs
@@ -39,7 +45,9 @@ struct FavoritesViewContent: View {
     }
     
     private var currentState: ViewState? {
-        if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        } else if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
             return .loading("Loading favorites")
         } else if displayedSongs.isEmpty {
             return .empty(type: .favorites)
@@ -58,7 +66,7 @@ struct FavoritesViewContent: View {
                         state: state,
                         primaryAction: StateAction("Refresh") {
                             Task {
-                                guard connectionState.shouldLoadOnlineContent else { return }
+                                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                                 await favoritesManager.loadFavoriteSongs(forceRefresh: true)
                             }
                         }
@@ -69,7 +77,7 @@ struct FavoritesViewContent: View {
             }
             .searchable(text: $searchText, prompt: "Search favorites...")
             .refreshable {
-                guard connectionState.shouldLoadOnlineContent else { return }
+                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await refreshFavorites()
             }
             .task {
@@ -81,6 +89,42 @@ struct FavoritesViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
+            .navigationTitle("Your favorites")
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button("Play All") {
+                            Task { await playAllFavorites() }
+                        }
+                        
+                        Button("Shuffle All") {
+                            Task { await shuffleAllFavorites() }
+                        }
+                        
+                        if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
+                            Divider()
+                            
+                            Button("Clear All Favorites", role: .destructive) {
+                                showingClearConfirmation = true
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundColor(.primary)
+                    }
+                }
+            }
+            .alert("Clear All Favorites?", isPresented: $showingClearConfirmation) {
+                Button("Clear", role: .destructive) {
+                    Task { await clearAllFavorites() }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will remove all songs from your favorites.")
+            }
         }
     }
 
@@ -88,8 +132,9 @@ struct FavoritesViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if connectionState.isEffectivelyOffline {
-                    OfflineStatusBanner()
+                // UNIFIED: Consistent offline banner pattern
+                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
+                    OfflineReasonBanner(reason: reason)
                         .padding(.horizontal, DSLayout.screenPadding)
                 }
                 
@@ -129,14 +174,9 @@ struct FavoritesViewContent: View {
             }
         }
         .padding(.horizontal, DSLayout.screenPadding)
-        .navigationTitle("Your favorites")
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
-        .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
-
     }
 
-    // Business Logic (unverändert)
+    // MARK: - Business Logic (unchanged)
     
     private func refreshFavorites() async {
         await favoritesManager.loadFavoriteSongs(forceRefresh: true)
@@ -176,31 +216,4 @@ struct FavoritesViewContent: View {
             // Search filtering happens automatically via computed property
         }
     }
-    /*
-    private var favoritesToolbarConfig: ToolbarConfiguration {
-        let left: [ToolbarElement] = []
-        
-        let right: [ToolbarElement] = [
-            .menu(icon: "ellipsis", items: [
-                MenuAction(title: "Play All", icon: "play.fill") {
-                    Task { await playAllFavorites() }
-                },
-                MenuAction(title: "Shuffle All", icon: "shuffle") {
-                    Task { await shuffleAllFavorites() }
-                },
-                MenuAction(title: "Clear All Favorites", icon: "trash", isDestructive: true) {
-                    showingClearConfirmation = true
-                }
-            ])
-        ]
-        
-        return ToolbarConfiguration(
-            leftItems: left,
-            rightItems: right,
-            title: "Favorites",
-            displayMode: .large,
-            showSettings: true
-        )
-    }
-     */
 }

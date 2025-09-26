@@ -336,7 +336,9 @@ extension ContentLoadingStrategy.OfflineReason {
     func performAction(offlineManager: OfflineManager) {
         switch self {
         case .userChoice:
-            offlineManager.switchToOnlineMode()
+            Task {
+                await offlineManager.switchToOnlineMode()
+            }
         default:
             break
         }

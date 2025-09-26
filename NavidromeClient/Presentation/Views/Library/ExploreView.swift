@@ -1,9 +1,10 @@
 //
-//  ExploreViewContent.swift - DIRECT: Ohne UnifiedLibraryContainer
+//  ExploreViewContent.swift - MIGRATED: Unified State System
 //  NavidromeClient
 //
-//   DIRECT: Alle Container durch direkte LazyVStack/LazyHStack ersetzt
-//   CLEAN: Keine Container-Abstraktionen mehr
+//   UNIFIED: Single ContentLoadingStrategy for consistent state
+//   CLEAN: Proper offline content handling
+//   FIXED: Consistent state management pattern
 //
 
 import SwiftUI
@@ -16,20 +17,24 @@ struct ExploreViewContent: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var coverArtManager: CoverArtManager
     
-    
     @StateObject private var exploreManager = ExploreManager.shared
     @State private var hasLoaded = false
 
-    // UNIFIED: Complete Offline Pattern
-    private var connectionState: EffectiveConnectionState {
-        networkMonitor.effectiveConnectionState
+    // UNIFIED: Single state logic following the pattern
+    private var hasOnlineContent: Bool {
+        exploreManager.hasHomeScreenData
+    }
+    
+    private var hasOfflineContent: Bool {
+        !offlineManager.offlineAlbums.isEmpty
     }
     
     private var hasContent: Bool {
-        if connectionState.shouldLoadOnlineContent {
-            return exploreManager.hasHomeScreenData
-        } else {
-            return !offlineManager.offlineAlbums.isEmpty
+        switch networkMonitor.contentLoadingStrategy {
+        case .online:
+            return hasOnlineContent
+        case .offlineOnly:
+            return hasOfflineContent
         }
     }
     
@@ -55,7 +60,7 @@ struct ExploreViewContent: View {
                         state: state,
                         primaryAction: StateAction("Refresh") {
                             Task {
-                                guard connectionState.shouldLoadOnlineContent else { return }
+                                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                                 await exploreManager.loadExploreData()
                                 await preloadHomeScreenCovers()
                             }
@@ -67,15 +72,15 @@ struct ExploreViewContent: View {
             }
             .navigationTitle("Explore your music")
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarBackground(Color.black, for: .navigationBar)  // dunkler Hintergrund
-            .toolbarColorScheme(.dark, for: .navigationBar)        // Titel weiß
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .task(id: hasLoaded) {
                 guard !hasLoaded else { return }
                 await setupHomeScreenData()
                 hasLoaded = true
             }
             .refreshable {
-                guard connectionState.shouldLoadOnlineContent else { return }
+                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await exploreManager.loadExploreData()
                 await preloadHomeScreenCovers()
             }
@@ -89,14 +94,16 @@ struct ExploreViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading) {
-                if connectionState.isEffectivelyOffline {
-                    OfflineStatusBanner()
+                // UNIFIED: Consistent offline banner pattern
+                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
+                    OfflineReasonBanner(reason: reason)
                         .padding(.horizontal, DSLayout.screenPadding)
                 }
                 
-                if connectionState.shouldLoadOnlineContent {
+                switch networkMonitor.contentLoadingStrategy {
+                case .online:
                     onlineContent
-                } else {
+                case .offlineOnly:
                     offlineContent
                 }
             }
@@ -105,85 +112,80 @@ struct ExploreViewContent: View {
     }
 
     private var onlineContent: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading) {
-                WelcomeHeader(
-                    username: appConfig.getCredentials()!.username,
-                    nowPlaying: playerVM.currentSong
+        LazyVStack(alignment: .leading) {
+            WelcomeHeader(
+                username: appConfig.getCredentials()?.username ?? "User",
+                nowPlaying: playerVM.currentSong
+            )
+            
+            if !exploreManager.recentAlbums.isEmpty {
+                ExploreSection(
+                    title: "Recently played",
+                    albums: exploreManager.recentAlbums,
+                    icon: "clock.fill",
+                    accentColor: .orange
                 )
-                
-                if !exploreManager.recentAlbums.isEmpty {
-                    ExploreSection(
-                        title: "Recently played",
-                        albums: exploreManager.recentAlbums,
-                        icon: "clock.fill",
-                        accentColor: .orange
-                    )
-                }
-                
-                if !exploreManager.newestAlbums.isEmpty {
-                    ExploreSection(
-                        title: "Newly added",
-                        albums: exploreManager.newestAlbums,
-                        icon: "sparkles",
-                        accentColor: .green
-                    )
-                }
-                
-                if !exploreManager.frequentAlbums.isEmpty {
-                    ExploreSection(
-                        title: "Often played",
-                        albums: exploreManager.frequentAlbums,
-                        icon: "chart.bar.fill",
-                        accentColor: .purple
-                    )
-                }
-                
-                if !exploreManager.randomAlbums.isEmpty {
-                    ExploreSection(
-                        title: "Explore",
-                        albums: exploreManager.randomAlbums,
-                        icon: "dice.fill",
-                        accentColor: .blue,
-                        showRefreshButton: true,
-                        refreshAction: { await refreshRandomAlbums() }
-                    )
-                }
-                
-                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
-            .padding(.top, DSLayout.elementGap)
-
+            
+            if !exploreManager.newestAlbums.isEmpty {
+                ExploreSection(
+                    title: "Newly added",
+                    albums: exploreManager.newestAlbums,
+                    icon: "sparkles",
+                    accentColor: .green
+                )
+            }
+            
+            if !exploreManager.frequentAlbums.isEmpty {
+                ExploreSection(
+                    title: "Often played",
+                    albums: exploreManager.frequentAlbums,
+                    icon: "chart.bar.fill",
+                    accentColor: .purple
+                )
+            }
+            
+            if !exploreManager.randomAlbums.isEmpty {
+                ExploreSection(
+                    title: "Explore",
+                    albums: exploreManager.randomAlbums,
+                    icon: "dice.fill",
+                    accentColor: .blue,
+                    showRefreshButton: true,
+                    refreshAction: { await refreshRandomAlbums() }
+                )
+            }
+            
+            Color.clear.frame(height: DSLayout.miniPlayerHeight)
         }
         .padding(.horizontal, DSLayout.screenPadding)
     }
     
     private var offlineContent: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: DSLayout.screenGap) {
-                OfflineWelcomeHeader(
-                    downloadedAlbums: downloadManager.downloadedAlbums.count,
-                    isConnected: networkMonitor.isConnected
+        LazyVStack(alignment: .leading, spacing: DSLayout.screenGap) {
+            OfflineWelcomeHeader(
+                downloadedAlbums: downloadManager.downloadedAlbums.count,
+                isConnected: networkMonitor.isConnected
+            )
+            
+            if !offlineManager.offlineAlbums.isEmpty {
+                ExploreSection(
+                    title: "Downloaded Albums",
+                    albums: Array(offlineManager.offlineAlbums.prefix(10)),
+                    icon: "arrow.down.circle.fill",
+                    accentColor: .green
                 )
-                
-                if !offlineManager.offlineAlbums.isEmpty {
-                    ExploreSection(
-                        title: "Downloaded Albums",
-                        albums: Array(offlineManager.offlineAlbums.prefix(10)),
-                        icon: "arrow.down.circle.fill",
-                        accentColor: .green
-                    )
-                }
-                
-                Color.clear.frame(height: DSLayout.miniPlayerHeight)
             }
+            
+            Color.clear.frame(height: DSLayout.miniPlayerHeight)
         }
         .padding(.horizontal, DSLayout.screenPadding)
-
     }
     
+    // MARK: - Business Logic (unchanged)
+    
     private func setupHomeScreenData() async {
-        if networkMonitor.canLoadOnlineContent && !offlineManager.isOfflineMode {
+        if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
             await exploreManager.loadExploreData()
             await preloadHomeScreenCovers()
         }
@@ -202,22 +204,9 @@ struct ExploreViewContent: View {
         await exploreManager.refreshRandomAlbums()
         await coverArtManager.preloadAlbums(exploreManager.randomAlbums, size: 200)
     }
-    
-    /*
-    private var exploreToolbarConfig: ToolbarConfiguration {
-        .library(
-            title: "Explore your music",
-            isOffline: offlineManager.isOfflineMode,
-            onRefresh: {
-                await refreshRandomAlbums()
-            },
-            onToggleOffline: offlineManager.toggleOfflineMode
-        )
-    }
-     */
 }
 
-// MARK: - ExploreSection - Direct Implementation
+// MARK: - ExploreSection (unchanged)
 
 struct ExploreSection: View {
     let title: String
@@ -231,7 +220,6 @@ struct ExploreSection: View {
     
     var body: some View {
         VStack(alignment: .leading) {
-            // Section Header
             HStack {
                 Label(title, systemImage: icon)
                     .font(DSText.prominent)
@@ -274,6 +262,5 @@ struct ExploreSection: View {
             }
         }
         .padding(.top, DSLayout.sectionGap)
-
     }
 }

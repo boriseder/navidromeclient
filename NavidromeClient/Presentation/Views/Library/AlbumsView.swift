@@ -56,7 +56,7 @@ struct AlbumsViewContent: View {
                     UnifiedStateView(
                         state: state,
                         primaryAction: StateAction("Refresh") {
-                            Task { await refreshData() }
+                            Task { await refreshAllData() }
                         }
                     )
                 } else {
@@ -103,9 +103,11 @@ struct AlbumsViewContent: View {
                             CardItemContainer(content: .album(album), index: index)
                         }
                         .onAppear {
-                            if connectionState.shouldLoadOnlineContent &&
+                            if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent &&
                                index >= displayedAlbums.count - 5 {
-                                Task { await musicLibraryManager.loadMoreAlbumsIfNeeded() }
+                                Task {
+                                    await musicLibraryManager.loadMoreAlbumsIfNeeded()
+                                }
                             }
                         }
                     }
