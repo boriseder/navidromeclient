@@ -69,20 +69,6 @@ class OfflineManager: ObservableObject {
     
     // MARK: - UI State Properties (Read-Only)
     
-    /// Current mode for UI display (derived from NetworkMonitor)
-    var currentMode: Mode {
-        switch networkMonitor.contentLoadingStrategy {
-        case .online:
-            return .online
-        case .offlineOnly(let reason):
-            switch reason {
-            case .userChoice:
-                return .offline(userChoice: true)
-            case .noNetwork, .serverUnreachable:
-                return .offline(userChoice: false)
-            }
-        }
-    }
     
     /// Legacy compatibility
     var isOfflineMode: Bool {

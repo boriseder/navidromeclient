@@ -349,14 +349,6 @@ class PlayerViewModel: NSObject, ObservableObject {
             (.audioInterruptionEnded, #selector(handleAudioInterruptionEnded)),
             (.audioInterruptionEndedShouldResume, #selector(handleAudioInterruptionEndedShouldResume)),
             (.audioDeviceDisconnected, #selector(handleAudioDeviceDisconnected)),
-            (.remotePlayCommand, #selector(handleRemotePlayCommand)),
-            (.remotePauseCommand, #selector(handleRemotePauseCommand)),
-            (.remoteTogglePlayPauseCommand, #selector(handleRemoteTogglePlayPauseCommand)),
-            (.remoteNextTrackCommand, #selector(handleRemoteNextTrackCommand)),
-            (.remotePreviousTrackCommand, #selector(handleRemotePreviousTrackCommand)),
-            (.remoteSeekCommand, #selector(handleRemoteSeekCommand)),
-            (.remoteSkipForwardCommand, #selector(handleRemoteSkipForwardCommand)),
-            (.remoteSkipBackwardCommand, #selector(handleRemoteSkipBackwardCommand))
         ]
         
         for (name, selector) in observers {
@@ -594,45 +586,41 @@ class PlayerViewModel: NSObject, ObservableObject {
         pause()
     }
     
-    @objc private func handleRemotePlayCommand() {
+    func handleRemotePlay() {
         if currentSong != nil {
             resume()
         }
     }
-    
-    @objc private func handleRemotePauseCommand() {
+
+    func handleRemotePause() {
         pause()
     }
-    
-    @objc private func handleRemoteTogglePlayPauseCommand() {
+
+    func handleRemoteTogglePlayPause() {
         togglePlayPause()
     }
-    
-    @objc private func handleRemoteNextTrackCommand() {
+
+    func handleRemoteNextTrack() {
         Task { [weak self] in
             await self?.playNext()
         }
     }
 
-    @objc private func handleRemotePreviousTrackCommand() {
+    func handleRemotePreviousTrack() {
         Task { [weak self] in
             await self?.playPrevious()
         }
     }
 
-    @objc private func handleRemoteSeekCommand(notification: Notification) {
-        if let time = notification.userInfo?["time"] as? TimeInterval {
-            seek(to: time)
-        }
+    func handleRemoteSeek(to time: TimeInterval) {
+        seek(to: time)
     }
-    
-    @objc private func handleRemoteSkipForwardCommand(notification: Notification) {
-        let interval = notification.userInfo?["interval"] as? TimeInterval ?? 15
+
+    func handleRemoteSkipForward(interval: TimeInterval) {
         skipForward(seconds: interval)
     }
-    
-    @objc private func handleRemoteSkipBackwardCommand(notification: Notification) {
-        let interval = notification.userInfo?["interval"] as? TimeInterval ?? 15
+
+    func handleRemoteSkipBackward(interval: TimeInterval) {
         skipBackward(seconds: interval)
     }
 }

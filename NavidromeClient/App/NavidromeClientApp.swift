@@ -61,6 +61,9 @@ struct NavidromeClientApp: App {
                 .task {
                     await setupInitialConfiguration()
                 }
+                .onAppear {
+                    audioSessionManager.playerViewModel = playerVM
+                }
                 .onChange(of: networkMonitor.isConnected) { _, isConnected in
                     Task {
                         await handleNetworkChange(isConnected: isConnected)
@@ -76,6 +79,7 @@ struct NavidromeClientApp: App {
                             await initializeServicesAfterLogin(credentials: credentials)
                     }
                 }
+
             }
 
         }

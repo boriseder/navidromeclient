@@ -22,7 +22,9 @@ class AudioSessionManager: NSObject, ObservableObject {
     @MainActor private var isCleanedUp = false
 
     private let audioSession = AVAudioSession.sharedInstance()
-        
+    
+    weak var playerViewModel: PlayerViewModel?
+    
     private override init() {
         super.init()
         setupAudioSession()
@@ -392,54 +394,42 @@ class AudioSessionManager: NSObject, ObservableObject {
     
     private func handleRemotePlay() {
         print("▶️ Remote Play Command")
-        NotificationCenter.default.post(name: .remotePlayCommand, object: nil)
+        playerViewModel?.handleRemotePlay()
     }
-    
+
     private func handleRemotePause() {
         print("⏸️ Remote Pause Command")
-        NotificationCenter.default.post(name: .remotePauseCommand, object: nil)
+        playerViewModel?.handleRemotePause()
     }
-    
+
     private func handleRemoteTogglePlayPause() {
         print("⏯️ Remote Toggle Play/Pause Command")
-        NotificationCenter.default.post(name: .remoteTogglePlayPauseCommand, object: nil)
+        playerViewModel?.handleRemoteTogglePlayPause()
     }
-    
+
     private func handleRemoteNextTrack() {
         print("⏭️ Remote Next Track Command")
-        NotificationCenter.default.post(name: .remoteNextTrackCommand, object: nil)
+        playerViewModel?.handleRemoteNextTrack()
     }
-    
+
     private func handleRemotePreviousTrack() {
         print("⏮️ Remote Previous Track Command")
-        NotificationCenter.default.post(name: .remotePreviousTrackCommand, object: nil)
+        playerViewModel?.handleRemotePreviousTrack()
     }
-    
+
     private func handleRemoteSeek(to time: TimeInterval) {
         print("⏩ Remote Seek Command: \(time)s")
-        NotificationCenter.default.post(
-            name: .remoteSeekCommand,
-            object: nil,
-            userInfo: ["time": time]
-        )
+        playerViewModel?.handleRemoteSeek(to: time)
     }
-    
+
     private func handleRemoteSkipForward(interval: TimeInterval) {
         print("⏭️ Remote Skip Forward: \(interval)s")
-        NotificationCenter.default.post(
-            name: .remoteSkipForwardCommand,
-            object: nil,
-            userInfo: ["interval": interval]
-        )
+        playerViewModel?.handleRemoteSkipForward(interval: interval)
     }
-    
+
     private func handleRemoteSkipBackward(interval: TimeInterval) {
         print("⏮️ Remote Skip Backward: \(interval)s")
-        NotificationCenter.default.post(
-            name: .remoteSkipBackwardCommand,
-            object: nil,
-            userInfo: ["interval": interval]
-        )
+        playerViewModel?.handleRemoteSkipBackward(interval: interval)
     }
 }
 
@@ -451,14 +441,4 @@ extension Notification.Name {
     static let audioInterruptionEnded = Notification.Name("audioInterruptionEnded")
     static let audioInterruptionEndedShouldResume = Notification.Name("audioInterruptionEndedShouldResume")
     static let audioDeviceDisconnected = Notification.Name("audioDeviceDisconnected")
-    
-    // Remote Commands
-    static let remotePlayCommand = Notification.Name("remotePlayCommand")
-    static let remotePauseCommand = Notification.Name("remotePauseCommand")
-    static let remoteTogglePlayPauseCommand = Notification.Name("remoteTogglePlayPauseCommand")
-    static let remoteNextTrackCommand = Notification.Name("remoteNextTrackCommand")
-    static let remotePreviousTrackCommand = Notification.Name("remotePreviousTrackCommand")
-    static let remoteSeekCommand = Notification.Name("remoteSeekCommand")
-    static let remoteSkipForwardCommand = Notification.Name("remoteSkipForwardCommand")
-    static let remoteSkipBackwardCommand = Notification.Name("remoteSkipBackwardCommand")
-}
+    }

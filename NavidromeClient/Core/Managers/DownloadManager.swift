@@ -359,7 +359,6 @@ class DownloadManager: ObservableObject {
     
     private func setDownloadState(_ state: DownloadState, for albumId: String) {
         downloadStates[albumId] = state
-        objectWillChange.send()
     }
     
     private func updateDownloadState(for albumId: String) {
@@ -527,9 +526,6 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            NotificationCenter.default.post(name: .downloadDeleted, object: nil)
-            objectWillChange.send()
-
             print("✅ Deleted album: \(album.albumName)")
         }
     }
@@ -556,10 +552,7 @@ class DownloadManager: ObservableObject {
         downloadErrors.removeAll()
 
         saveDownloadedAlbums()
-        
-        NotificationCenter.default.post(name: .downloadDeleted, object: nil)
-        objectWillChange.send()
-        
+                
         print("✅ Cleared all downloads and notified observers")
     }
 
