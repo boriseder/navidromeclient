@@ -49,7 +49,7 @@ struct FullScreenPlayerView: View {
                     SpotifyAlbumArt(cover: highResCoverArt ?? regularCoverArt, screenWidth: geometry.size.width)
                         .scaleEffect(isDragging ? 0.95 : 1.0)
                         .animation(.spring(response: 0.3), value: isDragging)
-                    
+
                     Spacer(minLength: 20)
 
                     if let song = playerVM.currentSong {
@@ -83,6 +83,12 @@ struct FullScreenPlayerView: View {
             .background(Color.black)
         }
         .animation(.interactiveSpring(), value: dragOffset)
+        .sheet(isPresented: $showingQueue) {
+            QueueView()
+                .environmentObject(playerVM)
+                .environmentObject(coverArtManager)
+        }
+
     }
     
     private var dismissGesture: some Gesture {

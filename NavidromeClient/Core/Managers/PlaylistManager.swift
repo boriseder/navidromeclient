@@ -42,3 +42,170 @@ class PlaylistManager: ObservableObject {
         }
     }
 }
+
+extension PlaylistManager {
+    
+    // MARK: - Queue Navigation
+    
+    /// Jump to a specific song in the queue
+    func jumpToSong(at index: Int) {
+        guard currentPlaylist.indices.contains(index) else {
+            print("⚠️ Invalid queue index: \(index)")
+            return
+        }
+        currentIndex = index
+        print("🎵 Jumped to queue position \(index): \(currentPlaylist[index].title)")
+    }
+    
+    // MARK: - Queue Modification
+    
+    /// Remove a song from the queue
+    func removeSong(at index: Int) {
+        guard currentPlaylist.indices.contains(index) else {
+            print("⚠️ Cannot remove song at invalid index: \(index)")
+            return
+        }
+        
+        let removedSong = currentPlaylist.remove(at: index)
+        print("🗑️ Removed from queue: \(removedSong.title)")
+        
+        // Adjust current index
+        if index < currentIndex {
+            currentIndex -= 1
+        } else if index == currentIndex {
+            // If we removed the current song, stay at same index but play new song there
+            if currentIndex >= currentPlaylist.count {
+                currentIndex = max(0, currentPlaylist.count - 1)
+            }
+        }
+    }
+    
+    /// Remove multiple songs from the queue
+    func removeSongs(at indices: [Int]) {
+        let sortedIndices = indices.sorted(by: >) // Remove from back to front
+        
+        for index in sortedIndices {
+            guard currentPlaylist.indices.contains(index) else { continue }
+            removeSong(at: index)
+        }
+    }
+    
+    /// Move a song within the queue
+    func moveSong(from source: Int, to destination: Int) {
+        guard currentPlaylist.indices.contains(source),
+              destination >= 0 && destination <= currentPlaylist.count else {
+            print("⚠️ Invalid move operation: \(source) -> \(destination)")
+            return
+        }
+        
+        let song = currentPlaylist.remove(at: source)
+        let adjustedDestination = source < destination ? destination - 1 : destination
+        currentPlaylist.insert(song, at: adjustedDestination)
+        
+        // Adjust currentIndex accordingly
+        if source == currentIndex {
+            currentIndex = adjustedDestination
+        } else if source < currentIndex && adjustedDestination >= currentIndex {
+            currentIndex -= 1
+        } else if source > currentIndex && adjustedDestination <= currentIndex {
+            currentIndex += 1
+        }
+        
+        print("🔄 Moved queue item: \(song.title) from \(source) to \(adjustedDestination)")
+    }
+    
+    /// Move multiple songs within the queue
+    func moveSongs(from sourceIndices: [Int], to destinationIndex: Int) {
+        // Simple implementation: move one by one
+        let sortedSources = sourceIndices.sorted()
+        var adjustedDestination = destinationIndex
+        
+        for (offset, sourceIndex) in sortedSources.enumerated() {
+            let currentSource = sourceIndex - offset
+            moveSong(from: currentSource, to: adjustedDestination)
+            
+            if currentSource < adjustedDestination {
+                adjustedDestination -= 1
+            }
+        }
+    }
+    
+    // MARK: - Queue Shuffling
+    
+    /// Shuffle only the upcoming songs (not the current song)
+    func shuffleUpNext() {
+        guard currentPlaylist.count > currentIndex + 1 else {
+            print("⚠️ No upcoming songs to shuffle")
+            return
+        }
+        
+        let currentSong = currentPlaylist[currentIndex]
+        let upcomingSongs = Array(currentPlaylist[(currentIndex + 1)...])
+        let shuffledUpcoming = upcomingSongs.shuffled()
+        
+        // Rebuild playlist: current song + shuffled upcoming
+        currentPlaylist = Array(currentPlaylist[0...currentIndex]) + shuffledUpcoming
+        
+        print("🔀 Shuffled \(shuffledUpcoming.count) upcoming songs")
+    }
+    
+    /// Clear all songs after the current song
+    func clearUpNext() {
+        guard currentPlaylist.count > currentIndex + 1 else {
+            print("⚠️ No upcoming songs to clear")
+            return
+        }
+        
+        let removedCount = currentPlaylist.count - currentIndex - 1
+        currentPlaylist = Array(currentPlaylist[0...currentIndex])
+        
+        print("🗑️ Cleared \(removedCount) upcoming songs from queue")
+    }
+    
+    /// Add songs to the end of the queue
+    func addToQueue(_ songs: [Song]) {
+        guard !songs.isEmpty else { return }
+        
+        currentPlaylist.append(contentsOf: songs)
+        print("➕ Added \(songs.count) songs to queue")
+    }
+    
+    /// Insert songs after the current song
+    func playNext(_ songs: [Song]) {
+        guard !songs.isEmpty else { return }
+        
+        let insertIndex = currentIndex + 1
+        for (offset, song) in songs.enumerated() {
+            currentPlaylist.insert(song, at: insertIndex + offset)
+        }
+        
+        print("⏭️ Inserted \(songs.count) songs to play next")
+    }
+    
+    // MARK: - Queue Information
+    
+    /// Get upcoming songs in the queue
+    func getUpNextSongs() -> [Song] {
+        guard currentIndex + 1 < currentPlaylist.count else { return [] }
+        return Array(currentPlaylist[(currentIndex + 1)...])
+    }
+    
+    /// Get total queue duration
+    func getTotalDuration() -> Int {
+        return currentPlaylist.reduce(0) { total, song in
+            total + (song.duration ?? 0)
+        }
+    }
+    
+    /// Get remaining queue duration
+    func getRemainingDuration() -> Int {
+        return getUpNextSongs().reduce(0) { total, song in
+            total + (song.duration ?? 0)
+        }
+    }
+    
+    /// Check if there are songs after the current one
+    func hasUpNext() -> Bool {
+        return currentIndex + 1 < currentPlaylist.count
+    }
+}

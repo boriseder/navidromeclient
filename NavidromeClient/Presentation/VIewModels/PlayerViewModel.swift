@@ -597,3 +597,197 @@ class PlayerViewModel: NSObject, ObservableObject {
         skipBackward(seconds: interval)
     }
 }
+
+extension PlayerViewModel {
+    
+    // MARK: - Queue Navigation
+    
+    /// Jump to a specific song in the queue
+    func jumpToSong(at index: Int) async {
+        guard playlistManager.currentPlaylist.indices.contains(index) else {
+            print("⚠️ Cannot jump to invalid queue index: \(index)")
+            return
+        }
+        
+        playlistManager.jumpToSong(at: index)
+        await playCurrent()
+    }
+    
+    // MARK: - Queue Management
+    
+    /// Remove songs from the queue
+    func removeQueueSongs(at indices: [Int]) async {
+        guard !indices.isEmpty else { return }
+        
+        let wasCurrentSongRemoved = indices.contains(playlistManager.currentIndex)
+        playlistManager.removeSongs(at: indices)
+        
+        // If current song was removed, play the new current song
+        if wasCurrentSongRemoved {
+            if playlistManager.currentPlaylist.isEmpty {
+                stop()
+            } else {
+                await playCurrent()
+            }
+        }
+    }
+    
+    /// Move songs within the queue
+    func moveQueueSongs(from sourceIndices: [Int], to destinationIndex: Int) async {
+        guard !sourceIndices.isEmpty else { return }
+        
+        let wasCurrentSongMoved = sourceIndices.contains(playlistManager.currentIndex)
+        playlistManager.moveSongs(from: sourceIndices, to: destinationIndex)
+        
+        // Update current song if it was moved
+        if wasCurrentSongMoved && !playlistManager.currentPlaylist.isEmpty {
+            await playCurrent()
+        }
+    }
+    
+    /// Shuffle upcoming songs in the queue
+    func shuffleUpNext() async {
+        playlistManager.shuffleUpNext()
+        objectWillChange.send()
+    }
+    
+    /// Clear all upcoming songs from the queue
+    func clearQueue() async {
+        playlistManager.clearUpNext()
+        objectWillChange.send()
+    }
+    
+    /// Add songs to the end of the queue
+    func addToQueue(_ songs: [Song]) async {
+        playlistManager.addToQueue(songs)
+        objectWillChange.send()
+    }
+    
+    /// Insert songs to play next
+    func playNext(_ songs: [Song]) async {
+        playlistManager.playNext(songs)
+        objectWillChange.send()
+    }
+    
+    // MARK: - Enhanced Playback Controls
+    
+    /// Play previous with smart rewind behavior
+    /*
+    override func playPrevious() async {
+        print("⏮️ Enhanced playPrevious called")
+        currentPlayTask?.cancel()
+        
+        // Smart previous: restart current song if more than 5 seconds played
+        if currentTime > 5.0 {
+            seek(to: 0)
+        } else {
+            // Go to actual previous song
+            let previousIndex = playlistManager.previousIndex(currentTime: currentTime)
+            playlistManager.currentIndex = previousIndex
+            await playCurrent()
+        }
+    }
+    
+    /// Play next with queue awareness
+    override func playNext() async {
+        print("⏭️ Enhanced playNext called")
+        currentPlayTask?.cancel()
+        
+        if let nextIndex = playlistManager.nextIndex() {
+            playlistManager.currentIndex = nextIndex
+            await playCurrent()
+        } else {
+            // End of queue reached
+            switch playlistManager.repeatMode {
+            case .all:
+                // Restart from beginning
+                playlistManager.currentIndex = 0
+                await playCurrent()
+            case .off, .one:
+                // Stop playback
+                stop()
+            }
+        }
+    }
+    */
+    
+    // MARK: - Queue Information
+    
+    /// Get queue statistics
+    func getQueueStats() -> QueueStats {
+        return QueueStats(
+            totalSongs: playlistManager.currentPlaylist.count,
+            currentIndex: playlistManager.currentIndex,
+            upNextCount: playlistManager.getUpNextSongs().count,
+            totalDuration: playlistManager.getTotalDuration(),
+            remainingDuration: playlistManager.getRemainingDuration(),
+            isShuffling: playlistManager.isShuffling,
+            repeatMode: playlistManager.repeatMode
+        )
+    }
+}
+
+// MARK: - Supporting Types
+
+struct QueueStats {
+    let totalSongs: Int
+    let currentIndex: Int
+    let upNextCount: Int
+    let totalDuration: Int
+    let remainingDuration: Int
+    let isShuffling: Bool
+    let repeatMode: PlaylistManager.RepeatMode
+    
+    var currentPosition: String {
+        return "\(currentIndex + 1) of \(totalSongs)"
+    }
+    
+    var formattedTotalDuration: String {
+        return formatDuration(totalDuration)
+    }
+    
+    var formattedRemainingDuration: String {
+        return formatDuration(remainingDuration)
+    }
+    
+    private func formatDuration(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:00", hours, minutes)
+        } else {
+            return String(format: "%d:00", minutes)
+        }
+    }
+}
+
+// MARK: - Queue Actions for Context Menus
+
+struct QueueContextActions {
+    let playerVM: PlayerViewModel
+    
+    func playNext(song: Song) {
+        Task {
+            await playerVM.playNext([song])
+        }
+    }
+    
+    func addToQueue(song: Song) {
+        Task {
+            await playerVM.addToQueue([song])
+        }
+    }
+    
+    func addToQueue(album: Album, songs: [Song]) {
+        Task {
+            await playerVM.addToQueue(songs)
+        }
+    }
+    
+    func playNext(album: Album, songs: [Song]) {
+        Task {
+            await playerVM.playNext(songs)
+        }
+    }
+}
