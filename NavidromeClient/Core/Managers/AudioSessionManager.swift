@@ -94,7 +94,7 @@ class AudioSessionManager: NSObject, ObservableObject {
     
     // MARK: - Audio Session Setup
     
-    private func setupAudioSession() {
+    func setupAudioSession() {
         do {
             // Setze Audio Category für Hintergrund-Playback
             try audioSession.setCategory(

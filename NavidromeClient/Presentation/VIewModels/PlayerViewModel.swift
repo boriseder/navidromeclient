@@ -32,6 +32,9 @@ class PlayerViewModel: NSObject, ObservableObject {
     @Published private var cachedNowPlayingCoverArt: UIImage?
     private var cachedNowPlayingAlbumId: String?
 
+    @Published private(set) var audioErrors: [AudioError] = []
+    private var errorObserver: NSObjectProtocol?
+    
     typealias RepeatMode = PlaylistManager.RepeatMode
     
     // Convenience accessors for UI
@@ -70,11 +73,13 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     // MARK: - Thread-safe deinit
-    // FIXED: Thread-safe deinit
     deinit {
         Task { @MainActor in
             cleanupPlayer()
-            
+ 
+            if let observer = errorObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
             notificationObservers.forEach {
                 NotificationCenter.default.removeObserver($0)
             }
@@ -82,11 +87,12 @@ class PlayerViewModel: NSObject, ObservableObject {
             
             AudioSessionManager.shared.clearNowPlayingInfo()
             print("PlayerViewModel: Complete cleanup completed")
+
+
         }
     }
 
     // MARK: - Service Management
-    
     func updateService(_ service: UnifiedSubsonicService?) {
         if let service = service {
             self.mediaService = service.getMediaService()
@@ -122,10 +128,8 @@ class PlayerViewModel: NSObject, ObservableObject {
         self.coverArtManager = newCoverArtManager
     }
     
-    // REMOVED: loadCoverArt() method - now handled by CoverArtManager directly
 
     // MARK: - Playback Methods
-    
     func play(song: Song) async {
         await setPlaylist([song], startIndex: 0, albumId: song.albumId)
     }
@@ -244,7 +248,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     // MARK: - Download Status Methods
-    
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         let isDownloaded = downloadManager.isAlbumDownloaded(albumId)
         if isDownloaded {
@@ -270,7 +273,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     // MARK: - Media Quality Selection
-    
     func setPreferredStreamingQuality(_ bitRate: Int) {
         print("🎵 Preferred streaming quality set to \(bitRate) kbps")
     }
@@ -291,7 +293,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     // MARK: - Service Health Monitoring
-    
     func getMediaServiceDiagnostics() -> String {
         guard let mediaService = mediaService else {
             return "❌ No MediaService configured"
@@ -308,7 +309,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     // MARK: - Observer Setup Methods
-    
     private func setupNotifications() {
         let center = NotificationCenter.default
         
@@ -418,6 +418,102 @@ class PlayerViewModel: NSObject, ObservableObject {
             }
         }
         print("Time observer setup")
+    }
+
+    // MARK: - Error Handling
+    private func setupAudioErrorMonitoring() {
+        // Monitor FigFilePlayer errors
+        errorObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handlePlayerError(notification)
+        }
+    }
+    
+    private func handlePlayerError(_ notification: Notification) {
+        if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
+            let audioError = AudioError.playbackFailed(underlying: error)
+            audioErrors.append(audioError)
+            
+            // Log structured error
+            print("🔴 Audio Error: \(audioError.localizedDescription)")
+            
+            // Attempt recovery based on error type
+            attemptErrorRecovery(for: audioError)
+        }
+    }
+    
+    private func attemptErrorRecovery(for error: AudioError) {
+        switch error {
+        case .playbackFailed(let underlying):
+            if let nsError = underlying as NSError? {
+                switch nsError.code {
+                case -12864: // Common FigFilePlayer error
+                    handleStreamingError()
+                case -11819: // Cannot decode
+                    handleCodecError()
+                default:
+                    handleGenericPlaybackError()
+                }
+            }
+        case .streamInterrupted:
+            handleStreamInterruption()
+        case .audioSessionError:
+            handleAudioSessionError()
+        case .codecError:
+            handleCodecError()
+        }
+    }
+    
+    private func handleStreamingError() {
+        print("🔄 Attempting to recover from streaming error")
+        
+        // Try to use local file if available
+        if let song = currentSong,
+           let localURL = downloadManager.getLocalFileURL(for: song.id) {
+            Task {
+                await playFromURL(localURL)
+            }
+        } else {
+            // Fallback: skip to next song
+            Task {
+                await playNext()
+            }
+        }
+    }
+    
+    private func handleCodecError() {
+        print("🔄 Codec error - skipping to next song")
+        Task {
+            await playNext()
+        }
+    }
+    
+    private func handleGenericPlaybackError() {
+        print("🔄 Generic playback error - attempting restart")
+        
+        // Simple restart strategy
+        if let song = currentSong {
+            Task {
+                do {
+                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                    try await play(song: song)
+                } catch {
+                    print("⚠️ Restart failed with error: \(error)")
+                }            }
+        }
+    }
+    
+    private func handleStreamInterruption() {
+        print("🔄 Stream interrupted - pausing playback")
+        pause()
+    }
+    
+    private func handleAudioSessionError() {
+        print("🔄 Audio session error - reconfiguring")
+        audioSessionManager.setupAudioSession()
     }
 
     // MARK: - Playback Control Methods
@@ -680,62 +776,20 @@ extension PlayerViewModel {
         objectWillChange.send()
     }
     
-    // MARK: - Enhanced Playback Controls
-    
-    /// Play previous with smart rewind behavior
-    /*
-    override func playPrevious() async {
-        print("⏮️ Enhanced playPrevious called")
-        currentPlayTask?.cancel()
-        
-        // Smart previous: restart current song if more than 5 seconds played
-        if currentTime > 5.0 {
-            seek(to: 0)
-        } else {
-            // Go to actual previous song
-            let previousIndex = playlistManager.previousIndex(currentTime: currentTime)
-            playlistManager.currentIndex = previousIndex
-            await playCurrent()
-        }
-    }
-    
-    /// Play next with queue awareness
-    override func playNext() async {
-        print("⏭️ Enhanced playNext called")
-        currentPlayTask?.cancel()
-        
-        if let nextIndex = playlistManager.nextIndex() {
-            playlistManager.currentIndex = nextIndex
-            await playCurrent()
-        } else {
-            // End of queue reached
-            switch playlistManager.repeatMode {
-            case .all:
-                // Restart from beginning
-                playlistManager.currentIndex = 0
-                await playCurrent()
-            case .off, .one:
-                // Stop playback
-                stop()
-            }
-        }
-    }
-    */
-    
     // MARK: - Queue Information
-    
-    /// Get queue statistics
     func getQueueStats() -> QueueStats {
-        return QueueStats(
-            totalSongs: playlistManager.currentPlaylist.count,
-            currentIndex: playlistManager.currentIndex,
-            upNextCount: playlistManager.getUpNextSongs().count,
-            totalDuration: playlistManager.getTotalDuration(),
-            remainingDuration: playlistManager.getRemainingDuration(),
-            isShuffling: playlistManager.isShuffling,
-            repeatMode: playlistManager.repeatMode
-        )
-    }
+    return QueueStats(
+        totalSongs: playlistManager.currentPlaylist.count,
+        currentIndex: playlistManager.currentIndex,
+        upNextCount: playlistManager.getUpNextSongs().count,
+        totalDuration: playlistManager.getTotalDuration(),
+        remainingDuration: playlistManager.getRemainingDuration(),
+        isShuffling: playlistManager.isShuffling,
+        repeatMode: playlistManager.repeatMode
+    )
+}
+    
+
 }
 
 // MARK: - Supporting Types
@@ -772,6 +826,41 @@ struct QueueStats {
         }
     }
 }
+
+// Add structured error types
+enum AudioError: Error, LocalizedError {
+    case playbackFailed(underlying: Error)
+    case streamInterrupted
+    case audioSessionError(underlying: Error)
+    case codecError
+    
+    var errorDescription: String? {
+        switch self {
+        case .playbackFailed(let error):
+            return "Playback failed: \(error.localizedDescription)"
+        case .streamInterrupted:
+            return "Audio stream was interrupted"
+        case .audioSessionError(let error):
+            return "Audio session error: \(error.localizedDescription)"
+        case .codecError:
+            return "Audio codec error - unsupported format"
+        }
+    }
+    
+    var recoveryAction: String {
+        switch self {
+        case .playbackFailed:
+            return "Attempting to use offline version or skip to next song"
+        case .streamInterrupted:
+            return "Pausing playback until stream recovers"
+        case .audioSessionError:
+            return "Reconfiguring audio session"
+        case .codecError:
+            return "Skipping to next compatible song"
+        }
+    }
+}
+
 
 // MARK: - Queue Actions for Context Menus
 
