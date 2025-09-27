@@ -80,6 +80,7 @@ struct FullScreenPlayerView: View {
             .ignoresSafeArea(.container, edges: [.top, .bottom])
             .offset(y: dragOffset)
             .gesture(dismissGesture)
+            .background(Color.black)
         }
         .animation(.interactiveSpring(), value: dragOffset)
     }
@@ -111,8 +112,6 @@ struct SpotifyBackground: View {
     
     var body: some View {
         ZStack {
-            Color.black
-            
             if let cover = image {
                 Image(uiImage: cover)
                     .resizable()

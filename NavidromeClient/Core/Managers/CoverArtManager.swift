@@ -34,6 +34,12 @@ class CoverArtManager: ObservableObject {
     private weak var mediaService: MediaService?
     private let persistentCache = PersistentImageCache.shared
     
+    // 1. Define optimal sizes as constants
+    private struct OptimalSizes {
+        static let album: Int = 300
+        static let artist: Int = 240
+    }
+
     private init() {
         setupMemoryCache()
     }
@@ -46,14 +52,12 @@ class CoverArtManager: ObservableObject {
     }
     
     private func setupMemoryCache() {
-        // Fewer items since each holds multiple sizes
-        albumCache.countLimit = 50
-        artistCache.countLimit = 50
-        albumCache.totalCostLimit = 100 * 1024 * 1024 // 100MB
-        artistCache.totalCostLimit = 50 * 1024 * 1024  // 50MB
-        print("Multi-size NSCache configured: Albums=50, Artists=50")
+        albumCache.countLimit = 100    // More albums since each is smaller
+        artistCache.countLimit = 100
+        albumCache.totalCostLimit = 60 * 1024 * 1024  // 60MB instead of 100MB
+        artistCache.totalCostLimit = 30 * 1024 * 1024  // 30MB
     }
-    
+
     // MARK: - Thread-Safe Request Management (unchanged)
     
     private func isRequestActive(_ key: String) -> Bool {
@@ -70,55 +74,46 @@ class CoverArtManager: ObservableObject {
     
     // MARK: - UPDATED: Cache Management
     
+    private func storeImage(_ image: UIImage, forId id: String, size: Int,
+                           cache: NSCache<NSString, AlbumCoverArt>,
+                           optimalSize: Int, type: String) {
+        let key = id as NSString
+        
+        // Only store if this is optimal size OR no image exists
+        let shouldStore = (size == optimalSize) || (cache.object(forKey: key) == nil)
+        
+        guard shouldStore else {
+            print("Ignoring non-optimal size \(size)px for \(type) \(id)")
+            return
+        }
+        
+        let coverArt = AlbumCoverArt(image: image, size: size)
+        let cost = coverArt.memoryFootprint
+        
+        cache.setObject(coverArt, forKey: key, cost: cost)
+        cacheUpdateTrigger += 1
+    }
+
     private func storeAlbumImage(_ image: UIImage, forAlbumId albumId: String, size: Int) {
-        let key = albumId as NSString
-        
-        if let existing = albumCache.object(forKey: key) {
-            existing.setImage(image, for: size)
-        } else {
-            let coverArt = AlbumCoverArt()
-            coverArt.setImage(image, for: size)
-            
-            let cost = Int(image.size.width * image.size.height * 4)
-            albumCache.setObject(coverArt, forKey: key, cost: cost)
-        }
-        
-        cacheUpdateTrigger += 1
-        print("🎨 Stored album image: \(albumId) @ \(size)px")
+        storeImage(image, forId: albumId, size: size,
+                   cache: albumCache, optimalSize: OptimalSizes.album, type: "album")
+        print("✅ Stored album \(albumId) at size \(size)px (optimal: \(OptimalSizes.album))")
+
+
     }
-    
-    private func storeArtistImage(_ image: UIImage, forArtistId artistId: String, size: Int) {
-        let key = artistId as NSString
-        
-        if let existing = artistCache.object(forKey: key) {
-            existing.setImage(image, for: size)
-        } else {
-            let coverArt = AlbumCoverArt()
-            coverArt.setImage(image, for: size)
-            
-            let cost = Int(image.size.width * image.size.height * 4)
-            artistCache.setObject(coverArt, forKey: key, cost: cost)
-        }
-        
-        cacheUpdateTrigger += 1
-        print("🎨 Stored artist image: \(artistId) @ \(size)px")
-    }
-    
-    // MARK: - UPDATED: Album Loading
-    
-    func loadAlbumImage(album: Album, size: Int = 400, staggerIndex: Int = 0) async -> UIImage? {
+
+    func loadAlbumImage(album: Album, size: Int = OptimalSizes.album, staggerIndex: Int = 0) async -> UIImage? {
         let albumKey = album.id as NSString
-        let requestKey = "album_\(album.id)_\(size)" // Keep for request deduplication
+        let requestKey = "album_\(album.id)_\(size)"
         
-        // UPDATED: Check memory cache (now size-agnostic)
-        if let cached = albumCache.object(forKey: albumKey)?.getImage(for: size) {
-            print("🎨 Album memory hit: \(album.id) @ \(size)px")
-            return cached
+        // Check memory cache first
+        if let coverArt = albumCache.object(forKey: albumKey) {
+            return coverArt.getImage(for: size)
         }
         
         // Check if request is already active
         if isRequestActive(requestKey) {
-            print("🎨 Album request already active: \(album.id) @ \(size)px")
+            print("Album request already active: \(album.id) @ \(size)px")
             return nil
         }
         
@@ -126,15 +121,16 @@ class CoverArtManager: ObservableObject {
         defer { removeActiveRequest(requestKey) }
         
         // Check persistent cache
-        let cacheKey = "album_\(album.id)_\(size)"
+        let cacheKey = "album_\(album.id)_\(OptimalSizes.album)" // Always use optimal size for cache key
         if let cached = persistentCache.image(for: cacheKey) {
-            print("🎨 Album disk hit: \(album.id) @ \(size)px")
+            print("Album disk hit: \(album.id) @ \(OptimalSizes.album)px")
             
             await MainActor.run {
-                storeAlbumImage(cached, forAlbumId: album.id, size: size)
+                storeAlbumImage(cached, forAlbumId: album.id, size: OptimalSizes.album)
             }
             
-            return cached
+            // Return scaled version if needed
+            return albumCache.object(forKey: albumKey)?.getImage(for: size)
         }
         
         guard let service = mediaService else {
@@ -158,16 +154,21 @@ class CoverArtManager: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(staggerIndex * 100_000_000))
         }
         
-        if let image = await service.getCoverArt(for: album.id, size: size) {
-            print("🎨 Album network load: \(album.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
+        // Always load optimal size from network
+        if let image = await service.getCoverArt(for: album.id, size: OptimalSizes.album) {
+            print("Album network load: \(album.id) @ \(OptimalSizes.album)px -> \(image.size.width)x\(image.size.height)")
             
             await MainActor.run {
-                storeAlbumImage(image, forAlbumId: album.id, size: size)
+                storeAlbumImage(image, forAlbumId: album.id, size: OptimalSizes.album)
                 errorStates.removeValue(forKey: requestKey)
             }
             
             persistentCache.store(image, for: cacheKey)
-            return image
+            
+            print("🔍 Loading album \(album.id) - requested: \(size)px, optimal: \(OptimalSizes.album)px")
+
+            // Return scaled version for requested size
+            return albumCache.object(forKey: albumKey)?.getImage(for: size)
         } else {
             await MainActor.run {
                 errorStates[requestKey] = "Failed to load album image"
@@ -175,36 +176,38 @@ class CoverArtManager: ObservableObject {
             return nil
         }
     }
-    
-    // MARK: - UPDATED: Artist Loading
-    
-    func loadArtistImage(artist: Artist, size: Int = 240, staggerIndex: Int = 0) async -> UIImage? {
+
+    private func storeArtistImage(_ image: UIImage, forArtistId artistId: String, size: Int) {
+        storeImage(image, forId: artistId, size: size,
+                  cache: artistCache, optimalSize: OptimalSizes.artist, type: "artist")
+    }
+
+    func loadArtistImage(artist: Artist, size: Int = OptimalSizes.artist, staggerIndex: Int = 0) async -> UIImage? {
         let artistKey = artist.id as NSString
         let requestKey = "artist_\(artist.id)_\(size)"
         
-        // UPDATED: Check memory cache (now size-agnostic)
-        if let cached = artistCache.object(forKey: artistKey)?.getImage(for: size) {
-            print("🎨 Artist memory hit: \(artist.id) @ \(size)px")
-            return cached
+        // Check memory cache first
+        if let coverArt = artistCache.object(forKey: artistKey) {
+            return coverArt.getImage(for: size)
         }
         
         if isRequestActive(requestKey) {
-            print("🎨 Artist request already active: \(artist.id) @ \(size)px")
+            print("Artist request already active: \(artist.id) @ \(size)px")
             return nil
         }
         
         addActiveRequest(requestKey)
         defer { removeActiveRequest(requestKey) }
         
-        let cacheKey = "artist_\(artist.id)_\(size)"
+        let cacheKey = "artist_\(artist.id)_\(OptimalSizes.artist)"
         if let cached = persistentCache.image(for: cacheKey) {
-            print("🎨 Artist disk hit: \(artist.id) @ \(size)px")
+            print("Artist disk hit: \(artist.id) @ \(OptimalSizes.artist)px")
             
             await MainActor.run {
-                storeArtistImage(cached, forArtistId: artist.id, size: size)
+                storeArtistImage(cached, forArtistId: artist.id, size: OptimalSizes.artist)
             }
             
-            return cached
+            return artistCache.object(forKey: artistKey)?.getImage(for: size)
         }
         
         guard let service = mediaService else {
@@ -228,16 +231,16 @@ class CoverArtManager: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(staggerIndex * 100_000_000))
         }
         
-        if let image = await service.getCoverArt(for: artist.id, size: size) {
-            print("🎨 Artist network load: \(artist.id) @ \(size)px -> \(image.size.width)x\(image.size.height)")
+        if let image = await service.getCoverArt(for: artist.id, size: OptimalSizes.artist) {
+            print("Artist network load: \(artist.id) @ \(OptimalSizes.artist)px -> \(image.size.width)x\(image.size.height)")
             
             await MainActor.run {
-                storeArtistImage(image, forArtistId: artist.id, size: size)
+                storeArtistImage(image, forArtistId: artist.id, size: OptimalSizes.artist)
                 errorStates.removeValue(forKey: requestKey)
             }
             
             persistentCache.store(image, for: cacheKey)
-            return image
+            return artistCache.object(forKey: artistKey)?.getImage(for: size)
         } else {
             await MainActor.run {
                 errorStates[requestKey] = "Failed to load artist image"
@@ -245,7 +248,7 @@ class CoverArtManager: ObservableObject {
             return nil
         }
     }
-    
+
     // MARK: - UPDATED: Image Getters
     
     func getAlbumImage(for albumId: String, size: Int) -> UIImage? {

@@ -1,85 +1,69 @@
-//
-//  AlbumCoverArt.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 26.09.25.
-//
-
-
-//
-//  AlbumCoverArt.swift
-//  NavidromeClient
-//
-//  Multi-size image wrapper for NSCache
-//
-
 import UIKit
 
 class AlbumCoverArt {
-    private var images: [Int: UIImage] = [:]
+    private let baseImage: UIImage
+    private let baseSize: Int
+    private var scaledVariants: [Int: UIImage] = [:]
     private let lock = NSLock()
+    private let maxVariants = 2  // Limit cached variants
     
-    /// Store an image for a specific size
-    func setImage(_ image: UIImage, for size: Int) {
-        lock.lock()
-        defer { lock.unlock() }
-        images[size] = image
+    // Store only ONE base image per album
+    init(image: UIImage, size: Int) {
+        self.baseImage = image
+        self.baseSize = size
     }
     
-    /// Get image for requested size (exact match or scaled from closest)
-    func getImage(for size: Int) -> UIImage? {
+    func getImage(for requestedSize: Int) -> UIImage? {
         lock.lock()
         defer { lock.unlock() }
         
-        // Return exact match if available
-        if let exact = images[size] {
-            return exact
+        // Exact match for base size
+        if requestedSize == baseSize {
+            return baseImage
         }
         
-        // Find closest available size
-        guard let closestSize = images.keys.min(by: { abs($0 - size) < abs($1 - size) }),
-              let sourceImage = images[closestSize] else {
-            return nil
+        // Check cached variants
+        if let cached = scaledVariants[requestedSize] {
+            return cached
         }
         
-        // Scale from closest size and cache the result
-        let scaledImage = sourceImage.scaled(to: CGSize(width: size, height: size))
-        images[size] = scaledImage
-        return scaledImage
+        // Background scaling for non-cached sizes
+        let scaled = scaleImageEfficiently(baseImage, to: requestedSize)
+        
+        // Limit cached variants to prevent memory growth
+        if scaledVariants.count >= maxVariants {
+            let oldestKey = scaledVariants.keys.first!
+            scaledVariants.removeValue(forKey: oldestKey)
+        }
+        
+        scaledVariants[requestedSize] = scaled
+        return scaled
     }
     
-    /// Check if any image is stored
+    private func scaleImageEfficiently(_ image: UIImage, to size: Int) -> UIImage {
+        let targetSize = CGSize(width: size, height: size)
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+    }
+    
+    // Accurate memory footprint for NSCache cost calculation
+    var memoryFootprint: Int {
+        let baseMemory = Int(baseImage.size.width * baseImage.size.height * 4)
+        let variantMemory = scaledVariants.values.reduce(0) { total, image in
+            total + Int(image.size.width * image.size.height * 4)
+        }
+        return baseMemory + variantMemory
+    }
+    
     func hasAnyImage() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return !images.isEmpty
+        return true // Always has base image
     }
     
-    /// Get all available sizes
     func getSizes() -> [Int] {
         lock.lock()
         defer { lock.unlock() }
-        return Array(images.keys).sorted()
-    }
-    
-    /// Get memory footprint estimate
-    func getMemoryFootprint() -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return images.values.reduce(0) { total, image in
-            total + Int(image.size.width * image.size.height * 4)
-        }
-    }
-}
-
-// MARK: - UIImage Extensions
-
-extension UIImage {
-    /// Scale image to target size maintaining aspect ratio
-    func scaled(to targetSize: CGSize) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        return renderer.image { _ in
-            self.draw(in: CGRect(origin: .zero, size: targetSize))
-        }
+        return ([baseSize] + Array(scaledVariants.keys)).sorted()
     }
 }

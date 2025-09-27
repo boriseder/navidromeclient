@@ -64,7 +64,7 @@ struct MainTabView: View {
         .overlay(alignment: .bottom) {
             MiniPlayerView()
                 .environmentObject(playerVM)
-                .padding(.bottom, 90) // Standard tab bar height
+                .padding(.bottom, DSLayout.miniPlayerHeight) // Standard tab bar height
         }
     }
     
