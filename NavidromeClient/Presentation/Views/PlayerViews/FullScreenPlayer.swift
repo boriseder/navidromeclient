@@ -19,34 +19,21 @@ struct FullScreenPlayerView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
     @State private var showingQueue = false
-
-    private var regularCoverArt: UIImage? {
-        guard let albumId = playerVM.currentSong?.albumId else { return nil }
-        return coverArtManager.getAlbumImage(for: albumId, size: 300)
-    }
-
-    private var highResCoverArt: UIImage? {
-        guard let albumId = playerVM.currentSong?.albumId else { return nil }
-        return coverArtManager.getAlbumImage(for: albumId, size: 800)
-    }
-
     
+    // Add cached cover art state
+    @State private var cachedRegularCoverArt: UIImage?
+    @State private var cachedHighResCoverArt: UIImage?
+    @State private var cachedAlbumId: String?
+
     var body: some View {
         GeometryReader { geometry in
-            // Get regular cover art from CoverArtManager
-            let regularCoverArt = playerVM.currentSong?.albumId.flatMap { albumId in
-                coverArtManager.getAlbumImage(for: albumId, size: 300)
-            }
-            
             ZStack {
                 VStack(spacing: 5) {
-                    // Top Bar
                     TopBar(dismiss: dismiss, showingQueue: $showingQueue)
                         .padding(.horizontal, 20)
                     Spacer(minLength: 30)
                     
-                    // Use high-res if available, otherwise regular from CoverArtManager
-                    SpotifyAlbumArt(cover: highResCoverArt ?? regularCoverArt, screenWidth: geometry.size.width)
+                    SpotifyAlbumArt(cover: cachedHighResCoverArt ?? cachedRegularCoverArt, screenWidth: geometry.size.width)
                         .scaleEffect(isDragging ? 0.95 : 1.0)
                         .animation(.spring(response: 0.3), value: isDragging)
 
@@ -58,7 +45,6 @@ struct FullScreenPlayerView: View {
                                         
                     Spacer(minLength: 16)
                     
-                    // Progress with timeline indicator
                     ProgressSection(playerVM: playerVM, screenWidth: geometry.size.width)
                     
                     Spacer(minLength: 24)
@@ -73,8 +59,7 @@ struct FullScreenPlayerView: View {
                 .padding(.top, 70)
                 .padding(.bottom, 20)
                 .background {
-                    // Background also uses CoverArtManager
-                    SpotifyBackground(image: highResCoverArt ?? regularCoverArt)
+                    SpotifyBackground(image: cachedHighResCoverArt ?? cachedRegularCoverArt)
                 }
             }
             .ignoresSafeArea(.container, edges: [.top, .bottom])
@@ -88,9 +73,30 @@ struct FullScreenPlayerView: View {
                 .environmentObject(playerVM)
                 .environmentObject(coverArtManager)
         }
-
+        .onAppear {
+            updateCoverArtCache()
+        }
+        .onChange(of: playerVM.currentSong?.albumId) { _, _ in
+            updateCoverArtCache()
+        }
     }
     
+    private func updateCoverArtCache() {
+        guard let albumId = playerVM.currentSong?.albumId else {
+            cachedRegularCoverArt = nil
+            cachedHighResCoverArt = nil
+            cachedAlbumId = nil
+            return
+        }
+        
+        guard albumId != cachedAlbumId else { return }
+        
+        cachedRegularCoverArt = coverArtManager.getAlbumImage(for: albumId, size: 300)
+        cachedHighResCoverArt = coverArtManager.getAlbumImage(for: albumId, size: 800)
+        cachedAlbumId = albumId
+    }
+    
+    // Keep existing gesture and other methods unchanged
     private var dismissGesture: some Gesture {
         DragGesture()
             .onChanged { value in
@@ -111,7 +117,6 @@ struct FullScreenPlayerView: View {
             }
     }
 }
-
 // MARK: - Background unchanged
 struct SpotifyBackground: View {
     let image: UIImage?

@@ -42,42 +42,49 @@ class AudioSessionManager: NSObject, ObservableObject {
         
         print("🧹 AudioSessionManager: Starting proper cleanup")
         
-        // Remove all observers safely
+        // FIXED: Safe observer removal with error handling
         for observer in audioObservers {
-            NotificationCenter.default.removeObserver(observer)
+            do {
+                NotificationCenter.default.removeObserver(observer)
+            } catch {
+                print("⚠️ Failed to remove observer: \(error)")
+            }
         }
         audioObservers.removeAll()
         
-        // Disable Command Center properly
+        // FIXED: Safe Command Center cleanup
         let commandCenter = MPRemoteCommandCenter.shared()
-        commandCenter.playCommand.isEnabled = false
-        commandCenter.pauseCommand.isEnabled = false
-        commandCenter.togglePlayPauseCommand.isEnabled = false
-        commandCenter.nextTrackCommand.isEnabled = false
-        commandCenter.previousTrackCommand.isEnabled = false
-        commandCenter.changePlaybackPositionCommand.isEnabled = false
-        commandCenter.skipForwardCommand.isEnabled = false
-        commandCenter.skipBackwardCommand.isEnabled = false
         
-        // Remove all targets
-        commandCenter.playCommand.removeTarget(nil)
-        commandCenter.pauseCommand.removeTarget(nil)
-        commandCenter.togglePlayPauseCommand.removeTarget(nil)
-        commandCenter.nextTrackCommand.removeTarget(nil)
-        commandCenter.previousTrackCommand.removeTarget(nil)
-        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
-        commandCenter.skipForwardCommand.removeTarget(nil)
-        commandCenter.skipBackwardCommand.removeTarget(nil)
+        // Disable commands first
+        let commands = [
+            commandCenter.playCommand,
+            commandCenter.pauseCommand,
+            commandCenter.togglePlayPauseCommand,
+            commandCenter.nextTrackCommand,
+            commandCenter.previousTrackCommand,
+            commandCenter.changePlaybackPositionCommand,
+            commandCenter.skipForwardCommand,
+            commandCenter.skipBackwardCommand
+        ]
+        
+        for command in commands {
+            command.isEnabled = false
+            command.removeTarget(nil)
+        }
+        
+        // FIXED: Safe audio session deactivation
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("⚠️ Failed to deactivate audio session: \(error)")
+        }
         
         // Clear now playing
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         
-        // Deactivate audio session safely
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        
         print("✅ AudioSessionManager: Cleanup completed")
     }
-    
+
     // MARK: - Audio Session Setup
     
     private func setupAudioSession() {

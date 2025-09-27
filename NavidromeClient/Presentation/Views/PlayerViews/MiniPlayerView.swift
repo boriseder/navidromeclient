@@ -16,15 +16,9 @@ struct MiniPlayerView: View {
     @State private var showFullScreen = false
     @State private var isDragging = false
     
-    private var coverArt: UIImage? {
-        guard let albumId = playerVM.currentSong?.albumId else {
-            print("🎨 DEBUG: No albumId")
-            return nil
-        }
-        let image = coverArtManager.getAlbumImage(for: albumId, size: 150)
-        print("🎨 DEBUG: Got image for \(albumId): \(image != nil)")
-        return image
-    }
+    // Replace computed property with cached state
+    @State private var cachedCoverArt: UIImage?
+    @State private var cachedAlbumId: String?
     
     var body: some View {
         if let song = playerVM.currentSong {
@@ -33,7 +27,7 @@ struct MiniPlayerView: View {
                 
                 HStack(spacing: 12) {
                     HStack(spacing: 12) {
-                        AlbumArtView(cover: coverArt) // Use local state
+                        AlbumArtView(cover: cachedCoverArt)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text(song.title)
@@ -79,7 +73,7 @@ struct MiniPlayerView: View {
                 .padding(.vertical, 12)
                 .background(
                     ZStack {
-                        if let cover = coverArt {
+                        if let cover = cachedCoverArt {
                             Image(uiImage: cover)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -113,11 +107,28 @@ struct MiniPlayerView: View {
                     .environmentObject(playerVM)
                     .environmentObject(audioSessionManager)
             }
+            .onAppear {
+                updateCoverArtCache()
+            }
+            .onChange(of: playerVM.currentSong?.albumId) { _, _ in
+                updateCoverArtCache()
+            }
         }
     }
-}
-
-// MARK: - Progress Bar unchanged
+    
+    private func updateCoverArtCache() {
+        guard let albumId = playerVM.currentSong?.albumId else {
+            cachedCoverArt = nil
+            cachedAlbumId = nil
+            return
+        }
+        
+        guard albumId != cachedAlbumId else { return }
+        
+        cachedCoverArt = coverArtManager.getAlbumImage(for: albumId, size: 150)
+        cachedAlbumId = albumId
+    }
+}// MARK: - Progress Bar unchanged
 
 struct ProgressBarView: View {
     @ObservedObject var playerVM: PlayerViewModel

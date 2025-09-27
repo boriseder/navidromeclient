@@ -254,14 +254,24 @@ class CoverArtManager: ObservableObject {
     func getAlbumImage(for albumId: String, size: Int) -> UIImage? {
         let key = albumId as NSString
         let image = albumCache.object(forKey: key)?.getImage(for: size)
-        print("🎨 Get album image: \(albumId) @ \(size)px = \(image != nil)")
+        
+        // Only log cache misses to reduce noise
+        if image == nil {
+            print("🎨 Album cache miss: \(albumId) @ \(size)px")
+        }
+        
         return image
     }
 
     func getArtistImage(for artistId: String, size: Int) -> UIImage? {
         let key = artistId as NSString
         let image = artistCache.object(forKey: key)?.getImage(for: size)
-        print("🎨 Get artist image: \(artistId) @ \(size)px = \(image != nil)")
+        
+        // Only log cache misses to reduce noise
+        if image == nil {
+            print("🎨 Artist cache miss: \(artistId) @ \(size)px")
+        }
+        
         return image
     }
     

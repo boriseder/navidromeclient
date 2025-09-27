@@ -29,6 +29,9 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Playlist Management
     @Published var playlistManager = PlaylistManager()
     
+    @Published private var cachedNowPlayingCoverArt: UIImage?
+    private var cachedNowPlayingAlbumId: String?
+
     typealias RepeatMode = PlaylistManager.RepeatMode
     
     // Convenience accessors for UI
@@ -67,29 +70,19 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     // MARK: - Thread-safe deinit
+    // FIXED: Thread-safe deinit
     deinit {
-        currentPlayTask?.cancel()
-        
-        if let observer = timeObserver, let player = player {
-            player.removeTimeObserver(observer)
-        }
-        
-        if let token = playerItemEndObserver {
-            NotificationCenter.default.removeObserver(token)
-        }
-        notificationObservers.forEach {
-            NotificationCenter.default.removeObserver($0)
-        }
-        NotificationCenter.default.removeObserver(self)
-        
-        let playerToClean = player
         Task { @MainActor in
-            playerToClean?.pause()
-            playerToClean?.replaceCurrentItem(with: nil)
+            cleanupPlayer()
+            
+            notificationObservers.forEach {
+                NotificationCenter.default.removeObserver($0)
+            }
+            notificationObservers.removeAll()
+            
             AudioSessionManager.shared.clearNowPlayingInfo()
+            print("PlayerViewModel: Complete cleanup completed")
         }
-        
-        print("PlayerViewModel: Complete cleanup completed")
     }
 
     // MARK: - Service Management
@@ -163,12 +156,17 @@ class PlayerViewModel: NSObject, ObservableObject {
             await MainActor.run {
                 currentSong = song
                 currentAlbumId = song.albumId
+                
+                // Reset cover art cache when song changes
+                cachedNowPlayingCoverArt = nil
+                cachedNowPlayingAlbumId = nil
+                
                 duration = Double(song.duration ?? 0)
                 currentTime = 0
                 isLoading = true
                 objectWillChange.send()
             }
-            
+
             print("🎵 Playing song: \(song.title)")
             
             guard !Task.isCancelled else {
@@ -343,30 +341,36 @@ class PlayerViewModel: NSObject, ObservableObject {
     private func cleanupPlayer() {
         print("🧹 Starting complete player cleanup")
         
+        // FIXED: Cancel current task first
         currentPlayTask?.cancel()
         currentPlayTask = nil
         
-        if let observer = timeObserver {
-            player?.removeTimeObserver(observer)
-            timeObserver = nil
-            print("Time observer removed")
+        // FIXED: Thread-safe observer cleanup
+        Task { @MainActor in
+            if let observer = timeObserver, let player = player {
+                player.removeTimeObserver(observer)
+                timeObserver = nil
+                print("Time observer removed")
+            }
+            
+            if let token = playerItemEndObserver {
+                NotificationCenter.default.removeObserver(token)
+                playerItemEndObserver = nil
+                print("Player item observer removed")
+            }
+            
+            // FIXED: Proper cleanup sequence
+            player?.pause()
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms grace period
+            player?.replaceCurrentItem(with: nil)
+            player = nil
+            print("Player cleared")
+            
+            isPlaying = false
+            isLoading = false
+            
+            print("Player cleanup completed")
         }
-        
-        if let token = playerItemEndObserver {
-            NotificationCenter.default.removeObserver(token)
-            playerItemEndObserver = nil
-            print("Player item observer removed")
-        }
-        
-        player?.pause()
-        player?.replaceCurrentItem(with: nil)
-        player = nil
-        print("Player cleared")
-        
-        isPlaying = false
-        isLoading = false
-        
-        print("Player cleanup completed")
     }
 
     private func setupPlayerItemObserver(for item: AVPlayerItem) {
@@ -407,7 +411,8 @@ class PlayerViewModel: NSObject, ObservableObject {
                 self.currentTime = newTime
                 self.updateProgress()
                 
-                if Int(newTime) % 5 == 0 {
+                // FIXED: Reduce Now Playing update frequency to prevent cover art spam
+                if Int(newTime) % 10 == 0 { // Every 10 seconds instead of 5
                     self.updateNowPlayingInfo()
                 }
             }
@@ -519,23 +524,29 @@ class PlayerViewModel: NSObject, ObservableObject {
     private func updateNowPlayingInfo() {
         guard let song = currentSong else {
             audioSessionManager.clearNowPlayingInfo()
+            cachedNowPlayingCoverArt = nil
+            cachedNowPlayingAlbumId = nil
             return
         }
         
-        // Get cover art from CoverArtManager instead of local property
-        let coverArt = coverArtManager?.getAlbumImage(for: currentAlbumId ?? "", size: 300)
+        // Only fetch cover art if album changed
+        let albumId = currentAlbumId ?? ""
+        if albumId != cachedNowPlayingAlbumId {
+            cachedNowPlayingCoverArt = coverArtManager?.getAlbumImage(for: albumId, size: 300)
+            cachedNowPlayingAlbumId = albumId
+        }
         
         audioSessionManager.updateNowPlayingInfo(
             title: song.title,
             artist: song.artist ?? "Unknown Artist",
             album: song.album,
-            artwork: coverArt,
+            artwork: cachedNowPlayingCoverArt,
             duration: duration,
             currentTime: currentTime,
             playbackRate: isPlaying ? 1.0 : 0.0
         )
     }
-    
+
     private func updateProgress() {
         playbackProgress = duration > 0 ? currentTime / duration : 0
     }

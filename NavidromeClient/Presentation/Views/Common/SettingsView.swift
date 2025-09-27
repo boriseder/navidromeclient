@@ -112,7 +112,16 @@ struct SettingsView: View {
     private func performFactoryReset() async {
         isPerformingReset = true
         defer { isPerformingReset = false }
+        
         await appConfig.performFactoryReset()
+        
+        // FIXED: Direct service reset instead of notification
+        await MainActor.run {
+            // Reset ViewModels directly
+            navidromeVM.reset()
+            playerVM.updateService(nil)
+        }
+        
         await MainActor.run { dismiss() }
     }
 }
