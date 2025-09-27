@@ -70,9 +70,13 @@ struct ArtistsViewContent: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            .task(id: displayedArtists.count) {
-                await preloadArtistImages()
+            // Background idle preloading instead of immediate
+            .task(priority: .background) {
+                if !displayedArtists.isEmpty {
+                    coverArtManager.preloadArtistsWhenIdle(Array(displayedArtists.prefix(20)), size: 120)
+                }
             }
+
             .navigationTitle("Artists")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -135,11 +139,6 @@ struct ArtistsViewContent: View {
 
     private func refreshAllData() async {
         await musicLibraryManager.refreshAllData()
-    }
-    
-    private func preloadArtistImages() async {
-        let artistsToPreload = Array(displayedArtists.prefix(20))
-        await coverArtManager.preloadArtists(artistsToPreload, size: 120)
     }
     
     private func handleSearchTextChange() {

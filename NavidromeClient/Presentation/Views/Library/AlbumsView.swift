@@ -73,8 +73,11 @@ struct AlbumsViewContent: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            .task(id: displayedAlbums.count) {
-                await preloadAlbumImages()
+            // Background idle preloading instead of immediate
+            .task(priority: .background) {
+                if !displayedAlbums.isEmpty {
+                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 200)
+                }
             }
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
@@ -142,11 +145,6 @@ struct AlbumsViewContent: View {
     private func loadAlbums(sortBy: ContentService.AlbumSortType) async {
         selectedAlbumSort = sortBy
         await musicLibraryManager.loadAlbumsProgressively(sortBy: sortBy, reset: true)
-    }
-    
-    private func preloadAlbumImages() async {
-        let albumsToPreload = Array(displayedAlbums.prefix(20))
-        await coverArtManager.preloadAlbums(albumsToPreload, size: 200)
     }
     
     private func handleSearchTextChange() {

@@ -14,6 +14,13 @@ class CoverArtManager: ObservableObject {
     private let albumCache = NSCache<NSString, AlbumCoverArt>()
     private let artistCache = NSCache<NSString, AlbumCoverArt>()
     
+    // NEW: Preload deduplication
+    private var lastPreloadHash: Int = 0
+    private var currentPreloadTask: Task<Void, Never>?
+
+    // NEW: Semaphore for controlled concurrency
+    private let preloadSemaphore = AsyncSemaphore(value: 3)
+    
     // MARK: - UI State Management (unchanged)
     @Published private var cacheUpdateTrigger = 0
     @Published private(set) var loadingStates: [String: Bool] = [:]
@@ -294,40 +301,147 @@ class CoverArtManager: ObservableObject {
         return errorStates[memoryKey]
     }
     
-    // MARK: - Batch Operations (unchanged)
+    // MARK: - Preload Operations
     
+    // UPDATED: Preload with deduplication
     func preloadAlbums(_ albums: [Album], size: Int = 400) async {
-        guard mediaService != nil else { return }
+        let albumIds = albums.map(\.id)
+        let currentHash = albumIds.hashValue
         
-        await withTaskGroup(of: Void.self) { group in
-            for (index, album) in albums.enumerated() {
-                if index >= 5 { break }
-                
-                group.addTask {
-                    _ = await self.loadAlbumImage(album: album, size: size, staggerIndex: index)
-                }
-            }
+        // Skip if same albums already being preloaded
+        guard currentHash != lastPreloadHash else {
+            print("🎨 Skipping duplicate preload for same albums")
+            return
         }
         
-        print("Batch preloaded album covers for \(min(albums.count, 5)) albums @ \(size)px")
+        // Cancel existing preload task
+        currentPreloadTask?.cancel()
+        lastPreloadHash = currentHash
+        
+        currentPreloadTask = Task {
+            guard mediaService != nil else { return }
+            
+            await withTaskGroup(of: Void.self) { group in
+                for (index, album) in albums.enumerated() {
+                    if index >= 5 { break } // Keep existing limit
+                    
+                    // Only preload if not already cached
+                    if getAlbumImage(for: album.id, size: size) == nil {
+                        group.addTask {
+                            _ = await self.loadAlbumImage(album: album, size: size, staggerIndex: index)
+                        }
+                    }
+                }
+            }
+            
+            print("✅ Preloaded covers for \(min(albums.count, 5)) albums @ \(size)px")
+        }
+        
+        await currentPreloadTask?.value
     }
     
     func preloadArtists(_ artists: [Artist], size: Int = 240) async {
-        guard mediaService != nil else { return }
+        let artistIds = artists.map(\.id)
+        let currentHash = artistIds.hashValue
         
-        await withTaskGroup(of: Void.self) { group in
-            for (index, artist) in artists.enumerated() {
-                if index >= 5 { break }
+        guard currentHash != lastPreloadHash else {
+            print("🎨 Skipping duplicate artist preload")
+            return
+        }
+        
+        currentPreloadTask?.cancel()
+        lastPreloadHash = currentHash
+        
+        currentPreloadTask = Task {
+            guard mediaService != nil else { return }
+            
+            await withTaskGroup(of: Void.self) { group in
+                for (index, artist) in artists.enumerated() {
+                    if index >= 5 { break }
+                    
+                    if getArtistImage(for: artist.id, size: size) == nil {
+                        group.addTask {
+                            _ = await self.loadArtistImage(artist: artist, size: size, staggerIndex: index)
+                        }
+                    }
+                }
+            }
+            
+            print("✅ Preloaded artist images for \(min(artists.count, 5)) artists @ \(size)px")
+        }
+        
+        await currentPreloadTask?.value
+    }
+
+    func preloadWhenIdle(_ albums: [Album], size: Int = 200) {
+        Task(priority: .background) {
+            print("🎨 Starting idle preload for \(albums.count) albums")
+            
+            for (index, album) in albums.enumerated() {
+                // Stop if task cancelled or app becomes active
+                guard !Task.isCancelled else {
+                    print("🎨 Idle preload cancelled")
+                    break
+                }
                 
-                group.addTask {
-                    _ = await self.loadArtistImage(artist: artist, size: size, staggerIndex: index)
+                // Only load if not already cached
+                if getAlbumImage(for: album.id, size: size) == nil {
+                    _ = await loadAlbumImage(album: album, size: size)
+                    
+                    // Gentle delay between loads (200ms)
+                    if index < albums.count - 1 {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                    }
+                } else {
+                    // Already cached, shorter delay
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                }
+            }
+            
+            print("🎨 Idle preload completed")
+        }
+    }
+    
+    func preloadArtistsWhenIdle(_ artists: [Artist], size: Int = 120) {
+        Task(priority: .background) {
+            print("🎨 Starting idle artist preload for \(artists.count) artists")
+            
+            for (index, artist) in artists.enumerated() {
+                guard !Task.isCancelled else { break }
+                
+                if getArtistImage(for: artist.id, size: size) == nil {
+                    _ = await loadArtistImage(artist: artist, size: size)
+                    
+                    if index < artists.count - 1 {
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                    }
+                }
+            }
+            
+            print("🎨 Idle artist preload completed")
+        }
+    }
+
+    func preloadAlbumsControlled(_ albums: [Album], size: Int = 400) async {
+        await withTaskGroup(of: Void.self) { group in
+            for album in albums.prefix(10) {
+                // Only preload if not cached
+                if getAlbumImage(for: album.id, size: size) == nil {
+                    group.addTask {
+                        await self.preloadSemaphore.wait()
+                        defer {
+                            Task { await self.preloadSemaphore.signal() }
+                        }
+                        
+                        _ = await self.loadAlbumImage(album: album, size: size)
+                    }
                 }
             }
         }
         
-        print("Batch preloaded artist images for \(min(artists.count, 5)) artists @ \(size)px")
+        print("✅ Controlled preload completed")
     }
-    
+
     // MARK: - UPDATED: Cache Management
     
     func clearMemoryCache() {
@@ -435,6 +549,37 @@ struct CoverArtHealthStatus {
     let isHealthy: Bool
     let statusDescription: String
 }
+
+// NEW: AsyncSemaphore for better concurrency control
+actor AsyncSemaphore {
+    private var value: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    
+    init(value: Int) {
+        self.value = value
+    }
+    
+    func wait() async {
+        if value > 0 {
+            value -= 1
+            return
+        }
+        
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+    
+    func signal() {
+        if let waiter = waiters.first {
+            waiters.removeFirst()
+            waiter.resume()
+        } else {
+            value += 1
+        }
+    }
+}
+
 
 // MARK: - Album Extension (unchanged)
 extension Album {

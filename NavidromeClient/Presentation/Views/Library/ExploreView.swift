@@ -63,7 +63,6 @@ struct ExploreViewContent: View {
                             Task {
                                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                                 await exploreManager.loadExploreData()
-                                await preloadHomeScreenCovers()
                             }
                         }
                     )
@@ -77,10 +76,20 @@ struct ExploreViewContent: View {
                 await setupHomeScreenData()
                 hasLoaded = true
             }
+            .task(priority: .background) {
+                // Background preload when idle
+                let allAlbums = exploreManager.recentAlbums +
+                               exploreManager.newestAlbums +
+                               exploreManager.frequentAlbums +
+                               exploreManager.randomAlbums
+                
+                if !allAlbums.isEmpty {
+                    coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), size: 200)
+                }
+            }
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await exploreManager.loadExploreData()
-                await preloadHomeScreenCovers()
             }
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
@@ -185,22 +194,13 @@ struct ExploreViewContent: View {
     private func setupHomeScreenData() async {
         if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
             await exploreManager.loadExploreData()
-            await preloadHomeScreenCovers()
         }
     }
-    
-    private func preloadHomeScreenCovers() async {
-        let allAlbums = exploreManager.recentAlbums +
-                       exploreManager.newestAlbums +
-                       exploreManager.frequentAlbums +
-                       exploreManager.randomAlbums
         
-        await coverArtManager.preloadAlbums(Array(allAlbums.prefix(20)), size: 200)
-    }
-    
     private func refreshRandomAlbums() async {
         await exploreManager.refreshRandomAlbums()
-        await coverArtManager.preloadAlbums(exploreManager.randomAlbums, size: 200)
+        // Use background idle preloading instead of immediate
+        coverArtManager.preloadWhenIdle(exploreManager.randomAlbums, size: 200)
     }
 }
 
