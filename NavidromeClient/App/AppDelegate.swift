@@ -13,10 +13,7 @@ import BackgroundTasks
 class AppDelegate: NSObject, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        
-        // Initialize Audio Session Manager früh
-        _ = AudioSessionManager.shared
-        
+                
         // Configure background tasks (iOS 13+)
         registerBackgroundTasks()
         
@@ -38,7 +35,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         
         // Hier könntest du z.B. Playlists aktualisieren
-        print("📱 Background refresh triggered")
+        print("Background refresh triggered")
         task.setTaskCompleted(success: true)
     }
     
@@ -46,12 +43,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func applicationWillResignActive(_ application: UIApplication) {
         // App wird inaktiv (z.B. Control Center öffnet sich)
-        print("📱 App will resign active")
+        print("App will resign active")
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
         // App geht in Hintergrund - Audio sollte weiterlaufen
-        print("📱 App entered background - audio should continue")
+        print("App entered background - audio should continue")
         
         // Schedule background refresh
         scheduleAppRefresh()
@@ -59,34 +56,24 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func applicationWillEnterForeground(_ application: UIApplication) {
         // App kommt zurück in Vordergrund
-        print("📱 App will enter foreground")
+        print("App will enter foreground")
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
         // App wird wieder aktiv
-        print("📱 App became active")
+        print("App became active")
         
-        // Audio Session reaktivieren falls nötig
-        do {
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("❌ Failed to reactivate audio session: \(error)")
-        }
+        // Delegate audio session management to AudioSessionManager
+        AudioSessionManager.shared.handleAppBecameActive()
+
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
         // App wird beendet
-        print("📱 App will terminate")
+        print("App will terminate")
         
-        // Clean up audio session
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("❌ Failed to deactivate audio session: \(error)")
-        }
-        
-        // Clear now playing info
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        // Delegate cleanup to AudioSessionManager
+        AudioSessionManager.shared.handleAppWillTerminate()
     }
     
     private func scheduleAppRefresh() {
