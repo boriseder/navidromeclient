@@ -49,9 +49,10 @@ struct FavoritesViewContent: View {
             return .loading("Setting up your music library")
         } else if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
             return .loading("Loading favorites")
-        } else if displayedSongs.isEmpty {
+        } else if displayedSongs.isEmpty && !favoritesManager.isLoading && favoritesManager.lastRefresh != nil {
             return .empty(type: .favorites)
         }
+
         return nil
     }
     

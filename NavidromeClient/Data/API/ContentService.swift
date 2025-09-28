@@ -86,7 +86,6 @@ class ContentService {
             )
             
             let albums = decoded.subsonicResponse.albumList2.album
-            print("✅ DEBUG: Found \(albums.count) albums for genre '\(genre)'")
             return albums
             
         } catch {
@@ -106,7 +105,6 @@ class ContentService {
                 fallback: fallbackResponse
             )
             
-            print("✅ DEBUG: Fallback returned \(result.subsonicResponse.albumList2.album.count) albums")
             return result.subsonicResponse.albumList2.album
         }
     }

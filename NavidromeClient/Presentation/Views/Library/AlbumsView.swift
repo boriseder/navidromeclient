@@ -39,7 +39,7 @@ struct AlbumsViewContent: View {
             return .loading("Setting up your music library")
         } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
             return .loading("Loading albums")
-        } else if displayedAlbums.isEmpty {
+        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
             return .empty(type: .albums)
         }
         return nil

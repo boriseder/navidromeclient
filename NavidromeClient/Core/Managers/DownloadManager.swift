@@ -81,12 +81,10 @@ class DownloadManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("✅ DownloadManager configured with UnifiedSubsonicService")
     }
     
     func configure(coverArtManager: CoverArtManager) {
         self.coverArtManager = coverArtManager
-        print("✅ DownloadManager configured with CoverArtManager")
     }
     
     // MARK: -  FIXED: Download Operations with Metadata Caching
@@ -227,9 +225,6 @@ class DownloadManager: ObservableObject {
                 await MainActor.run {
                     downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
                 }
-                
-                print("✅ Downloaded: \(song.title) (\(data.count) bytes)")
-                
             } catch {
                 print("❌ Download error for \(song.title): \(error)")
                 throw DownloadError.songDownloadFailed(song.title, error)
@@ -257,7 +252,6 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            print("✅ Album download completed: '\(albumMetadata.name)' - \(downloadedSongsMetadata.count)/\(totalSongs) songs + cover arts")
         } else {
             throw DownloadError.noSongsDownloaded
         }
@@ -289,7 +283,6 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        print("✅ Cached album cover art for \(album.id) in \(sizes.count) sizes")
     }
     
     private func downloadArtistImage(for album: Album) async {
@@ -316,7 +309,6 @@ class DownloadManager: ObservableObject {
             }
         }
         
-        print("✅ Cached artist image for \(artist.name) in \(sizes.count) sizes")
     }
     
     // MARK: -  PURE: Stream URL Resolution
@@ -526,7 +518,6 @@ class DownloadManager: ObservableObject {
 
             saveDownloadedAlbums()
             
-            print("✅ Deleted album: \(album.albumName)")
         }
     }
     
@@ -553,7 +544,6 @@ class DownloadManager: ObservableObject {
 
         saveDownloadedAlbums()
                 
-        print("✅ Cleared all downloads and notified observers")
     }
 
     // MARK: - Persistence

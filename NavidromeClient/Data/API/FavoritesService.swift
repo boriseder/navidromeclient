@@ -55,7 +55,6 @@ class FavoritesService {
             case 200:
                 // Parse response to verify success
                 let decoded = try JSONDecoder().decode(SubsonicResponse<EmptyResponse>.self, from: data)
-                print("✅ Successfully starred song: \(songId)")
                 
             case 401:
                 throw SubsonicError.unauthorized
@@ -97,7 +96,6 @@ class FavoritesService {
             case 200:
                 // Parse response to verify success
                 let decoded = try JSONDecoder().decode(SubsonicResponse<EmptyResponse>.self, from: data)
-                print("✅ Successfully unstarred song: \(songId)")
                 
             case 401:
                 throw SubsonicError.unauthorized
@@ -136,7 +134,6 @@ class FavoritesService {
                 let decoded = try JSONDecoder().decode(SubsonicResponse<StarredContainer>.self, from: data)
                 let songs = decoded.subsonicResponse.starred2?.song ?? []
                                 
-                print("✅ Loaded \(songs.count) starred songs from server")
                 return songs
                 
             case 401:
@@ -168,7 +165,6 @@ class FavoritesService {
             try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
         }
         
-        print("✅ Successfully starred \(songIds.count) songs")
     }
     
     /// Entfernt Favorit-Markierung von mehreren Songs
@@ -181,7 +177,6 @@ class FavoritesService {
             try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
         }
         
-        print("✅ Successfully unstarred \(songIds.count) songs")
     }
 }
 

@@ -39,7 +39,6 @@ class FavoritesManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("✅ FavoritesManager configured with UnifiedSubsonicService")
     }
     
     // MARK: - Public API
@@ -74,7 +73,6 @@ class FavoritesManager: ObservableObject {
             }
             
             // Success - UI ist bereits aktualisiert
-            print("✅ Successfully \(wasFavorite ? "unstarred" : "starred") song: \(song.title)")
             errorMessage = nil
             
         } catch {
@@ -109,7 +107,6 @@ class FavoritesManager: ObservableObject {
             favoriteSongIds = Set(songs.map { $0.id })
             lastRefresh = Date()
             
-            print("✅ Loaded \(songs.count) favorite songs")
             
         } catch {
             print("❌ Failed to load favorite songs: \(error)")
@@ -140,7 +137,6 @@ class FavoritesManager: ObservableObject {
             favoriteSongs.removeAll()
             favoriteSongIds.removeAll()
             
-            print("✅ Cleared all \(songIds.count) favorites")
             
         } catch {
             print("❌ Failed to clear favorites: \(error)")
@@ -216,7 +212,6 @@ class FavoritesManager: ObservableObject {
         errorMessage = nil
         service = nil
         
-        print("✅ FavoritesManager reset completed")
     }
 }
 

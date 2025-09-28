@@ -136,8 +136,6 @@ class NetworkMonitor: ObservableObject {
     func clearServerErrors() {
         hasRecentServerErrors = false
         updateContentLoadingStrategy()
-        
-        print("✅ Server errors cleared")
     }
     
     // MARK: - Network Monitoring

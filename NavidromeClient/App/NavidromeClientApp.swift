@@ -98,11 +98,9 @@ struct NavidromeClientApp: App {
             MusicLibraryManager.shared.configure(service: service)
         }
         
-        print("✅ All ViewModels configured with services")
     }
     
     private func initializeServicesAfterLogin(credentials: ServerCredentials) async {
-        print("🚀 Starting post-login service initialization...")
         
         await MainActor.run {
             appConfig.setInitializingServices(true)
@@ -125,7 +123,6 @@ struct NavidromeClientApp: App {
             appConfig.setInitializingServices(false)
         }
         
-        print("✅ Post-login service initialization completed")
     }
 
     private func handleNetworkChange(isConnected: Bool) async {
@@ -167,27 +164,23 @@ struct NavidromeClientApp: App {
             // ExploreView data
             group.addTask {
                 await self.exploreManager.loadExploreData()
-                print("✅ ExploreView data loaded")
             }
             
             // Library data
             group.addTask {
                 await MusicLibraryManager.shared.loadInitialDataIfNeeded()
-                print("✅ Library data loaded")
             }
             
             // Favorites data
             group.addTask {
                 await self.favoritesManager.loadFavoriteSongs()
-                print("✅ Favorites data loaded")
             }
         }
         
-        print("📚 All initial data loading completed")
     }
 
     private func handleAppBecameActive() {
-        print("📱 App became active - checking services...")
+        print("App became active - checking services...")
         
         Task {
             //  FIXED: Comprehensive health check on app activation
@@ -272,13 +265,12 @@ class ServiceContainer: ObservableObject {
         )
         isInitialized = true
         
-        print("✅ ServiceContainer: Services initialized")
     }
     
     func clearServices() {
         unifiedService = nil
         isInitialized = false
-        print("🧹 ServiceContainer: Services cleared")
+        print("ServiceContainer: Services cleared")
     }
 }
 

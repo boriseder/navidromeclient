@@ -68,7 +68,6 @@ class MusicLibraryManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("✅ MusicLibraryManager configured with UnifiedSubsonicService")
     }
     
     // MARK: - PHASE 2: Coordinated Loading
@@ -105,7 +104,6 @@ class MusicLibraryManager: ObservableObject {
             }
         }
         
-        print("✅ Coordinated initial data load completed")
     }
     
     func refreshAllData() async {
@@ -135,7 +133,6 @@ class MusicLibraryManager: ObservableObject {
         }
         
         lastRefreshDate = Date()
-        print("✅ Coordinated data refresh completed")
     }
     
     // MARK: - PHASE 2: Network State Handling
@@ -265,7 +262,6 @@ class MusicLibraryManager: ObservableObject {
             
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded album batch: \(newAlbums.count) albums (total: \(loadedAlbums.count))")
             
         } catch {
             await handleLoadingError(error, for: "albums")
@@ -308,7 +304,6 @@ class MusicLibraryManager: ObservableObject {
             artistLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded artists: \(allArtists.count)")
             
         } catch {
             await handleLoadingError(error, for: "artists")
@@ -349,7 +344,6 @@ class MusicLibraryManager: ObservableObject {
             genreLoadingState = .completed
             backgroundLoadingProgress = ""
             
-            print("✅ Loaded genres: \(allGenres.count)")
             
         } catch {
             await handleLoadingError(error, for: "genres")
@@ -448,7 +442,6 @@ class MusicLibraryManager: ObservableObject {
         totalAlbumCount = 0
         totalArtistCount = 0
         
-        print("✅ MusicLibraryManager reset completed with coordination")
     }
 }
 

@@ -58,8 +58,6 @@ class AudioSessionManager: NSObject, ObservableObject {
             
             // Safe audio session deactivation
             cleanupAudioSession()
-            
-            print("✅ AudioSessionManager: Cleanup completed safely")
         }
     
     private func cleanupCommandCenter() {
@@ -138,8 +136,6 @@ class AudioSessionManager: NSObject, ObservableObject {
             self.audioObservers.append(interruptionObserver)
             
         }
-        
-        print("✅ AudioSessionManager: Thread-safe observers setup")
     }
     // MARK: - Enhanced Command Center Setup
     

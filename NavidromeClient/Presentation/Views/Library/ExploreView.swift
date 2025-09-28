@@ -43,7 +43,7 @@ struct ExploreViewContent: View {
             return .loading("Setting up your music library")
         } else if exploreManager.isLoadingExploreData && !hasContent {
             return .loading("Loading your music")
-        } else if !hasContent {
+        } else if !hasContent && !exploreManager.isLoadingExploreData && hasLoaded {
             return .empty(type: .albums)
         }
         return nil

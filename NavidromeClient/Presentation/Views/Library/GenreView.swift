@@ -36,7 +36,7 @@ struct GenreViewContent: View {
             return .loading("Setting up your music library")
         } else if musicLibraryManager.isLoading && displayedGenres.isEmpty {
             return .loading("Loading genres")
-        } else if displayedGenres.isEmpty {
+        } else if displayedGenres.isEmpty && musicLibraryManager.hasLoadedInitialData {
             return .empty(type: .genres)
         }
         return nil

@@ -38,12 +38,12 @@ struct ArtistsViewContent: View {
             return .loading("Setting up your music library")
         } else if musicLibraryManager.isLoading && displayedArtists.isEmpty {
             return .loading("Loading artists")
-        } else if displayedArtists.isEmpty {
+        } else if displayedArtists.isEmpty && musicLibraryManager.hasLoadedInitialData {
             return .empty(type: .artists)
         }
         return nil
     }
-    
+
     var body: some View {
         NavigationStack {
             ZStack {

@@ -43,7 +43,7 @@ struct AlbumCollectionView: View {
             return .loading("Loading albums")
         } else if let error = errorMessage {
             return .serverError
-        } else if displayedAlbums.isEmpty {
+        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
             return .empty(type: .albums)
         }
         return nil
@@ -245,7 +245,7 @@ struct AlbumCollectionView: View {
         
         do {
             albums = try await musicLibraryManager.loadAlbums(context: context)
-            print("✅ Loaded \(albums.count) albums for \(contextTitle)")
+            print("Loaded \(albums.count) albums for \(contextTitle)")
         } catch {
             errorMessage = "Failed to load albums: \(error.localizedDescription)"
             albums = availableOfflineAlbums
