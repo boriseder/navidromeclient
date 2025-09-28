@@ -208,7 +208,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             
             // Simple stream URL without timeout wrapper
             if let streamURL = await getSimpleStreamURL(for: song) {
-                print("✅ Got stream URL: \(streamURL)")
+                print("Got stream URL: \(streamURL)")
                 await playFromURL(streamURL)
             } else {
                 print("❌ Failed to get stream URL")

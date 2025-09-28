@@ -16,7 +16,7 @@ struct DownloadButton: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @State private var showingDeleteConfirmation = false
     
-    // ✅ FIXED: Direct state observation for reactivity
+    // Direct state observation for reactivity
     @State private var currentState: DownloadManager.DownloadState = .idle
     @State private var currentProgress: Double = 0.0
     
@@ -46,17 +46,17 @@ struct DownloadButton: View {
         }
     }
     
-    // ✅ FIXED: Manual state synchronization
+    // Manual state synchronization
     private func updateState() {
         currentState = downloadManager.getDownloadState(for: album.id)
         currentProgress = downloadManager.downloadProgress[album.id] ?? 0.0
     }
     
-    // ✅ CLEAN: Fixed layout with consistent frame
+    // Fixed layout with consistent frame
     @ViewBuilder
     private var buttonContent: some View {
         HStack(spacing: 8) {
-            // ✅ FIXED: Consistent 20x20 frame for all states
+            // Consistent 20x20 frame for all states
             Group {
                 switch currentState {
                 case .idle:
@@ -89,7 +89,7 @@ struct DownloadButton: View {
                         .tint(.white)
                 }
             }
-            .frame(width: 20, height: 20) // ✅ FIXED: Consistent frame prevents layout shifts
+            .frame(width: 20, height: 20) // Consistent frame prevents layout shifts
         }
         .foregroundColor(.white)
         .padding(.horizontal, 20)
@@ -99,7 +99,7 @@ struct DownloadButton: View {
         .shadow(radius: 4)
     }
     
-    // ✅ CLEAN: Centralized background color logic
+    // Centralized background color logic
     private var buttonBackgroundColor: Color {
         switch currentState {
         case .idle, .downloading: return .blue

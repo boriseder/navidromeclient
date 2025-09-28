@@ -10,8 +10,8 @@
 //  ServerEditView.swift - FIXED: Direct ConnectionManager Binding
 //  NavidromeClient
 //
-//  ✅ FIXED: Removed circular dependency with NavidromeViewModel
-//  ✅ CLEAN: Direct ConnectionManager usage for proper SwiftUI binding
+//  Removed circular dependency with NavidromeViewModel
+//  Direct ConnectionManager usage for proper SwiftUI binding
 //
 
 import SwiftUI

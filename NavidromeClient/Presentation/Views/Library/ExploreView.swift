@@ -39,6 +39,8 @@ struct ExploreViewContent: View {
     }
     
     private var currentState: ViewState? {
+        print("### ### ### hasLoaded: \(hasLoaded), hasContent: \(hasContent), hasOnlineContent: \(hasOnlineContent)")
+
         if appConfig.isInitializingServices {
             return .loading("Setting up your music library")
         } else if exploreManager.isLoadingExploreData && !hasContent {

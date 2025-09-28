@@ -103,7 +103,7 @@ class DownloadManager: ObservableObject {
             return
         }
         
-        // ✅ FIXED: Cache album metadata BEFORE download starts
+        // Cache album metadata BEFORE download starts
         AlbumMetadataCache.shared.cacheAlbum(album)
         print("📦 Cached album metadata for download: \(album.name) (ID: \(album.id))")
         
@@ -147,7 +147,7 @@ class DownloadManager: ObservableObject {
             throw DownloadError.alreadyInProgress
         }
         
-        // ✅ FIXED: Album metadata is now guaranteed to be available
+        // Album metadata is now guaranteed to be available
         guard let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId) else {
             throw DownloadError.missingMetadata
         }
