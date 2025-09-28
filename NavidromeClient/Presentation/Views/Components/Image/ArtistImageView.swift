@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ArtistImageView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
+    @State private var hasRequestedLoad = false
 
     let artist: Artist
     let index: Int
@@ -63,13 +64,17 @@ struct ArtistImageView: View {
                 }
             }
         }
-        .task(id: artist.id) {
-            //  SINGLE LINE: Manager handles staggering, caching, state
-            await coverArtManager.loadArtistImage(
-                artist: artist,
-                size: imageSize,
-                staggerIndex: index
-            )
+        .onAppear {
+            if !hasRequestedLoad {
+                hasRequestedLoad = true
+                Task {
+                    await coverArtManager.loadArtistImage(
+                        artist: artist,
+                        size: imageSize,
+                        staggerIndex: index
+                    )
+                }
+            }
         }
     }
     

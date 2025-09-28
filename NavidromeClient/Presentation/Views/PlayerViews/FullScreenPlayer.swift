@@ -187,7 +187,8 @@ struct SpotifyAlbumArt: View {
                     .aspectRatio(1, contentMode: .fit)
             }
         }
-        .frame(width: min(280, screenWidth - 80), height: min(280, screenWidth - 80))
+        //BORIS
+        //.frame(width: min(280, screenWidth - 80), height: min(280, screenWidth - 80))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
     }

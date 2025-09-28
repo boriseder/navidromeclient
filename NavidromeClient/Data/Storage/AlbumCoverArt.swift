@@ -1,7 +1,7 @@
 import UIKit
 
 class AlbumCoverArt {
-    private let baseImage: UIImage
+    internal let baseImage: UIImage
     private let baseSize: Int
     private var scaledVariants: [Int: UIImage] = [:]
     private let lock = NSLock()

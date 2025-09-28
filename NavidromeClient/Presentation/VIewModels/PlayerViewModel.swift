@@ -59,8 +59,9 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var lastUpdateTime: Double = 0
 
     // MARK: - Initialization
-    init(service: UnifiedSubsonicService? = nil, downloadManager: DownloadManager = DownloadManager.shared) {
-        self.downloadManager = downloadManager
+    init(service: UnifiedSubsonicService? = nil) {
+        // Access shared instance from main actor context
+        self.downloadManager = DownloadManager.shared
         
         if let service = service {
             self.mediaService = service.getMediaService()
@@ -71,27 +72,40 @@ class PlayerViewModel: NSObject, ObservableObject {
         setupNotifications()
         configureAudioSession()
     }
-
     // MARK: - Thread-safe deinit
     deinit {
+        // Cancel ongoing tasks first
+        currentPlayTask?.cancel()
+        
+        // Clean up observers synchronously
+        if let observer = errorObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        notificationObservers.forEach {
+            NotificationCenter.default.removeObserver($0)
+        }
+        
+        // Schedule cleanup on main actor without capturing self
+        let player = self.player
+        let timeObserver = self.timeObserver
+        let playerItemEndObserver = self.playerItemEndObserver
+        
         Task { @MainActor in
-            cleanupPlayer()
- 
-            if let observer = errorObserver {
-                NotificationCenter.default.removeObserver(observer)
+            if let observer = timeObserver, let player = player {
+                player.removeTimeObserver(observer)
             }
-            notificationObservers.forEach {
-                NotificationCenter.default.removeObserver($0)
+            
+            if let token = playerItemEndObserver {
+                NotificationCenter.default.removeObserver(token)
             }
-            notificationObservers.removeAll()
+            
+            player?.pause()
+            player?.replaceCurrentItem(with: nil)
             
             AudioSessionManager.shared.clearNowPlayingInfo()
-            print("PlayerViewModel: Complete cleanup completed")
-
-
         }
     }
-
+    
     // MARK: - Service Management
     func updateService(_ service: UnifiedSubsonicService?) {
         if let service = service {
@@ -145,107 +159,192 @@ class PlayerViewModel: NSObject, ObservableObject {
         await playCurrent()
     }
     
+    private func getSimpleStreamURL(for song: Song) async -> URL? {
+        guard let mediaService = mediaService else {
+            print("No MediaService available")
+            return nil
+        }
+        
+        print("Requesting optimal stream URL for song: \(song.id)")
+        
+        // Use transcoded stream without timeout wrapper
+        return await mediaService.getOptimalStreamURL(
+            for: song.id,
+            preferredBitRate: 192,
+            connectionQuality: .good
+        )
+    }
     private func playCurrent() async {
         print("🎵 playCurrent called")
         
+        // Simple cancellation
         currentPlayTask?.cancel()
         
         currentPlayTask = Task {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                print("❌ Task cancelled before start")
+                return
+            }
+            
             guard let song = playlistManager.currentSong else {
+                print("❌ No current song")
                 await MainActor.run { stop() }
                 return
             }
             
+            print("🎵 Processing song: \(song.title)")
+            
             await MainActor.run {
                 currentSong = song
                 currentAlbumId = song.albumId
-                
-                // Reset cover art cache when song changes
                 cachedNowPlayingCoverArt = nil
                 cachedNowPlayingAlbumId = nil
-                
                 duration = Double(song.duration ?? 0)
                 currentTime = 0
                 isLoading = true
-                objectWillChange.send()
-            }
-
-            print("🎵 Playing song: \(song.title)")
-            
-            guard !Task.isCancelled else {
-                await MainActor.run {
-                    isLoading = false
-                    objectWillChange.send()
-                }
-                return
             }
             
-            if let localURL = downloadManager.getLocalFileURL(for: song.id) {
-                await playFromURL(localURL)
-            } else if let streamURL = await getStreamURL(for: song) {
+            print("🔍 Getting stream URL...")
+            
+            // Simple stream URL without timeout wrapper
+            if let streamURL = await getSimpleStreamURL(for: song) {
+                print("✅ Got stream URL: \(streamURL)")
                 await playFromURL(streamURL)
             } else {
+                print("❌ Failed to get stream URL")
                 await MainActor.run {
                     errorMessage = "No playback source available"
-                    print("❌ No playback source found")
                     isLoading = false
-                    objectWillChange.send()
                 }
             }
         }
+        
+        await currentPlayTask?.value
     }
-
+    
     private func getStreamURL(for song: Song) async -> URL? {
         guard let mediaService = mediaService else {
-            print("❌ No MediaService available for streaming")
+            print("No MediaService available for streaming")
             return nil
         }
         
-        return mediaService.streamURL(for: song.id)
-    }
-    
-    private func playFromURL(_ url: URL) async {
+        // Add timeout and retry logic
+        for attempt in 1...3 {
+            do {
+                return try await withTimeout(seconds: 10) {
+                    return await mediaService.getOptimalStreamURL(
+                        for: song.id,
+                        preferredBitRate: 256,
+                        connectionQuality: .good
+                    )
+                }
+            } catch {
+                print("Attempt \(attempt) failed: \(error)")
+                if attempt < 3 {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                }
+            }
+        }
         
-        guard currentPlayTask?.isCancelled == false else { return }
+        return nil
+    }
+
+    // Helper function for timeout
+    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T?) async throws -> T? {
+        return try await withThrowingTaskGroup(of: T?.self) { group in
+            group.addTask {
+                return await operation()
+            }
+            
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                return nil
+            }
+            
+            guard let result = try await group.next() else {
+                throw URLError(.timedOut)
+            }
+            
+            group.cancelAll()
+            return result
+        }
+    }
+
+
+    private func playFromURL(_ url: URL) async {
+        print("🎮 playFromURL called with: \(url)")
+        
+        guard currentPlayTask?.isCancelled == false else {
+            print("❌ playFromURL cancelled")
+            return
+        }
+                
+        // Preload and validate
+        guard await preloadAudioBuffer(for: url) else {
+            await MainActor.run {
+                errorMessage = "Cannot load audio file"
+                isLoading = false
+            }
+            return
+        }
         
         await MainActor.run {
+            // Clean up old player first
             if let observer = timeObserver {
                 player?.removeTimeObserver(observer)
                 timeObserver = nil
-                print("Old time observer removed")
             }
             
             if let token = playerItemEndObserver {
                 NotificationCenter.default.removeObserver(token)
                 playerItemEndObserver = nil
-                print("Old player item observer removed")
             }
             
+            // Stop current player gracefully
             player?.pause()
-            player?.replaceCurrentItem(with: nil)
             
-            let item = AVPlayerItem(url: url)
-            player = AVPlayer(playerItem: item)
-            player?.volume = volume
-            
-            isPlaying = true
-            isLoading = false
-            objectWillChange.send()
-            
-            player?.play()
-            print("New player created and started")
-        }
-        
-        if let player = player, let currentItem = player.currentItem {
-            await MainActor.run {
-                setupPlayerItemObserver(for: currentItem)
-                setupTimeObserver()
-                updateNowPlayingInfo()
-                print("New observers setup completed")
+            // Brief pause to allow audio system to stabilize
+            Task {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                
+                await MainActor.run {
+                    player?.replaceCurrentItem(with: nil)
+                    
+                    let item = AVPlayerItem(url: url)
+                    player = AVPlayer(playerItem: item)
+                    player?.volume = volume
+                    
+                    // Wait for player to be ready
+                    player?.automaticallyWaitsToMinimizeStalling = true
+                    
+                    isPlaying = true
+                    isLoading = false
+                    
+                    player?.play()
+                    print("New player created with buffer optimization")
+                    
+                    setupPlayerItemObserver(for: item)
+                    setupTimeObserver()
+                    updateNowPlayingInfo()
+                   
+                    logStreamDiagnostics(for: url)
+
+                }
             }
         }
     }
+    private func preloadAudioBuffer(for url: URL) async -> Bool {
+        let asset = AVURLAsset(url: url)
+        
+        do {
+            let duration = try await asset.load(.duration)
+            return duration.seconds > 0
+        } catch {
+            print("Failed to preload audio: \(error)")
+            return false
+        }
+    }
+    
     
     // MARK: - Download Status Methods
     func isAlbumDownloaded(_ albumId: String) -> Bool {
@@ -391,6 +490,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         print("Player item observer setup")
     }
 
+    @MainActor
     private func setupTimeObserver() {
         guard let player = player else { return }
         
@@ -400,38 +500,66 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
         
         timeObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(seconds: 1, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
+            forInterval: CMTime(seconds: 2, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main
         ) { [weak self] time in
-            guard let self = self else { return }
-            let newTime = time.seconds
-            
-            if abs(newTime - self.lastUpdateTime) > 0.1 {
-                self.lastUpdateTime = newTime
-                self.currentTime = newTime
-                self.updateProgress()
+            Task { @MainActor in
+                guard let self = self else { return }
+                let newTime = time.seconds
                 
-                // FIXED: Reduce Now Playing update frequency to prevent cover art spam
-                if Int(newTime) % 10 == 0 { // Every 10 seconds instead of 5
-                    self.updateNowPlayingInfo()
+                if abs(newTime - self.lastUpdateTime) > 0.1 {
+                    self.lastUpdateTime = newTime
+                    self.currentTime = newTime
+                    self.updateProgress()
+                    
+                    if Int(newTime) % 60 == 0 {
+                        self.updateNowPlayingInfo()
+                    }
                 }
             }
         }
-        print("Time observer setup")
     }
 
+    private func validateAudioFormat(for url: URL) async -> Bool {
+        let asset = AVURLAsset(url: url)
+        
+        do {
+            let tracks = try await asset.loadTracks(withMediaType: .audio)
+            guard let track = tracks.first else {
+                print("No audio track found")
+                return false
+            }
+            
+            let formatDescriptions = try await track.load(.formatDescriptions)
+            if let formatDesc = formatDescriptions.first {
+                let audioFormat = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
+                if let format = audioFormat?.pointee {
+                    print("Audio format: \(format.mSampleRate)Hz, \(format.mChannelsPerFrame) channels")
+                    return format.mSampleRate > 0 && format.mChannelsPerFrame > 0
+                }
+            }
+        } catch {
+            print("Audio validation failed: \(error)")
+            return false
+        }
+        
+        return false
+    }
+    
     // MARK: - Error Handling
+    @MainActor
     private func setupAudioErrorMonitoring() {
-        // Monitor FigFilePlayer errors
         errorObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemFailedToPlayToEndTime,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            self?.handlePlayerError(notification)
+            Task { @MainActor in
+                self?.handlePlayerError(notification)
+            }
         }
     }
-    
+
     private func handlePlayerError(_ notification: Notification) {
         if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
             let audioError = AudioError.playbackFailed(underlying: error)
@@ -499,7 +627,7 @@ class PlayerViewModel: NSObject, ObservableObject {
             Task {
                 do {
                     try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
-                    try await play(song: song)
+                    await play(song: song)
                 } catch {
                     print("⚠️ Restart failed with error: \(error)")
                 }            }
@@ -789,7 +917,18 @@ extension PlayerViewModel {
     )
 }
     
-
+    private func logStreamDiagnostics(for url: URL) {
+        print("### logStreamDiagnostics ###")
+        print("Stream URL: \(url)")
+        print("Host: \(url.host ?? "unknown")")
+        print("Path: \(url.path)")
+        
+        if url.query?.contains("maxBitRate") == true {
+            print("Transcoding requested")
+        } else {
+            print("Direct stream")
+        }
+    }
 }
 
 // MARK: - Supporting Types

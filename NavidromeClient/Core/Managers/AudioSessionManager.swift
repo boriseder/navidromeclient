@@ -102,9 +102,8 @@ class AudioSessionManager: NSObject, ObservableObject {
                 mode: .default,
                 options: [
                     .allowAirPlay,
-                    .allowBluetooth,
-                    .allowBluetoothA2DP,
-                    .defaultToSpeaker
+                    .allowBluetoothHFP,
+                    .allowBluetoothA2DP
                 ]
             )
             
