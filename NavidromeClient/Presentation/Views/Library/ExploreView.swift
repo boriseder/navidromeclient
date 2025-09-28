@@ -18,36 +18,36 @@ struct ExploreViewContent: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     @StateObject private var exploreManager = ExploreManager.shared
-    @State private var hasLoaded = false
-
-    // UNIFIED: Single state logic following the pattern
-    private var hasOnlineContent: Bool {
-        exploreManager.hasHomeScreenData
-    }
     
+    @State private var hasAttemptedInitialLoad = false
+    @State private var loadingCompleted = false
+
+    private var hasContent: Bool {
+        let result = switch networkMonitor.contentLoadingStrategy {
+        case .online:
+            hasOnlineContent
+        case .offlineOnly:
+            hasOfflineContent
+        }
+    
+        return result
+    }
+
+    private var hasOnlineContent: Bool {
+        let result = exploreManager.hasHomeScreenData
+        return result
+    }
+
     private var hasOfflineContent: Bool {
         !offlineManager.offlineAlbums.isEmpty
     }
-    
-    private var hasContent: Bool {
-        switch networkMonitor.contentLoadingStrategy {
-        case .online:
-            return hasOnlineContent
-        case .offlineOnly:
-            return hasOfflineContent
-        }
-    }
-    
-    private var currentState: ViewState? {
-        print("### ### ### hasLoaded: \(hasLoaded), hasContent: \(hasContent), hasOnlineContent: \(hasOnlineContent)")
 
-        if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        } else if exploreManager.isLoadingExploreData && !hasContent {
-            return .loading("Loading your music")
-        } else if !hasContent && !exploreManager.isLoadingExploreData && hasLoaded {
+    private var currentState: ViewState? {
+        // Only show empty if we've completed loading and truly have no content
+        if loadingCompleted && !hasContent {
             return .empty(type: .albums)
         }
+        
         return nil
     }
 
@@ -57,26 +57,25 @@ struct ExploreViewContent: View {
                 DynamicMusicBackground()
                     .ignoresSafeArea()
                 
-                // UNIFIED: Single component handles all states
-                if let state = currentState {
-                    UnifiedStateView(
-                        state: state,
-                        primaryAction: StateAction("Refresh") {
-                            Task {
-                                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
-                                await exploreManager.loadExploreData()
+                    if let state = currentState {
+                        UnifiedStateView(
+                            state: state,
+                            primaryAction: StateAction("Refresh") {
+                                Task {
+                                    guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
+                                    await exploreManager.loadExploreData()
+                                }
                             }
-                        }
-                    )
-                } else {
-                    contentView
-                }
+                        )
+                    } else {
+                        contentView
+                    }
             }
             .navigationTitle("Explore your music")
-            .task(id: hasLoaded) {
-                guard !hasLoaded else { return }
+            .task {
+                guard !hasAttemptedInitialLoad else { return }
+                hasAttemptedInitialLoad = true
                 await setupHomeScreenData()
-                hasLoaded = true
             }
             .task(priority: .background) {
                 // Background preload when idle

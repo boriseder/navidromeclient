@@ -27,6 +27,9 @@ struct UnifiedStateView: View {
         self.state = state
         self.primaryAction = primaryAction
         self.secondaryAction = secondaryAction
+        
+        print("🔴 UnifiedStateView CREATED with state: \(state.title)")
+
     }
     
     var body: some View {
