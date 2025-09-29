@@ -32,9 +32,39 @@ class CoverArtManager: ObservableObject {
         static let artistMemory: Int = 30 * 1024 * 1024 // 30MB
     }
     
+    private enum CoverArtType {
+        case album
+        case artist
+        
+        var cache: NSCache<NSString, AlbumCoverArt> {
+            switch self {
+            case .album: return CoverArtManager.shared.albumCache
+            case .artist: return CoverArtManager.shared.artistCache
+            }
+        }
+        
+        var optimalSize: Int {
+            switch self {
+            case .album: return OptimalSizes.album
+            case .artist: return OptimalSizes.artist
+            }
+        }
+        
+        var name: String {
+            switch self {
+            case .album: return "album"
+            case .artist: return "artist"
+            }
+        }
+    }
+
+    private enum PreloadPriority {
+        case immediate
+        case background
+        case controlled
+    }
+    
     @Published private(set) var cacheVersion = 0
-    private var albumCacheCount = 0  // ADD THIS
-    private var artistCacheCount = 0  // ADD THIS
     
     // MARK: - Storage
     
@@ -60,6 +90,8 @@ class CoverArtManager: ObservableObject {
     private var lastPreloadHash: Int = 0
     private var currentPreloadTask: Task<Void, Never>?
     private let preloadSemaphore = AsyncSemaphore(value: 3)
+    
+    
     
     // MARK: - Initialization
     
@@ -129,91 +161,59 @@ class CoverArtManager: ObservableObject {
 
     // MARK: - Image Loading
     
-    func loadAlbumImage(
-        album: Album,
-        size: Int = OptimalSizes.album,
+    private func loadCoverArt(
+        id: String,
+        type: CoverArtType,
+        size: Int,
         staggerIndex: Int = 0
     ) async -> UIImage? {
-        let albumKey = album.id as NSString
-        let requestKey = "album_\(album.id)_\(size)"
+        let key = id as NSString
+        let cache = type.cache
         
-        // Check memory cache first
-        if let coverArt = albumCache.object(forKey: albumKey) {
+        // Check memory cache
+        if let coverArt = cache.object(forKey: key) {
             return coverArt.getImage(for: size)
         }
         
         // Prevent duplicate requests
-        if isRequestActive(album.id, type: "album") {
+        if isRequestActive(id, type: type.name) {
             return nil
         }
         
-        addActiveRequest(album.id, type: "album")
-        defer { removeActiveRequest(album.id, type: "album") }
+        addActiveRequest(id, type: type.name)
+        defer { removeActiveRequest(id, type: type.name) }
         
         // Check persistent cache
-        let cacheKey = "album_\(album.id)_\(OptimalSizes.album)"
+        let optimalSize = type.optimalSize
+        let cacheKey = "\(type.name)_\(id)_\(optimalSize)"
         if let cached = persistentCache.image(for: cacheKey) {
-            await MainActor.run {
-                storeAlbumImage(cached, forAlbumId: album.id, size: OptimalSizes.album)
-            }
-            return albumCache.object(forKey: albumKey)?.getImage(for: size)
+            storeImage(cached, forId: id, type: type, size: optimalSize)
+            return cache.object(forKey: key)?.getImage(for: size)
         }
         
         // Load from network
         return await loadImageFromNetwork(
-            id: album.id,
-            size: OptimalSizes.album,
-            requestKey: requestKey,
+            id: id,
+            size: optimalSize,
+            requestKey: "\(type.name)_\(id)_\(size)",
             staggerIndex: staggerIndex,
             cacheKey: cacheKey,
             storeAction: { [weak self] image in
-                await self?.storeAlbumImage(image, forAlbumId: album.id, size: OptimalSizes.album)
+                await MainActor.run {
+                    self?.storeImage(image, forId: id, type: type, size: optimalSize)
+                }
             }
         )
     }
     
-    func loadArtistImage(
-        artist: Artist,
-        size: Int = OptimalSizes.artist,
-        staggerIndex: Int = 0
-    ) async -> UIImage? {
-        let artistKey = artist.id as NSString
-        let requestKey = "artist_\(artist.id)_\(size)"
-        
-        // Check memory cache first
-        if let coverArt = artistCache.object(forKey: artistKey) {
-            return coverArt.getImage(for: size)
-        }
-        
-        // Prevent duplicate requests
-        if isRequestActive(artist.id, type: "artist") {
-            return nil
-        }
-        
-        addActiveRequest(artist.id, type: "artist")
-        defer { removeActiveRequest(artist.id, type: "artist") }
-        
-        // Check persistent cache
-        let cacheKey = "artist_\(artist.id)_\(OptimalSizes.artist)"
-        if let cached = persistentCache.image(for: cacheKey) {
-            await MainActor.run {
-                storeArtistImage(cached, forArtistId: artist.id, size: OptimalSizes.artist)
-            }
-            return artistCache.object(forKey: artistKey)?.getImage(for: size)
-        }
-        
-        // Load from network
-        return await loadImageFromNetwork(
-            id: artist.id,
-            size: OptimalSizes.artist,
-            requestKey: requestKey,
-            staggerIndex: staggerIndex,
-            cacheKey: cacheKey,
-            storeAction: { [weak self] image in
-                await self?.storeArtistImage(image, forArtistId: artist.id, size: OptimalSizes.artist)
-            }
-        )
+    func loadAlbumImage(album: Album, size: Int = OptimalSizes.album, staggerIndex: Int = 0) async -> UIImage? {
+        return await loadCoverArt(id: album.id, type: .album, size: size, staggerIndex: staggerIndex)
     }
+
+    func loadArtistImage(artist: Artist, size: Int = OptimalSizes.artist, staggerIndex: Int = 0) async -> UIImage? {
+        return await loadCoverArt(id: artist.id, type: .artist, size: size, staggerIndex: staggerIndex)
+    }
+
     
     func loadSongImage(song: Song, size: Int = 100) async -> UIImage? {
         guard let albumId = song.albumId else { return nil }
@@ -285,41 +285,15 @@ class CoverArtManager: ObservableObject {
     
     // MARK: - Image Storage
     
-    private func storeAlbumImage(_ image: UIImage, forAlbumId albumId: String, size: Int) {
-        let key = albumId as NSString
-        let wasPresent = albumCache.object(forKey: key) != nil
-        
+    private func storeImage(_ image: UIImage, forId id: String, type: CoverArtType, size: Int) {
         storeImageInCache(
             image,
-            forId: albumId,
+            forId: id,
             size: size,
-            cache: albumCache,
-            optimalSize: OptimalSizes.album,
-            type: "album"
+            cache: type.cache,
+            optimalSize: type.optimalSize,
+            type: type.name
         )
-        
-        if !wasPresent {
-            albumCacheCount += 1
-        }
-        cacheVersion += 1
-    }
-
-    private func storeArtistImage(_ image: UIImage, forArtistId artistId: String, size: Int) {
-        let key = artistId as NSString
-        let wasPresent = artistCache.object(forKey: key) != nil
-        
-        storeImageInCache(
-            image,
-            forId: artistId,
-            size: size,
-            cache: artistCache,
-            optimalSize: OptimalSizes.artist,
-            type: "artist"
-        )
-        
-        if !wasPresent {
-            artistCacheCount += 1
-        }
         cacheVersion += 1
     }
 
@@ -381,113 +355,89 @@ class CoverArtManager: ObservableObject {
     
     // MARK: - Preload Operations
     
+    private func preloadCoverArt<T>(
+        items: [T],
+        type: CoverArtType,
+        priority: PreloadPriority = .immediate,
+        getId: @escaping (T) -> String
+    ) async {
+        let itemIds = items.map(getId)
+        let currentHash = itemIds.hashValue
+        
+        guard currentHash != lastPreloadHash else { return }
+        
+        currentPreloadTask?.cancel()
+        lastPreloadHash = currentHash
+        
+        currentPreloadTask = Task {
+            guard service != nil else { return }
+            
+            switch priority {
+            case .immediate:
+                await withTaskGroup(of: Void.self) { group in
+                    for (index, item) in items.enumerated().prefix(5) {
+                        let id = getId(item)
+                        if getCachedImage(for: id, cache: type.cache, size: type.optimalSize) == nil {
+                            group.addTask {
+                                _ = await self.loadCoverArt(id: id, type: type, size: type.optimalSize, staggerIndex: index)
+                            }
+                        }
+                    }
+                }
+                
+            case .background:
+                for (index, item) in items.enumerated() {
+                    guard !Task.isCancelled else { break }
+                    let id = getId(item)
+                    if getCachedImage(for: id, cache: type.cache, size: type.optimalSize) == nil {
+                        _ = await self.loadCoverArt(id: id, type: type, size: type.optimalSize)
+                        if index < items.count - 1 {
+                            try? await Task.sleep(nanoseconds: 200_000_000)
+                        }
+                    }
+                }
+                
+            case .controlled:
+                await withTaskGroup(of: Void.self) { group in
+                    for item in items.prefix(10) {
+                        let id = getId(item)
+                        if getCachedImage(for: id, cache: type.cache, size: type.optimalSize) == nil {
+                            group.addTask {
+                                await self.preloadSemaphore.wait()
+                                defer { Task { await self.preloadSemaphore.signal() } }
+                                _ = await self.loadCoverArt(id: id, type: type, size: type.optimalSize)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        await currentPreloadTask?.value
+    }
+    
     func preloadAlbums(_ albums: [Album], size: Int = OptimalSizes.album) async {
-        let albumIds = albums.map(\.id)
-        let currentHash = albumIds.hashValue
-        
-        // Skip if same albums already being preloaded
-        guard currentHash != lastPreloadHash else { return }
-        
-        // Cancel existing preload task
-        currentPreloadTask?.cancel()
-        lastPreloadHash = currentHash
-        
-        currentPreloadTask = Task {
-            guard service != nil else { return }
-            
-            await withTaskGroup(of: Void.self) { group in
-                for (index, album) in albums.enumerated() {
-                    if index >= 5 { break } // Limit concurrent preloads
-                    
-                    // Only preload if not already cached
-                    if getAlbumImage(for: album.id, size: size) == nil {
-                        group.addTask {
-                            _ = await self.loadAlbumImage(album: album, size: size, staggerIndex: index)
-                        }
-                    }
-                }
-            }
-        }
-        
-        await currentPreloadTask?.value
+        await preloadCoverArt(items: albums, type: .album, priority: .immediate) { $0.id }
     }
-    
+
     func preloadArtists(_ artists: [Artist], size: Int = OptimalSizes.artist) async {
-        let artistIds = artists.map(\.id)
-        let currentHash = artistIds.hashValue
-        
-        guard currentHash != lastPreloadHash else { return }
-        
-        currentPreloadTask?.cancel()
-        lastPreloadHash = currentHash
-        
-        currentPreloadTask = Task {
-            guard service != nil else { return }
-            
-            await withTaskGroup(of: Void.self) { group in
-                for (index, artist) in artists.enumerated() {
-                    if index >= 5 { break }
-                    
-                    if getArtistImage(for: artist.id, size: size) == nil {
-                        group.addTask {
-                            _ = await self.loadArtistImage(artist: artist, size: size, staggerIndex: index)
-                        }
-                    }
-                }
-            }
-        }
-        
-        await currentPreloadTask?.value
+        await preloadCoverArt(items: artists, type: .artist, priority: .immediate) { $0.id }
     }
-    
+
     func preloadWhenIdle(_ albums: [Album], size: Int = OptimalSizes.album) {
-        Task(priority: .background) {
-            for (index, album) in albums.enumerated() {
-                guard !Task.isCancelled else { break }
-                
-                if getAlbumImage(for: album.id, size: size) == nil {
-                    _ = await loadAlbumImage(album: album, size: size)
-                    
-                    // Gentle delay between loads
-                    if index < albums.count - 1 {
-                        try? await Task.sleep(nanoseconds: 200_000_000)
-                    }
-                }
-            }
+        Task {
+            await preloadCoverArt(items: albums, type: .album, priority: .background) { $0.id }
         }
     }
-    
+
     func preloadArtistsWhenIdle(_ artists: [Artist], size: Int = OptimalSizes.artist) {
-        Task(priority: .background) {
-            for (index, artist) in artists.enumerated() {
-                guard !Task.isCancelled else { break }
-                
-                if getArtistImage(for: artist.id, size: size) == nil {
-                    _ = await loadArtistImage(artist: artist, size: size)
-                    
-                    if index < artists.count - 1 {
-                        try? await Task.sleep(nanoseconds: 200_000_000)
-                    }
-                }
-            }
+        Task {
+            await preloadCoverArt(items: artists, type: .artist, priority: .background) { $0.id }
         }
     }
-    
+
     func preloadAlbumsControlled(_ albums: [Album], size: Int = OptimalSizes.album) async {
-        await withTaskGroup(of: Void.self) { group in
-            for album in albums.prefix(10) {
-                if getAlbumImage(for: album.id, size: size) == nil {
-                    group.addTask {
-                        await self.preloadSemaphore.wait()
-                        defer {
-                            Task { await self.preloadSemaphore.signal() }
-                        }
-                        
-                        _ = await self.loadAlbumImage(album: album, size: size)
-                    }
-                }
-            }
-        }
+        await preloadCoverArt(items: albums, type: .album, priority: .controlled) { $0.id }
     }
     
     // MARK: - Cache Management
@@ -495,21 +445,18 @@ class CoverArtManager: ObservableObject {
     func clearMemoryCache() {
         albumCache.removeAllObjects()
         artistCache.removeAllObjects()
-        albumCacheCount = 0
-        artistCacheCount = 0
         loadingStates.removeAll()
         errorStates.removeAll()
         persistentCache.clearCache()
         cacheVersion += 1
     }
-    
     // MARK: - Diagnostics
     
     func getCacheStats() -> CoverArtCacheStats {
         let persistentStats = persistentCache.getCacheStats()
         
         return CoverArtCacheStats(
-            memoryCount: albumCacheCount + artistCacheCount,
+            memoryCount: 0,  // NSCache doesn't expose count reliably
             diskCount: persistentStats.diskCount,
             diskSize: persistentStats.diskSize,
             activeRequests: loadingStates.count,
@@ -519,7 +466,10 @@ class CoverArtManager: ObservableObject {
     
     func getHealthStatus() -> CoverArtHealthStatus {
         let stats = getCacheStats()
-        let errorRate = stats.errorCount > 0 ? Double(stats.errorCount) / max(1, Double(stats.memoryCount)) : 0.0
+        
+        // Use activeRequests + errorCount as health indicator since memoryCount is unreliable
+        let totalActivity = stats.activeRequests + stats.errorCount
+        let errorRate = totalActivity > 0 ? Double(stats.errorCount) / Double(totalActivity) : 0.0
         let isHealthy = errorRate < 0.1 && stats.activeRequests < 50
         
         let statusDescription: String
@@ -573,7 +523,8 @@ struct CoverArtCacheStats {
     }
     
     var performanceStats: CoverArtPerformanceStats {
-        let hitRate = memoryCount > 0 ? Double(memoryCount) / Double(memoryCount + activeRequests) * 100 : 0.0
+        // Use disk cache as proxy for hit rate
+        let hitRate = diskCount > 0 ? Double(diskCount) / Double(diskCount + activeRequests) * 100 : 0.0
         let avgTime = activeRequests > 0 ? 0.350 : 0.250
         
         return CoverArtPerformanceStats(

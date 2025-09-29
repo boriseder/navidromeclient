@@ -27,8 +27,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Playlist Management
     @Published var playlistManager = PlaylistManager()
     
-    @Published private var cachedNowPlayingCoverArt: UIImage?
-    private var cachedNowPlayingAlbumId: String?
 
     @Published private(set) var audioErrors: [AudioError] = []
     private var errorObserver: NSObjectProtocol?
@@ -175,8 +173,6 @@ class PlayerViewModel: NSObject, ObservableObject {
             await MainActor.run {
                 currentSong = song
                 currentAlbumId = song.albumId
-                cachedNowPlayingCoverArt = nil
-                cachedNowPlayingAlbumId = nil
                 duration = Double(song.duration ?? 0)
                 currentTime = 0
                 isLoading = true
@@ -692,22 +688,17 @@ class PlayerViewModel: NSObject, ObservableObject {
     private func updateNowPlayingInfo() {
         guard let song = currentSong else {
             audioSessionManager.clearNowPlayingInfo()
-            cachedNowPlayingCoverArt = nil
-            cachedNowPlayingAlbumId = nil
             return
         }
         
         let albumId = currentAlbumId ?? ""
-        if albumId != cachedNowPlayingAlbumId {
-            cachedNowPlayingCoverArt = coverArtManager?.getAlbumImage(for: albumId, size: 300)
-            cachedNowPlayingAlbumId = albumId
-        }
+        let artwork = coverArtManager?.getAlbumImage(for: albumId, size: 300)
         
         audioSessionManager.updateNowPlayingInfo(
             title: song.title,
             artist: song.artist ?? "Unknown Artist",
             album: song.album,
-            artwork: cachedNowPlayingCoverArt,
+            artwork: artwork,
             duration: duration,
             currentTime: currentTime,
             playbackRate: isPlaying ? 1.0 : 0.0
