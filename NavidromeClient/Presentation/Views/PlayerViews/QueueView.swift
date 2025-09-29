@@ -41,7 +41,7 @@ struct QueueView: View {
                 }
             }
             .navigationTitle("Queue")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.automatic)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") {

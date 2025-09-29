@@ -1,17 +1,12 @@
 //
+//  FavoritesManager.swift - FIXED: Pure Facade Pattern
+//  NavidromeClient
+//
+//
 //  FavoritesManager.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 21.09.25.
-//
+//  Manages user's favorite songs with optimistic updates
+//  Responsibilities: Star/unstar songs, maintain favorites list, sync with server
 
-
-//
-//  FavoritesManager.swift - Lieblingssongs State Management
-//  NavidromeClient
-//
-//  FOCUSED: Verwaltet Lieblingssongs State und koordiniert Service-Aufrufe
-//
 
 import Foundation
 import SwiftUI
@@ -27,11 +22,11 @@ class FavoritesManager: ObservableObject {
     @Published private(set) var lastRefresh: Date?
     @Published private(set) var errorMessage: String?
     
-    // MARK: - Service Dependencies
+    // MARK: - Service Dependency
     private weak var service: UnifiedSubsonicService?
     
     // MARK: - Configuration
-    private let refreshInterval: TimeInterval = 5 * 60 // 5 Minuten
+    private let refreshInterval: TimeInterval = 5 * 60
     
     private init() {}
     
@@ -39,51 +34,43 @@ class FavoritesManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
+        print("FavoritesManager configured with UnifiedSubsonicService facade")
     }
     
     // MARK: - Public API
     
-    /// Prüft ob ein Song favorisiert ist
     func isFavorite(_ songId: String) -> Bool {
         return favoriteSongIds.contains(songId)
     }
     
-    /// Toggle Favorit-Status eines Songs
     func toggleFavorite(_ song: Song) async {
         guard let service = service else {
             errorMessage = "Service not available"
-            print("❌ UnifiedSubsonicService not configured")
+            print("UnifiedSubsonicService not configured")
             return
         }
         
         let songId = song.id
         let wasFavorite = isFavorite(songId)
         
-        // Optimistic UI Update
         updateUIOptimistically(song: song, isFavorite: !wasFavorite)
         
         do {
-            // ROUTE: Through UnifiedSubsonicService like other managers
-            let favoritesService = service.getFavoritesService()
-            
             if wasFavorite {
-                try await favoritesService.unstarSong(songId)
+                try await service.unstarSong(songId)
             } else {
-                try await favoritesService.starSong(songId)
+                try await service.starSong(songId)
             }
             
-            // Success - UI ist bereits aktualisiert
             errorMessage = nil
             
         } catch {
-            // Fehler - Optimistic Update rückgängig machen
-            print("❌ Failed to \(wasFavorite ? "unstar" : "star") song: \(error)")
+            print("Failed to \(wasFavorite ? "unstar" : "star") song: \(error)")
             updateUIOptimistically(song: song, isFavorite: wasFavorite)
             errorMessage = error.localizedDescription
         }
     }
     
-    /// Lädt alle Lieblingssongs vom Server
     func loadFavoriteSongs(forceRefresh: Bool = false) async {
         guard let service = service else {
             errorMessage = "Service not available"
@@ -91,7 +78,7 @@ class FavoritesManager: ObservableObject {
         }
         
         guard shouldRefresh || forceRefresh else {
-            print("🔄 Favorites are fresh, skipping refresh")
+            print("Favorites are fresh, skipping refresh")
             return
         }
         
@@ -99,24 +86,20 @@ class FavoritesManager: ObservableObject {
         errorMessage = nil
         
         do {
-            // ROUTE: Through UnifiedSubsonicService like other managers
-            let favoritesService = service.getFavoritesService()
-            let songs = try await favoritesService.getStarredSongs()
+            let songs = try await service.getStarredSongs()
             
             favoriteSongs = songs
             favoriteSongIds = Set(songs.map { $0.id })
             lastRefresh = Date()
             
-            
         } catch {
-            print("❌ Failed to load favorite songs: \(error)")
+            print("Failed to load favorite songs: \(error)")
             errorMessage = error.localizedDescription
         }
         
         isLoading = false
     }
     
-    /// Entfernt alle Favoriten (mit Bestätigung)
     func clearAllFavorites() async {
         guard let service = service else {
             errorMessage = "Service not available"
@@ -130,16 +113,13 @@ class FavoritesManager: ObservableObject {
         errorMessage = nil
         
         do {
-            // ROUTE: Through UnifiedSubsonicService like other managers
-            let favoritesService = service.getFavoritesService()
-            try await favoritesService.unstarSongs(songIds)
+            try await service.unstarSongs(songIds)
             
             favoriteSongs.removeAll()
             favoriteSongIds.removeAll()
             
-            
         } catch {
-            print("❌ Failed to clear favorites: \(error)")
+            print("Failed to clear favorites: \(error)")
             errorMessage = error.localizedDescription
         }
         
@@ -151,7 +131,7 @@ class FavoritesManager: ObservableObject {
     func handleNetworkChange(isOnline: Bool) async {
         guard isOnline, !isDataFresh else { return }
         
-        print("🌐 Network restored - refreshing favorites")
+        print("Network restored - refreshing favorites")
         await loadFavoriteSongs(forceRefresh: true)
     }
     
@@ -188,13 +168,11 @@ class FavoritesManager: ObservableObject {
     
     private func updateUIOptimistically(song: Song, isFavorite: Bool) {
         if isFavorite {
-            // Add to favorites
             if !favoriteSongIds.contains(song.id) {
                 favoriteSongs.append(song)
                 favoriteSongIds.insert(song.id)
             }
         } else {
-            // Remove from favorites
             favoriteSongs.removeAll { $0.id == song.id }
             favoriteSongIds.remove(song.id)
         }
@@ -212,6 +190,7 @@ class FavoritesManager: ObservableObject {
         errorMessage = nil
         service = nil
         
+        print("FavoritesManager reset completed")
     }
 }
 

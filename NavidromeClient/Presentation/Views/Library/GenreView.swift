@@ -46,8 +46,7 @@ struct GenreViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
-                    .ignoresSafeArea()
-                
+
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
@@ -60,6 +59,10 @@ struct GenreViewContent: View {
                     contentView
                 }
             }
+            .navigationTitle("Genres")
+            .navigationBarTitleDisplayMode(.automatic)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .searchable(text: $searchText, prompt: "Search genres...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -68,7 +71,6 @@ struct GenreViewContent: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            .navigationTitle("Genres")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
@@ -109,7 +111,6 @@ struct GenreViewContent: View {
             }
         }
         .padding(.horizontal, DSLayout.screenPadding)
-        .padding(.top, DSLayout.tightGap)
     }
     
     // MARK: - Business Logic

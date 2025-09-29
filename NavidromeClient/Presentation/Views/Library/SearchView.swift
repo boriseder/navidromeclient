@@ -75,14 +75,14 @@ struct SearchView: View {
                 
                 Spacer()
             }
+            .navigationTitle("Search your music")
+            .navigationBarTitleDisplayMode(.automatic)
             .navigationDestination(for: Artist.self) { artist in
                 AlbumCollectionView(context: .byArtist(artist))
             }
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .navigationTitle("Search your music")
-
         }
         .onChange(of: query) { _, newValue in
             handleQueryChange(newValue)

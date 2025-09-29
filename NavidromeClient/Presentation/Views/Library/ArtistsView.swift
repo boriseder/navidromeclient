@@ -48,7 +48,6 @@ struct ArtistsViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
-                    .ignoresSafeArea()
 
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
@@ -62,6 +61,10 @@ struct ArtistsViewContent: View {
                     contentView
                 }
             }
+            .navigationTitle("Artists")
+            .navigationBarTitleDisplayMode(.automatic)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .searchable(text: $searchText, prompt: "Search artists...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -76,15 +79,12 @@ struct ArtistsViewContent: View {
                     coverArtManager.preloadArtistsWhenIdle(Array(displayedArtists.prefix(20)), size: 120)
                 }
             }
-
-            .navigationTitle("Artists")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
                         SettingsView()
                     } label: {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -118,7 +118,6 @@ struct ArtistsViewContent: View {
             }
         }
         .padding(.horizontal, DSLayout.screenPadding)
-        .padding(.top, DSLayout.tightGap)
     }
     
     // MARK: - Business Logic

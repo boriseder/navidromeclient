@@ -5,6 +5,9 @@
 //   FIXED: Album metadata caching before download starts
 //   CLEAN: Proactive metadata storage to prevent missingMetadata errors
 //
+//  DownloadManager.swift
+//  Manages offline album downloads with progress tracking
+//  Responsibilities: Download albums, manage local storage, track download state
 
 import Foundation
 
@@ -21,10 +24,8 @@ class DownloadManager: ObservableObject {
     @Published private(set) var downloadStates: [String: DownloadState] = [:]
     @Published private(set) var downloadErrors: [String: String] = [:]
 
-    //  PURE: Single service dependency only
     private weak var service: UnifiedSubsonicService?
     
-    //  FOCUSED: CoverArtManager integration for cover art downloads
     private weak var coverArtManager: CoverArtManager?
 
     private var downloadsFolder: URL {
@@ -315,12 +316,9 @@ class DownloadManager: ObservableObject {
     
     private func getStreamURL(for songId: String, from service: UnifiedSubsonicService) -> URL? {
         guard !songId.isEmpty else { return nil }
-        
-        // Get MediaService from UnifiedSubsonicService
-        let mediaService = service.getMediaService()
-        return mediaService.streamURL(for: songId)
+        return service.streamURL(for: songId)
     }
-    
+
     // MARK: -  UI State Management
     
     private func setupStateObservation() {

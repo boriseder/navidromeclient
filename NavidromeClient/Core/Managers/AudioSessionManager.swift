@@ -35,32 +35,22 @@ class AudioSessionManager: NSObject, ObservableObject {
         checkAudioRoute()
     }
         
+    deinit {
+        cleanup()
+    }
+
     // MARK: - Cleanup
 
-    func performCleanup() {
-            cleanupLock.lock()
-            defer { cleanupLock.unlock() }
-            
-            guard !isCleanedUp else { return }
-            isCleanedUp = true
-            
-            print("AudioSessionManager: Starting thread-safe cleanup")
-            
-            observerQueue.sync {
-                for observer in audioObservers {
-                    NotificationCenter.default.removeObserver(observer)
-                }
-                audioObservers.removeAll()
+    nonisolated private func cleanup() {
+        // Observer cleanup - thread safe
+        observerQueue.sync {
+            for observer in audioObservers {
+                NotificationCenter.default.removeObserver(observer)
             }
-            
-            // Safe Command Center cleanup
-            cleanupCommandCenter()
-            
-            // Safe audio session deactivation
-            cleanupAudioSession()
+            audioObservers.removeAll()
         }
-    
-    private func cleanupCommandCenter() {
+        
+        // Command center cleanup - safe from any thread
         let commandCenter = MPRemoteCommandCenter.shared()
         let commands = [
             commandCenter.playCommand,
@@ -77,21 +67,28 @@ class AudioSessionManager: NSObject, ObservableObject {
             command.isEnabled = false
             command.removeTarget(nil)
         }
-    }
-    
-    private func cleanupAudioSession() {
+        
+        // Audio session cleanup - safe from any thread
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch {
-            print("⚠️ Failed to deactivate audio session: \(error)")
+            print("Failed to deactivate audio session: \(error)")
         }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
+    func performCleanup() {
+        cleanupLock.lock()
+        defer { cleanupLock.unlock() }
+        
+        guard !isCleanedUp else { return }
+        isCleanedUp = true
+        
+        cleanup()
+    }
     
     // MARK: - Audio Session Setup
-    
     func setupAudioSession() {
         do {
             // Setze Audio Category für Hintergrund-Playback
@@ -210,7 +207,6 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
     
     // MARK: - Now Playing Info (Lock Screen Display)
-    
     func updateNowPlayingInfo(
         title: String,
         artist: String,
@@ -262,7 +258,6 @@ class AudioSessionManager: NSObject, ObservableObject {
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
-
     
     func clearNowPlayingInfo() {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
@@ -270,7 +265,6 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
     
     // MARK: - Audio Route Management
-    
     private func checkAudioRoute() {
         let route = audioSession.currentRoute
         audioRoute = route.outputs.first?.portName ?? "Unknown"
@@ -287,7 +281,6 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
     
     // MARK: - Notification Handlers
-    
     private func handleInterruptionNotification(_ notification: Notification) {
         guard let info = notification.userInfo,
               let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -391,7 +384,6 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
     
     // MARK: - Remote Command Handlers (zu PlayerViewModel weiterleiten)
-    
     private func handleRemotePlay() {
         print("▶️ Remote Play Command")
         playerViewModel?.handleRemotePlay()
@@ -434,7 +426,6 @@ class AudioSessionManager: NSObject, ObservableObject {
 }
 
 // MARK: - Notification Names
-
 extension Notification.Name {
     // Audio Interruptions
     static let audioInterruptionBegan = Notification.Name("audioInterruptionBegan")

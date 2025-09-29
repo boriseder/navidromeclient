@@ -1,11 +1,13 @@
 //
-//  HomeScreenManager.swift - SIMPLIFIED: Direct UnifiedSubsonicService
+//  ExploreManager.swift - FIXED: Pure Facade Pattern
 //  NavidromeClient
 //
-//   REMOVED: Legacy service support, dual configuration
-//   SIMPLIFIED: Single service dependency via UnifiedSubsonicService
-//   CLEAN: Direct access to service.discoveryService
 //
+//  ExploreManager.swift
+//  Manages home screen discovery content
+//  Responsibilities: Load and cache recent/newest/frequent/random albums
+//  Provides business logic layer between views and service
+
 
 import Foundation
 
@@ -24,7 +26,6 @@ class ExploreManager: ObservableObject {
     @Published private(set) var exploreError: String?
     @Published private(set) var lastHomeRefresh: Date?
     
-    //  SINGLE SERVICE DEPENDENCY
     private weak var service: UnifiedSubsonicService?
     
     // Configuration
@@ -33,14 +34,14 @@ class ExploreManager: ObservableObject {
     
     private init() {}
     
-    // MARK: -  SIMPLIFIED: Single Configuration Method
+    // MARK: - Configuration
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print(" ExploreManager configured with UnifiedSubsonicService")
+        print("ExploreManager configured with UnifiedSubsonicService facade")
     }
     
-    // MARK: -  HOME SCREEN DATA LOADING
+    // MARK: - HOME SCREEN DATA LOADING
     
     func loadExploreData() async {
         guard let service = service else {
@@ -53,8 +54,7 @@ class ExploreManager: ObservableObject {
         defer { isLoadingExploreData = false }
         
         do {
-            //  DIRECT ACCESS: service.discoveryService
-            let discoveryMix = try await service.discoveryService.getDiscoveryMix(size: exploreDataBatchSize * 4)
+            let discoveryMix = try await service.getDiscoveryMix(size: exploreDataBatchSize * 4)
             
             recentAlbums = Array(discoveryMix.recent.prefix(exploreDataBatchSize))
             newestAlbums = Array(discoveryMix.newest.prefix(exploreDataBatchSize))
@@ -62,10 +62,10 @@ class ExploreManager: ObservableObject {
             randomAlbums = Array(discoveryMix.random.prefix(exploreDataBatchSize))
             
             lastHomeRefresh = Date()
-            print(" Home screen data loaded: \(discoveryMix.totalCount) total albums")
+            print("Home screen data loaded: \(discoveryMix.totalCount) total albums")
             
         } catch {
-            print("❌ Failed to load discovery mix, falling back to individual calls")
+            print("Failed to load discovery mix, falling back to individual calls")
             await loadExploreDataFallback()
         }
     }
@@ -74,9 +74,9 @@ class ExploreManager: ObservableObject {
         guard let service = service else { return [] }
         
         do {
-            return try await service.discoveryService.getRecommendationsFor(album: album, limit: 10)
+            return try await service.getRecommendationsFor(album: album, limit: 10)
         } catch {
-            print("❌ Failed to load recommendations for \(album.name): \(error)")
+            print("Failed to load recommendations for \(album.name): \(error)")
             return []
         }
     }
@@ -85,14 +85,14 @@ class ExploreManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            randomAlbums = try await service.discoveryService.getRandomAlbums(size: exploreDataBatchSize)
-            print(" Refreshed random albums: \(randomAlbums.count)")
+            randomAlbums = try await service.getRandomAlbums(size: exploreDataBatchSize)
+            print("Refreshed random albums: \(randomAlbums.count)")
         } catch {
-            print("❌ Failed to refresh random albums: \(error)")
+            print("Failed to refresh random albums: \(error)")
         }
     }
     
-    // MARK: -  SIMPLIFIED: Fallback Implementation
+    // MARK: - FALLBACK IMPLEMENTATION
     
     private func loadExploreDataFallback() async {
         guard let service = service else { return }
@@ -105,16 +105,16 @@ class ExploreManager: ObservableObject {
         }
         
         lastHomeRefresh = Date()
-        print(" Home screen data loaded via fallback method")
+        print("Home screen data loaded via fallback method")
     }
     
     private func loadRecentAlbums() async {
         guard let service = service else { return }
         
         do {
-            recentAlbums = try await service.discoveryService.getRecentAlbums(size: exploreDataBatchSize)
+            recentAlbums = try await service.getRecentAlbums(size: exploreDataBatchSize)
         } catch {
-            print("⚠️ Failed to load recent albums: \(error)")
+            print("Failed to load recent albums: \(error)")
             handleExploreDataError(error, for: "recent albums")
         }
     }
@@ -123,9 +123,9 @@ class ExploreManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            newestAlbums = try await service.discoveryService.getNewestAlbums(size: exploreDataBatchSize)
+            newestAlbums = try await service.getNewestAlbums(size: exploreDataBatchSize)
         } catch {
-            print("⚠️ Failed to load newest albums: \(error)")
+            print("Failed to load newest albums: \(error)")
             handleExploreDataError(error, for: "newest albums")
         }
     }
@@ -134,9 +134,9 @@ class ExploreManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            frequentAlbums = try await service.discoveryService.getFrequentAlbums(size: exploreDataBatchSize)
+            frequentAlbums = try await service.getFrequentAlbums(size: exploreDataBatchSize)
         } catch {
-            print("⚠️ Failed to load frequent albums: \(error)")
+            print("Failed to load frequent albums: \(error)")
             handleExploreDataError(error, for: "frequent albums")
         }
     }
@@ -145,14 +145,14 @@ class ExploreManager: ObservableObject {
         guard let service = service else { return }
         
         do {
-            randomAlbums = try await service.discoveryService.getRandomAlbums(size: exploreDataBatchSize)
+            randomAlbums = try await service.getRandomAlbums(size: exploreDataBatchSize)
         } catch {
-            print("⚠️ Failed to load random albums: \(error)")
+            print("Failed to load random albums: \(error)")
             handleExploreDataError(error, for: "random albums")
         }
     }
     
-    // MARK: -  UTILITY METHODS
+    // MARK: - UTILITY METHODS
     
     func refreshIfNeeded() async {
         guard shouldRefreshHomeData else { return }
@@ -194,14 +194,14 @@ class ExploreManager: ObservableObject {
         exploreError = nil
         lastHomeRefresh = nil
         
-        print(" HomeScreenManager reset completed")
+        print("ExploreManager reset completed")
     }
     
     private func handleExploreDataError(_ error: Error, for section: String) {
         if case SubsonicError.unauthorized = error {
             exploreError = "Authentication failed"
         } else if case SubsonicError.network = error {
-            print("🌐 Network error loading \(section): \(error)")
+            print("Network error loading \(section): \(error)")
         }
     }
     
@@ -218,7 +218,7 @@ class ExploreManager: ObservableObject {
     }
 }
 
-// MARK: - Supporting Types (unchanged)
+// MARK: - Supporting Types
 
 struct ExploreStats {
     let recentCount: Int

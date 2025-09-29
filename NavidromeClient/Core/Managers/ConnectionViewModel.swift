@@ -11,7 +11,7 @@ import Foundation
 import SwiftUI
 
 @MainActor
-class ConnectionManager: ObservableObject {
+class ConnectionViewModel: ObservableObject {
     
     // MARK: -  UI Form Bindings (Core Responsibility)
     
@@ -85,12 +85,7 @@ class ConnectionManager: ObservableObject {
         
         return true
     }
-    
-    /// Get ConnectionService instance for other components
-    func getConnectionService() -> ConnectionService? {
-        return connectionService
-    }
-    
+       
     // MARK: -  UI Helpers (Minimal)
     
     /// Basic URL building for service creation
@@ -194,7 +189,7 @@ class ConnectionManager: ObservableObject {
 
 // MARK: -  UI Extensions
 
-extension ConnectionManager {
+extension ConnectionViewModel {
     
     /// Quick connection health check
     func performQuickHealthCheck() async {

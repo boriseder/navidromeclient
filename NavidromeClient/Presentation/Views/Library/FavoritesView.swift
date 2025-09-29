@@ -16,11 +16,12 @@ struct FavoritesViewContent: View {
     @EnvironmentObject var appConfig: AppConfig
     
     @StateObject private var favoritesManager = FavoritesManager.shared
-    @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
+    
+    @State private var searchText = ""
     @State private var showingClearConfirmation = false
 
-    // UNIFIED: Single state logic following the pattern
+    // Single state logic following the pattern
     private var displayedSongs: [Song] {
         let songs = switch networkMonitor.contentLoadingStrategy {
         case .online:
@@ -60,8 +61,7 @@ struct FavoritesViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
-                    .ignoresSafeArea()
-                
+
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
@@ -77,6 +77,10 @@ struct FavoritesViewContent: View {
                     contentView
                 }
             }
+            .navigationTitle("Your favorites")
+            .navigationBarTitleDisplayMode(.automatic)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .searchable(text: $searchText, prompt: "Search favorites...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -91,8 +95,8 @@ struct FavoritesViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-            .navigationTitle("Your favorites")
-            .toolbar {
+
+           /* .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button("Play All") {
@@ -124,14 +128,15 @@ struct FavoritesViewContent: View {
             } message: {
                 Text("This will remove all songs from your favorites.")
             }
+            */
         }
     }
 
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                // UNIFIED: Consistent offline banner pattern
+            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
+
                 if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
                     OfflineReasonBanner(reason: reason)
                         .padding(.horizontal, DSLayout.screenPadding)

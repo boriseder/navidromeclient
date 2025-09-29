@@ -5,101 +5,55 @@ struct DynamicMusicBackground: View {
     
     var body: some View {
         ZStack {
-            // Base gradient with animation
+            // Hauptgradient mit subtilen Rotstichen
             LinearGradient(
                 colors: [
-                    Color(red: 0.25, green: 0.30, blue: 0.42),
-                    Color(red: 0.32, green: 0.25, blue: 0.45),
-                    Color(red: 0.20, green: 0.28, blue: 0.38)
+                    Color(red: 0.12, green: 0.12, blue: 0.16), // fast schwarz
+                    Color(red: 0.25, green: 0.08, blue: 0.12), // tiefrot
+                    Color(red: 0.18, green: 0.15, blue: 0.20), // dunkles violettgrau
+                    Color(red: 0.20, green: 0.10, blue: 0.15)  // rot-violetter Touch
                 ],
-                startPoint: animateGradient ? .topLeading : .bottomLeading,
-                endPoint: animateGradient ? .bottomTrailing : .topTrailing
+                startPoint: animateGradient ? .topLeading : .bottomTrailing,
+                endPoint: animateGradient ? .bottomTrailing : .topLeading
             )
             .ignoresSafeArea()
             .onAppear {
                 withAnimation(
-                    .easeInOut(duration: 8)
+                    .easeInOut(duration: 10)
                     .repeatForever(autoreverses: true)
                 ) {
                     animateGradient.toggle()
                 }
             }
             
-            // Overlay gradient for depth
+            // Eleganter roter Glow-Effekt
             RadialGradient(
                 colors: [
-                    Color(red: 0.38, green: 0.35, blue: 0.48).opacity(0.3),
-                    Color.clear,
-                    Color(red: 0.18, green: 0.22, blue: 0.32).opacity(0.4)
+                    Color(red: 0.6, green: 0.1, blue: 0.15).opacity(0.4),
+                    Color.clear
                 ],
-                center: UnitPoint(x: 0.3, y: 0.2),
-                startRadius: 150,
+                center: UnitPoint(x: 0.4, y: 0.3),
+                startRadius: 100,
                 endRadius: 500
             )
+            .blendMode(.screen)
             .ignoresSafeArea()
             
-            // Subtle texture overlay
+            // Leichte Textur für Tiefe
             Rectangle()
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.01),
+                            Color.white.opacity(0.015),
                             Color.clear,
-                            Color.black.opacity(0.05)
+                            Color.black.opacity(0.08)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
+                .blendMode(.overlay)
                 .ignoresSafeArea()
-        }
-    }
-}
-
-// MARK: - Alternative Variants
-
-extension DynamicMusicBackground {
-    // Spotify-inspired variant
-    static var spotifyStyle: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.35, green: 0.45, blue: 0.40),
-                    Color(red: 0.25, green: 0.55, blue: 0.35),
-                    Color(red: 0.30, green: 0.40, blue: 0.35)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-        }
-    }
-    
-    // Elegant dark variant
-    static var elegantDark: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.22, green: 0.28, blue: 0.35),
-                    Color(red: 0.28, green: 0.22, blue: 0.38),
-                    Color(red: 0.18, green: 0.25, blue: 0.32)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            // Subtle highlight
-            RadialGradient(
-                colors: [
-                    Color.white.opacity(0.08),
-                    Color.clear
-                ],
-                center: UnitPoint(x: 0.7, y: 0.3),
-                startRadius: 100,
-                endRadius: 300
-            )
-            .ignoresSafeArea()
         }
     }
 }

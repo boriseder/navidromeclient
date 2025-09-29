@@ -7,6 +7,9 @@
 //  - Persistent disk cache for offline availability
 //  - Published state for immediate UI updates
 //
+//  CoverArtManager.swift
+//  Manages cover art loading with multi-level caching
+//  Responsibilities: Load/cache album and artist images, memory and disk cache
 
 import Foundation
 import SwiftUI
@@ -29,23 +32,23 @@ class CoverArtManager: ObservableObject {
         static let artistMemory: Int = 30 * 1024 * 1024 // 30MB
     }
     
+    @Published private(set) var cacheVersion = 0
+    private var albumCacheCount = 0  // ADD THIS
+    private var artistCacheCount = 0  // ADD THIS
+    
     // MARK: - Storage
     
     // Multi-size cache storage
     private let albumCache = NSCache<NSString, AlbumCoverArt>()
     private let artistCache = NSCache<NSString, AlbumCoverArt>()
-    
-    // Published state for immediate UI access
-    @Published private var albumImages: [String: UIImage] = [:]
-    @Published private var artistImages: [String: UIImage] = [:]
-    
+        
     // UI state management
     @Published private(set) var loadingStates: [String: Bool] = [:]
     @Published private(set) var errorStates: [String: String] = [:]
-    
+
     // MARK: - Dependencies
     
-    private weak var mediaService: MediaService?
+    private weak var service: UnifiedSubsonicService?
     private let persistentCache = PersistentImageCache.shared
     
     // MARK: - Concurrency Control
@@ -64,11 +67,11 @@ class CoverArtManager: ObservableObject {
         setupMemoryCache()
     }
     
-    func configure(mediaService: MediaService) {
-        self.mediaService = mediaService
-        print("CoverArtManager configured with MediaService")
+    func configure(service: UnifiedSubsonicService) {
+        self.service = service
+        print("CoverArtManager configured with UnifiedSubsonicService")
     }
-    
+
     private func setupMemoryCache() {
         albumCache.countLimit = CacheLimits.albumCount
         albumCache.totalCostLimit = CacheLimits.albumMemory
@@ -100,23 +103,13 @@ class CoverArtManager: ObservableObject {
     // MARK: - Image Retrieval
     
     func getAlbumImage(for albumId: String, size: Int) -> UIImage? {
-        return getCachedImage(
-            for: albumId,
-            from: albumImages,
-            cache: albumCache,
-            size: size
-        )
+        return getCachedImage(for: albumId, cache: albumCache, size: size)
     }
-    
+
     func getArtistImage(for artistId: String, size: Int) -> UIImage? {
-        return getCachedImage(
-            for: artistId,
-            from: artistImages,
-            cache: artistCache,
-            size: size
-        )
+        return getCachedImage(for: artistId, cache: artistCache, size: size)
     }
-    
+
     func getSongImage(for song: Song, size: Int) -> UIImage? {
         guard let albumId = song.albumId else { return nil }
         return getAlbumImage(for: albumId, size: size)
@@ -124,24 +117,16 @@ class CoverArtManager: ObservableObject {
     
     private func getCachedImage(
         for id: String,
-        from publishedImages: [String: UIImage],
         cache: NSCache<NSString, AlbumCoverArt>,
         size: Int
     ) -> UIImage? {
-        // Check published state first for immediate UI access
-        if let publishedImage = publishedImages[id] {
-            return scaleImageIfNeeded(publishedImage, to: size)
-        }
-        
-        // Fallback to memory cache
         let key = id as NSString
         if let coverArt = cache.object(forKey: key) {
             return coverArt.getImage(for: size)
         }
-        
         return nil
     }
-    
+
     // MARK: - Image Loading
     
     func loadAlbumImage(
@@ -260,7 +245,7 @@ class CoverArtManager: ObservableObject {
         cacheKey: String,
         storeAction: @escaping (UIImage) async -> Void
     ) async -> UIImage? {
-        guard let service = mediaService else {
+        guard let service = service else {
             await MainActor.run {
                 errorStates[requestKey] = "Media service not available"
             }
@@ -301,6 +286,9 @@ class CoverArtManager: ObservableObject {
     // MARK: - Image Storage
     
     private func storeAlbumImage(_ image: UIImage, forAlbumId albumId: String, size: Int) {
+        let key = albumId as NSString
+        let wasPresent = albumCache.object(forKey: key) != nil
+        
         storeImageInCache(
             image,
             forId: albumId,
@@ -310,11 +298,16 @@ class CoverArtManager: ObservableObject {
             type: "album"
         )
         
-        // Update published state for immediate UI access
-        albumImages[albumId] = image
+        if !wasPresent {
+            albumCacheCount += 1
+        }
+        cacheVersion += 1
     }
-    
+
     private func storeArtistImage(_ image: UIImage, forArtistId artistId: String, size: Int) {
+        let key = artistId as NSString
+        let wasPresent = artistCache.object(forKey: key) != nil
+        
         storeImageInCache(
             image,
             forId: artistId,
@@ -324,10 +317,12 @@ class CoverArtManager: ObservableObject {
             type: "artist"
         )
         
-        // Update published state for immediate UI access
-        artistImages[artistId] = image
+        if !wasPresent {
+            artistCacheCount += 1
+        }
+        cacheVersion += 1
     }
-    
+
     private func storeImageInCache(
         _ image: UIImage,
         forId id: String,
@@ -398,7 +393,7 @@ class CoverArtManager: ObservableObject {
         lastPreloadHash = currentHash
         
         currentPreloadTask = Task {
-            guard mediaService != nil else { return }
+            guard service != nil else { return }
             
             await withTaskGroup(of: Void.self) { group in
                 for (index, album) in albums.enumerated() {
@@ -427,7 +422,7 @@ class CoverArtManager: ObservableObject {
         lastPreloadHash = currentHash
         
         currentPreloadTask = Task {
-            guard mediaService != nil else { return }
+            guard service != nil else { return }
             
             await withTaskGroup(of: Void.self) { group in
                 for (index, artist) in artists.enumerated() {
@@ -500,13 +495,12 @@ class CoverArtManager: ObservableObject {
     func clearMemoryCache() {
         albumCache.removeAllObjects()
         artistCache.removeAllObjects()
+        albumCacheCount = 0
+        artistCacheCount = 0
         loadingStates.removeAll()
         errorStates.removeAll()
-        albumImages.removeAll()
-        artistImages.removeAll()
         persistentCache.clearCache()
-        
-        print("Cleared all image caches")
+        cacheVersion += 1
     }
     
     // MARK: - Diagnostics
@@ -515,7 +509,7 @@ class CoverArtManager: ObservableObject {
         let persistentStats = persistentCache.getCacheStats()
         
         return CoverArtCacheStats(
-            memoryCount: albumImages.count + artistImages.count,
+            memoryCount: albumCacheCount + artistCacheCount,
             diskCount: persistentStats.diskCount,
             diskSize: persistentStats.diskSize,
             activeRequests: loadingStates.count,
@@ -558,9 +552,9 @@ class CoverArtManager: ObservableObject {
         Multi-Size Cache Architecture:
         - Album Cache: \(CacheLimits.albumCount) entities, \(CacheLimits.albumMemory / 1024 / 1024)MB
         - Artist Cache: \(CacheLimits.artistCount) entities, \(CacheLimits.artistMemory / 1024 / 1024)MB
-        - Published Images: \(albumImages.count) albums, \(artistImages.count) artists
+        - Cache Version: \(cacheVersion)
         
-        Service: \(mediaService != nil ? "Available" : "Not Available")
+        Service: \(service != nil ? "Available" : "Not Available")
         """)
     }
 }
@@ -659,3 +653,4 @@ extension Album {
         self.displayArtist = displayArtist
     }
 }
+

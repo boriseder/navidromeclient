@@ -22,7 +22,7 @@ struct ServerEditView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @Environment(\.dismiss) private var dismiss
 
-    @StateObject private var connectionManager = ConnectionManager()
+    @StateObject private var connectionManager = ConnectionViewModel()
     @State private var showingSaveSuccess = false
     @State private var showingError = false
     @State private var showingOfflineWarning = false
@@ -135,7 +135,7 @@ struct ServerEditView: View {
 // MARK: - Supporting Views
 
 struct ConnectionStatusView: View {
-    @ObservedObject var connectionManager: ConnectionManager
+    @ObservedObject var connectionManager: ConnectionViewModel
 
     var body: some View {
         HStack {
@@ -156,7 +156,7 @@ struct ConnectionStatusView: View {
 }
 
 struct ServerHealthSection: View {
-    @ObservedObject var connectionManager: ConnectionManager
+    @ObservedObject var connectionManager: ConnectionViewModel
     
     var body: some View {
         Section("Connection Details") {

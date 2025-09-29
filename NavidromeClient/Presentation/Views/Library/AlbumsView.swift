@@ -51,7 +51,6 @@ struct AlbumsViewContent: View {
         NavigationStack {
             ZStack {
                 DynamicMusicBackground()
-                    .ignoresSafeArea()
 
                 if let state = currentState {
                     UnifiedStateView(
@@ -65,6 +64,9 @@ struct AlbumsViewContent: View {
                 }
             }
             .navigationTitle("Albums")
+            .navigationBarTitleDisplayMode(.automatic)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .searchable(text: $searchText, prompt: "Search albums...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -77,6 +79,15 @@ struct AlbumsViewContent: View {
             .task(priority: .background) {
                 if !displayedAlbums.isEmpty {
                     coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 200)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                    }
                 }
             }
             .navigationDestination(for: Album.self) { album in
@@ -117,7 +128,6 @@ struct AlbumsViewContent: View {
             }
         }
         .padding(.horizontal, DSLayout.screenPadding)
-        .padding(.top, DSLayout.tightGap)
     }
     
     // MARK: - Business Logic (unchanged)

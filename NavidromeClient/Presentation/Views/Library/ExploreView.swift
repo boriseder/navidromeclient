@@ -22,6 +22,9 @@ struct ExploreViewContent: View {
     @State private var hasAttemptedInitialLoad = false
     @State private var loadingCompleted = false
 
+    
+    @State private var dummySearch = ""
+
     private var hasContent: Bool {
         let result = switch networkMonitor.contentLoadingStrategy {
         case .online:
@@ -54,8 +57,7 @@ struct ExploreViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground.elegantDark
-                    .ignoresSafeArea()
+                DynamicMusicBackground()
                 
                     if let state = currentState {
                         UnifiedStateView(
@@ -71,7 +73,6 @@ struct ExploreViewContent: View {
                         contentView
                     }
             }
-            .navigationTitle("Explore your music")
             .task {
                 guard !hasAttemptedInitialLoad else { return }
                 hasAttemptedInitialLoad = true
@@ -88,6 +89,8 @@ struct ExploreViewContent: View {
                     coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), size: 200)
                 }
             }
+            .navigationTitle("Explore your music")
+            .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await exploreManager.loadExploreData()
@@ -101,7 +104,7 @@ struct ExploreViewContent: View {
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading) {
+            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
                 // UNIFIED: Consistent offline banner pattern
                 if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
                     OfflineReasonBanner(reason: reason)
@@ -115,12 +118,12 @@ struct ExploreViewContent: View {
                     offlineContent
                 }
             }
-            .padding(.top, DSLayout.elementGap)
         }
+        .padding(.horizontal, DSLayout.screenPadding)
     }
 
     private var onlineContent: some View {
-        LazyVStack(alignment: .leading) {
+        LazyVStack(spacing: DSLayout.elementGap) {
             WelcomeHeader(
                 username: appConfig.getCredentials()?.username ?? "User",
                 nowPlaying: playerVM.currentSong
@@ -164,9 +167,9 @@ struct ExploreViewContent: View {
                 )
             }
             
-            Color.clear.frame(height: DSLayout.miniPlayerHeight)
+            //Color.clear.frame(height: DSLayout.miniPlayerHeight)
         }
-        .padding(.horizontal, DSLayout.screenPadding)
+        .padding(.bottom, DSLayout.miniPlayerHeight)
     }
     
     private var offlineContent: some View {

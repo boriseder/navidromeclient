@@ -25,7 +25,21 @@ struct NavidromeClientApp: App {
     @StateObject private var coverArtManager = CoverArtManager.shared
     @StateObject private var exploreManager = ExploreManager.shared
     @StateObject private var favoritesManager = FavoritesManager.shared
+    
+    init() {
+        let appearance = UINavigationBarAppearance()
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white] // großer Title
 
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        
+        
+        let searchBarAppearance = UISearchBar.appearance()
+        searchBarAppearance.barTintColor = .red         // Hintergrund der SearchBar
+        searchBarAppearance.searchTextField.backgroundColor = .yellow // Textfeld-Hintergrund
+
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -92,14 +106,11 @@ struct NavidromeClientApp: App {
             downloadManager.configure(coverArtManager: coverArtManager)
             favoritesManager.configure(service: service)
             
-            let mediaService = service.getMediaService()
-            coverArtManager.configure(mediaService: mediaService)
+            coverArtManager.configure(service: service)  // FIXED
             exploreManager.configure(service: service)
             MusicLibraryManager.shared.configure(service: service)
         }
-        
     }
-    
     private func initializeServicesAfterLogin(credentials: ServerCredentials) async {
         
         await MainActor.run {
@@ -209,10 +220,8 @@ struct NavidromeClientApp: App {
             downloadManager.configure(coverArtManager: coverArtManager)
             favoritesManager.configure(service: unifiedService)
 
-            //  Configure CoverArtManager with focused MediaService
-            let mediaService = unifiedService.getMediaService()
-            coverArtManager.configure(mediaService: mediaService)
-                        
+            coverArtManager.configure(service: unifiedService)
+
             //  Configure HomeScreenManager
             exploreManager.configure(service: unifiedService)
             

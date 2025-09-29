@@ -1,10 +1,7 @@
 //
-//  PlayerViewModel.swift - FIXED: Remove Duplicate Cover Art System
+//  PlayerViewModel.swift - FIXED: Pure Facade Pattern
 //  NavidromeClient
 //
-//   FIXED: Eliminated duplicate cover art management
-//   CLEAN: Single source of truth via CoverArtManager
-//   REMOVED: Redundant coverArt property and loadCoverArt method
 //
 
 import Foundation
@@ -14,11 +11,12 @@ import MediaPlayer
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
+    private var service: UnifiedSubsonicService?
+    
     // MARK: - Published Properties
     @Published var isPlaying = false
     @Published var currentSong: Song?
     @Published var currentAlbumId: String?
-    // REMOVED: @Published var coverArt: UIImage?
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
     @Published var playbackProgress: Double = 0
@@ -43,8 +41,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     var currentPlaylist: [Song] { playlistManager.currentPlaylist }
     var currentIndex: Int { playlistManager.currentIndex }
     
-    private weak var mediaService: MediaService?
-        
     let downloadManager: DownloadManager
     private let audioSessionManager = AudioSessionManager.shared
     private weak var coverArtManager: CoverArtManager?
@@ -60,24 +56,19 @@ class PlayerViewModel: NSObject, ObservableObject {
 
     // MARK: - Initialization
     init(service: UnifiedSubsonicService? = nil) {
-        // Access shared instance from main actor context
         self.downloadManager = DownloadManager.shared
-        
-        if let service = service {
-            self.mediaService = service.getMediaService()
-        }
+        self.service = service
         
         super.init()
         
         setupNotifications()
         configureAudioSession()
     }
+    
     // MARK: - Thread-safe deinit
     deinit {
-        // Cancel ongoing tasks first
         currentPlayTask?.cancel()
         
-        // Clean up observers synchronously
         if let observer = errorObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -85,7 +76,6 @@ class PlayerViewModel: NSObject, ObservableObject {
             NotificationCenter.default.removeObserver($0)
         }
         
-        // Schedule cleanup on main actor without capturing self
         let player = self.player
         let timeObserver = self.timeObserver
         let playerItemEndObserver = self.playerItemEndObserver
@@ -108,41 +98,30 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     // MARK: - Service Management
     func updateService(_ service: UnifiedSubsonicService?) {
-        if let service = service {
-            self.mediaService = service.getMediaService()
-            print("PlayerViewModel: MediaService updated")
-        } else {
-            self.mediaService = nil
-            print("⚠️ PlayerViewModel: MediaService removed")
-        }
-    }
-    
-    func configure(mediaService: MediaService) {
-        self.mediaService = mediaService
-        print("PlayerViewModel: Configured with focused MediaService directly")
+        self.service = service
+        print("PlayerViewModel configured with UnifiedSubsonicService facade")
     }
 
     func getOptimalStreamURL(for songId: String) -> URL? {
-        guard let mediaService = mediaService else {
-            print("❌ MediaService not available for optimal stream URL")
+        guard let service = service else {
+            print("Service not available")
             return nil
         }
         
         let connectionQuality: ConnectionService.ConnectionQuality = .good
         
-        return mediaService.getOptimalStreamURL(
+        return service.getOptimalStreamURL(
             for: songId,
             preferredBitRate: nil,
             connectionQuality: connectionQuality
         )
     }
-        
+
     // MARK: - Cover Art Management
     func updateCoverArtService(_ newCoverArtManager: CoverArtManager) {
         self.coverArtManager = newCoverArtManager
     }
     
-
     // MARK: - Playback Methods
     func play(song: Song) async {
         await setPlaylist([song], startIndex: 0, albumId: song.albumId)
@@ -160,39 +139,38 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func getSimpleStreamURL(for song: Song) async -> URL? {
-        guard let mediaService = mediaService else {
-            print("No MediaService available")
+        guard let service = service else {
+            print("No service available")
             return nil
         }
         
         print("Requesting optimal stream URL for song: \(song.id)")
         
-        // Use transcoded stream without timeout wrapper
-        return await mediaService.getOptimalStreamURL(
+        return service.getOptimalStreamURL(
             for: song.id,
             preferredBitRate: 192,
             connectionQuality: .good
         )
     }
+    
     private func playCurrent() async {
-        print("🎵 playCurrent called")
+        print("playCurrent called")
         
-        // Simple cancellation
         currentPlayTask?.cancel()
         
         currentPlayTask = Task {
             guard !Task.isCancelled else {
-                print("❌ Task cancelled before start")
+                print("Task cancelled before start")
                 return
             }
             
             guard let song = playlistManager.currentSong else {
-                print("❌ No current song")
+                print("No current song")
                 await MainActor.run { stop() }
                 return
             }
             
-            print("🎵 Processing song: \(song.title)")
+            print("Processing song: \(song.title)")
             
             await MainActor.run {
                 currentSong = song
@@ -204,14 +182,13 @@ class PlayerViewModel: NSObject, ObservableObject {
                 isLoading = true
             }
             
-            print("🔍 Getting stream URL...")
+            print("Getting stream URL...")
             
-            // Simple stream URL without timeout wrapper
             if let streamURL = await getSimpleStreamURL(for: song) {
                 print("Got stream URL: \(streamURL)")
                 await playFromURL(streamURL)
             } else {
-                print("❌ Failed to get stream URL")
+                print("Failed to get stream URL")
                 await MainActor.run {
                     errorMessage = "No playback source available"
                     isLoading = false
@@ -223,33 +200,14 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func getStreamURL(for song: Song) async -> URL? {
-        guard let mediaService = mediaService else {
-            print("No MediaService available for streaming")
+        guard let service = service else {
+            print("No service available")
             return nil
         }
         
-        // Add timeout and retry logic
-        for attempt in 1...3 {
-            do {
-                return try await withTimeout(seconds: 10) {
-                    return await mediaService.getOptimalStreamURL(
-                        for: song.id,
-                        preferredBitRate: 256,
-                        connectionQuality: .good
-                    )
-                }
-            } catch {
-                print("Attempt \(attempt) failed: \(error)")
-                if attempt < 3 {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
-                }
-            }
-        }
-        
-        return nil
+        return service.streamURL(for: song.id)
     }
 
-    // Helper function for timeout
     private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T?) async throws -> T? {
         return try await withThrowingTaskGroup(of: T?.self) { group in
             group.addTask {
@@ -270,16 +228,14 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
     }
 
-
     private func playFromURL(_ url: URL) async {
-        print("🎮 playFromURL called with: \(url)")
+        print("playFromURL called with: \(url)")
         
         guard currentPlayTask?.isCancelled == false else {
-            print("❌ playFromURL cancelled")
+            print("playFromURL cancelled")
             return
         }
                 
-        // Preload and validate
         guard await preloadAudioBuffer(for: url) else {
             await MainActor.run {
                 errorMessage = "Cannot load audio file"
@@ -289,7 +245,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
         
         await MainActor.run {
-            // Clean up old player first
             if let observer = timeObserver {
                 player?.removeTimeObserver(observer)
                 timeObserver = nil
@@ -300,12 +255,10 @@ class PlayerViewModel: NSObject, ObservableObject {
                 playerItemEndObserver = nil
             }
             
-            // Stop current player gracefully
             player?.pause()
             
-            // Brief pause to allow audio system to stabilize
             Task {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                try? await Task.sleep(nanoseconds: 100_000_000)
                 
                 await MainActor.run {
                     player?.replaceCurrentItem(with: nil)
@@ -314,7 +267,6 @@ class PlayerViewModel: NSObject, ObservableObject {
                     player = AVPlayer(playerItem: item)
                     player?.volume = volume
                     
-                    // Wait for player to be ready
                     player?.automaticallyWaitsToMinimizeStalling = true
                     
                     isPlaying = true
@@ -328,11 +280,11 @@ class PlayerViewModel: NSObject, ObservableObject {
                     updateNowPlayingInfo()
                    
                     logStreamDiagnostics(for: url)
-
                 }
             }
         }
     }
+    
     private func preloadAudioBuffer(for url: URL) async -> Bool {
         let asset = AVURLAsset(url: url)
         
@@ -345,12 +297,11 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
     }
     
-    
     // MARK: - Download Status Methods
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         let isDownloaded = downloadManager.isAlbumDownloaded(albumId)
         if isDownloaded {
-            print("📱 Album \(albumId) is available offline")
+            print("Album \(albumId) is available offline")
         }
         return isDownloaded
     }
@@ -373,33 +324,33 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     // MARK: - Media Quality Selection
     func setPreferredStreamingQuality(_ bitRate: Int) {
-        print("🎵 Preferred streaming quality set to \(bitRate) kbps")
+        print("Preferred streaming quality set to \(bitRate) kbps")
     }
     
     func getCurrentMediaInfo() async -> MediaInfo? {
         guard let song = currentSong,
-              let mediaService = mediaService else {
-            print("❌ MediaService not available for media info")
+              let service = service else {
+            print("Service not available for media info")
             return nil
         }
         
         do {
-            return try await mediaService.getMediaInfo(for: song.id)
+            return try await service.getMediaInfo(for: song.id)
         } catch {
-            print("⚠️ Failed to get media info: \(error)")
+            print("Failed to get media info: \(error)")
             return nil
         }
     }
     
     // MARK: - Service Health Monitoring
     func getMediaServiceDiagnostics() -> String {
-        guard let mediaService = mediaService else {
-            return "❌ No MediaService configured"
+        guard let service = service else {
+            return "No service configured"
         }
         
-        let stats = mediaService.getCacheStats()
+        let stats = service.getCoverArtCacheStats()
         return """
-        📊 MEDIA SERVICE DIAGNOSTICS:
+        MEDIA SERVICE DIAGNOSTICS:
         - Service: Available
         - Cache: \(stats.summary)
         - Stream Quality: Adaptive
@@ -438,13 +389,11 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func cleanupPlayer() {
-        print("🧹 Starting complete player cleanup")
+        print("Starting complete player cleanup")
         
-        // FIXED: Cancel current task first
         currentPlayTask?.cancel()
         currentPlayTask = nil
         
-        // FIXED: Thread-safe observer cleanup
         Task { @MainActor in
             if let observer = timeObserver, let player = player {
                 player.removeTimeObserver(observer)
@@ -458,9 +407,8 @@ class PlayerViewModel: NSObject, ObservableObject {
                 print("Player item observer removed")
             }
             
-            // FIXED: Proper cleanup sequence
             player?.pause()
-            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms grace period
+            try? await Task.sleep(nanoseconds: 100_000_000)
             player?.replaceCurrentItem(with: nil)
             player = nil
             print("Player cleared")
@@ -565,10 +513,8 @@ class PlayerViewModel: NSObject, ObservableObject {
             let audioError = AudioError.playbackFailed(underlying: error)
             audioErrors.append(audioError)
             
-            // Log structured error
-            print("🔴 Audio Error: \(audioError.localizedDescription)")
+            print("Audio Error: \(audioError.localizedDescription)")
             
-            // Attempt recovery based on error type
             attemptErrorRecovery(for: audioError)
         }
     }
@@ -578,9 +524,9 @@ class PlayerViewModel: NSObject, ObservableObject {
         case .playbackFailed(let underlying):
             if let nsError = underlying as NSError? {
                 switch nsError.code {
-                case -12864: // Common FigFilePlayer error
+                case -12864:
                     handleStreamingError()
-                case -11819: // Cannot decode
+                case -11819:
                     handleCodecError()
                 default:
                     handleGenericPlaybackError()
@@ -596,16 +542,14 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func handleStreamingError() {
-        print("🔄 Attempting to recover from streaming error")
+        print("Attempting to recover from streaming error")
         
-        // Try to use local file if available
         if let song = currentSong,
            let localURL = downloadManager.getLocalFileURL(for: song.id) {
             Task {
                 await playFromURL(localURL)
             }
         } else {
-            // Fallback: skip to next song
             Task {
                 await playNext()
             }
@@ -613,54 +557,54 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func handleCodecError() {
-        print("🔄 Codec error - skipping to next song")
+        print("Codec error - skipping to next song")
         Task {
             await playNext()
         }
     }
     
     private func handleGenericPlaybackError() {
-        print("🔄 Generic playback error - attempting restart")
+        print("Generic playback error - attempting restart")
         
-        // Simple restart strategy
         if let song = currentSong {
             Task {
                 do {
-                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                    try await Task.sleep(nanoseconds: 1_000_000_000)
                     await play(song: song)
                 } catch {
-                    print("⚠️ Restart failed with error: \(error)")
-                }            }
+                    print("Restart failed with error: \(error)")
+                }
+            }
         }
     }
     
     private func handleStreamInterruption() {
-        print("🔄 Stream interrupted - pausing playback")
+        print("Stream interrupted - pausing playback")
         pause()
     }
     
     private func handleAudioSessionError() {
-        print("🔄 Audio session error - reconfiguring")
+        print("Audio session error - reconfiguring")
         audioSessionManager.setupAudioSession()
     }
 
     // MARK: - Playback Control Methods
     func togglePlayPause() {
         guard let player = player else {
-            print("❌ No player available for togglePlayPause")
+            print("No player available for togglePlayPause")
             return
         }
         
-        print("🎵 togglePlayPause called - current isPlaying: \(isPlaying)")
+        print("togglePlayPause called - current isPlaying: \(isPlaying)")
         
         if isPlaying {
             player.pause()
             isPlaying = false
-            print("⏸️ Player paused")
+            print("Player paused")
         } else {
             player.play()
             isPlaying = true
-            print("▶️ Player playing")
+            print("Player playing")
         }
         
         updateNowPlayingInfo()
@@ -668,7 +612,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     func pause() {
-        print("⏸️ Pause called")
+        print("Pause called")
         player?.pause()
         isPlaying = false
         updateNowPlayingInfo()
@@ -676,7 +620,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     func resume() {
-        print("▶️ Resume called")
+        print("Resume called")
         player?.play()
         isPlaying = true
         updateNowPlayingInfo()
@@ -684,7 +628,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     func stop() {
-        print("⏹️ Stop called")
+        print("Stop called")
         cleanupPlayer()
         currentSong = nil
         currentTime = 0
@@ -706,14 +650,14 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     func playNext() async {
-        print("⏭️ playNext called")
+        print("playNext called")
         currentPlayTask?.cancel()
         playlistManager.advanceToNext()
         await playCurrent()
     }
     
     func playPrevious() async {
-        print("⏮️ playPrevious called")
+        print("playPrevious called")
         currentPlayTask?.cancel()
         playlistManager.moveToPrevious(currentTime: currentTime)
         await playCurrent()
@@ -744,7 +688,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         player?.volume = volume
     }
     
-    // MARK: - Now Playing Info - FIXED: Use CoverArtManager
+    // MARK: - Now Playing Info
     private func updateNowPlayingInfo() {
         guard let song = currentSong else {
             audioSessionManager.clearNowPlayingInfo()
@@ -753,7 +697,6 @@ class PlayerViewModel: NSObject, ObservableObject {
             return
         }
         
-        // Only fetch cover art if album changed
         let albumId = currentAlbumId ?? ""
         if albumId != cachedNowPlayingAlbumId {
             cachedNowPlayingCoverArt = coverArtManager?.getAlbumImage(for: albumId, size: 300)
@@ -781,7 +724,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     @objc private func handleAudioInterruptionEnded() {
-        // Don't auto-resume, user needs to manually resume
     }
     
     @objc private func handleAudioInterruptionEndedShouldResume() {
@@ -831,94 +773,8 @@ class PlayerViewModel: NSObject, ObservableObject {
     func handleRemoteSkipBackward(interval: TimeInterval) {
         skipBackward(seconds: interval)
     }
-}
-
-extension PlayerViewModel {
-    
-    // MARK: - Queue Navigation
-    
-    /// Jump to a specific song in the queue
-    func jumpToSong(at index: Int) async {
-        guard playlistManager.currentPlaylist.indices.contains(index) else {
-            print("⚠️ Cannot jump to invalid queue index: \(index)")
-            return
-        }
-        
-        playlistManager.jumpToSong(at: index)
-        await playCurrent()
-    }
-    
-    // MARK: - Queue Management
-    
-    /// Remove songs from the queue
-    func removeQueueSongs(at indices: [Int]) async {
-        guard !indices.isEmpty else { return }
-        
-        let wasCurrentSongRemoved = indices.contains(playlistManager.currentIndex)
-        playlistManager.removeSongs(at: indices)
-        
-        // If current song was removed, play the new current song
-        if wasCurrentSongRemoved {
-            if playlistManager.currentPlaylist.isEmpty {
-                stop()
-            } else {
-                await playCurrent()
-            }
-        }
-    }
-    
-    /// Move songs within the queue
-    func moveQueueSongs(from sourceIndices: [Int], to destinationIndex: Int) async {
-        guard !sourceIndices.isEmpty else { return }
-        
-        let wasCurrentSongMoved = sourceIndices.contains(playlistManager.currentIndex)
-        playlistManager.moveSongs(from: sourceIndices, to: destinationIndex)
-        
-        // Update current song if it was moved
-        if wasCurrentSongMoved && !playlistManager.currentPlaylist.isEmpty {
-            await playCurrent()
-        }
-    }
-    
-    /// Shuffle upcoming songs in the queue
-    func shuffleUpNext() async {
-        playlistManager.shuffleUpNext()
-        objectWillChange.send()
-    }
-    
-    /// Clear all upcoming songs from the queue
-    func clearQueue() async {
-        playlistManager.clearUpNext()
-        objectWillChange.send()
-    }
-    
-    /// Add songs to the end of the queue
-    func addToQueue(_ songs: [Song]) async {
-        playlistManager.addToQueue(songs)
-        objectWillChange.send()
-    }
-    
-    /// Insert songs to play next
-    func playNext(_ songs: [Song]) async {
-        playlistManager.playNext(songs)
-        objectWillChange.send()
-    }
-    
-    // MARK: - Queue Information
-    func getQueueStats() -> QueueStats {
-    return QueueStats(
-        totalSongs: playlistManager.currentPlaylist.count,
-        currentIndex: playlistManager.currentIndex,
-        upNextCount: playlistManager.getUpNextSongs().count,
-        totalDuration: playlistManager.getTotalDuration(),
-        remainingDuration: playlistManager.getRemainingDuration(),
-        isShuffling: playlistManager.isShuffling,
-        repeatMode: playlistManager.repeatMode
-    )
-}
     
     private func logStreamDiagnostics(for url: URL) {
-        print("### logStreamDiagnostics ###")
         print("Stream URL: \(url)")
         print("Host: \(url.host ?? "unknown")")
         print("Path: \(url.path)")
@@ -931,7 +787,87 @@ extension PlayerViewModel {
     }
 }
 
+extension PlayerViewModel {
+    
+    // MARK: - Queue Navigation
+    
+    func jumpToSong(at index: Int) async {
+        guard playlistManager.currentPlaylist.indices.contains(index) else {
+            print("Cannot jump to invalid queue index: \(index)")
+            return
+        }
+        
+        playlistManager.jumpToSong(at: index)
+        await playCurrent()
+    }
+    
+    // MARK: - Queue Management
+    
+    func removeQueueSongs(at indices: [Int]) async {
+        guard !indices.isEmpty else { return }
+        
+        let wasCurrentSongRemoved = indices.contains(playlistManager.currentIndex)
+        playlistManager.removeSongs(at: indices)
+        
+        if wasCurrentSongRemoved {
+            if playlistManager.currentPlaylist.isEmpty {
+                stop()
+            } else {
+                await playCurrent()
+            }
+        }
+    }
+    
+    func moveQueueSongs(from sourceIndices: [Int], to destinationIndex: Int) async {
+        guard !sourceIndices.isEmpty else { return }
+        
+        let wasCurrentSongMoved = sourceIndices.contains(playlistManager.currentIndex)
+        playlistManager.moveSongs(from: sourceIndices, to: destinationIndex)
+        
+        if wasCurrentSongMoved && !playlistManager.currentPlaylist.isEmpty {
+            await playCurrent()
+        }
+    }
+    
+    func shuffleUpNext() async {
+        playlistManager.shuffleUpNext()
+        objectWillChange.send()
+    }
+    
+    func clearQueue() async {
+        playlistManager.clearUpNext()
+        objectWillChange.send()
+    }
+    
+    func addToQueue(_ songs: [Song]) async {
+        playlistManager.addToQueue(songs)
+        objectWillChange.send()
+    }
+    
+    func playNext(_ songs: [Song]) async {
+        playlistManager.playNext(songs)
+        objectWillChange.send()
+    }
+    
+    // MARK: - Queue Information
+    func getQueueStats() -> QueueStats {
+        return QueueStats(
+            totalSongs: playlistManager.currentPlaylist.count,
+            currentIndex: playlistManager.currentIndex,
+            upNextCount: playlistManager.getUpNextSongs().count,
+            totalDuration: playlistManager.getTotalDuration(),
+            remainingDuration: playlistManager.getRemainingDuration(),
+            isShuffling: playlistManager.isShuffling,
+            repeatMode: playlistManager.repeatMode
+        )
+    }
+}
+
 // MARK: - Supporting Types
+enum RepeatMode: String, Codable, CaseIterable {
+    case off, all, one
+}
+
 
 struct QueueStats {
     let totalSongs: Int
@@ -966,7 +902,6 @@ struct QueueStats {
     }
 }
 
-// Add structured error types
 enum AudioError: Error, LocalizedError {
     case playbackFailed(underlying: Error)
     case streamInterrupted
@@ -999,9 +934,6 @@ enum AudioError: Error, LocalizedError {
         }
     }
 }
-
-
-// MARK: - Queue Actions for Context Menus
 
 struct QueueContextActions {
     let playerVM: PlayerViewModel
