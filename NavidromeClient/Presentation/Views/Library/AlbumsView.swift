@@ -100,8 +100,8 @@ struct AlbumsViewContent: View {
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
-                
+            LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
+
                 if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
                     OfflineReasonBanner(reason: reason)
                         .padding(.bottom, DSLayout.elementPadding)

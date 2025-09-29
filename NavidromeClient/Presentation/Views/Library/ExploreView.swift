@@ -72,6 +72,7 @@ struct ExploreViewContent: View {
                     } else {
                         contentView
                     }
+
             }
             .task {
                 guard !hasAttemptedInitialLoad else { return }
@@ -91,6 +92,16 @@ struct ExploreViewContent: View {
             }
             .navigationTitle("Explore your music")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Image(systemName: "person.crop.circle.fill")
+                    }
+                }
+            }
+
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await exploreManager.loadExploreData()
@@ -119,7 +130,8 @@ struct ExploreViewContent: View {
                 }
             }
         }
-        .padding(.horizontal, DSLayout.screenPadding)
+        .padding(.horizontal, DSLayout.screenPadding)  // ← Verschiebe hier rein
+        .padding(.bottom, DSLayout.miniPlayerHeight)   // ← Für beide cases
     }
 
     private var onlineContent: some View {
@@ -169,7 +181,6 @@ struct ExploreViewContent: View {
             
             //Color.clear.frame(height: DSLayout.miniPlayerHeight)
         }
-        .padding(.bottom, DSLayout.miniPlayerHeight)
     }
     
     private var offlineContent: some View {
@@ -188,9 +199,7 @@ struct ExploreViewContent: View {
                 )
             }
             
-            Color.clear.frame(height: DSLayout.miniPlayerHeight)
         }
-        .padding(.horizontal, DSLayout.screenPadding)
     }
     
     // MARK: - Business Logic (unchanged)
