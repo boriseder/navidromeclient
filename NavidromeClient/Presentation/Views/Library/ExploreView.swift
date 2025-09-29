@@ -54,7 +54,7 @@ struct ExploreViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground()
+                DynamicMusicBackground.elegantDark
                     .ignoresSafeArea()
                 
                     if let state = currentState {
