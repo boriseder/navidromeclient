@@ -19,11 +19,6 @@ struct FullScreenPlayerView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
     @State private var showingQueue = false
-    
-    // Add cached cover art state
-    @State private var cachedRegularCoverArt: UIImage?
-    @State private var cachedHighResCoverArt: UIImage?
-    @State private var cachedAlbumId: String?
 
     var body: some View {
         GeometryReader { geometry in
@@ -33,9 +28,12 @@ struct FullScreenPlayerView: View {
                         .padding(.horizontal, 20)
                     Spacer(minLength: 30)
                     
-                    SpotifyAlbumArt(cover: cachedHighResCoverArt ?? cachedRegularCoverArt, screenWidth: geometry.size.width)
-                        .scaleEffect(isDragging ? 0.95 : 1.0)
-                        .animation(.spring(response: 0.3), value: isDragging)
+                    SpotifyAlbumArt(
+                        cover: highResCover ?? regularCover,
+                        screenWidth: geometry.size.width
+                    )
+                    .scaleEffect(isDragging ? 0.95 : 1.0)
+                    .animation(.spring(response: 0.3), value: isDragging)
 
                     Spacer(minLength: 20)
 
@@ -52,14 +50,18 @@ struct FullScreenPlayerView: View {
                     MainControls(playerVM: playerVM)
                     
                     Spacer()
-                    BottomControls(playerVM: playerVM, audioSessionManager: audioSessionManager, screenWidth: geometry.size.width)
+                    BottomControls(
+                        playerVM: playerVM,
+                        audioSessionManager: audioSessionManager,
+                        screenWidth: geometry.size.width
+                    )
                 }
                 .frame(maxWidth: geometry.size.width*0.95, maxHeight: geometry.size.height*0.95)
                 .padding(.horizontal, 10)
                 .padding(.top, 70)
                 .padding(.bottom, 20)
                 .background {
-                    SpotifyBackground(image: cachedHighResCoverArt ?? cachedRegularCoverArt)
+                    SpotifyBackground(image: highResCover ?? regularCover)
                 }
             }
             .ignoresSafeArea(.container, edges: [.top, .bottom])
@@ -73,30 +75,20 @@ struct FullScreenPlayerView: View {
                 .environmentObject(playerVM)
                 .environmentObject(coverArtManager)
         }
-        .onAppear {
-            updateCoverArtCache()
-        }
-        .onChange(of: playerVM.currentSong?.albumId) { _, _ in
-            updateCoverArtCache()
+    }
+    
+    private var highResCover: UIImage? {
+        playerVM.currentSong?.albumId.flatMap { albumId in
+            coverArtManager.getAlbumImage(for: albumId, size: 800)
         }
     }
     
-    private func updateCoverArtCache() {
-        guard let albumId = playerVM.currentSong?.albumId else {
-            cachedRegularCoverArt = nil
-            cachedHighResCoverArt = nil
-            cachedAlbumId = nil
-            return
+    private var regularCover: UIImage? {
+        playerVM.currentSong?.albumId.flatMap { albumId in
+            coverArtManager.getAlbumImage(for: albumId, size: 300)
         }
-        
-        guard albumId != cachedAlbumId else { return }
-        
-        cachedRegularCoverArt = coverArtManager.getAlbumImage(for: albumId, size: 300)
-        cachedHighResCoverArt = coverArtManager.getAlbumImage(for: albumId, size: 800)
-        cachedAlbumId = albumId
     }
     
-    // Keep existing gesture and other methods unchanged
     private var dismissGesture: some Gesture {
         DragGesture()
             .onChanged { value in
@@ -117,6 +109,8 @@ struct FullScreenPlayerView: View {
             }
     }
 }
+
+// All other structs (SpotifyBackground, TopBar, SpotifyAlbumArt, etc.) remain unchanged
 // MARK: - Background unchanged
 struct SpotifyBackground: View {
     let image: UIImage?
