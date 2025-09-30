@@ -6,6 +6,20 @@
 //   CLEAN: Proper UnifiedSubsonicService initialization pattern
 //   SAFE: Handles missing credentials gracefully
 //
+// Service initialization dependency graph:
+//
+// UnifiedSubsonicService (created in ServiceContainer)
+//   ↓
+// ├─→ CoverArtManager.configure(service)
+// ├─→ SongManager.configure(service)
+// ├─→ DownloadManager.configure(service)
+// │   └─→ DownloadManager.configure(coverArtManager)
+// ├─→ FavoritesManager.configure(service)
+// ├─→ ExploreManager.configure(service)
+// └─→ MusicLibraryManager.configure(service)
+//
+// NavidromeViewModel.updateService(service)
+
 
 import SwiftUI
 
@@ -96,8 +110,15 @@ struct NavidromeClientApp: App {
             return
         }
         
+        print("🚀 Starting service initialization...")
+        print("  Configuration status: \(appConfig.isConfigured)")
+        print("  Credentials available: \(appConfig.getCredentials() != nil)")
+        
         await serviceContainer.initializeServices(with: appConfig.getCredentials())
         await configureViewModelsWithServices()
+        
+        print("✅ Service initialization complete")
+        print("  Services ready: \(appConfig.areServicesReady)")
     }
     
     private func configureInitialDependencies() {
@@ -106,22 +127,44 @@ struct NavidromeClientApp: App {
     }
     
     private func configureViewModelsWithServices() async {
-        guard let service = serviceContainer.unifiedService else { return }
+        guard let service = serviceContainer.unifiedService else {
+            print("❌ Cannot configure: No service available")
+            return
+        }
+        
+        print("🔧 Starting service configuration in dependency order...")
         
         await MainActor.run {
-            navidromeVM.updateService(service)
+            // Phase 1: Independent services (no dependencies)
+            coverArtManager.configure(service: service)
+            print("  ✓ CoverArtManager configured")
             
+            // Phase 2: Services that depend on Phase 1
             songManager.configure(service: service)
-
+            print("  ✓ SongManager configured")
+            
+            // Phase 3: Services with multiple dependencies
             downloadManager.configure(service: service)
             downloadManager.configure(coverArtManager: coverArtManager)
-            favoritesManager.configure(service: service)
+            print("  ✓ DownloadManager configured")
             
-            coverArtManager.configure(service: service)  // FIXED
+            favoritesManager.configure(service: service)
+            print("  ✓ FavoritesManager configured")
+            
             exploreManager.configure(service: service)
+            print("  ✓ ExploreManager configured")
+            
             MusicLibraryManager.shared.configure(service: service)
+            print("  ✓ MusicLibraryManager configured")
+            
+            // Phase 4: ViewModels last
+            navidromeVM.updateService(service)
+            print("  ✓ NavidromeViewModel configured")
+            
+            print("✅ All services configured successfully")
         }
     }
+    
     private func initializeServicesAfterLogin(credentials: ServerCredentials) async {
         
         await MainActor.run {

@@ -14,17 +14,29 @@
 		A1D5531C2E5E746B00317006 /* Exceptions for "NavidromeClient" folder in "NavidromeClient" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/Utils/TaskHelpers.swift,
 				Info.plist,
 			);
 			target = A1D552D92E5E6BDB00317006 /* NavidromeClient */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		A12ADC7F2E8BB244007F0727 /* Exceptions for "NavidromeClient" folder in "Copy Bundle Resources" phase from "NavidromeClient" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = A1D552D82E5E6BDB00317006 /* Resources */;
+			membershipExceptions = (
+				Core/Utils/TaskHelpers.swift,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A1D552DC2E5E6BDB00317006 /* NavidromeClient */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				A1D5531C2E5E746B00317006 /* Exceptions for "NavidromeClient" folder in "NavidromeClient" target */,
+				A12ADC7F2E8BB244007F0727 /* Exceptions for "NavidromeClient" folder in "Copy Bundle Resources" phase from "NavidromeClient" target */,
 			);
 			path = NavidromeClient;
 			sourceTree = "<group>";

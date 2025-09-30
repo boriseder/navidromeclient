@@ -11,8 +11,10 @@ final class AppConfig: ObservableObject {
     static let shared = AppConfig()
     
     @Published var isConfigured = false
-    @Published private(set) var isInitializingServices = false // New centralized state
+    @Published private(set) var isInitializingServices = false  // Already exists
     private var credentials: ServerCredentials?
+
+    private var hasInitializedServices = false
 
     private init() {
         loadCredentials()
@@ -51,6 +53,15 @@ final class AppConfig: ObservableObject {
     
     func setInitializingServices(_ isInitializing: Bool) {
         isInitializingServices = isInitializing
+        
+        if !isInitializing {
+            hasInitializedServices = true
+            print("✅ Service initialization completed")
+        }
+    }
+    
+    var areServicesReady: Bool {
+        isConfigured && !isInitializingServices && hasInitializedServices
     }
 
     func getCredentials() -> ServerCredentials? {

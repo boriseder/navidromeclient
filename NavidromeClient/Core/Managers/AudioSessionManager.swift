@@ -17,7 +17,7 @@ class AudioSessionManager: NSObject, ObservableObject {
     @Published var isHeadphonesConnected = false
     @Published var audioRoute: String = ""
     
-    // Thread-safe observer management
+    private let observerQueue = DispatchQueue(label: "audio.observers", attributes: .concurrent)
     private var audioObservers: [NSObjectProtocol] = []
 
     private let audioSession = AVAudioSession.sharedInstance()
@@ -41,41 +41,16 @@ class AudioSessionManager: NSObject, ObservableObject {
     // MARK: - Cleanup
 
     func performCleanup() {
-        // Observer cleanup - NotificationCenter is thread-safe
-        for observer in audioObservers {
-            NotificationCenter.default.removeObserver(observer)
+        observerQueue.async(flags: .barrier) {
+            let observers = self.audioObservers
+            self.audioObservers.removeAll()
+            
+            DispatchQueue.main.async {
+                observers.forEach { NotificationCenter.default.removeObserver($0) }
+            }
         }
-        audioObservers.removeAll()
-
-        // Command center cleanup - safe from any thread
-        let commandCenter = MPRemoteCommandCenter.shared()
-        let commands = [
-            commandCenter.playCommand,
-            commandCenter.pauseCommand,
-            commandCenter.togglePlayPauseCommand,
-            commandCenter.nextTrackCommand,
-            commandCenter.previousTrackCommand,
-            commandCenter.changePlaybackPositionCommand,
-            commandCenter.skipForwardCommand,
-            commandCenter.skipBackwardCommand
-        ]
-        
-        for command in commands {
-            command.isEnabled = false
-            command.removeTarget(nil)
-        }
-        
-        // Audio session cleanup - use detached task
-        Task.detached {
-            try? AVAudioSession.sharedInstance().setActive(
-                false,
-                options: .notifyOthersOnDeactivation
-            )
-        }
-        
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
-    
+
     // MARK: - Audio Session Setup
     
     func setupAudioSession() {

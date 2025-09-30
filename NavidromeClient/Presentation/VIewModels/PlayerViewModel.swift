@@ -107,13 +107,15 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func playCurrent() async {
-        print("playCurrent called")
-        
+        // Cancel previous task
         currentPlayTask?.cancel()
+        currentPlayTask = nil
         
-        currentPlayTask = Task {
+        // Create new task
+        let task = Task {
+            // Early cancellation check
             guard !Task.isCancelled else {
-                print("Task cancelled before start")
+                print("⚠️ playCurrent cancelled before start")
                 return
             }
             
@@ -133,9 +135,23 @@ class PlayerViewModel: NSObject, ObservableObject {
                 isLoading = true
             }
             
+            // Check cancellation before network call
+            guard !Task.isCancelled else {
+                print("⚠️ playCurrent cancelled before getting stream URL")
+                await MainActor.run { isLoading = false }
+                return
+            }
+            
             print("Getting stream URL...")
             
             if let streamURL = await getSimpleStreamURL(for: song) {
+                // Check cancellation before playback
+                guard !Task.isCancelled else {
+                    print("⚠️ playCurrent cancelled before playback")
+                    await MainActor.run { isLoading = false }
+                    return
+                }
+                
                 print("Got stream URL: \(streamURL)")
                 await playFromURL(streamURL)
             } else {
@@ -147,9 +163,17 @@ class PlayerViewModel: NSObject, ObservableObject {
             }
         }
         
-        await currentPlayTask?.value
+        currentPlayTask = task
+        
+        // Wait with proper cancellation handling
+        do {
+            try await Task.sleep(nanoseconds: 1) // Allow task to start
+            await task.value
+        } catch {
+            print("⚠️ playCurrent task cancelled")
+        }
     }
-    
+
     private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T?) async throws -> T? {
         return try await withThrowingTaskGroup(of: T?.self) { group in
             group.addTask {

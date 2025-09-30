@@ -81,6 +81,17 @@ struct AlbumsViewContent: View {
                     coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 200)
                 }
             }
+            /*
+            #if DEBUG
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Debug Network") {
+                        networkMonitor.printNetworkState()
+                    }
+                }
+            }
+            #endif
+             */
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {

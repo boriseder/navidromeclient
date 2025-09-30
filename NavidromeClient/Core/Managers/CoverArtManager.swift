@@ -64,8 +64,12 @@ class CoverArtManager: ObservableObject {
         case controlled
     }
     
-    @Published private(set) var cacheVersion = 0
-    
+    private let cacheQueue = DispatchQueue(label: "coverart.cache", attributes: .concurrent)
+    private var _cacheVersion = 0
+    var cacheVersion: Int {
+        cacheQueue.sync { _cacheVersion }
+    }
+
     // MARK: - Storage
     
     // Multi-size cache storage
@@ -294,7 +298,13 @@ class CoverArtManager: ObservableObject {
             optimalSize: type.optimalSize,
             type: type.name
         )
-        cacheVersion += 1
+        
+        cacheQueue.async(flags: .barrier) {
+            self._cacheVersion += 1
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+            }
+        }
     }
 
     private func storeImageInCache(
@@ -448,8 +458,8 @@ class CoverArtManager: ObservableObject {
         loadingStates.removeAll()
         errorStates.removeAll()
         persistentCache.clearCache()
-        cacheVersion += 1
     }
+
     // MARK: - Diagnostics
     
     func getCacheStats() -> CoverArtCacheStats {

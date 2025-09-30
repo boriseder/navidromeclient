@@ -13,13 +13,24 @@ struct ContentView: View {
     var body: some View {
         Group {
             if appConfig.isConfigured {
-                MainTabView() // Direct navigation to MainTabView with ExploreView as first tab
+                if appConfig.isInitializingServices {
+                    // Show loading state during service initialization
+                    VStack(spacing: DSLayout.contentGap) {
+                        ProgressView()
+                        Text("Initializing services...")
+                            .font(DSText.body)
+                            .foregroundStyle(DSColor.secondary)
+                    }
+                } else {
+                    MainTabView()
+                }
             } else {
                 WelcomeView {
                     showingSettings = true
                 }
             }
         }
+
         .sheet(isPresented: $showingSettings) {
             NavigationView {
                 SettingsView()

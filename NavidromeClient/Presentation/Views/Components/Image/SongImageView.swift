@@ -12,13 +12,12 @@ struct SongImageView: View {
     let song: Song
     let isPlaying: Bool
     
-    @State private var errorMessage: String?
-
+    // Remove state management entirely
+    
     private var loadedimage: UIImage? {
         coverArtManager.getSongImage(for: song, size: Int(DSLayout.miniCover))
     }
     
-    //  REACTIVE: Get loading state via centralized state
     private var isLoading: Bool {
         guard let albumId = song.albumId else { return false }
         return coverArtManager.isLoadingImage(for: albumId, size: Int(DSLayout.miniCover))
@@ -43,15 +42,18 @@ struct SongImageView: View {
                 ProgressView()
                     .scaleEffect(0.7)
                     .tint(.white)
-            } else if errorMessage != nil {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(DSText.largeButton)
-                    .foregroundColor(DSColor.error)
+            } else {
+                songImageOverlay
             }
+            
+            playingOverlay
         }
+        // ✅ Use .task with song.albumId as identity
         .task(id: song.albumId) {
-            //  SINGLE LINE: Manager handles all complexity
-            _ = await coverArtManager.loadSongImage(song: song, size: Int(DSLayout.miniCover))
+            _ = await coverArtManager.loadSongImage(
+                song: song,
+                size: Int(DSLayout.miniCover)
+            )
         }
     }
     
@@ -70,13 +72,8 @@ struct SongImageView: View {
     
     @ViewBuilder
     private var songImageOverlay: some View {
-        if isLoading {
-            //  REACTIVE: Uses centralized loading state
-            ProgressView()
-                .scaleEffect(0.6)
-                .tint(.white)
-        } else if let albumId = song.albumId, let error = coverArtManager.getImageError(for: albumId, size: Int(DSLayout.smallAvatar*3)) {
-            //  NEW: Error state handling
+        if let albumId = song.albumId,
+           let error = coverArtManager.getImageError(for: albumId, size: Int(DSLayout.smallAvatar*3)) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
                 .foregroundStyle(.orange)
