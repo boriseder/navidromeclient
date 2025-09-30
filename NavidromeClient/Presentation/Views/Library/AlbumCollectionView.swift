@@ -28,14 +28,9 @@ struct AlbumCollectionView: View {
     @State private var artistImage: UIImage?
     @State private var isLoading = false
     @State private var errorMessage: String?
-
-    // UNIFIED: Complete Offline Pattern
-    private var connectionState: EffectiveConnectionState {
-        networkMonitor.effectiveConnectionState
-    }
     
     private var displayedAlbums: [Album] {
-        return connectionState.shouldLoadOnlineContent ? albums : availableOfflineAlbums
+        return networkMonitor.shouldLoadOnlineContent ? albums : availableOfflineAlbums
     }
     
     private var currentState: ViewState? {
@@ -111,7 +106,7 @@ struct AlbumCollectionView: View {
                 await loadContent()
             }
             .refreshable {
-                guard connectionState.shouldLoadOnlineContent else { return }
+                guard networkMonitor.shouldLoadOnlineContent else { return }
                 await loadContent()
             }
         }
@@ -123,7 +118,7 @@ struct AlbumCollectionView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if connectionState.isEffectivelyOffline {
+                if !networkMonitor.shouldLoadOnlineContent {
                     OfflineStatusBanner()
                         .padding(.horizontal, DSLayout.screenPadding)
                         .padding(.bottom, DSLayout.elementGap)
@@ -238,7 +233,7 @@ struct AlbumCollectionView: View {
     }
     
     private func loadAlbumsViaManager() async {
-        guard connectionState.shouldLoadOnlineContent else {
+        guard networkMonitor.shouldLoadOnlineContent else {
             albums = availableOfflineAlbums
             return
         }

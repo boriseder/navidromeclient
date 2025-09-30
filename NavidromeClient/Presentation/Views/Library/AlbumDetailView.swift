@@ -13,12 +13,7 @@ struct AlbumDetailViewContent: View {
     
     @State private var songs: [Song] = []
     @State private var isOfflineAlbum = false
-    
-    // UNIFIED: Complete Offline Pattern
-    private var connectionState: EffectiveConnectionState {
-        networkMonitor.effectiveConnectionState
-    }
-    
+        
     private var currentState: ViewState? {
         if songs.isEmpty {
             return .empty(type: .songs)
@@ -38,7 +33,7 @@ struct AlbumDetailViewContent: View {
                         isOfflineAlbum: isOfflineAlbum
                     )
                     
-                    if connectionState.isEffectivelyOffline || isOfflineAlbum {
+                    if !networkMonitor.shouldLoadOnlineContent || isOfflineAlbum {
                         HStack {
                             if downloadManager.isAlbumDownloaded(album.id) {
                                 OfflineStatusBadge(album: album)
@@ -80,7 +75,7 @@ struct AlbumDetailViewContent: View {
     
     @MainActor
     private func loadAlbumData() async {
-        isOfflineAlbum = connectionState.isEffectivelyOffline
+        isOfflineAlbum = !networkMonitor.shouldLoadOnlineContent
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
