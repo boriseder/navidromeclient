@@ -95,7 +95,8 @@ struct SettingsView: View {
                     Label("Network Test", systemImage: "network")
                 }
             }
-            Section(header: Text("App Background")) {
+            Section(header: Text("Appearance")) {
+                // Theme Picker
                 Picker("Select Theme", selection: $appConfig.userBackgroundStyle) {
                     ForEach(UserBackgroundStyle.allCases, id: \.self) { option in
                         Text(option.rawValue.capitalized)
@@ -103,11 +104,36 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-            }
+                
+                // AccentColor Picke
+                HStack {
+                    Text("Accent Color")
+                    Spacer()
+                    Menu {
+                        ForEach(UserAccentColor.allCases) { colorOption in
+                            Button {
+                                appConfig.userAccentColor = colorOption
+                            } label: {
+                                Label(colorOption.rawValue.capitalized,
+                                      systemImage: "circle.fill")
+                                if appConfig.userAccentColor == colorOption {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                            .tint(colorOption.color)
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "circle.fill")
+                                .foregroundStyle(appConfig.userAccentColor.color)
+                            Text(appConfig.userAccentColor.rawValue.capitalized)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
 
-            Section(header: Text(appConfig.userBackgroundStyle.rawValue.capitalized)) {
-                Text("Aktuelles Theme: \(appConfig.userBackgroundStyle.rawValue.capitalized)")
             }
+                
             
         }
     }

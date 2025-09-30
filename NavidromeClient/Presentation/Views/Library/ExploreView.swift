@@ -90,9 +90,14 @@ struct ExploreViewContent: View {
                     coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), size: 200)
                 }
             }
-            .navigationTitle("Explore your music")
+            .navigationTitle("Your Favorites")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.clear, for: .navigationBar)
+            .toolbarColorScheme(
+                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                for: .navigationBar
+            )            .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button {
@@ -126,7 +131,7 @@ struct ExploreViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
-                // UNIFIED: Consistent offline banner pattern
+                
                 if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
                     OfflineReasonBanner(reason: reason)
                         .padding(.horizontal, DSLayout.screenPadding)
@@ -284,6 +289,7 @@ struct ExploreSection: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
         }
         .padding(.top, DSLayout.sectionGap)
     }

@@ -82,9 +82,13 @@ struct AlbumsViewContent: View {
                 }
             }
             .navigationTitle("Albums")
-            .navigationBarTitleDisplayMode(.automatic)
+            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(.clear, for: .navigationBar)
+            .toolbarColorScheme(
+                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                for: .navigationBar
+            )
             .searchable(text: $searchText, prompt: "Search albums...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -172,7 +176,7 @@ struct AlbumsViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
-
+                
                 if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
                     OfflineReasonBanner(reason: reason)
                         .padding(.bottom, DSLayout.elementPadding)

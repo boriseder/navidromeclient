@@ -13,35 +13,59 @@ struct FavoritesStatsHeader: View {
         let stats = favoritesManager.getFavoriteStats()
         
         HStack(spacing: DSLayout.elementGap) {
-            StatsItem(
-                icon: "music.note",
-                value: "\(stats.songCount)",
-                label: "Songs"
-            )
+            VStack {
+                Text("\(stats.songCount)")
+                    .font(DSText.emphasized)
+                    .foregroundStyle(DSColor.primary)
+                
+                Text("Songs")
+                    .font(DSText.metadata)
+                    .foregroundStyle(DSColor.secondary)
+            }
+            .frame(minWidth: 60)
+            .padding(.vertical, DSLayout.elementPadding)
+
+            Spacer()
+            
+            VStack {
+                Text("\(stats.uniqueArtists)")
+                    .font(DSText.emphasized)
+                    .foregroundStyle(DSColor.primary)
+                
+                Text("Artists")
+                    .font(DSText.metadata)
+                    .foregroundStyle(DSColor.secondary)
+            }
+            .frame(minWidth: 60)
+            .padding(.vertical, DSLayout.elementPadding)
             
             Spacer()
             
-            StatsItem(
-                icon: "person.2",
-                value: "\(stats.uniqueArtists)",
-                label: "Artists"
-            )
+            VStack {
+                Text("\(stats.uniqueAlbums)")
+                    .font(DSText.emphasized)
+                    .foregroundStyle(DSColor.primary)
+                
+                Text("Albums")
+                    .font(DSText.metadata)
+                    .foregroundStyle(DSColor.secondary)
+            }
+            .frame(minWidth: 60)
+            .padding(.vertical, DSLayout.elementPadding)
             
             Spacer()
             
-            StatsItem(
-                icon: "record.circle",
-                value: "\(stats.uniqueAlbums)",
-                label: "Albums"
-            )
-            
-            Spacer()
-            
-            StatsItem(
-                icon: "clock",
-                value: stats.formattedDurationShort,
-                label: "Duration"
-            )
+            VStack {
+                Text("\(stats.formattedDurationShort)")
+                    .font(DSText.emphasized)
+                    .foregroundStyle(DSColor.primary)
+                
+                Text("Duration")
+                    .font(DSText.metadata)
+                    .foregroundStyle(DSColor.secondary)
+            }
+            .frame(minWidth: 60)
+            .padding(.vertical, DSLayout.elementPadding)
         }
         .frame(maxWidth: .infinity) // volle Breite wie Song-Rows
         .background(

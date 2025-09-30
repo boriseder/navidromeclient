@@ -1,19 +1,6 @@
 import SwiftUI
 
-enum UserBackgroundStyle: String, CaseIterable {
-    case dynamic
-    case light
-    case dark
-    
-    var textColor: Color {
-        switch self {
-        case .dynamic, .dark:
-            return .white
-        case .light:
-            return .black
-        }
-    }
-}
+
 
 
 struct DynamicMusicBackground: View {

@@ -77,10 +77,14 @@ struct FavoritesViewContent: View {
                     contentView
                 }
             }
-            .navigationTitle("Your favorites")
-            .navigationBarTitleDisplayMode(.automatic)
+            .navigationTitle("Your Favorites")
+            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(.clear, for: .navigationBar)
+            .toolbarColorScheme(
+                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                for: .navigationBar
+            )
             .searchable(text: $searchText, prompt: "Search favorites...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }

@@ -66,6 +66,9 @@ struct MainTabView: View {
                 .environmentObject(playerVM)
                 .padding(.bottom, DSLayout.miniPlayerHeight) // Standard tab bar height
         }
+        .id(appConfig.userBackgroundStyle) // ← NUR HIER!
+        .environment(\.colorScheme,
+            appConfig.userBackgroundStyle == .dark ? .dark : .light)
     }
     
     // MARK: - Network Status Overlay

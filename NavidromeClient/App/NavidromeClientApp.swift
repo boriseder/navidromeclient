@@ -82,6 +82,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(exploreManager)
                 .environmentObject(MusicLibraryManager.shared)
                 .environmentObject(FavoritesManager.shared)
+                .tint(appConfig.userAccentColor.color)
                 .task {
                     await setupServicesAfterAppLaunch()
                 }

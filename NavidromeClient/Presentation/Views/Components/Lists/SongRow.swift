@@ -108,16 +108,16 @@ struct SongRow: View {
                 ))
             } else {
                 Text("\(song.track ?? index)")
-                    .font(DSText.emphasized)
+                    .font(DSText.fine)
                     .foregroundStyle(isPlaying ? DSColor.playing : DSColor.onLight)
-                    .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon) // Kreis deutlich größer als Text
+                    .frame(width: DSLayout.icon, height: DSLayout.icon) // Kreis deutlich größer als Text
                     .background(
                         Circle()
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        isPlaying ? DSColor.playing.opacity(0.25) : DSColor.surface,
-                                        isPlaying ? DSColor.playing.opacity(0.05) : DSColor.surface.opacity(0.9)
+                                        isPlaying ? DSColor.playing.opacity(0.25) : DSColor.onDark,
+                                        isPlaying ? DSColor.playing.opacity(0.05) : DSColor.onDark.opacity(0.4)
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -126,7 +126,7 @@ struct SongRow: View {
                             .overlay(
                                 Circle()
                                     .stroke(
-                                        isPlaying ? DSColor.playing.opacity(0.5) : DSColor.quaternary.opacity(0.4),
+                                        isPlaying ? DSColor.playing.opacity(0.5) : DSColor.onDark.opacity(0.4),
                                         lineWidth: 1.2
                                     )
                             )

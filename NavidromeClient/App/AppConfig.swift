@@ -16,19 +16,28 @@ final class AppConfig: ObservableObject {
     @Published var userBackgroundStyle: UserBackgroundStyle {
         didSet {
             // Speichert die Auswahl direkt in UserDefaults
-            UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "UserBackgroundStyle")
+            UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "userBackgroundStyle")
+        }
+    }
+    
+    @Published var userAccentColor: UserAccentColor = .blue {
+        didSet {
+            UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
         }
     }
     
     private var credentials: ServerCredentials?
-
     private var hasInitializedServices = false
 
     private init() {
         // Stored property initialisieren
-        let raw = UserDefaults.standard.string(forKey: "UserBackgroundStyle") ?? UserBackgroundStyle.dynamic.rawValue
+        let raw = UserDefaults.standard.string(forKey: "userBackgroundStyle") ?? UserBackgroundStyle.dynamic.rawValue
         self.userBackgroundStyle = UserBackgroundStyle(rawValue: raw) ?? .dynamic
-
+        if let saved = UserDefaults.standard.string(forKey: "userAccentColor"),
+           let color = UserAccentColor(rawValue: saved) {
+            self.userAccentColor = color
+        }
+        
         loadCredentials()
     }
     

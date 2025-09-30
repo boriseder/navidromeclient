@@ -62,9 +62,13 @@ struct ArtistsViewContent: View {
                 }
             }
             .navigationTitle("Artists")
-            .navigationBarTitleDisplayMode(.automatic)
+            .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(.clear, for: .navigationBar)
+            .toolbarColorScheme(
+                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                for: .navigationBar
+            )
             .searchable(text: $searchText, prompt: "Search artists...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -206,23 +210,6 @@ struct ArtistRowView: View {
             }
             
             Spacer()
-            
-            // Album count badge
-            if let albumCount = artist.albumCount, albumCount > 0 {
-                Text("\(albumCount)")
-                    .font(DSText.metadata.weight(.semibold))
-                    .foregroundStyle(DSColor.accent)
-                    .padding(.horizontal, DSLayout.elementPadding)
-                    .padding(.vertical, DSLayout.tightPadding)
-                    .background(
-                        Capsule()
-                            .fill(DSColor.accent.opacity(0.1))
-                            .overlay(
-                                Capsule()
-                                    .stroke(DSColor.accent.opacity(0.3), lineWidth: 1)
-                            )
-                    )
-            }
             
             // Chevron
             Image(systemName: "chevron.right")
