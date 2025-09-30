@@ -18,10 +18,7 @@ class AudioSessionManager: NSObject, ObservableObject {
     @Published var audioRoute: String = ""
     
     // Thread-safe observer management
-    private let observerQueue = DispatchQueue(label: "AudioObserverQueue", qos: .userInitiated)
     private var audioObservers: [NSObjectProtocol] = []
-    private var isCleanedUp = false
-    private let cleanupLock = NSLock()
 
     private let audioSession = AVAudioSession.sharedInstance()
     
@@ -36,20 +33,20 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
         
     deinit {
-        cleanup()
+        Task { @MainActor in
+            performCleanup()
+        }
     }
 
     // MARK: - Cleanup
 
-    nonisolated private func cleanup() {
-        // Observer cleanup - thread safe
-        observerQueue.sync {
-            for observer in audioObservers {
-                NotificationCenter.default.removeObserver(observer)
-            }
-            audioObservers.removeAll()
+    func performCleanup() {
+        // Observer cleanup - NotificationCenter is thread-safe
+        for observer in audioObservers {
+            NotificationCenter.default.removeObserver(observer)
         }
-        
+        audioObservers.removeAll()
+
         // Command center cleanup - safe from any thread
         let commandCenter = MPRemoteCommandCenter.shared()
         let commands = [
@@ -68,27 +65,19 @@ class AudioSessionManager: NSObject, ObservableObject {
             command.removeTarget(nil)
         }
         
-        // Audio session cleanup - safe from any thread
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("Failed to deactivate audio session: \(error)")
+        // Audio session cleanup - use detached task
+        Task.detached {
+            try? AVAudioSession.sharedInstance().setActive(
+                false,
+                options: .notifyOthersOnDeactivation
+            )
         }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
-
-    func performCleanup() {
-        cleanupLock.lock()
-        defer { cleanupLock.unlock() }
-        
-        guard !isCleanedUp else { return }
-        isCleanedUp = true
-        
-        cleanup()
-    }
     
     // MARK: - Audio Session Setup
+    
     func setupAudioSession() {
         do {
             // Setze Audio Category für Hintergrund-Playback
@@ -117,23 +106,19 @@ class AudioSessionManager: NSObject, ObservableObject {
     // MARK: - Thread-safe Notifications Setup
     
     private func setupNotifications() {
-        observerQueue.async { [weak self] in
-            guard let self = self else { return }
-            
-            let notificationCenter = NotificationCenter.default
-            
-            let interruptionObserver = notificationCenter.addObserver(
-                forName: AVAudioSession.interruptionNotification,
-                object: self.audioSession,
-                queue: .main
-            ) { [weak self] notification in
-                self?.handleInterruptionNotification(notification)
-            }
-            
-            self.audioObservers.append(interruptionObserver)
-            
+        let center = NotificationCenter.default
+        
+        let interruptionObserver = center.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: audioSession,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruptionNotification(notification)
         }
+        
+        audioObservers.append(interruptionObserver)
     }
+    
     // MARK: - Enhanced Command Center Setup
     
     private func setupRemoteCommandCenter() {
@@ -207,6 +192,7 @@ class AudioSessionManager: NSObject, ObservableObject {
     }
     
     // MARK: - Now Playing Info (Lock Screen Display)
+
     func updateNowPlayingInfo(
         title: String,
         artist: String,

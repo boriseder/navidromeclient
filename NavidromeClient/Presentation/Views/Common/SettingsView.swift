@@ -14,6 +14,7 @@ struct SettingsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var playerVM: PlayerViewModel
+    @EnvironmentObject var songManager: SongManager
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var coverArtManager: CoverArtManager
@@ -119,7 +120,7 @@ struct SettingsView: View {
         await MainActor.run {
             // Reset ViewModels directly
             navidromeVM.reset()
-            playerVM.updateService(nil)
+            songManager.reset()
         }
         
         await MainActor.run { dismiss() }

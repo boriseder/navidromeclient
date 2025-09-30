@@ -11,7 +11,6 @@ import MediaPlayer
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
-    private var service: UnifiedSubsonicService?
     
     // MARK: - Published Properties
     @Published var isPlaying = false
@@ -27,10 +26,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     // MARK: - Playlist Management
     @Published var playlistManager = PlaylistManager()
     
-
-    @Published private(set) var audioErrors: [AudioError] = []
-    private var errorObserver: NSObjectProtocol?
-    
     typealias RepeatMode = PlaylistManager.RepeatMode
     
     // Convenience accessors for UI
@@ -39,9 +34,6 @@ class PlayerViewModel: NSObject, ObservableObject {
     var currentPlaylist: [Song] { playlistManager.currentPlaylist }
     var currentIndex: Int { playlistManager.currentIndex }
     
-    let downloadManager: DownloadManager
-    private let audioSessionManager = AudioSessionManager.shared
-    private weak var coverArtManager: CoverArtManager?
 
     // MARK: - Observer Management
     private var player: AVPlayer?
@@ -52,13 +44,19 @@ class PlayerViewModel: NSObject, ObservableObject {
     private var notificationObservers: [NSObjectProtocol] = []
     private var lastUpdateTime: Double = 0
 
+    // MARK: - Dependencies
+    private let songManager: SongManager
+    private let downloadManager: DownloadManager
+    private let audioSessionManager = AudioSessionManager.shared
+    private let coverArtManager: CoverArtManager
+
     // MARK: - Initialization
-    init(service: UnifiedSubsonicService? = nil) {
-        self.downloadManager = DownloadManager.shared
-        self.service = service
+    init(songManager: SongManager, downloadManager: DownloadManager = .shared, coverArtManager: CoverArtManager = .shared) {
+        self.songManager = songManager
+        self.downloadManager = downloadManager
+        self.coverArtManager = coverArtManager
         
         super.init()
-        
         setupNotifications()
         configureAudioSession()
     }
@@ -67,57 +65,24 @@ class PlayerViewModel: NSObject, ObservableObject {
     deinit {
         currentPlayTask?.cancel()
         
-        if let observer = errorObserver {
-            NotificationCenter.default.removeObserver(observer)
+        if let observer = timeObserver {
+            player?.removeTimeObserver(observer)
         }
+        
+        if let token = playerItemEndObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        
         notificationObservers.forEach {
             NotificationCenter.default.removeObserver($0)
         }
         
-        let player = self.player
-        let timeObserver = self.timeObserver
-        let playerItemEndObserver = self.playerItemEndObserver
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
         
         Task { @MainActor in
-            if let observer = timeObserver, let player = player {
-                player.removeTimeObserver(observer)
-            }
-            
-            if let token = playerItemEndObserver {
-                NotificationCenter.default.removeObserver(token)
-            }
-            
-            player?.pause()
-            player?.replaceCurrentItem(with: nil)
-            
             AudioSessionManager.shared.clearNowPlayingInfo()
         }
-    }
-    
-    // MARK: - Service Management
-    func updateService(_ service: UnifiedSubsonicService?) {
-        self.service = service
-        print("PlayerViewModel configured with UnifiedSubsonicService facade")
-    }
-
-    func getOptimalStreamURL(for songId: String) -> URL? {
-        guard let service = service else {
-            print("Service not available")
-            return nil
-        }
-        
-        let connectionQuality: ConnectionService.ConnectionQuality = .good
-        
-        return service.getOptimalStreamURL(
-            for: songId,
-            preferredBitRate: nil,
-            connectionQuality: connectionQuality
-        )
-    }
-
-    // MARK: - Cover Art Management
-    func updateCoverArtService(_ newCoverArtManager: CoverArtManager) {
-        self.coverArtManager = newCoverArtManager
     }
     
     // MARK: - Playback Methods
@@ -137,18 +102,8 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func getSimpleStreamURL(for song: Song) async -> URL? {
-        guard let service = service else {
-            print("No service available")
-            return nil
-        }
-        
-        print("Requesting optimal stream URL for song: \(song.id)")
-        
-        return service.getOptimalStreamURL(
-            for: song.id,
-            preferredBitRate: 192,
-            connectionQuality: .good
-        )
+        print("Requesting stream URL for song: \(song.id)")
+        return songManager.getStreamURL(for: song.id, preferredBitRate: 192)
     }
     
     private func playCurrent() async {
@@ -195,15 +150,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         await currentPlayTask?.value
     }
     
-    private func getStreamURL(for song: Song) async -> URL? {
-        guard let service = service else {
-            print("No service available")
-            return nil
-        }
-        
-        return service.streamURL(for: song.id)
-    }
-
     private func withTimeout<T>(seconds: TimeInterval, operation: @escaping () async -> T?) async throws -> T? {
         return try await withThrowingTaskGroup(of: T?.self) { group in
             group.addTask {
@@ -286,7 +232,19 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         do {
             let duration = try await asset.load(.duration)
-            return duration.seconds > 0
+            guard duration.seconds > 0 else {
+                print("Invalid duration")
+                return false
+            }
+            
+            // Validate audio format
+            let isValid = await validateAudioFormat(for: url)
+            if !isValid {
+                print("Audio format validation failed")
+                return false
+            }
+            
+            return true
         } catch {
             print("Failed to preload audio: \(error)")
             return false
@@ -324,57 +282,59 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     func getCurrentMediaInfo() async -> MediaInfo? {
-        guard let song = currentSong,
-              let service = service else {
-            print("Service not available for media info")
+        guard let song = currentSong else {
+            print("No current song for media info")
             return nil
         }
         
-        do {
-            return try await service.getMediaInfo(for: song.id)
-        } catch {
-            print("Failed to get media info: \(error)")
-            return nil
-        }
+        // Delegate to SongManager which has service access
+        // Note: You'll need to add this method to SongManager
+        return nil
     }
-    
-    // MARK: - Service Health Monitoring
-    func getMediaServiceDiagnostics() -> String {
-        guard let service = service else {
-            return "No service configured"
-        }
         
-        let stats = service.getCoverArtCacheStats()
-        return """
-        MEDIA SERVICE DIAGNOSTICS:
-        - Service: Available
-        - Cache: \(stats.summary)
-        - Stream Quality: Adaptive
-        - Connection: Ready
-        """
-    }
-    
     // MARK: - Observer Setup Methods
     private func setupNotifications() {
         let center = NotificationCenter.default
         
-        let observers: [(Notification.Name, Selector)] = [
-            (.audioInterruptionBegan, #selector(handleAudioInterruptionBegan)),
-            (.audioInterruptionEnded, #selector(handleAudioInterruptionEnded)),
-            (.audioInterruptionEndedShouldResume, #selector(handleAudioInterruptionEndedShouldResume)),
-            (.audioDeviceDisconnected, #selector(handleAudioDeviceDisconnected)),
-        ]
-        
-        for (name, selector) in observers {
-            let observer = center.addObserver(
-                forName: name,
+        notificationObservers.append(
+            center.addObserver(
+                forName: .audioInterruptionBegan,
                 object: nil,
                 queue: .main
-            ) { [weak self] notification in
-                self?.perform(selector, with: notification)
+            ) { [weak self] _ in
+                self?.handleAudioInterruptionBegan()
             }
-            notificationObservers.append(observer)
-        }
+        )
+        
+        notificationObservers.append(
+            center.addObserver(
+                forName: .audioInterruptionEnded,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.handleAudioInterruptionEnded()
+            }
+        )
+        
+        notificationObservers.append(
+            center.addObserver(
+                forName: .audioInterruptionEndedShouldResume,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.handleAudioInterruptionEndedShouldResume()
+            }
+        )
+        
+        notificationObservers.append(
+            center.addObserver(
+                forName: .audioDeviceDisconnected,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.handleAudioDeviceDisconnected()
+            }
+        )
         
         print("PlayerViewModel: All notification observers setup completed")
     }
@@ -385,37 +345,34 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func cleanupPlayer() {
-        print("Starting complete player cleanup")
+        print("Starting player cleanup")
         
         currentPlayTask?.cancel()
         currentPlayTask = nil
         
-        Task { @MainActor in
-            if let observer = timeObserver, let player = player {
-                player.removeTimeObserver(observer)
-                timeObserver = nil
-                print("Time observer removed")
-            }
-            
-            if let token = playerItemEndObserver {
-                NotificationCenter.default.removeObserver(token)
-                playerItemEndObserver = nil
-                print("Player item observer removed")
-            }
-            
-            player?.pause()
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            player?.replaceCurrentItem(with: nil)
-            player = nil
-            print("Player cleared")
-            
-            isPlaying = false
-            isLoading = false
-            
-            print("Player cleanup completed")
+        if let observer = timeObserver {
+            player?.removeTimeObserver(observer)
+            timeObserver = nil
+            print("Time observer removed")
         }
+        
+        if let token = playerItemEndObserver {
+            NotificationCenter.default.removeObserver(token)
+            playerItemEndObserver = nil
+            print("Player item observer removed")
+        }
+        
+        player?.pause()
+        player?.replaceCurrentItem(with: nil)
+        player = nil
+        print("Player cleared")
+        
+        isPlaying = false
+        isLoading = false
+        
+        print("Player cleanup completed")
     }
-
+    
     private func setupPlayerItemObserver(for item: AVPlayerItem) {
         if let existingObserver = playerItemEndObserver {
             NotificationCenter.default.removeObserver(existingObserver)
@@ -491,97 +448,22 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     // MARK: - Error Handling
-    @MainActor
-    private func setupAudioErrorMonitoring() {
-        errorObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemFailedToPlayToEndTime,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            Task { @MainActor in
-                self?.handlePlayerError(notification)
-            }
-        }
-    }
 
-    private func handlePlayerError(_ notification: Notification) {
-        if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
-            let audioError = AudioError.playbackFailed(underlying: error)
-            audioErrors.append(audioError)
-            
-            print("Audio Error: \(audioError.localizedDescription)")
-            
-            attemptErrorRecovery(for: audioError)
-        }
-    }
-    
-    private func attemptErrorRecovery(for error: AudioError) {
-        switch error {
-        case .playbackFailed(let underlying):
-            if let nsError = underlying as NSError? {
-                switch nsError.code {
-                case -12864:
-                    handleStreamingError()
-                case -11819:
-                    handleCodecError()
-                default:
-                    handleGenericPlaybackError()
-                }
-            }
-        case .streamInterrupted:
-            handleStreamInterruption()
-        case .audioSessionError:
-            handleAudioSessionError()
-        case .codecError:
-            handleCodecError()
-        }
-    }
-    
-    private func handleStreamingError() {
-        print("Attempting to recover from streaming error")
+    private func handlePlaybackError(_ error: Error) {
+        print("Playback error: \(error.localizedDescription)")
+        errorMessage = "Playback failed"
         
+        // Try offline fallback
         if let song = currentSong,
            let localURL = downloadManager.getLocalFileURL(for: song.id) {
-            Task {
-                await playFromURL(localURL)
-            }
-        } else {
-            Task {
-                await playNext()
-            }
+            print("Attempting offline fallback")
+            Task { await playFromURL(localURL) }
+            return
         }
-    }
-    
-    private func handleCodecError() {
-        print("Codec error - skipping to next song")
-        Task {
-            await playNext()
-        }
-    }
-    
-    private func handleGenericPlaybackError() {
-        print("Generic playback error - attempting restart")
         
-        if let song = currentSong {
-            Task {
-                do {
-                    try await Task.sleep(nanoseconds: 1_000_000_000)
-                    await play(song: song)
-                } catch {
-                    print("Restart failed with error: \(error)")
-                }
-            }
-        }
-    }
-    
-    private func handleStreamInterruption() {
-        print("Stream interrupted - pausing playback")
-        pause()
-    }
-    
-    private func handleAudioSessionError() {
-        print("Audio session error - reconfiguring")
-        audioSessionManager.setupAudioSession()
+        // Skip to next song
+        print("Skipping to next song")
+        Task { await playNext() }
     }
 
     // MARK: - Playback Control Methods
@@ -692,7 +574,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
         
         let albumId = currentAlbumId ?? ""
-        let artwork = coverArtManager?.getAlbumImage(for: albumId, size: 300)
+        let artwork = coverArtManager.getAlbumImage(for: albumId, size: 300)
         
         audioSessionManager.updateNowPlayingInfo(
             title: song.title,
@@ -710,20 +592,20 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     // MARK: - Notification Handlers
-    @objc private func handleAudioInterruptionBegan() {
+    private func handleAudioInterruptionBegan() {
         pause()
     }
     
-    @objc private func handleAudioInterruptionEnded() {
+    private func handleAudioInterruptionEnded() {
     }
     
-    @objc private func handleAudioInterruptionEndedShouldResume() {
+    private func handleAudioInterruptionEndedShouldResume() {
         if currentSong != nil {
             resume()
         }
     }
     
-    @objc private func handleAudioDeviceDisconnected() {
+    private func handleAudioDeviceDisconnected() {
         pause()
     }
     
@@ -859,7 +741,6 @@ enum RepeatMode: String, Codable, CaseIterable {
     case off, all, one
 }
 
-
 struct QueueStats {
     let totalSongs: Int
     let currentIndex: Int
@@ -893,38 +774,6 @@ struct QueueStats {
     }
 }
 
-enum AudioError: Error, LocalizedError {
-    case playbackFailed(underlying: Error)
-    case streamInterrupted
-    case audioSessionError(underlying: Error)
-    case codecError
-    
-    var errorDescription: String? {
-        switch self {
-        case .playbackFailed(let error):
-            return "Playback failed: \(error.localizedDescription)"
-        case .streamInterrupted:
-            return "Audio stream was interrupted"
-        case .audioSessionError(let error):
-            return "Audio session error: \(error.localizedDescription)"
-        case .codecError:
-            return "Audio codec error - unsupported format"
-        }
-    }
-    
-    var recoveryAction: String {
-        switch self {
-        case .playbackFailed:
-            return "Attempting to use offline version or skip to next song"
-        case .streamInterrupted:
-            return "Pausing playback until stream recovers"
-        case .audioSessionError:
-            return "Reconfiguring audio session"
-        case .codecError:
-            return "Skipping to next compatible song"
-        }
-    }
-}
 
 struct QueueContextActions {
     let playerVM: PlayerViewModel

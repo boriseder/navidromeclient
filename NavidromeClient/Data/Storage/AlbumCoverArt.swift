@@ -5,7 +5,7 @@ class AlbumCoverArt {
     private let baseSize: Int
     private var scaledVariants: [Int: UIImage] = [:]
     private let lock = NSLock()
-    private let maxVariants = 2  // Limit cached variants
+    private let maxVariants = 3
     
     // Store only ONE base image per album
     init(image: UIImage, size: Int) {

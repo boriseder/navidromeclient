@@ -14,7 +14,12 @@ struct NavidromeClientApp: App {
     // Safe initialization without early service creation
     @StateObject private var serviceContainer = ServiceContainer()
     @StateObject private var navidromeVM = NavidromeViewModel()
-    @StateObject private var playerVM = PlayerViewModel()
+
+    // SongManager
+    @StateObject private var songManager = SongManager(downloadManager: .shared)
+    
+    // Inject songManager into PlayerViewModel
+    @StateObject private var playerVM: PlayerViewModel
     
     // Core Services (Singletons)
     @StateObject private var appConfig = AppConfig.shared
@@ -27,19 +32,24 @@ struct NavidromeClientApp: App {
     @StateObject private var favoritesManager = FavoritesManager.shared
     
     init() {
+        // Initialize PlayerViewModel with SongManager
+        let songMgr = SongManager(downloadManager: .shared)
+        let playerViewModel = PlayerViewModel(songManager: songMgr)
+        
+        _songManager = StateObject(wrappedValue: songMgr)
+        _playerVM = StateObject(wrappedValue: playerViewModel)
+        
+        // UI configuration
         let appearance = UINavigationBarAppearance()
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white] // großer Title
-
+        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
         UINavigationBar.appearance().standardAppearance = appearance
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         
-        
         let searchBarAppearance = UISearchBar.appearance()
-        searchBarAppearance.barTintColor = .red         // Hintergrund der SearchBar
-        searchBarAppearance.searchTextField.backgroundColor = .yellow // Textfeld-Hintergrund
-
+        searchBarAppearance.barTintColor = .red
+        searchBarAppearance.searchTextField.backgroundColor = .yellow
     }
-    
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -47,6 +57,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(appConfig)
                 .environmentObject(navidromeVM)
                 .environmentObject(playerVM)
+                .environmentObject(songManager)
                 .environmentObject(downloadManager)
                 .environmentObject(audioSessionManager)
                 .environmentObject(networkMonitor)
@@ -92,7 +103,6 @@ struct NavidromeClientApp: App {
     private func configureInitialDependencies() {
         // Safe initial configuration without services
         audioSessionManager.playerViewModel = playerVM
-        playerVM.updateCoverArtService(coverArtManager)
     }
     
     private func configureViewModelsWithServices() async {
@@ -100,8 +110,9 @@ struct NavidromeClientApp: App {
         
         await MainActor.run {
             navidromeVM.updateService(service)
-            playerVM.updateService(service)
             
+            songManager.configure(service: service)
+
             downloadManager.configure(service: service)
             downloadManager.configure(coverArtManager: coverArtManager)
             favoritesManager.configure(service: service)
@@ -164,7 +175,8 @@ struct NavidromeClientApp: App {
         
         await MainActor.run {
             navidromeVM.updateService(unifiedService)
-            playerVM.updateService(unifiedService)
+            
+            songManager.configure(service: unifiedService)
         }
     }
 
@@ -211,11 +223,9 @@ struct NavidromeClientApp: App {
         await MainActor.run {
             //  Configure NavidromeViewModel
             navidromeVM.updateService(unifiedService)
-            
-            //  FIXED: Configure PlayerViewModel with UnifiedSubsonicService
-            playerVM.updateService(unifiedService)
-            
-            //  Configure DownloadManager with UnifiedSubsonicService
+                   
+            songManager.configure(service: unifiedService)
+
             downloadManager.configure(service: unifiedService)
             downloadManager.configure(coverArtManager: coverArtManager)
             favoritesManager.configure(service: unifiedService)
@@ -228,8 +238,6 @@ struct NavidromeClientApp: App {
             //  Configure MusicLibraryManager
             MusicLibraryManager.shared.configure(service: unifiedService)
             
-            //  FIXED: Update PlayerViewModel with CoverArtManager
-            playerVM.updateCoverArtService(coverArtManager)
             
             print(" All managers configured with focused services")
         }
