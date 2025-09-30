@@ -1,17 +1,55 @@
 import SwiftUI
 
-struct DynamicMusicBackground: View {
-    @State private var animateGradient = false
+enum UserBackgroundStyle: String, CaseIterable {
+    case dynamic
+    case light
+    case dark
     
+    var textColor: Color {
+        switch self {
+        case .dynamic, .dark:
+            return .white
+        case .light:
+            return .black
+        }
+    }
+}
+
+
+struct DynamicMusicBackground: View {
+    @EnvironmentObject var appConfig: AppConfig
+    
+    @AppStorage("UserBackgroundStyle") private var userBackgroundStyleRaw: String = UserBackgroundStyle.dynamic.rawValue
+    
+    private var userBackgroundStyle: UserBackgroundStyle {
+        get { UserBackgroundStyle(rawValue: userBackgroundStyleRaw) ?? .dynamic }
+        set { userBackgroundStyleRaw = newValue.rawValue }
+    }
+    
+    @State private var animateGradient = false
+        
     var body: some View {
+        ZStack {
+            switch appConfig.userBackgroundStyle {
+            case .dynamic:
+                dynamicGradient
+            case .light:
+                Color.white.ignoresSafeArea()
+            case .dark:
+                Color.black.ignoresSafeArea()
+            }
+        }
+    }
+    
+    private var dynamicGradient: some View {
         ZStack {
             // Hauptgradient mit subtilen Rotstichen
             LinearGradient(
                 colors: [
-                    Color(red: 0.12, green: 0.12, blue: 0.16), // fast schwarz
-                    Color(red: 0.25, green: 0.08, blue: 0.12), // tiefrot
-                    Color(red: 0.18, green: 0.15, blue: 0.20), // dunkles violettgrau
-                    Color(red: 0.20, green: 0.10, blue: 0.15)  // rot-violetter Touch
+                    Color(red: 0.12, green: 0.12, blue: 0.16),
+                    Color(red: 0.25, green: 0.08, blue: 0.12),
+                    Color(red: 0.18, green: 0.15, blue: 0.20),
+                    Color(red: 0.20, green: 0.10, blue: 0.15)
                 ],
                 startPoint: animateGradient ? .topLeading : .bottomTrailing,
                 endPoint: animateGradient ? .bottomTrailing : .topLeading

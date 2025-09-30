@@ -27,6 +27,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                GeneralSettingsSection
                 NavidromeSection
                 if appConfig.isConfigured {
                     CacheSection
@@ -36,6 +37,8 @@ struct SettingsView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial Setup")
+            .toolbarColorScheme(.light, for: .navigationBar) // helle Icons/Titel
+            .toolbarBackground(.visible, for: .navigationBar)
             .disabled(isPerformingReset)
             .overlay { if isPerformingReset { FactoryResetOverlayView() } }
             .confirmationDialog(
@@ -60,7 +63,9 @@ struct SettingsView: View {
                 SettingsRow(title: "Server:", value: creds.baseURL.absoluteString)
                 SettingsRow(title: "User:", value: creds.username)
             }
-            NavigationLink("Edit Server") { ServerEditView() }
+            NavigationLink(destination: ServerEditView()) {
+                Text("Edit Server")
+            }
         } header: {
             Text("Navidrome Server Settings")
         } footer: {
@@ -79,11 +84,41 @@ struct SettingsView: View {
         }
     }
 
+    private var GeneralSettingsSection: some View {
+        Group {
+            Section(header: Text("Debug")) {
+                NavigationLink(destination: CoverArtDebugView()) {
+                    Label("Cover Art Debug", systemImage: "photo.artframe")
+                }
+                
+                NavigationLink(destination: NetworkTestView()) {
+                    Label("Network Test", systemImage: "network")
+                }
+            }
+            Section(header: Text("App Background")) {
+                Picker("Select Theme", selection: $appConfig.userBackgroundStyle) {
+                    ForEach(UserBackgroundStyle.allCases, id: \.self) { option in
+                        Text(option.rawValue.capitalized)
+                            .tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            Section(header: Text(appConfig.userBackgroundStyle.rawValue.capitalized)) {
+                Text("Aktuelles Theme: \(appConfig.userBackgroundStyle.rawValue.capitalized)")
+            }
+            
+        }
+    }
+    
     private var ServerDetailsSection: some View {
         Section {
             SettingsRow(title: "Status:", value: navidromeVM.connectionStatus ? "Connected" : "Disconnected")
             SettingsRow(title: "Network:", value: networkMonitor.connectionStatusDescription)
             if networkMonitor.canLoadOnlineContent {
+                SettingsRow(title: "Quality Description:", value: navidromeVM.connectionQualityDescription)
+                SettingsRow(title: "Response Time:", value: navidromeVM.connectionResponseTime)
                 SettingsRow(title: "Server Health:", value: navidromeVM.connectionQualityDescription)
             }
         } header: {

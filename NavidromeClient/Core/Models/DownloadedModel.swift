@@ -13,14 +13,21 @@ struct DownloadedAlbum: Codable, Equatable {
     let year: Int?
     let genre: String?
     let songs: [DownloadedSong]
-    let folderPath: String
     let downloadDate: Date
-    
+        
     var songIds: [String] {
         return songs.map { $0.id }
     }
+    
+    // Computed property for current folder path
+    var folderPath: String {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documentsPath
+            .appendingPathComponent("Downloads", isDirectory: true)
+            .appendingPathComponent(albumId, isDirectory: true)
+            .path
+    }
 }
-
 struct DownloadedSong: Codable, Equatable, Identifiable {
     let id: String
     let title: String

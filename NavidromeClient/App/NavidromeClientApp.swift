@@ -54,6 +54,7 @@ struct NavidromeClientApp: App {
         _playerVM = StateObject(wrappedValue: playerViewModel)
         
         // UI configuration
+        /*
         let appearance = UINavigationBarAppearance()
         appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
         UINavigationBar.appearance().standardAppearance = appearance
@@ -62,7 +63,8 @@ struct NavidromeClientApp: App {
         let searchBarAppearance = UISearchBar.appearance()
         searchBarAppearance.barTintColor = .red
         searchBarAppearance.searchTextField.backgroundColor = .yellow
-    }
+    */
+         }
 
     var body: some Scene {
         WindowGroup {

@@ -140,6 +140,7 @@ struct ExploreViewContent: View {
                 }
             }
         }
+        .scrollIndicators(.hidden)
         .padding(.horizontal, DSLayout.screenPadding)  // ← Verschiebe hier rein
         .padding(.bottom, DSLayout.miniPlayerHeight)   // ← Für beide cases
     }
@@ -230,6 +231,8 @@ struct ExploreViewContent: View {
 // MARK: - ExploreSection (unchanged)
 
 struct ExploreSection: View {
+    @EnvironmentObject var appConfig: AppConfig
+
     let title: String
     let albums: [Album]
     let icon: String
@@ -244,8 +247,8 @@ struct ExploreSection: View {
             HStack {
                 Label(title, systemImage: icon)
                     .font(DSText.prominent)
-                    .foregroundColor(DSColor.onDark)
-                
+                    .foregroundColor(appConfig.userBackgroundStyle.textColor)
+
                 Spacer()
                 
                 if showRefreshButton, let refreshAction = refreshAction {
@@ -262,7 +265,7 @@ struct ExploreSection: View {
                                 .frame(width: 16, height: 16)
                         } else {
                             Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(DSText.emphasized)
                         }
                     }
                     .disabled(isRefreshing)

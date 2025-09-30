@@ -12,13 +12,29 @@ final class AppConfig: ObservableObject {
     
     @Published var isConfigured = false
     @Published private(set) var isInitializingServices = false  // Already exists
+
+    @Published var userBackgroundStyle: UserBackgroundStyle {
+        didSet {
+            // Speichert die Auswahl direkt in UserDefaults
+            UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "UserBackgroundStyle")
+        }
+    }
+    
     private var credentials: ServerCredentials?
 
     private var hasInitializedServices = false
 
     private init() {
+        // Stored property initialisieren
+        let raw = UserDefaults.standard.string(forKey: "UserBackgroundStyle") ?? UserBackgroundStyle.dynamic.rawValue
+        self.userBackgroundStyle = UserBackgroundStyle(rawValue: raw) ?? .dynamic
+
         loadCredentials()
     }
+    
+
+
+
     
     // MARK: - Configuration
     func configure(baseURL: URL, username: String, password: String) {

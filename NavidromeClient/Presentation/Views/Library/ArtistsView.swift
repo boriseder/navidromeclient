@@ -117,6 +117,7 @@ struct ArtistsViewContent: View {
                 .padding(.bottom, DSLayout.miniPlayerHeight)
             }
         }
+        .scrollIndicators(.hidden)
         .padding(.horizontal, DSLayout.screenPadding)
     }
     

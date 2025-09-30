@@ -226,8 +226,8 @@ class DownloadManager: ObservableObject {
                 year: albumMetadata.year,
                 genre: albumMetadata.genre,
                 songs: downloadedSongsMetadata,
-                folderPath: albumFolder.path,
                 downloadDate: downloadDate
+                // Remove folderPath parameter
             )
             
             if let existingIndex = downloadedAlbums.firstIndex(where: { $0.albumId == albumId }) {
@@ -237,9 +237,6 @@ class DownloadManager: ObservableObject {
             }
 
             saveDownloadedAlbums()
-            
-        } else {
-            throw DownloadError.noSongsDownloaded
         }
 
         isDownloading.remove(albumId)
@@ -476,6 +473,7 @@ class DownloadManager: ObservableObject {
             return
         }
 
+        // Uses computed property which always returns current valid path
         let albumFolder = URL(fileURLWithPath: album.folderPath)
         do {
             try FileManager.default.removeItem(at: albumFolder)
@@ -500,7 +498,7 @@ class DownloadManager: ObservableObject {
         
         NotificationCenter.default.post(name: .downloadDeleted, object: albumId)
     }
-    
+
     func deleteAllDownloads() {
         print("Starting complete download deletion...")
         
@@ -561,6 +559,10 @@ class DownloadManager: ObservableObject {
     }
     
     private func migrateOldDataIfNeeded() {
+        if !downloadedAlbums.isEmpty {
+            print("Migrating \(downloadedAlbums.count) albums to new path structure")
+            saveDownloadedAlbums()
+        }
     }
 
     private func saveDownloadedAlbums() {

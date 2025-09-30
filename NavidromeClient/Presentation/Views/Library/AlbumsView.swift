@@ -100,8 +100,29 @@ struct AlbumsViewContent: View {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    // Filter Menu
+                    
+                    // Sort Menu
                     Menu {
+                        ForEach(ContentService.AlbumSortType.allCases, id: \.self) { sortType in
+                            Button {
+                                Task {
+                                    await loadAlbums(sortBy: sortType)
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: sortType.icon)
+                                    Text(sortType.displayName)
+                                    Spacer()
+                                    if selectedAlbumSort == sortType {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                        Divider()
+                        Text("Filter")
+                            .font(DSText.emphasized)
+                            .foregroundColor(.secondary)
                         Button {
                             showOnlyDownloaded = false
                         } label: {
@@ -129,39 +150,12 @@ struct AlbumsViewContent: View {
                                 }
                             }
                         }
-                    } label: {
-                        Image(systemName: showOnlyDownloaded ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Sort Menu
-                    Menu {
-                        ForEach(ContentService.AlbumSortType.allCases, id: \.self) { sortType in
-                            Button {
-                                Task {
-                                    await loadAlbums(sortBy: sortType)
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: sortType.icon)
-                                    Text(sortType.displayName)
-                                    Spacer()
-                                    if selectedAlbumSort == sortType {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .foregroundColor(.white)
-                    }
-                    
-                    // Settings Menu
-                    Menu {
+                        Divider()
                         NavigationLink(destination: SettingsView()) {
                             Label("Settings", systemImage: "gear")
                         }
+
+
                     } label: {
                         Image(systemName: "ellipsis")
                             .foregroundColor(.white)
@@ -204,6 +198,7 @@ struct AlbumsViewContent: View {
                 .padding(.bottom, DSLayout.miniPlayerHeight)
             }
         }
+        .scrollIndicators(.hidden)
         .padding(.horizontal, DSLayout.screenPadding)
     }
     

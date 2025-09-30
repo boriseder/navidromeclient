@@ -60,11 +60,6 @@ struct UnifiedStateView: View {
         .padding(DSLayout.comfortPadding)
         .background(modernGlassBackground)
         .padding(.horizontal, DSLayout.screenPadding)
-        .onChange(of: state.title) { newValue in
-            print("###############")
-            print(newValue)
-            print("###############")
-        }
     }
     
     // MARK: - State Icon with Animation
