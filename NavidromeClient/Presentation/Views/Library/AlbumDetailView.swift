@@ -2,7 +2,6 @@ import SwiftUI
 
 struct AlbumDetailViewContent: View {
     let album: Album
-    @State private var scrollOffset: CGFloat = 0
 
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
@@ -32,20 +31,7 @@ struct AlbumDetailViewContent: View {
                         songs: songs,
                         isOfflineAlbum: isOfflineAlbum
                     )
-                    
-                    if !networkMonitor.shouldLoadOnlineContent || isOfflineAlbum {
-                        HStack {
-                            if downloadManager.isAlbumDownloaded(album.id) {
-                                OfflineStatusBadge(album: album)
-                            } else {
-                                NetworkStatusIndicator(showText: true)
-                            }
-                            Spacer()
-                        }
-                        .padding(.horizontal, DSLayout.screenPadding)
-                    }
-                    
-                    // UNIFIED: Single component handles empty state
+                                                            
                     if let state = currentState {
                         UnifiedStateView(
                             state: state,
@@ -70,12 +56,31 @@ struct AlbumDetailViewContent: View {
             .task {
                 await loadAlbumData()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .downloadCompleted)) { notification in
+                if let albumId = notification.object as? String, albumId == album.id {
+                    Task {
+                        await loadAlbumData()
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .downloadDeleted)) { notification in
+                if let albumId = notification.object as? String, albumId == album.id {
+                    Task {
+                        await loadAlbumData()
+                    }
+                }
+            }
         }
     }
     
     @MainActor
     private func loadAlbumData() async {
-        isOfflineAlbum = !networkMonitor.shouldLoadOnlineContent
+        let isNetworkOffline = !networkMonitor.shouldLoadOnlineContent
+        let isDownloaded = downloadManager.isAlbumDownloaded(album.id)
+        
+        isOfflineAlbum = isNetworkOffline || isDownloaded
+        
         songs = await navidromeVM.loadSongs(for: album.id)
     }
 }
+

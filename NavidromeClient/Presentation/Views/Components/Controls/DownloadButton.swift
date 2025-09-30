@@ -1,9 +1,9 @@
 //
-//  DownloadButton.swift - FIXED: Reactive State & Clean Icons
+//  DownloadButton.swift - FIXED: Proper State Observation
 //  NavidromeClient
 //
-//   FIXED: Reactive state observation with proper UI updates
-//   CLEAN: Proper icon symbolism and proportions
+//  FIXED: Direct state observation with objectWillChange
+//  FIXED: Multiple download prevention
 //
 
 import SwiftUI
@@ -15,8 +15,8 @@ struct DownloadButton: View {
     
     @EnvironmentObject var downloadManager: DownloadManager
     @State private var showingDeleteConfirmation = false
+    @State private var isProcessing = false
     
-    // Direct state observation for reactivity
     @State private var currentState: DownloadManager.DownloadState = .idle
     @State private var currentProgress: Double = 0.0
     
@@ -26,11 +26,22 @@ struct DownloadButton: View {
         } label: {
             buttonContent
         }
+        .disabled(isProcessing)
         .onAppear {
             updateState()
         }
         .onReceive(downloadManager.objectWillChange) { _ in
             updateState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .downloadCompleted)) { notification in
+            if let albumId = notification.object as? String, albumId == album.id {
+                updateState()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .downloadDeleted)) { notification in
+            if let albumId = notification.object as? String, albumId == album.id {
+                updateState()
+            }
         }
         .confirmationDialog(
             "Delete Downloaded Album?",
@@ -38,7 +49,7 @@ struct DownloadButton: View {
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                downloadManager.deleteDownload(albumId: album.id)
+                deleteDownload()
             }
             Button("Cancel", role: .cancel) { }
         } message: {
@@ -46,17 +57,14 @@ struct DownloadButton: View {
         }
     }
     
-    // Manual state synchronization
     private func updateState() {
         currentState = downloadManager.getDownloadState(for: album.id)
         currentProgress = downloadManager.downloadProgress[album.id] ?? 0.0
     }
     
-    // Fixed layout with consistent frame
     @ViewBuilder
     private var buttonContent: some View {
         HStack(spacing: 8) {
-            // Consistent 20x20 frame for all states
             Group {
                 switch currentState {
                 case .idle:
@@ -89,7 +97,7 @@ struct DownloadButton: View {
                         .tint(.white)
                 }
             }
-            .frame(width: 20, height: 20) // Consistent frame prevents layout shifts
+            .frame(width: 20, height: 20)
         }
         .foregroundColor(.white)
         .padding(.horizontal, 20)
@@ -99,7 +107,6 @@ struct DownloadButton: View {
         .shadow(radius: 4)
     }
     
-    // Centralized background color logic
     private var buttonBackgroundColor: Color {
         switch currentState {
         case .idle, .downloading: return .blue
@@ -109,9 +116,9 @@ struct DownloadButton: View {
         }
     }
     
-    // MARK: - Action Handling
-    
     private func handleButtonTap() {
+        guard !isProcessing else { return }
+        
         switch currentState {
         case .idle, .error:
             startDownload()
@@ -125,15 +132,22 @@ struct DownloadButton: View {
     }
     
     private func startDownload() {
+        guard !isProcessing else { return }
+        
+        isProcessing = true
         Task {
-            await downloadManager.startDownload(
-                album: album,
-                songs: songs
-            )
+            await downloadManager.startDownload(album: album, songs: songs)
+            await MainActor.run {
+                isProcessing = false
+            }
         }
     }
     
     private func cancelDownload() {
         downloadManager.cancelDownload(albumId: album.id)
+    }
+    
+    private func deleteDownload() {
+        downloadManager.deleteDownload(albumId: album.id)
     }
 }

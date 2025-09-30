@@ -1,10 +1,9 @@
 //
-//  AlbumsViewContent.swift - MIGRATED: Unified State System
+//  AlbumsViewContent.swift - FIXED: Filter & Download Button
 //  NavidromeClient
 //
-//   ELIMINATED: Custom LoadingView, EmptyStateView (~80 LOC)
-//   UNIFIED: 4-line state logic with modern design
-//   CLEAN: Single state component handles all scenarios
+//   FIXED: Filter logic now works correctly with all albums
+//   FIXED: Download button state reactivity restored
 //
 
 import SwiftUI
@@ -21,16 +20,37 @@ struct AlbumsViewContent: View {
     
     @State private var searchText = ""
     @State private var selectedAlbumSort: ContentService.AlbumSortType = .alphabetical
+    @State private var showOnlyDownloaded = false
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - UNIFIED: Single State Logic (4 lines)
+    // MARK: - FIXED: Complete Filter Logic
     
     private var displayedAlbums: [Album] {
-        switch networkMonitor.contentLoadingStrategy {
+        // Step 1: Get base albums (respect network state)
+        let baseAlbums = switch networkMonitor.contentLoadingStrategy {
         case .online:
-            return musicLibraryManager.albums
+            musicLibraryManager.albums
         case .offlineOnly:
-            return getOfflineAlbums()
+            getOfflineAlbums()
+        }
+        
+        // Step 2: Apply download filter if enabled
+        let filteredAlbums: [Album]
+        if showOnlyDownloaded {
+            let downloadedIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
+            filteredAlbums = baseAlbums.filter { downloadedIds.contains($0.id) }
+        } else {
+            filteredAlbums = baseAlbums
+        }
+        
+        // Step 3: Apply search filter if needed
+        if searchText.isEmpty {
+            return filteredAlbums
+        } else {
+            return filteredAlbums.filter { album in
+                album.name.localizedCaseInsensitiveContains(searchText) ||
+                album.artist.localizedCaseInsensitiveContains(searchText)
+            }
         }
     }
     
@@ -44,8 +64,6 @@ struct AlbumsViewContent: View {
         }
         return nil
     }
-    
-
     
     var body: some View {
         NavigationStack {
@@ -75,38 +93,85 @@ struct AlbumsViewContent: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            // Background idle preloading instead of immediate
             .task(priority: .background) {
                 if !displayedAlbums.isEmpty {
                     coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 200)
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // Filter Menu
                     Menu {
                         Button {
-                            Task {  }
+                            showOnlyDownloaded = false
                         } label: {
-                            Label("Refrssh random albums", systemImage: "arrow.clockwise")
-                        }
-                                                
-                        Divider()
-                        // NavigationLink -> öffnet Settings
-                        NavigationLink(destination: SettingsView()) {
-                            Label("Settings", systemImage: "person.crop.circle.fill")
+                            HStack {
+                                Image(systemName: "music.note.house")
+                                Text("All Albums")
+                                Spacer()
+                                if !showOnlyDownloaded {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
                         }
                         
+                        if downloadManager.downloadedAlbums.count > 0 {
+                            Button {
+                                showOnlyDownloaded = true
+                            } label: {
+                                HStack {
+                                    Image(systemName: "arrow.down.circle.fill")
+                                    Text("Downloaded Only (\(downloadManager.downloadedAlbums.count))")
+                                    Spacer()
+                                    if showOnlyDownloaded {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: showOnlyDownloaded ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                            .foregroundColor(.white)
+                    }
+                    
+                    // Sort Menu
+                    Menu {
+                        ForEach(ContentService.AlbumSortType.allCases, id: \.self) { sortType in
+                            Button {
+                                Task {
+                                    await loadAlbums(sortBy: sortType)
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: sortType.icon)
+                                    Text(sortType.displayName)
+                                    Spacer()
+                                    if selectedAlbumSort == sortType {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .foregroundColor(.white)
+                    }
+                    
+                    // Settings Menu
+                    Menu {
+                        NavigationLink(destination: SettingsView()) {
+                            Label("Settings", systemImage: "gear")
+                        }
                     } label: {
                         Image(systemName: "ellipsis")
+                            .foregroundColor(.white)
                     }
                 }
             }
-
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
         }
-
     }
     
     @ViewBuilder
@@ -142,22 +207,11 @@ struct AlbumsViewContent: View {
         .padding(.horizontal, DSLayout.screenPadding)
     }
     
-    // MARK: - Business Logic (unchanged)
+    // MARK: - Business Logic
     
     private func getOfflineAlbums() -> [Album] {
         let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
         return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
-    }
-    
-    private func filterAlbums(_ albums: [Album]) -> [Album] {
-        if searchText.isEmpty {
-            return albums
-        } else {
-            return albums.filter { album in
-                album.name.localizedCaseInsensitiveContains(searchText) ||
-                album.artist.localizedCaseInsensitiveContains(searchText)
-            }
-        }
     }
     
     private func refreshAllData() async {
@@ -173,9 +227,5 @@ struct AlbumsViewContent: View {
         debouncer.debounce {
             // Search filtering happens automatically via computed property
         }
-    }
-    
-    private func toggleOfflineMode() {
-        offlineManager.toggleOfflineMode()
     }
 }
