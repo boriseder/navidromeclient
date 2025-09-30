@@ -80,11 +80,11 @@ struct ArtistsViewContent: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         SettingsView()
                     } label: {
-                        Image(systemName: "gearshape.fill")
+                        Image(systemName: "person.crop.circle.fill")
                     }
                 }
             }

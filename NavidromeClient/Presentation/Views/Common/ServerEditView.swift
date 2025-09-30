@@ -198,7 +198,7 @@ struct OfflineWarningSection: View {
                 
                 Spacer()
                 
-                if networkMonitor.isConnected {
+                if networkMonitor.canLoadOnlineContent {
                     Button("Go Online") {
                         offlineManager.switchToOnlineMode()
                     }
@@ -212,7 +212,7 @@ struct OfflineWarningSection: View {
     }
     
     private var warningText: String {
-        if !networkMonitor.isConnected {
+        if !networkMonitor.canLoadOnlineContent {
             return "No internet connection available"
         } else if offlineManager.isOfflineMode {
             return "Using downloaded content only"

@@ -195,10 +195,10 @@ class NavidromeViewModel: ObservableObject {
     }
     
     // MARK: - Diagnostics
-    
+        
     func getServiceArchitectureDiagnostics() async -> ServiceArchitectureDiagnostics {
         let connectionDiag = await getConnectionDiagnostics()
-        let networkDiag = NetworkMonitor.shared.getNetworkDiagnostics()
+        let networkDiag = NetworkMonitor.shared.getDiagnostics()
         let songStats = songManager.getCacheStats()
         
         return ServiceArchitectureDiagnostics(
@@ -238,8 +238,8 @@ class NavidromeViewModel: ObservableObject {
         
         var overallHealth: String {
             let connection = connectionDiagnostics.isConnected
-            let network = networkDiagnostics.isConnected
-            let server = networkDiagnostics.canLoadOnlineContent
+            let network = networkDiagnostics.state.isConnected  // Use state directly
+            let server = connectionDiagnostics.hasService
 
             if connection && network && server {
                 return "All systems operational"
@@ -249,7 +249,7 @@ class NavidromeViewModel: ObservableObject {
                 return "System issues detected"
             }
         }
-        
+
         var architectureSummary: String {
             return """
             FACADE ARCHITECTURE STATUS:

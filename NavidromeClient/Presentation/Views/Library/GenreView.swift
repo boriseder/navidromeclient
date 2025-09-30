@@ -72,12 +72,11 @@ struct GenreViewContent: View {
                 handleSearchTextChange()
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink {
                         SettingsView()
                     } label: {
-                        Image(systemName: "gearshape.fill")
-                            .foregroundColor(.primary)
+                        Image(systemName: "person.crop.circle.fill")
                     }
                 }
             }

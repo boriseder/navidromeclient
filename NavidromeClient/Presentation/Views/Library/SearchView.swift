@@ -400,7 +400,9 @@ struct SearchModeHeader: View {
             
             if reason.canGoOnline {
                 Button(reason.actionTitle) {
-                    reason.performAction(offlineManager: offlineManager)
+                    Task { @MainActor in
+                        reason.performAction()
+                    }
                 }
                 .font(DSText.metadata)
                 .foregroundStyle(DSColor.accent)

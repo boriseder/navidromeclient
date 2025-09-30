@@ -18,16 +18,16 @@ struct NetworkTestView: View {
             
             HStack {
                 Circle()
-                    .fill(networkMonitor.isConnected ? DSColor.success : DSColor.error)
+                    .fill(networkMonitor.canLoadOnlineContent ? DSColor.success : DSColor.error)
                     .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
                 
-                Text(networkMonitor.isConnected ? "Online" : "Offline")
+                Text(networkMonitor.canLoadOnlineContent ? "Online" : "Offline")
                     .font(DSText.prominent)
             }
             
-            Text("Connection: \(networkMonitor.connectionType)")
+            Text("Connection: \(networkMonitor.currentConnectionType.displayName)")
                 .font(DSText.metadata)
-            
+
             Divider()
             
             VStack {

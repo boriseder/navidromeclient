@@ -25,7 +25,7 @@ struct OfflineReasonBanner: View {
             
             if reason.canGoOnline {
                 Button(reason.actionTitle) {
-                    reason.performAction(offlineManager: offlineManager)
+                    reason.performAction()
                 }
                 .font(DSText.metadata)
                 .foregroundStyle(DSColor.accent)

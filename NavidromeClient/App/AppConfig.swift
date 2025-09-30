@@ -47,6 +47,8 @@ final class AppConfig: ObservableObject {
         self.credentials = fullCredentials
         isConfigured = true
         
+        NetworkMonitor.shared.updateConfiguration(isConfigured: true)
+
         // Trigger service initialization via notification
         NotificationCenter.default.post(name: .servicesNeedInitialization, object: fullCredentials)
     }
@@ -183,6 +185,11 @@ final class AppConfig: ObservableObject {
         }
         
         isConfigured = true
+        
+        // Add this at the very end:
+        Task { @MainActor in
+            NetworkMonitor.shared.updateConfiguration(isConfigured: true)
+        }
     }
     
     func needsPassword() -> Bool {

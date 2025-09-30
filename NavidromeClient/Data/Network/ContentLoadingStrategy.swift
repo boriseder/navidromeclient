@@ -2,14 +2,6 @@
 //  ContentLoadingStrategy.swift
 //  NavidromeClient
 //
-//  Created by Boris Eder on 30.09.25.
-//
-
-
-//
-//  ContentLoadingStrategy.swift
-//  NavidromeClient
-//
 //  Defines the content loading strategy based on network and configuration state.
 //
 
@@ -43,6 +35,10 @@ enum ContentLoadingStrategy: Equatable {
             case .userChoice: return "Offline Mode"
             }
         }
+    }
+    
+    var isEffectivelyOffline: Bool {
+        return !shouldLoadOnlineContent
     }
 }
 
@@ -84,6 +80,16 @@ extension ContentLoadingStrategy.OfflineReason {
         switch self {
         case .userChoice: return "Go Online"
         default: return ""
+        }
+    }
+    
+    @MainActor
+    func performAction() {
+        switch self {
+        case .userChoice:
+            NetworkMonitor.shared.setManualOfflineMode(false)
+        default:
+            break
         }
     }
 }

@@ -169,7 +169,9 @@ class OfflineManager: ObservableObject {
         }
         
         // Listen to NetworkMonitor for UI updates
-        networkMonitor.$contentLoadingStrategy
+        networkMonitor.$state
+            .map(\.contentLoadingStrategy)
+            .removeDuplicates()
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }

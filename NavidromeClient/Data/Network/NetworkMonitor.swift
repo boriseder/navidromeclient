@@ -22,7 +22,7 @@ class NetworkMonitor: ObservableObject {
     private let queue = DispatchQueue(label: "NetworkMonitor")
     
     // MARK: - Internal Hardware State
-    var isConnected = true
+    private var isConnected = true
     private var connectionType: NetworkConnectionType = .unknown
     private var hasRecentServerErrors = false
     private var manualOfflineMode = false
@@ -68,6 +68,32 @@ class NetworkMonitor: ObservableObject {
     
     var currentConnectionType: NetworkConnectionType {
         connectionType
+    }
+    
+    var canLoadOnlineContent: Bool {
+        state.isConnected && state.isConfigured && !hasRecentServerErrors
+    }
+    
+    var connectionStatusDescription: String {
+        state.contentLoadingStrategy.displayName
+    }
+    
+    // MARK: - Legacy Compatibility
+    
+    var effectiveConnectionState: EffectiveConnectionState {
+        switch state.contentLoadingStrategy {
+        case .online:
+            return .online
+        case .offlineOnly(let reason):
+            switch reason {
+            case .noNetwork:
+                return .disconnected
+            case .serverUnreachable:
+                return .serverUnreachable
+            case .userChoice:
+                return .userOffline
+            }
+        }
     }
     
     // MARK: - Public API - State Updates
@@ -198,7 +224,7 @@ class NetworkMonitor: ObservableObject {
     private func handleServiceConfigurationChange() {
         hasRecentServerErrors = false
         print("[NetworkMonitor] Service configuration change detected")
-        updateState()
+        updateState(isConfigured: true)  // Tell it the server is configured
     }
     
     // MARK: - Diagnostics
@@ -269,4 +295,27 @@ class NetworkMonitor: ObservableObject {
 
 extension Notification.Name {
     static let contentLoadingStrategyChanged = Notification.Name("contentLoadingStrategyChanged")
+    static let networkStateChanged = Notification.Name("networkStateChanged")
+}
+
+// MARK: - Legacy Compatibility
+
+enum EffectiveConnectionState {
+    case online
+    case userOffline
+    case serverUnreachable
+    case disconnected
+    
+    var shouldLoadOnlineContent: Bool {
+        return self == .online
+    }
+    
+    var displayName: String {
+        switch self {
+        case .online: return "Online"
+        case .userOffline: return "User Offline"
+        case .serverUnreachable: return "Server Unreachable"
+        case .disconnected: return "Disconnected"
+        }
+    }
 }

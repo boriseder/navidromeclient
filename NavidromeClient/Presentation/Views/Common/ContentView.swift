@@ -43,7 +43,7 @@ struct ContentView: View {
                 showingSettings = true
             }
         }
-        .onChange(of: networkMonitor.isConnected) { _, isConnected in
+        .onChange(of: networkMonitor.canLoadOnlineContent) { _, isConnected in
             handleNetworkChange(isConnected)
         }
     }

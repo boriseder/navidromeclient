@@ -81,26 +81,27 @@ struct AlbumsViewContent: View {
                     coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 200)
                 }
             }
-            /*
-            #if DEBUG
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Debug Network") {
-                        networkMonitor.printNetworkState()
-                    }
-                }
-            }
-            #endif
-             */
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsView()
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button {
+                            Task {  }
+                        } label: {
+                            Label("Refrssh random albums", systemImage: "arrow.clockwise")
+                        }
+                                                
+                        Divider()
+                        // NavigationLink -> öffnet Settings
+                        NavigationLink(destination: SettingsView()) {
+                            Label("Settings", systemImage: "person.crop.circle.fill")
+                        }
+                        
                     } label: {
-                        Image(systemName: "gearshape.fill")
+                        Image(systemName: "ellipsis")
                     }
                 }
             }
+
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }

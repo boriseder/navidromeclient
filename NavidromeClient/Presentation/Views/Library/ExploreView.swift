@@ -94,14 +94,24 @@ struct ExploreViewContent: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink {
-                        SettingsView()
+                    Menu {
+                        Button {
+                            Task { await refreshRandomAlbums }
+                        } label: {
+                            Label("Refrssh random albums", systemImage: "arrow.clockwise")
+                        }
+                                                
+                        Divider()
+                        // NavigationLink -> öffnet Settings
+                        NavigationLink(destination: SettingsView()) {
+                            Label("Settings", systemImage: "person.crop.circle.fill")
+                        }
+                        
                     } label: {
-                        Image(systemName: "person.crop.circle.fill")
+                        Image(systemName: "ellipsis")
                     }
                 }
             }
-
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await exploreManager.loadExploreData()
@@ -187,7 +197,7 @@ struct ExploreViewContent: View {
         LazyVStack(alignment: .leading, spacing: DSLayout.screenGap) {
             OfflineWelcomeHeader(
                 downloadedAlbums: downloadManager.downloadedAlbums.count,
-                isConnected: networkMonitor.isConnected
+                isConnected: networkMonitor.canLoadOnlineContent
             )
             
             if !offlineManager.offlineAlbums.isEmpty {

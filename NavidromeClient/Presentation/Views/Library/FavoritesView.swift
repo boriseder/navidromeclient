@@ -95,28 +95,39 @@ struct FavoritesViewContent: View {
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
-
-           /* .toolbar {
+            .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Button("Play All") {
+                        Button {
                             Task { await playAllFavorites() }
+                        } label: {
+                            Label("Play All", systemImage: "play.fill")
                         }
                         
-                        Button("Shuffle All") {
+                        Button {
                             Task { await shuffleAllFavorites() }
+                        } label: {
+                            Label("Shuffle All", systemImage: "shuffle")
                         }
+                            
                         
                         if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
                             Divider()
-                            
-                            Button("Clear All Favorites", role: .destructive) {
+                            Button(role: .destructive) {
                                 showingClearConfirmation = true
+                            } label: {
+                                Label("Clear All Favorites", systemImage: "trash")
                             }
                         }
+                        
+                        Divider()
+                        // NavigationLink -> öffnet Settings
+                        NavigationLink(destination: SettingsView()) {
+                            Label("Settings", systemImage: "person.crop.circle.fill")
+                        }
+                        
                     } label: {
                         Image(systemName: "ellipsis")
-                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -128,7 +139,6 @@ struct FavoritesViewContent: View {
             } message: {
                 Text("This will remove all songs from your favorites.")
             }
-            */
         }
     }
 

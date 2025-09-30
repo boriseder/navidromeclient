@@ -102,7 +102,7 @@ struct UnifiedStateView: View {
     private var contextualMessage: String {
         let baseMessage = state.message
         
-        if !networkMonitor.isConnected {
+        if !networkMonitor.canLoadOnlineContent {
             return state.offlineMessage ?? baseMessage
         } else if offlineManager.isOfflineMode {
             return state.offlineModeMessage ?? baseMessage

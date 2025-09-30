@@ -139,14 +139,14 @@ struct NetworkStatusIndicator: View {
     
     var body: some View {
         HStack(spacing: DSLayout.tightGap) {
-            Image(systemName: networkMonitor.isConnected ? "wifi" : "wifi.slash")
-                .foregroundStyle(networkMonitor.isConnected ? DSColor.success : DSColor.error)
+            Image(systemName: networkMonitor.canLoadOnlineContent ? "wifi" : "wifi.slash")
+                .foregroundStyle(networkMonitor.canLoadOnlineContent ? DSColor.success : DSColor.error)
                 .font(DSText.metadata)
             
             if showText {
-                Text(networkMonitor.isConnected ? "Online" : "Offline")
+                Text(networkMonitor.canLoadOnlineContent ? "Online" : "Offline")
                     .font(DSText.metadata)
-                    .foregroundStyle(networkMonitor.isConnected ? DSColor.success : DSColor.error)
+                    .foregroundStyle(networkMonitor.canLoadOnlineContent ? DSColor.success : DSColor.error)
             }
         }
     }
@@ -158,7 +158,7 @@ struct OfflineModeToggle: View {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     
     var body: some View {
-        if networkMonitor.isConnected {
+        if networkMonitor.canLoadOnlineContent {
             Button(action: {
                 offlineManager.toggleOfflineMode()
             }) {

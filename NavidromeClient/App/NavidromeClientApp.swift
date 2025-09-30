@@ -86,7 +86,7 @@ struct NavidromeClientApp: App {
                 .onAppear {
                     configureInitialDependencies()
                 }
-                .onChange(of: networkMonitor.isConnected) { _, isConnected in
+                .onChange(of: networkMonitor.canLoadOnlineContent) { _, isConnected in
                     Task {
                         await handleNetworkChange(isConnected: isConnected)
                     }
@@ -203,7 +203,7 @@ struct NavidromeClientApp: App {
         await exploreManager.handleNetworkChange(isOnline: isConnected)
         
         //  Update NetworkMonitor diagnostics
-        let networkDiag = networkMonitor.getNetworkDiagnostics()
+        let networkDiag = networkMonitor.getDiagnostics()
         print("📊 Network diagnostics: \(networkDiag.summary)")
     }
 
@@ -254,7 +254,7 @@ struct NavidromeClientApp: App {
             
             // Refresh data if needed
             if !navidromeVM.isDataFresh {
-                await navidromeVM.handleNetworkChange(isOnline: networkMonitor.isConnected)
+                await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
             }
             
             // Refresh home screen if needed

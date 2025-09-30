@@ -71,7 +71,7 @@ struct MainTabView: View {
     // MARK: - Network Status Overlay
     @ViewBuilder
     private var networkStatusOverlay: some View {
-        if !networkMonitor.isConnected {
+        if !networkMonitor.canLoadOnlineContent {
             HStack {
                 Image(systemName: "wifi.slash")
                     .font(DSText.metadata)
@@ -93,7 +93,7 @@ struct MainTabView: View {
             .foregroundStyle(DSColor.onDark)
             .screenPadding()
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(DSAnimations.ease, value: networkMonitor.isConnected)
+            .animation(DSAnimations.ease, value: networkMonitor.canLoadOnlineContent)
         }
     }
 }
