@@ -12,6 +12,7 @@ struct AlbumHeaderView: View {
     let songs: [Song]
     let isOfflineAlbum: Bool
 
+    @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var downloadManager: DownloadManager
@@ -24,7 +25,7 @@ struct AlbumHeaderView: View {
             backgroundImageLayer
             contentLayer
         }
-        .frame(height: 440)
+        .frame(height: DSLayout.fullCover)
         .ignoresSafeArea(edges: .top)
         .onAppear {
             updateDownloadState()
@@ -56,36 +57,51 @@ struct AlbumHeaderView: View {
 
     @ViewBuilder
     private var backgroundImageLayer: some View {
-        AlbumImageView(album: album, index: 0, size: UIScreen.main.bounds.width)
-            .scaledToFill()
-            .frame(
-                width: UIScreen.main.bounds.width,
-                height: 690
-            )
-            .blur(radius: 35)
-            .overlay(
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .black.opacity(0.5),
-                                .black.opacity(0.2),
-                                .black.opacity(0.1),
-                                .black.opacity(0.85),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
+        GeometryReader { geo in
+            AlbumImageView(album: album, index: 0, size: DSLayout.fullCover * 2)
+                .scaledToFit()
+                .frame(
+                    width: DSLayout.fullCover * 1.7,
+                    height: DSLayout.fullCover * 1.7
+                )
+                .blur(radius: 20)
+                .clipped() // Blur wird hier abgeschnitten
+                .ignoresSafeArea(edges: .top)
+                .offset(
+                    x: -(DSLayout.fullCover * 1.7 - geo.size.width) / 2,
+                    y: -70
+                )
+                .overlay(
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                colors: appConfig.userBackgroundStyle.textColor == .white
+                                    ? [
+                                        .black.opacity(0.5),
+                                        .black.opacity(0.2),
+                                        .black.opacity(0.1),
+                                        .black.opacity(1),
+                                      ]
+                                    : [
+                                        .white.opacity(0.5),
+                                        .white.opacity(0.2),
+                                        .white.opacity(0.1),
+                                        .white.opacity(1),
+                                      ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
-            )
-            .offset(y: -125)
-            .ignoresSafeArea(edges: .top)
+                        .offset(y: -70)
+                        .ignoresSafeArea(edges: .top)
+                )
+        }
     }
 
     @ViewBuilder
     private var contentLayer: some View {
         VStack(spacing: 0) {
-            Color.clear.frame(height: 140)
+            Color.clear.frame(height: DSLayout.contentGap)
 
             VStack(spacing: DSLayout.screenGap) {
                 albumHeroContent
@@ -100,7 +116,7 @@ struct AlbumHeaderView: View {
     @ViewBuilder
     private var albumHeroContent: some View {
         VStack(spacing: 20) {
-            AlbumImageView(album: album, index: 0, size: 200)
+            AlbumImageView(album: album, index: 0, size: DSLayout.detailCover)
                 .clipShape(
                     RoundedRectangle(cornerRadius: 20)
                 )
@@ -152,6 +168,7 @@ struct AlbumHeaderView: View {
 
             actionButtonsFloating
         }
+        .padding(.top, DSLayout.largeGap)
     }
 
     @ViewBuilder

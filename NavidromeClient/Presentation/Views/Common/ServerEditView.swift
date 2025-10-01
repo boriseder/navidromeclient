@@ -55,15 +55,15 @@ struct ServerEditView: View {
                 Button("Test Connection") {
                     Task { await testConnectionWithOfflineCheck() }
                 }
-                .disabled(!connectionManager.canTestConnection || 
-                         (offlineManager.isOfflineMode && !networkMonitor.canLoadOnlineContent))
+                //.disabled(!connectionManager.canTestConnection ||
+                         //(offlineManager.isOfflineMode && !networkMonitor.canLoadOnlineContent))
             }
 
             Section {
                 Button("Save & Continue") {
                     Task { await saveCredentialsAndConfigure() }
                 }
-                .disabled(!connectionManager.isConnected)
+                //.disabled(!connectionManager.isConnected)
             }
 
             if connectionManager.isConnected {

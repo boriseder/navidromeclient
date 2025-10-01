@@ -31,23 +31,24 @@ struct AlbumDetailViewContent: View {
                         songs: songs,
                         isOfflineAlbum: isOfflineAlbum
                     )
-                                                            
-                    if let state = currentState {
-                        UnifiedStateView(
-                            state: state,
-                            primaryAction: StateAction("Refresh") {
-                                Task {
-                                    await loadAlbumData()
+                    Group {
+                        if let state = currentState {
+                            UnifiedStateView(
+                                state: state,
+                                primaryAction: StateAction("Refresh") {
+                                    Task {
+                                        await loadAlbumData()
+                                    }
                                 }
-                            }
-                        )
-                        .padding(.horizontal, DSLayout.screenPadding)
-                    } else {
-                        AlbumSongsListView(
-                            songs: songs,
-                            album: album
-                        )
-                    }
+                            )
+                            .padding(.horizontal, DSLayout.screenPadding)
+                        } else {
+                            AlbumSongsListView(
+                                songs: songs,
+                                album: album
+                            )
+                        }
+                    }.padding(.top, DSLayout.largeGap * 3)
                 }
                 .padding(.bottom, DSLayout.miniPlayerHeight + DSLayout.contentGap)
             }

@@ -95,7 +95,7 @@ struct ExploreViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,
                 for: .navigationBar
             )            .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -194,8 +194,6 @@ struct ExploreViewContent: View {
                     refreshAction: { await refreshRandomAlbums() }
                 )
             }
-            
-            //Color.clear.frame(height: DSLayout.miniPlayerHeight)
         }
     }
     

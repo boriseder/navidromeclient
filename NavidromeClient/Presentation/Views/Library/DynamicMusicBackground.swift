@@ -6,13 +6,14 @@ import SwiftUI
 struct DynamicMusicBackground: View {
     @EnvironmentObject var appConfig: AppConfig
     
+    /*
     @AppStorage("UserBackgroundStyle") private var userBackgroundStyleRaw: String = UserBackgroundStyle.dynamic.rawValue
     
     private var userBackgroundStyle: UserBackgroundStyle {
         get { UserBackgroundStyle(rawValue: userBackgroundStyleRaw) ?? .dynamic }
         set { userBackgroundStyleRaw = newValue.rawValue }
     }
-    
+    */
     @State private var animateGradient = false
         
     var body: some View {

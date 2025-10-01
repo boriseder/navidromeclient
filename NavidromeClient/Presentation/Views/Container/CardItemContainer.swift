@@ -12,7 +12,7 @@ struct CardItemContainer: View {
     let content: CardContent
     let index: Int
     
-    private let textHeight: CGFloat = 70 // fixe Höhe für Titel/Subtitel/Year
+    private let textHeight: CGFloat = 40 // fixe Höhe für Titel/Subtitel/Year
     
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
@@ -27,22 +27,22 @@ struct CardItemContainer: View {
                 Text(content.title)
                     .font(DSText.emphasized)
                     .foregroundColor(DSColor.primary)
-                    .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
-                Text(content.subtitle)
-                    .font(DSText.metadata)
-                    .foregroundColor(DSColor.secondary)
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                
-                if let year = content.year {
-                    Text(year)
-                        .font(DSText.footnote)
-                        .foregroundColor(DSColor.tertiary)
-                } else {
-                    Text("").hidden() // Platzhalter, damit Höhe gleich bleibt
+                HStack {
+                    Text(content.subtitle)
+                        .font(DSText.metadata)
+                        .foregroundColor(DSColor.secondary)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    if let year = content.year {
+                        Text(year)
+                            .font(DSText.footnote)
+                            .foregroundColor(DSColor.tertiary)
+                    } else {
+                        Text("").hidden() // Platzhalter, damit Höhe gleich bleibt
+                    }
                 }
             }
             .frame(height: textHeight)

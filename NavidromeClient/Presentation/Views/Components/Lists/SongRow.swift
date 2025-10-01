@@ -153,7 +153,7 @@ struct SongRow: View {
         VStack(alignment: .leading, spacing: DSLayout.tightGap) {
             // Song title
             Text(song.title)
-                .font(DSText.emphasized)
+                .font(DSText.detail)
                 .foregroundStyle(songTitleColor)
                 .lineLimit(1)
                 .multilineTextAlignment(.leading)
@@ -183,7 +183,7 @@ struct SongRow: View {
     private var durationSection: some View {
         if let duration = song.duration, duration > 0 {
             Text(formatDuration(duration))
-                .font(DSText.numbers)
+                .font(DSText.detail)
         }
     }
     
