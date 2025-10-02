@@ -26,16 +26,20 @@ struct ExploreViewContent: View {
     @State private var dummySearch = ""
 
     private var hasContent: Bool {
-        let result = switch networkMonitor.contentLoadingStrategy {
+        let result: Bool
+        
+        switch networkMonitor.contentLoadingStrategy {
         case .online:
-            hasOnlineContent
+            result = hasOnlineContent
         case .offlineOnly:
-            hasOfflineContent
+            result = hasOfflineContent
+        case .setupRequired:
+            result = false
         }
-    
+
         return result
     }
-
+    
     private var hasOnlineContent: Bool {
         let result = exploreManager.hasHomeScreenData
         return result
@@ -142,6 +146,8 @@ struct ExploreViewContent: View {
                     onlineContent
                 case .offlineOnly:
                     offlineContent
+                case .setupRequired:
+                    EmptyView()  // This case shouldn't happen in contentView but we need it for exhaustiveness
                 }
             }
         }

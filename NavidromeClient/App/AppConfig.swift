@@ -10,8 +10,20 @@ import CryptoKit
 final class AppConfig: ObservableObject {
     static let shared = AppConfig()
     
-    @Published var isConfigured = false
-    @Published private(set) var isInitializingServices = false  // Already exists
+    @Published var isConfigured = false  // ADD THIS LINE
+    @Published var isInitializingServices = false
+    private var hasInitializedServices = false
+
+    var areServicesReady: Bool {
+        return isConfigured && !isInitializingServices && hasInitializedServices
+    }
+
+    func setInitializingServices(_ isInitializing: Bool) {
+        isInitializingServices = isInitializing
+        if !isInitializing {
+            hasInitializedServices = true
+        }
+    }
 
     @Published var userBackgroundStyle: UserBackgroundStyle {
         didSet {
@@ -19,15 +31,13 @@ final class AppConfig: ObservableObject {
             UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "userBackgroundStyle")
         }
     }
-    
-    @Published var userAccentColor: UserAccentColor = .blue {
+        @Published var userAccentColor: UserAccentColor = .blue {
         didSet {
             UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
         }
     }
     
     private var credentials: ServerCredentials?
-    private var hasInitializedServices = false
 
     private init() {
         // Stored property initialisieren
@@ -40,11 +50,7 @@ final class AppConfig: ObservableObject {
         
         loadCredentials()
     }
-    
-
-
-
-    
+        
     // MARK: - Configuration
     func configure(baseURL: URL, username: String, password: String) {
         guard validateCredentials(baseURL: baseURL, username: username, password: password) else {
@@ -77,19 +83,7 @@ final class AppConfig: ObservableObject {
         // Trigger service initialization via notification
         NotificationCenter.default.post(name: .servicesNeedInitialization, object: fullCredentials)
     }
-    
-    func setInitializingServices(_ isInitializing: Bool) {
-        isInitializingServices = isInitializing
-        
-        if !isInitializing {
-            hasInitializedServices = true
-            print("✅ Service initialization completed")
-        }
-    }
-    
-    var areServicesReady: Bool {
-        isConfigured && !isInitializingServices && hasInitializedServices
-    }
+
 
     func getCredentials() -> ServerCredentials? {
         return credentials

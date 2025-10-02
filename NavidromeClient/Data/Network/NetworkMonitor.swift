@@ -93,6 +93,8 @@ class NetworkMonitor: ObservableObject {
             case .userChoice:
                 return .userOffline
             }
+        case .setupRequired:
+            return .disconnected  // Treat as disconnected for legacy compatibility
         }
     }
     

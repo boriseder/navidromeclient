@@ -64,6 +64,8 @@ class OfflineManager: ObservableObject {
             case .noNetwork, .serverUnreachable:
                 print("⚠️ Cannot switch to online: \(reason.message)")
             }
+        case .setupRequired:
+            print("⚠️ Cannot toggle offline mode: Server setup required")
         }
     }
     

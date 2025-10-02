@@ -26,12 +26,16 @@ struct AlbumsViewContent: View {
     // MARK: - FIXED: Complete Filter Logic
     
     private var displayedAlbums: [Album] {
-        // Step 1: Get base albums (respect network state)
-        let baseAlbums = switch networkMonitor.contentLoadingStrategy {
+        // Step 1: Get base albums based on strategy
+        let baseAlbums: [Album]
+        
+        switch networkMonitor.contentLoadingStrategy {
         case .online:
-            musicLibraryManager.albums
+            baseAlbums = musicLibraryManager.albums
         case .offlineOnly:
-            getOfflineAlbums()
+            baseAlbums = getOfflineAlbums()
+        case .setupRequired:
+            baseAlbums = []
         }
         
         // Step 2: Apply download filter if enabled
@@ -53,7 +57,6 @@ struct AlbumsViewContent: View {
             }
         }
     }
-    
     private var currentState: ViewState? {
         if appConfig.isInitializingServices {
             return .loading("Setting up your music library")

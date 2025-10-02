@@ -25,12 +25,18 @@ struct ArtistsViewContent: View {
     // MARK: - UNIFIED: Single State Logic
     
     private var displayedArtists: [Artist] {
+        let artists: [Artist]
+        
         switch networkMonitor.contentLoadingStrategy {
         case .online:
-            return filterArtists(musicLibraryManager.artists)
+            artists = filterArtists(musicLibraryManager.artists)
         case .offlineOnly:
-            return filterArtists(offlineManager.offlineArtists)
+            artists = filterArtists(offlineManager.offlineArtists)
+        case .setupRequired:
+            artists = []
         }
+        
+        return artists
     }
     
     private var currentState: ViewState? {

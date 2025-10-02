@@ -23,14 +23,18 @@ struct FavoritesViewContent: View {
 
     // Single state logic following the pattern
     private var displayedSongs: [Song] {
-        let songs = switch networkMonitor.contentLoadingStrategy {
+        let songs: [Song]
+        
+        switch networkMonitor.contentLoadingStrategy {
         case .online:
-            favoritesManager.favoriteSongs
+            songs = favoritesManager.favoriteSongs
         case .offlineOnly:
             // In offline mode, show only favorites that are downloaded
-            favoritesManager.favoriteSongs.filter { song in
+            songs = favoritesManager.favoriteSongs.filter { song in
                 DownloadManager.shared.isSongDownloaded(song.id)
             }
+        case .setupRequired:
+            songs = []
         }
         
         if searchText.isEmpty {

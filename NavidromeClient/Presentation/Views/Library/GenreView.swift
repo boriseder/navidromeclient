@@ -23,12 +23,18 @@ struct GenreViewContent: View {
     // MARK: - UNIFIED: Single State Logic
     
     private var displayedGenres: [Genre] {
+        let genres: [Genre]
+        
         switch networkMonitor.contentLoadingStrategy {
         case .online:
-            return filterGenres(musicLibraryManager.genres)
+            genres = filterGenres(musicLibraryManager.genres)
         case .offlineOnly:
-            return filterGenres(offlineManager.offlineGenres)
+            genres = filterGenres(offlineManager.offlineGenres)
+        case .setupRequired:
+            genres = []
         }
+        
+        return genres
     }
     
     private var currentState: ViewState? {

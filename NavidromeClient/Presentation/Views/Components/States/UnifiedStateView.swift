@@ -242,11 +242,34 @@ enum ViewState: Equatable {
     case serverError
     case unauthorized
     case noDownloads
+    case setupRequired  // ADD THIS
     
     enum ContentType {
         case artists, albums, genres, songs, favorites, search
+        
+        var icon: String {
+            switch self {
+            case .artists: return "person.2"
+            case .albums: return "music.note.house"
+            case .genres: return "music.note.list"
+            case .songs: return "music.note"
+            case .favorites: return "heart"
+            case .search: return "magnifyingglass"
+            }
+        }
+        
+        var displayName: String {
+            switch self {
+            case .artists: return "Artists"
+            case .albums: return "Albums"
+            case .genres: return "Genres"
+            case .songs: return "Songs"
+            case .favorites: return "Favorites"
+            case .search: return "Results"
+            }
+        }
     }
-    
+
     var icon: String {
         switch self {
         case .loading: return "arrow.triangle.2.circlepath"
@@ -255,6 +278,7 @@ enum ViewState: Equatable {
         case .serverError: return "exclamationmark.triangle"
         case .unauthorized: return "lock"
         case .noDownloads: return "arrow.down.circle"
+        case .setupRequired: return "server.rack"  // ADD THIS
         }
     }
     
@@ -266,6 +290,7 @@ enum ViewState: Equatable {
         case .serverError: return "Server Error"
         case .unauthorized: return "Authentication Required"
         case .noDownloads: return "No Downloads"
+        case .setupRequired: return "Server Setup Required"  // ADD THIS
         }
     }
     
@@ -277,6 +302,7 @@ enum ViewState: Equatable {
         case .serverError: return "The server encountered an error. Please try again later"
         case .unauthorized: return "Please check your login credentials in settings"
         case .noDownloads: return "Download content while connected to enjoy it offline"
+        case .setupRequired: return "Please configure your Navidrome server connection in settings"  // ADD THIS
         }
     }
     
@@ -284,14 +310,16 @@ enum ViewState: Equatable {
         switch self {
         case .empty(let type): return "No downloaded \(type.displayName.lowercased()) available for offline listening"
         case .noConnection: return "Connect to WiFi or cellular to access your music library"
-        default: return nil
+        case .loading, .serverError, .unauthorized, .noDownloads, .setupRequired:  // ADD .setupRequired HERE
+            return nil
         }
     }
     
     var offlineModeMessage: String? {
         switch self {
         case .empty(let type): return "Download some \(type.displayName.lowercased()) to see them in offline mode"
-        default: return nil
+        case .loading, .noConnection, .serverError, .unauthorized, .noDownloads, .setupRequired:  // ADD .setupRequired HERE
+            return nil
         }
     }
     
@@ -303,35 +331,11 @@ enum ViewState: Equatable {
         case .serverError: return DSColor.error
         case .unauthorized: return DSColor.error
         case .noDownloads: return DSColor.info
+        case .setupRequired: return DSColor.accent  // ADD THIS
         }
     }
 }
-
 // MARK: - Content Type Extensions
-
-extension ViewState.ContentType {
-    var icon: String {
-        switch self {
-        case .artists: return "person.2"
-        case .albums: return "music.note.house"
-        case .genres: return "music.note.list"
-        case .songs: return "music.note"
-        case .favorites: return "heart"
-        case .search: return "magnifyingglass"
-        }
-    }
-    
-    var displayName: String {
-        switch self {
-        case .artists: return "Artists"
-        case .albums: return "Albums"
-        case .genres: return "Genres"
-        case .songs: return "Songs"
-        case .favorites: return "Favorites"
-        case .search: return "Results"
-        }
-    }
-}
 
 // MARK: - State Action
 
@@ -374,6 +378,14 @@ extension UnifiedStateView {
         UnifiedStateView(
             state: .unauthorized,
             primaryAction: StateAction("Open Settings", action: openSettings)
+        )
+    }
+    
+    // ADD THIS
+    static func setupRequired(openSettings: @escaping () -> Void) -> UnifiedStateView {
+        UnifiedStateView(
+            state: .setupRequired,
+            primaryAction: StateAction("Configure Server", action: openSettings)
         )
     }
 }

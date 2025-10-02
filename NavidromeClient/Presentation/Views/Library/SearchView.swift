@@ -185,6 +185,9 @@ struct SearchView: View {
             performOnlineSearch(query: query)
         case .offlineOnly:
             performOfflineSearch(query: query)
+        case .setupRequired:
+            // Intentionally left blank
+            break
         }
     }
     

@@ -27,7 +27,14 @@ struct ServerEditView: View {
     @State private var showingError = false
     @State private var showingOfflineWarning = false
     @State private var errorMessage = ""
-
+    @State private var isWaitingForServices = false
+    
+    let dismissParent: (() -> Void)?
+    
+    init(dismissParent: (() -> Void)? = nil) {
+        self.dismissParent = dismissParent
+    }
+    
     var body: some View {
         Form {
             if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
@@ -60,12 +67,23 @@ struct ServerEditView: View {
             }
 
             Section {
-                Button("Save & Continue") {
+                Button {
                     Task { await saveCredentialsAndConfigure() }
+                } label: {
+                    HStack {
+                        if isWaitingForServices {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("Initializing services...")
+                        } else {
+                            Text("Save & Continue")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                //.disabled(!connectionManager.isConnected)
+                .disabled(!connectionManager.isConnected || isWaitingForServices)
             }
-
+            
             if connectionManager.isConnected {
                 ServerHealthSection(connectionManager: connectionManager)
             }
@@ -114,15 +132,34 @@ struct ServerEditView: View {
         let success = await connectionManager.saveCredentials()
         if success {
             await MainActor.run {
-                showingSaveSuccess = true
-                dismiss()
+                isWaitingForServices = true
+            }
+            
+            // Wait for services to initialize (max 5 seconds)
+            for attempt in 0..<10 {
+                if AppConfig.shared.areServicesReady {
+                    await MainActor.run {
+                        isWaitingForServices = false
+                        dismiss()
+                        dismissParent?()  // Dismiss parent if initial setup
+                    }
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+
+            // Timeout
+            await MainActor.run {
+                isWaitingForServices = false
+                errorMessage = "Services failed to initialize. Please try again."
+                showingError = true
             }
         } else {
             errorMessage = connectionManager.connectionError ?? "Failed to save credentials"
             showingError = true
         }
     }
-    
+
     private func testConnectionWithOfflineCheck() async {
         if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
             showingOfflineWarning = true

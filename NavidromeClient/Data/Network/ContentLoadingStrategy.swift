@@ -11,25 +11,15 @@ import SwiftUI
 enum ContentLoadingStrategy: Equatable {
     case online
     case offlineOnly(reason: OfflineReason)
+    case setupRequired
     
     enum OfflineReason: Equatable {
         case noNetwork
         case serverUnreachable
         case userChoice
-    }
-    
-    var shouldLoadOnlineContent: Bool {
-        switch self {
-        case .online: return true
-        case .offlineOnly: return false
-        }
-    }
-    
-    var displayName: String {
-        switch self {
-        case .online: return "Online"
-        case .offlineOnly(let reason):
-            switch reason {
+        
+        var displayName: String {
+            switch self {
             case .noNetwork: return "No Internet"
             case .serverUnreachable: return "Server Unreachable"
             case .userChoice: return "Offline Mode"
@@ -37,8 +27,23 @@ enum ContentLoadingStrategy: Equatable {
         }
     }
     
+    var shouldLoadOnlineContent: Bool {
+        switch self {
+        case .online: return true
+        case .offlineOnly, .setupRequired: return false  // ADD .setupRequired HERE
+        }
+    }
+    
+    var displayName: String {
+        switch self {
+        case .online: return "Online"
+        case .offlineOnly(let reason): return reason.displayName
+        case .setupRequired: return "Setup Required"  // ADD THIS CASE
+        }
+    }
+
     var isEffectivelyOffline: Bool {
-        return !shouldLoadOnlineContent
+        return !shouldLoadOnlineContent  // This automatically handles setupRequired now
     }
 }
 

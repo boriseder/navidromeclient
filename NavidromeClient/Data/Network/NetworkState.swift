@@ -5,7 +5,6 @@
 //  Created by Boris Eder on 30.09.25.
 //
 
-
 import Foundation
 
 struct NetworkState: Equatable {
@@ -15,11 +14,14 @@ struct NetworkState: Equatable {
     let manualOfflineMode: Bool
     
     var contentLoadingStrategy: ContentLoadingStrategy {
+        // CRITICAL: Check configuration FIRST
+        if !isConfigured {
+            return .setupRequired
+        }
+        
+        // Then check network/server conditions
         if !isConnected {
             return .offlineOnly(reason: .noNetwork)
-        }
-        if !isConfigured {
-            return .offlineOnly(reason: .serverUnreachable)
         }
         if hasServerErrors {
             return .offlineOnly(reason: .serverUnreachable)
@@ -27,6 +29,7 @@ struct NetworkState: Equatable {
         if manualOfflineMode {
             return .offlineOnly(reason: .userChoice)
         }
+        
         return .online
     }
     

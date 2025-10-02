@@ -1,41 +1,17 @@
 //
-//  NavidromeClientApp.swift - FIXED: Service Initialization Issues
+//  NavidromeClientApp.swift - UNIFIED: Single Initialization Path
 //  NavidromeClient
 //
-//   FIXED: Incorrect argument labels and type conversions
-//   CLEAN: Proper UnifiedSubsonicService initialization pattern
-//   SAFE: Handles missing credentials gracefully
-//
-// Service initialization dependency graph:
-//
-// UnifiedSubsonicService (created in ServiceContainer)
-//   ↓
-// ├─→ CoverArtManager.configure(service)
-// ├─→ SongManager.configure(service)
-// ├─→ DownloadManager.configure(service)
-// │   └─→ DownloadManager.configure(coverArtManager)
-// ├─→ FavoritesManager.configure(service)
-// ├─→ ExploreManager.configure(service)
-// └─→ MusicLibraryManager.configure(service)
-//
-// NavidromeViewModel.updateService(service)
-
 
 import SwiftUI
 
 @main
 struct NavidromeClientApp: App {
-    // Safe initialization without early service creation
     @StateObject private var serviceContainer = ServiceContainer()
     @StateObject private var navidromeVM = NavidromeViewModel()
-
-    // SongManager
     @StateObject private var songManager = SongManager(downloadManager: .shared)
-    
-    // Inject songManager into PlayerViewModel
     @StateObject private var playerVM: PlayerViewModel
     
-    // Core Services (Singletons)
     @StateObject private var appConfig = AppConfig.shared
     @StateObject private var downloadManager = DownloadManager.shared
     @StateObject private var audioSessionManager = AudioSessionManager.shared
@@ -46,25 +22,12 @@ struct NavidromeClientApp: App {
     @StateObject private var favoritesManager = FavoritesManager.shared
     
     init() {
-        // Initialize PlayerViewModel with SongManager
         let songMgr = SongManager(downloadManager: .shared)
         let playerViewModel = PlayerViewModel(songManager: songMgr)
         
         _songManager = StateObject(wrappedValue: songMgr)
         _playerVM = StateObject(wrappedValue: playerViewModel)
-        
-        // UI configuration
-        /*
-        let appearance = UINavigationBarAppearance()
-        appearance.largeTitleTextAttributes = [.foregroundColor: UIColor.white]
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        
-        let searchBarAppearance = UISearchBar.appearance()
-        searchBarAppearance.barTintColor = .red
-        searchBarAppearance.searchTextField.backgroundColor = .yellow
-    */
-         }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -100,215 +63,128 @@ struct NavidromeClientApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: .servicesNeedInitialization)) { notification in
                     if let credentials = notification.object as? ServerCredentials {
                         Task {
-                            await initializeServicesAfterLogin(credentials: credentials)
+                            await initializeServices(with: credentials)
                         }
                     }
                 }
         }
     }
     
+    // MARK: - UNIFIED Service Initialization
+    
     private func setupServicesAfterAppLaunch() async {
-        guard appConfig.isConfigured else {
-            print("⚠️ App not configured - services will be initialized after login")
+        // Access the wrapped value directly
+        guard AppConfig.shared.isConfigured else {
+            print("App not configured - waiting for login")
             return
         }
         
-        print("🚀 Starting service initialization...")
-        print("  Configuration status: \(appConfig.isConfigured)")
-        print("  Credentials available: \(appConfig.getCredentials() != nil)")
-        
-        await serviceContainer.initializeServices(with: appConfig.getCredentials())
-        await configureViewModelsWithServices()
-        
-        print("✅ Service initialization complete")
-        print("  Services ready: \(appConfig.areServicesReady)")
-    }
-    
-    private func configureInitialDependencies() {
-        // Safe initial configuration without services
-        audioSessionManager.playerViewModel = playerVM
-    }
-    
-    private func configureViewModelsWithServices() async {
-        guard let service = serviceContainer.unifiedService else {
-            print("❌ Cannot configure: No service available")
+        guard let credentials = AppConfig.shared.getCredentials() else {
+            print("No credentials available")
             return
         }
         
-        print("🔧 Starting service configuration in dependency order...")
-        
-        await MainActor.run {
-            // Phase 1: Independent services (no dependencies)
-            coverArtManager.configure(service: service)
-            print("  ✓ CoverArtManager configured")
-            
-            // Phase 2: Services that depend on Phase 1
-            songManager.configure(service: service)
-            print("  ✓ SongManager configured")
-            
-            // Phase 3: Services with multiple dependencies
-            downloadManager.configure(service: service)
-            downloadManager.configure(coverArtManager: coverArtManager)
-            print("  ✓ DownloadManager configured")
-            
-            favoritesManager.configure(service: service)
-            print("  ✓ FavoritesManager configured")
-            
-            exploreManager.configure(service: service)
-            print("  ✓ ExploreManager configured")
-            
-            MusicLibraryManager.shared.configure(service: service)
-            print("  ✓ MusicLibraryManager configured")
-            
-            // Phase 4: ViewModels last
-            navidromeVM.updateService(service)
-            print("  ✓ NavidromeViewModel configured")
-            
-            print("✅ All services configured successfully")
-        }
+        print("App launch: Initializing services with saved credentials")
+        await initializeServices(with: credentials)
     }
-    
-    private func initializeServicesAfterLogin(credentials: ServerCredentials) async {
+    private func initializeServices(with credentials: ServerCredentials) async {
+        print("=== Starting Service Initialization ===")
         
         await MainActor.run {
             appConfig.setInitializingServices(true)
         }
         
-        // Create unified service with new credentials
+        // Create unified service
         let unifiedService = UnifiedSubsonicService(
             baseURL: credentials.baseURL,
             username: credentials.username,
             password: credentials.password
         )
         
-        // Configure all managers with the new service
-        await configureManagersWithServices(unifiedService: unifiedService)
+        // Store in container
+        await serviceContainer.initializeServices(with: credentials)
         
-        // Load initial data for all views in parallel
-        await loadInitialDataForAllViews()
-        
+        // Configure all managers in dependency order
         await MainActor.run {
-            appConfig.setInitializingServices(false)
-        }
-        
-    }
-
-    private func handleNetworkChange(isConnected: Bool) async {
-        print("🌐 Network state changed: \(isConnected ? "Connected" : "Disconnected")")
-        
-        if isConnected {
-            //  FIXED: Reconfigure services when network comes back
-            await setupSimplifiedServices()
-        }
-        
-        //  Notify managers about network change
-        await navidromeVM.handleNetworkChange(isOnline: isConnected)
-        await exploreManager.handleNetworkChange(isOnline: isConnected)
-        
-        //  Update NetworkMonitor diagnostics
-        let networkDiag = networkMonitor.getDiagnostics()
-        print("📊 Network diagnostics: \(networkDiag.summary)")
-    }
-
-    private func setupSimplifiedServices() async {
-        guard let creds = appConfig.getCredentials() else { return }
-        
-        let unifiedService = UnifiedSubsonicService(
-            baseURL: creds.baseURL,
-            username: creds.username,
-            password: creds.password
-        )
-        
-        await MainActor.run {
+            print("Configuring services...")
+            
+            // Phase 1: Independent services
+            coverArtManager.configure(service: unifiedService)
+            songManager.configure(service: unifiedService)
+            
+            // Phase 2: Services with dependencies
+            downloadManager.configure(service: unifiedService)
+            downloadManager.configure(coverArtManager: coverArtManager)
+            favoritesManager.configure(service: unifiedService)
+            exploreManager.configure(service: unifiedService)
+            MusicLibraryManager.shared.configure(service: unifiedService)
+            
+            // Phase 3: ViewModels
             navidromeVM.updateService(unifiedService)
             
-            songManager.configure(service: unifiedService)
+            print("Services configured")
+        }
+        
+        // Load initial data for all views
+        await loadInitialDataForAllViews()
+        
+        // Mark initialization complete
+        await MainActor.run {
+            appConfig.setInitializingServices(false)
+            print("=== Service Initialization Complete ===")
         }
     }
-
+    
     private func loadInitialDataForAllViews() async {
-        print("📚 Loading initial data for all views...")
+        print("Loading initial data...")
         
         await withTaskGroup(of: Void.self) { group in
-            // ExploreView data
             group.addTask {
                 await self.exploreManager.loadExploreData()
             }
             
-            // Library data
             group.addTask {
                 await MusicLibraryManager.shared.loadInitialDataIfNeeded()
             }
             
-            // Favorites data
             group.addTask {
                 await self.favoritesManager.loadFavoriteSongs()
             }
         }
         
+        print("Initial data loaded")
     }
-
+    
+    // MARK: - Initial Configuration
+    
+    private func configureInitialDependencies() {
+        audioSessionManager.playerViewModel = playerVM
+    }
+    
+    // MARK: - Network Handling
+    
+    private func handleNetworkChange(isConnected: Bool) async {
+        print("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
+        
+        await navidromeVM.handleNetworkChange(isOnline: isConnected)
+        await exploreManager.handleNetworkChange(isOnline: isConnected)
+    }
+    
     private func handleAppBecameActive() {
-        print("App became active - checking services...")
+        print("App became active")
         
         Task {
-            //  FIXED: Comprehensive health check on app activation
-            await performAppActivationHealthCheck()
-            
-            // Refresh data if needed
             if !navidromeVM.isDataFresh {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
             }
             
-            // Refresh home screen if needed
             await exploreManager.refreshIfNeeded()
         }
     }
-
-    private func configureManagersWithServices(unifiedService: UnifiedSubsonicService) async {
-        await MainActor.run {
-            //  Configure NavidromeViewModel
-            navidromeVM.updateService(unifiedService)
-                   
-            songManager.configure(service: unifiedService)
-
-            downloadManager.configure(service: unifiedService)
-            downloadManager.configure(coverArtManager: coverArtManager)
-            favoritesManager.configure(service: unifiedService)
-
-            coverArtManager.configure(service: unifiedService)
-
-            //  Configure HomeScreenManager
-            exploreManager.configure(service: unifiedService)
-            
-            //  Configure MusicLibraryManager
-            MusicLibraryManager.shared.configure(service: unifiedService)
-            
-            
-            print(" All managers configured with focused services")
-        }
-    }
-
-    private func performAppActivationHealthCheck() async {
-        print("🔄 App activation health check...")
-        
-        
-        // NavidromeViewModel connection health check
-        await navidromeVM.performConnectionHealthCheck()
-        
-        // Get comprehensive diagnostics
-        let serviceDiag = await navidromeVM.getServiceArchitectureDiagnostics()
-        print("📋 App activation diagnostics: \(serviceDiag.overallHealth)")
-        
-        #if DEBUG
-        // Print full diagnostics in debug builds
-        navidromeVM.printServiceDiagnostics()
-        #endif
-    }
-
 }
 
-// New ServiceContainer class
+// MARK: - Service Container
+
 @MainActor
 class ServiceContainer: ObservableObject {
     @Published private(set) var unifiedService: UnifiedSubsonicService?
@@ -327,144 +203,10 @@ class ServiceContainer: ObservableObject {
             password: credentials.password
         )
         isInitialized = true
-        
     }
     
     func clearServices() {
         unifiedService = nil
         isInitialized = false
-        print("ServiceContainer: Services cleared")
     }
 }
-
- /*
-    // MARK: -  FIXED: Enhanced Service Configuration
-    
-    
-    private func setupInitialConfiguration() async {
-        guard appConfig.isConfigured else {
-            print("⚠️ App not configured - skipping data loading")
-            return
-        }
-        
-        //  FIXED: Configure all services properly
-        await configureAllServices()
-        
-        // Load initial data
-        await navidromeVM.loadInitialDataIfNeeded()
-        
-        //  FIXED: Perform initial health check
-        await performInitialHealthCheck()
-    }
-    
-    private func configureAllServices() async {
-        guard let creds = appConfig.getCredentials() else {
-            print("❌ No credentials available for service configuration")
-            return
-        }
-        
-        //  FIXED: Create UnifiedSubsonicService
-        let unifiedService = UnifiedSubsonicService(
-            baseURL: creds.baseURL,
-            username: creds.username,
-            password: creds.password
-        )
-        
-        //  FIXED: Configure all managers with proper service types
-        await configureManagersWithServices(unifiedService: unifiedService)
-        
-        print(" All services configured successfully")
-    }
-    
-    
-    fileprivate func performInitialHealthCheck() async {
-        print("🏥 Performing initial health check...")
-        
-        await navidromeVM.performConnectionHealthCheck()
-        
-        let health = await navidromeVM.getConnectionHealth()
-        let diagnostics = await navidromeVM.getConnectionDiagnostics()
-        
-        print("""
-        📊 INITIAL HEALTH CHECK RESULTS:
-        - Status: \(health?.statusDescription ?? "Unknown")
-        - Health Score: \(String(format: "%.1f", (health?.healthScore ?? 0.0) * 100))%
-        - Architecture: \(diagnostics.summary)
-        """)
-    }
-            
-    /// Get comprehensive service health for troubleshooting
-    func getComprehensiveServiceHealth() async -> ComprehensiveServiceHealth {
-        let connectionHealth = await navidromeVM.getConnectionHealth()
-        let networkDiag = networkMonitor.getNetworkDiagnostics()
-        let serviceDiag = await navidromeVM.getServiceArchitectureDiagnostics()
-        
-        return ComprehensiveServiceHealth(
-            connectionHealth: connectionHealth,
-            networkDiagnostics: networkDiag,
-            serviceArchitectureDiagnostics: serviceDiag
-        )
-    }
-    
-    struct ComprehensiveServiceHealth {
-        let connectionHealth: ConnectionHealth?
-        let networkDiagnostics: NetworkMonitor.NetworkDiagnostics
-        let serviceArchitectureDiagnostics: NavidromeViewModel.ServiceArchitectureDiagnostics
-        
-        var overallHealthScore: Double {
-            let connectionScore = connectionHealth?.healthScore ?? 0.0
-            let networkScore = networkDiagnostics.canLoadContent ? 1.0 : 0.0
-            
-            return (connectionScore + networkScore) / 2.0
-        }
-        
-        var healthSummary: String {
-            let score = overallHealthScore * 100
-            
-            if score >= 80 {
-                return " Excellent (\(String(format: "%.0f", score))%)"
-            } else if score >= 60 {
-                return "⚠️ Good (\(String(format: "%.0f", score))%)"
-            } else if score >= 40 {
-                return "⚠️ Poor (\(String(format: "%.0f", score))%)"
-            } else {
-                return "❌ Critical (\(String(format: "%.0f", score))%)"
-            }
-        }
-        
-        var detailedReport: String {
-            return """
-            🏥 COMPREHENSIVE SERVICE HEALTH REPORT
-            Overall: \(healthSummary)
-            
-            \(serviceArchitectureDiagnostics.architectureSummary)
-            
-            Performance Metrics:
-            - Connection: \(connectionHealth?.statusDescription ?? "Unknown")
-            - Network: \(networkDiagnostics.summary)
-            """
-        }
-    }
-    
-    // MARK: -  DEBUG HELPERS
-    
-    #if DEBUG
-    /// Print comprehensive service diagnostics for debugging
-    func printComprehensiveServiceDiagnostics() {
-        Task {
-            let health = await getComprehensiveServiceHealth()
-            print(health.detailedReport)
-        }
-    }
-    
-    /// Force service reconfiguration (debug only)
-    func debugForceServiceReconfiguration() {
-        Task {
-            print("🔄 DEBUG: Forcing service reconfiguration...")
-            await configureAllServices()
-            await performInitialHealthCheck()
-        }
-    }
-    #endif
-
-*/
