@@ -40,15 +40,14 @@ struct ArtistsViewContent: View {
     }
     
     private var currentState: ViewState? {
-        // CHECK FOR SETUP REQUIRED FIRST
         if !appConfig.isConfigured {
             return .setupRequired
         } else if appConfig.isInitializingServices {
             return .loading("Setting up your music library")
-        } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
-            return .loading("Loading albums")
-        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
-            return .empty(type: .albums)
+        } else if musicLibraryManager.isLoading && displayedArtists.isEmpty {  // displayedArtists
+            return .loading("Loading artists")
+        } else if displayedArtists.isEmpty && musicLibraryManager.hasLoadedInitialData {  // displayedArtists
+            return .empty(type: .artists)
         }
         return nil
     }

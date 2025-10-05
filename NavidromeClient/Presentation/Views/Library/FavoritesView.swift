@@ -53,13 +53,23 @@ struct FavoritesViewContent: View {
         // CHECK FOR SETUP REQUIRED FIRST
         if !appConfig.isConfigured {
             return .setupRequired
-        } else if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
-            return .loading("Loading albums")
-        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
-            return .empty(type: .albums)
         }
+        
+        // CHECK FOR SERVICE INITIALIZATION
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        }
+        
+        // CHECK FOR ACTIVE LOADING (adapted to FavoritesManager)
+        if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
+            return .loading("Loading favorites")
+        }
+        
+        // CHECK FOR EMPTY STATE (adapted to FavoritesManager)
+        if displayedSongs.isEmpty && !favoritesManager.isLoading && favoritesManager.lastRefresh != nil {
+            return .empty(type: .favorites)
+        }
+        
         return nil
     }
 
