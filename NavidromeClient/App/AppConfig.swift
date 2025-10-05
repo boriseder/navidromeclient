@@ -31,11 +31,12 @@ final class AppConfig: ObservableObject {
             UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "userBackgroundStyle")
         }
     }
-        @Published var userAccentColor: UserAccentColor = .blue {
-        didSet {
-            UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
-        }
+
+    @Published var userAccentColor: UserAccentColor = .blue {
+    didSet {
+        UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
     }
+}
     
     private var credentials: ServerCredentials?
 
@@ -177,8 +178,14 @@ final class AppConfig: ObservableObject {
         guard let data = KeychainHelper.shared.load(forKey: "navidrome_credentials"),
               let creds = try? JSONDecoder().decode(ServerCredentials.self, from: data) else {
             isConfigured = false
+            
+            // Notify NetworkMonitor of "not configured" state
+            Task { @MainActor in
+                NetworkMonitor.shared.updateConfiguration(isConfigured: false)
+            }
             return
         }
+
         
         // Load session password
         var sessionPassword = ""

@@ -38,15 +38,19 @@ struct GenreViewContent: View {
     }
     
     private var currentState: ViewState? {
-        if appConfig.isInitializingServices {
+        // CHECK FOR SETUP REQUIRED FIRST
+        if !appConfig.isConfigured {
+            return .setupRequired
+        } else if appConfig.isInitializingServices {
             return .loading("Setting up your music library")
-        } else if musicLibraryManager.isLoading && displayedGenres.isEmpty {
-            return .loading("Loading genres")
-        } else if displayedGenres.isEmpty && musicLibraryManager.hasLoadedInitialData {
-            return .empty(type: .genres)
+        } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
+            return .loading("Loading albums")
+        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
+            return .empty(type: .albums)
         }
         return nil
     }
+
     
     var body: some View {
         NavigationStack {

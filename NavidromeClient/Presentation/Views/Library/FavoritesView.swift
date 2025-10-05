@@ -50,16 +50,19 @@ struct FavoritesViewContent: View {
     }
     
     private var currentState: ViewState? {
-        if appConfig.isInitializingServices {
+        // CHECK FOR SETUP REQUIRED FIRST
+        if !appConfig.isConfigured {
+            return .setupRequired
+        } else if appConfig.isInitializingServices {
             return .loading("Setting up your music library")
-        } else if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
-            return .loading("Loading favorites")
-        } else if displayedSongs.isEmpty && !favoritesManager.isLoading && favoritesManager.lastRefresh != nil {
-            return .empty(type: .favorites)
+        } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
+            return .loading("Loading albums")
+        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
+            return .empty(type: .albums)
         }
-
         return nil
     }
+
     
     var body: some View {
         NavigationStack {

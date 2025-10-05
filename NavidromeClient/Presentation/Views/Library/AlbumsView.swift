@@ -57,8 +57,12 @@ struct AlbumsViewContent: View {
             }
         }
     }
+    
     private var currentState: ViewState? {
-        if appConfig.isInitializingServices {
+        // CHECK FOR SETUP REQUIRED FIRST
+        if !appConfig.isConfigured {
+            return .setupRequired
+        } else if appConfig.isInitializingServices {
             return .loading("Setting up your music library")
         } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
             return .loading("Loading albums")

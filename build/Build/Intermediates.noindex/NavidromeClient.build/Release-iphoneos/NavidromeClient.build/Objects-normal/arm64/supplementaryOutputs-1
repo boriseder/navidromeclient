@@ -1,0 +1,12 @@
+{
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/App/AppConfig.swift" : {
+    "abi-baseline-json" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient.abi.json",
+    "const-values" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.swiftconstvalues",
+    "dependencies" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.d",
+    "diagnostics" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.dia",
+    "objc-header" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-Swift.h",
+    "swiftdoc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient.swiftdoc",
+    "swiftmodule" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient.swiftmodule",
+    "swiftsourceinfo" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient.swiftsourceinfo"
+  }
+}

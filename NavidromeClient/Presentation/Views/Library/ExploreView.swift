@@ -50,8 +50,23 @@ struct ExploreViewContent: View {
     }
 
     private var currentState: ViewState? {
-        // Only show empty if we've completed loading and truly have no content
-        if loadingCompleted && !hasContent {
+        // CHECK FOR SETUP REQUIRED FIRST (same pattern as other views)
+        if !appConfig.isConfigured {
+            return .setupRequired
+        }
+        
+        // CHECK FOR SERVICE INITIALIZATION (consistent with other views)
+        if appConfig.isInitializingServices {
+            return .loading("Setting up your music library")
+        }
+        
+        // CHECK FOR ACTIVE LOADING (uses ExploreManager's property)
+        if exploreManager.isLoadingExploreData && !hasContent {
+            return .loading("Loading your music")
+        }
+        
+        // CHECK FOR EMPTY STATE (adapted to ExploreView's logic)
+        if !hasContent && hasAttemptedInitialLoad {
             return .empty(type: .albums)
         }
         
@@ -101,7 +116,8 @@ struct ExploreViewContent: View {
             .toolbarColorScheme(
                 appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,
                 for: .navigationBar
-            )            .toolbar {
+            )
+            .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
                         Button {

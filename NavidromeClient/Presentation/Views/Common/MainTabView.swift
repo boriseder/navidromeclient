@@ -74,29 +74,19 @@ struct MainTabView: View {
     // MARK: - Network Status Overlay
     @ViewBuilder
     private var networkStatusOverlay: some View {
-        if !networkMonitor.canLoadOnlineContent {
-            HStack {
-                Image(systemName: "wifi.slash")
-                    .font(DSText.metadata)
-                Text("Offline Mode")
-                    .font(DSText.metadata.weight(.medium))
-                Spacer()
-                if downloadManager.downloadedAlbums.count > 0 {
-                    Button("Downloaded Music") {
-                        offlineManager.switchToOfflineMode()
-                    }
-                    .font(DSText.metadata)
-                    .foregroundStyle(DSColor.accent)
-                }
+        @ViewBuilder
+        private var networkStatusOverlay: some View {
+            // DISTINGUISH between different offline reasons
+            switch networkMonitor.contentLoadingStrategy {
+            case .offlineOnly(let reason):
+                OfflineReasonBanner(reason: reason)
+                    .padding(.horizontal, DSLayout.screenPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(DSAnimations.ease, value: networkMonitor.canLoadOnlineContent)
+                
+            case .online, .setupRequired:
+                EmptyView() // Don't show banner
             }
-            .padding(.horizontal, DSLayout.contentGap)
-            .padding(.vertical, DSLayout.elementGap)
-            .padding(.top, DSLayout.elementGap)
-            .background(DSColor.warning.opacity(0.9), in: RoundedRectangle(cornerRadius: DSCorners.element))
-            .foregroundStyle(DSColor.onDark)
-            .screenPadding()
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(DSAnimations.ease, value: networkMonitor.canLoadOnlineContent)
         }
     }
 }

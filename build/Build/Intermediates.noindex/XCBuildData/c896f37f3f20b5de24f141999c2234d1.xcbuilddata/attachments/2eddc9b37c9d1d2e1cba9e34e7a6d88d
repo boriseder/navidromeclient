@@ -1,0 +1,486 @@
+{
+  "" : {
+    "const-values" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.swiftconstvalues",
+    "dependencies" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.d",
+    "diagnostics" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.dia",
+    "emit-module-dependencies" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary-emit-module.dia",
+    "pch" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClient-primary.swiftdeps"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/App/AppConfig.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AppConfig.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AppConfig.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AppConfig.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/App/AppDelegate.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AppDelegate.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AppDelegate.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AppDelegate.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/App/DesignSystem.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DesignSystem.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DesignSystem.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DesignSystem.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/App/NavidromeClientApp.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClientApp.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClientApp.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeClientApp.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/App/UserSetttingTypes.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UserSetttingTypes.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UserSetttingTypes.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UserSetttingTypes.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/AudioSessionManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AudioSessionManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AudioSessionManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AudioSessionManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/ConnectionViewModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ConnectionViewModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ConnectionViewModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ConnectionViewModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/CoverArtManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CoverArtManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CoverArtManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CoverArtManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/DownloadManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/ExploreManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ExploreManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ExploreManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ExploreManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/FavoritesManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/MusicLibraryManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MusicLibraryManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MusicLibraryManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MusicLibraryManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/PlaylistManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlaylistManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlaylistManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlaylistManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Managers/SongManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/AlbumModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/ArtistsModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistsModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistsModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistsModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/DownloadedModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadedModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadedModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadedModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/GenericModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenericModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenericModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenericModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/GenreModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenreModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenreModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenreModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/SearchModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Models/SongModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Utils/Debouncer.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/Debouncer.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/Debouncer.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/Debouncer.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Utils/KeyChainHelper.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/KeyChainHelper.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/KeyChainHelper.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/KeyChainHelper.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Utils/SecureLogger.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SecureLogger.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SecureLogger.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SecureLogger.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Core/Utils/TaskHelpers.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/TaskHelpers.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/TaskHelpers.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/TaskHelpers.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/ConnectionService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ConnectionService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ConnectionService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ConnectionService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/ContentService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/DiscoveryService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DiscoveryService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DiscoveryService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DiscoveryService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/FavoritesService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/MediaService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MediaService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MediaService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MediaService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/SearchService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/SubsonicServiceError.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SubsonicServiceError.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SubsonicServiceError.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SubsonicServiceError.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/API/UnifiedSubsonicService.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UnifiedSubsonicService.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UnifiedSubsonicService.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UnifiedSubsonicService.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Network/ContentLoadingStrategy.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentLoadingStrategy.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentLoadingStrategy.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentLoadingStrategy.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Network/NetworkMonitor.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkMonitor.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkMonitor.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkMonitor.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Network/NetworkState.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkState.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkState.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkState.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Storage/AlbumCoverArt.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCoverArt.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCoverArt.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCoverArt.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Storage/AlbumMetadataCache.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumMetadataCache.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumMetadataCache.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumMetadataCache.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Storage/OfflineManager.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineManager.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineManager.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineManager.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Data/Storage/PersistentImageCache.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PersistentImageCache.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PersistentImageCache.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PersistentImageCache.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/VIewModels/NavidromeViewModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeViewModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeViewModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NavidromeViewModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/VIewModels/PlayerViewModel.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlayerViewModel.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlayerViewModel.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlayerViewModel.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Common/ContentView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Common/MainTabView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MainTabView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MainTabView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MainTabView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Common/ServerEditView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ServerEditView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ServerEditView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ServerEditView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Common/SettingsView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SettingsView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SettingsView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SettingsView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Common/WelcomeView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/WelcomeView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/WelcomeView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/WelcomeView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Controls/CapsuleButton.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CapsuleButton.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CapsuleButton.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CapsuleButton.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Controls/DownloadButton.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadButton.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadButton.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DownloadButton.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Controls/HeartButton.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/HeartButton.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/HeartButton.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/HeartButton.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Controls/PlayButton.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlayButton.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlayButton.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/PlayButton.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Controls/ShuffleButton.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ShuffleButton.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ShuffleButton.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ShuffleButton.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Image/AlbumImageView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumImageView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumImageView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumImageView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Image/ArtistImageView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistImageView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistImageView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistImageView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Image/SongImageView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongImageView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongImageView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongImageView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Indicators/AlbumCountBadge.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCountBadge.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCountBadge.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCountBadge.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Indicators/EqualizerBars.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/EqualizerBars.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/EqualizerBars.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/EqualizerBars.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Lists/AlbumSongsListView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumSongsListView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumSongsListView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumSongsListView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Lists/SongRow.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongRow.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongRow.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongRow.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/AlbumCollectionHeaderView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCollectionHeaderView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCollectionHeaderView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCollectionHeaderView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/AlbumDetailHeaderView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumDetailHeaderView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumDetailHeaderView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumDetailHeaderView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/FavoritesHeader.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesHeader.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesHeader.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesHeader.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/LibraryStatusHeader.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/LibraryStatusHeader.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/LibraryStatusHeader.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/LibraryStatusHeader.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/OfflineStatusBanner.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineStatusBanner.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineStatusBanner.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineStatusBanner.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/OfflineWelcomeHeader.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineWelcomeHeader.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineWelcomeHeader.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineWelcomeHeader.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/AlbumInfoView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumInfoView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumInfoView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumInfoView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/ArtistInfoView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistInfoView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistInfoView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistInfoView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/MetadataItem.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MetadataItem.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MetadataItem.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MetadataItem.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/SearchResultAlbumRow.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultAlbumRow.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultAlbumRow.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultAlbumRow.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/SearchResultArtistRow.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultArtistRow.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultArtistRow.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultArtistRow.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/SearchResultSongRow.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultSongRow.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultSongRow.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchResultSongRow.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/SongDurationView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongDurationView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongDurationView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongDurationView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/SearchComponents/SongInfoView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongInfoView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongInfoView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SongInfoView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/Misc/WelcomeHeader.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/WelcomeHeader.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/WelcomeHeader.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/WelcomeHeader.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/States/OfflineReasonBanner.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineReasonBanner.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineReasonBanner.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/OfflineReasonBanner.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Components/States/UnifiedStateView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UnifiedStateView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UnifiedStateView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/UnifiedStateView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Container/CardItemContainer.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CardItemContainer.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CardItemContainer.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CardItemContainer.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Container/ItemContainerHelper.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ItemContainerHelper.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ItemContainerHelper.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ItemContainerHelper.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Container/ListItemContainer.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ListItemContainer.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ListItemContainer.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ListItemContainer.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/AlbumCollectionView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCollectionView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCollectionView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumCollectionView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/AlbumDetailView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumDetailView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumDetailView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumDetailView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/AlbumsView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumsView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumsView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/AlbumsView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/ArtistsView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistsView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistsView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ArtistsView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/DynamicMusicBackground.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DynamicMusicBackground.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DynamicMusicBackground.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DynamicMusicBackground.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/ExploreView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ExploreView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ExploreView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/ExploreView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/FavoritesView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FavoritesView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/GenreView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenreView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenreView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GenreView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Library/SearchView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/SearchView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/PlayerViews/FullScreenPlayer.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FullScreenPlayer.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FullScreenPlayer.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/FullScreenPlayer.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/PlayerViews/MiniPlayerView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MiniPlayerView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MiniPlayerView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/MiniPlayerView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/PlayerViews/QueueView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/QueueView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/QueueView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/QueueView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Utils/CoverArtDebugView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CoverArtDebugView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CoverArtDebugView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/CoverArtDebugView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Utils/DebugLines.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DebugLines.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DebugLines.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/DebugLines.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/NavidromeClient/Presentation/Views/Utils/NetworkTestView.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkTestView.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkTestView.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/NetworkTestView.o"
+  },
+  "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/boris/code/Xcode/NavidromeClient2/build/Build/Intermediates.noindex/NavidromeClient.build/Release-iphoneos/NavidromeClient.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

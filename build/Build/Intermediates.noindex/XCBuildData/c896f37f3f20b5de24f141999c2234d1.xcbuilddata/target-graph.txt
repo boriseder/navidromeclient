@@ -1,0 +1,2 @@
+Target dependency graph (1 target)
+Target 'NavidromeClient' in project 'NavidromeClient' (no dependencies)

@@ -41,8 +41,9 @@ class NetworkMonitor: ObservableObject {
     }
     
     private init() {
+        // START with UNKNOWN state, not optimistic true
         self.state = NetworkState(
-            isConnected: true,
+            isConnected: false,  // ← Changed from true
             isConfigured: false,
             hasServerErrors: false,
             manualOfflineMode: false
@@ -50,7 +51,17 @@ class NetworkMonitor: ObservableObject {
         
         startNetworkMonitoring()
         observeAppConfigChanges()
+        
+        // IMMEDIATELY check network status synchronously if possible
+        checkInitialNetworkStatus()
     }
+    
+    private func checkInitialNetworkStatus() {
+        let currentPath = monitor.currentPath
+        isConnected = currentPath.status == .satisfied
+        updateState()
+    }
+
     
     deinit {
         monitor.cancel()
