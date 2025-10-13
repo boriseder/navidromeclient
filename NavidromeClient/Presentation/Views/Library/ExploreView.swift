@@ -84,7 +84,7 @@ struct ExploreViewContent: View {
                             primaryAction: StateAction("Refresh") {
                                 Task {
                                     guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
-                                    await exploreManager.loadExploreData()
+                                   // await exploreManager.loadExploreData()
                                 }
                             }
                         )
@@ -242,7 +242,7 @@ struct ExploreViewContent: View {
     
     private func setupHomeScreenData() async {
         if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
-            await exploreManager.loadExploreData()
+         //   await exploreManager.loadExploreData()
         }
     }
         

@@ -93,7 +93,6 @@ class ExploreManager: ObservableObject {
     }
     
     // MARK: - FALLBACK IMPLEMENTATION
-    
     private func loadExploreDataFallback() async {
         guard let service = service else { return }
         
@@ -107,6 +106,7 @@ class ExploreManager: ObservableObject {
         lastHomeRefresh = Date()
         print("Home screen data loaded via fallback method")
     }
+    
     
     private func loadRecentAlbums() async {
         guard let service = service else { return }
@@ -156,7 +156,7 @@ class ExploreManager: ObservableObject {
     
     func refreshIfNeeded() async {
         guard shouldRefreshHomeData else { return }
-        await loadExploreData()
+        //await loadExploreData()
     }
     
     private var shouldRefreshHomeData: Bool {
@@ -175,7 +175,7 @@ class ExploreManager: ObservableObject {
                !frequentAlbums.isEmpty ||
                !randomAlbums.isEmpty
     }
-    
+   /*
     func handleNetworkChange(isOnline: Bool) async {
         guard isOnline, service != nil else { return }
         
@@ -183,6 +183,7 @@ class ExploreManager: ObservableObject {
             await loadExploreData()
         }
     }
+    */
     
     func reset() {
         recentAlbums = []

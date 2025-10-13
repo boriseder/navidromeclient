@@ -195,42 +195,43 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     private func playFromURL(_ url: URL) async {
-        // print("playFromURL called with: \(url)")
-        
         guard currentPlayTask?.isCancelled == false else {
             print("playFromURL cancelled")
             return
         }
         
-        // Try to preload with retry logic
+        // Preload mit Retry-Logik
         var retryCount = 0
         let maxRetries = 2
         var isBufferValid = false
-        var lastError: Error?
+        var finalURL = url
         
         while retryCount <= maxRetries && !isBufferValid {
-            isBufferValid = await preloadAudioBuffer(for: url)
+            // Warte kurz, bevor das Asset geladen wird (Navidrome braucht Zeit zum Transkodieren)
+            if retryCount == 0 {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms initial delay
+            }
+            
+            isBufferValid = await preloadAudioBuffer(for: finalURL)
             
             if !isBufferValid {
                 retryCount += 1
                 if retryCount <= maxRetries {
                     print("⚠️ Retry \(retryCount)/\(maxRetries) after buffer validation failed")
                     
-                    // If this is a stream URL failure, try getting a fresh URL
-                    if let song = currentSong {
+                    if retryCount == 1, let song = currentSong {
                         print("🔄 Requesting fresh stream URL...")
                         if let freshURL = await getSimpleStreamURL(for: song) {
-                            print("✅ Got fresh stream URL, retrying...")
-                            await playFromURL(freshURL)
-                            return
+                            print("✅ Got fresh stream URL")
+                            finalURL = freshURL
                         }
                     }
                     
-                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s delay
+                    try? await Task.sleep(nanoseconds: 800_000_000) // 0.8s delay (vorher 500ms)
                 }
             }
         }
-        
+
         guard isBufferValid else {
             await MainActor.run {
                 print("❌ Audio buffer validation failed after \(retryCount) retries")
@@ -238,85 +239,108 @@ class PlayerViewModel: NSObject, ObservableObject {
                 isLoading = false
             }
             
-            // Try to skip to next song instead of stopping
-            print("⏭️ Skipping to next song due to playback error")
+            print("⭐️ Skipping to next song due to playback error")
             await playNext()
             return
         }
         
-        await MainActor.run {
-            if let observer = timeObserver {
-                player?.removeTimeObserver(observer)
-                timeObserver = nil
-            }
-            
-            if let token = playerItemEndObserver {
-                NotificationCenter.default.removeObserver(token)
-                playerItemEndObserver = nil
-            }
-            
-            player?.pause()
-            
-            Task {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                
-                await MainActor.run {
-                    player?.replaceCurrentItem(with: nil)
-                    
-                    let item = AVPlayerItem(url: url)
-                    
-                    // Add status observer to detect failures
-                    setupPlayerItemStatusObserver(for: item)
-                    
-                    player = AVPlayer(playerItem: item)
-                    player?.volume = volume
-                    player?.automaticallyWaitsToMinimizeStalling = true
-                    
-                    isPlaying = true
-                    isLoading = false
-                    
-                    player?.play()
-                    print("✅ New player created and playing")
-                    
-                    setupPlayerItemObserver(for: item)
-                    setupTimeObserver()
-                    updateNowPlayingInfo()
-                    logStreamDiagnostics(for: url)
-                }
-            }
-        }
+        await setupPlayerOnMainThread(with: finalURL)
     }
 
+    @MainActor
+    private func setupPlayerOnMainThread(with url: URL) async {
+        // WICHTIG: Erst alte Player-Observer komplett aufräumen
+        if let observer = timeObserver {
+            player?.removeTimeObserver(observer)
+            timeObserver = nil
+            print("⏱️ Old time observer removed")
+        }
+        
+        if let token = playerItemEndObserver {
+            NotificationCenter.default.removeObserver(token)
+            playerItemEndObserver = nil
+            print("📌 Old player item observer removed")
+        }
+        
+        // Kurze Pause, um sicherzustellen, dass alle Observationen entfernt sind
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        
+        // KRITISCH: Alte Player-Instanz komplett ersetzen
+        player?.pause()
+        player = nil // Alte Instanz freigeben
+        
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        
+        // Neue Player-Instanz erstellen
+        let item = AVPlayerItem(url: url)
+        
+        // Status observer für neue Instanz
+        setupPlayerItemStatusObserver(for: item)
+        
+        player = AVPlayer(playerItem: item)
+        player?.volume = volume
+        player?.automaticallyWaitsToMinimizeStalling = true
+        
+        isPlaying = true
+        isLoading = false
+        
+        player?.play()
+        print("✅ New player created and playing from: \(url.lastPathComponent)")
+        
+        // Neue Observer für neue Instanz
+        setupPlayerItemObserver(for: item)
+        setupTimeObserver()
+        updateNowPlayingInfo()
+        logStreamDiagnostics(for: url)
+    }
+
+
     private func preloadAudioBuffer(for url: URL) async -> Bool {
+        print("🔍 Validating audio buffer for: \(url.lastPathComponent)")
+        
         let asset = AVURLAsset(url: url)
         
         do {
-            // Load both duration and tracks concurrently
-            async let durationLoad = asset.load(.duration)
-            async let tracksLoad = asset.loadTracks(withMediaType: .audio)
-            
-            let (duration, tracks) = try await (durationLoad, tracksLoad)
-            
-            guard duration.seconds > 0 else {
-                print("Invalid duration: \(duration.seconds)")
-                return false
+            // Nur Tracks laden, NICHT duration
+            let tracks = try await withThrowingTaskGroup(of: [AVAssetTrack].self) { group in
+                group.addTask {
+                    try await asset.loadTracks(withMediaType: .audio)
+                }
+                
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 10_000_000_000) // 10s timeout
+                    throw URLError(.timedOut)
+                }
+                
+                guard let result = try await group.next() else {
+                    throw URLError(.timedOut)
+                }
+                
+                group.cancelAll()
+                
+                return result
             }
             
             guard let track = tracks.first else {
-                print("No audio track found")
+                print("❌ No audio track found")
                 return false
             }
             
-            // Validate audio format
+            // Format validieren
             let formatDescriptions = try await track.load(.formatDescriptions)
             guard let formatDesc = formatDescriptions.first else {
-                print("No format description")
+                print("❌ No format description")
                 return false
             }
             
             if let audioFormat = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
+                guard audioFormat.mSampleRate > 0, audioFormat.mChannelsPerFrame > 0 else {
+                    print("❌ Invalid audio format: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels")
+                    return false
+                }
+                
                 print("✅ Audio validated: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels")
-                return audioFormat.mSampleRate > 0 && audioFormat.mChannelsPerFrame > 0
+                return true
             }
             
             print("❌ Could not read audio format")
@@ -325,7 +349,9 @@ class PlayerViewModel: NSObject, ObservableObject {
         } catch {
             print("❌ Audio buffer preload failed: \(error.localizedDescription)")
             if let urlError = error as? URLError {
-                print("URL Error code: \(urlError.code.rawValue)")
+                print("   URL Error code: \(urlError.code.rawValue)")
+            } else if let avError = error as? AVError {
+                print("   AVError code: \(avError.code.rawValue)")
             }
             return false
         }
@@ -344,6 +370,14 @@ class PlayerViewModel: NSObject, ObservableObject {
         switch status {
         case .readyToPlay:
             print("✅ Player item ready to play")
+            
+            // Duration aktualisieren wenn verfügbar
+            if !item.duration.seconds.isNaN && item.duration.seconds.isFinite {
+                await MainActor.run {
+                    self.duration = item.duration.seconds
+                    print("📊 Duration updated: \(item.duration.seconds)s")
+                }
+            }
             
         case .failed:
             if let error = item.error {
@@ -482,7 +516,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         print("Player cleanup completed")
     }
-    
+
     private func setupPlayerItemObserver(for item: AVPlayerItem) {
         if let existingObserver = playerItemEndObserver {
             NotificationCenter.default.removeObserver(existingObserver)
@@ -503,8 +537,12 @@ class PlayerViewModel: NSObject, ObservableObject {
 
     @MainActor
     private func setupTimeObserver() {
-        guard let player = player else { return }
+        guard let player = player else {
+            print("⚠️ Cannot setup time observer: no player")
+            return
+        }
         
+        // Alte Observer entfernen falls vorhanden
         if let observer = timeObserver {
             player.removeTimeObserver(observer)
             timeObserver = nil
@@ -514,23 +552,24 @@ class PlayerViewModel: NSObject, ObservableObject {
             forInterval: CMTime(seconds: 2, preferredTimescale: CMTimeScale(NSEC_PER_SEC)),
             queue: .main
         ) { [weak self] time in
-            Task { @MainActor in
-                guard let self = self else { return }
-                let newTime = time.seconds
+            guard let self = self else { return }
+            
+            let newTime = time.seconds
+            
+            if abs(newTime - self.lastUpdateTime) > 0.1 {
+                self.lastUpdateTime = newTime
+                self.currentTime = newTime
+                self.updateProgress()
                 
-                if abs(newTime - self.lastUpdateTime) > 0.1 {
-                    self.lastUpdateTime = newTime
-                    self.currentTime = newTime
-                    self.updateProgress()
-                    
-                    if Int(newTime) % 60 == 0 {
-                        self.updateNowPlayingInfo()
-                    }
+                if Int(newTime) % 60 == 0 {
+                    self.updateNowPlayingInfo()
                 }
             }
         }
+        
+        print("⏱️ Time observer setup complete")
     }
-
+    
     // MARK: - Error Handling
 
     private func handlePlaybackError(_ error: Error) {
@@ -904,55 +943,3 @@ extension AVPlayerItem {
     }
 }
 
-// Update preloadAudioBuffer to provide more diagnostic info
-private func preloadAudioBuffer(for url: URL) async -> Bool {
-    print("🔍 Validating audio buffer for: \(url.lastPathComponent)")
-    
-    let asset = AVURLAsset(url: url)
-    
-    do {
-        async let durationLoad = asset.load(.duration)
-        async let tracksLoad = asset.loadTracks(withMediaType: .audio)
-        
-        let (duration, tracks) = try await (durationLoad, tracksLoad)
-        
-        // Check for invalid duration
-        guard duration.seconds.isFinite, duration.seconds > 0 else {
-            print("❌ Invalid duration: \(duration.seconds)")
-            return false
-        }
-        
-        guard let track = tracks.first else {
-            print("❌ No audio track found")
-            return false
-        }
-        
-        let formatDescriptions = try await track.load(.formatDescriptions)
-        guard let formatDesc = formatDescriptions.first else {
-            print("❌ No format description")
-            return false
-        }
-        
-        if let audioFormat = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
-            guard audioFormat.mSampleRate > 0, audioFormat.mChannelsPerFrame > 0 else {
-                print("❌ Invalid audio format: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels")
-                return false
-            }
-            
-            print("✅ Audio validated: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels, duration: \(duration.seconds)s")
-            return true
-        }
-        
-        print("❌ Could not read audio format")
-        return false
-        
-    } catch {
-        print("❌ Audio buffer preload failed: \(error.localizedDescription)")
-        if let urlError = error as? URLError {
-            print("   URL Error code: \(urlError.code.rawValue)")
-        } else if let avError = error as? AVError {
-            print("   AVError code: \(avError.code.rawValue)")
-        }
-        return false
-    }
-}

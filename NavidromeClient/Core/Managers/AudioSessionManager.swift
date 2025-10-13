@@ -55,26 +55,12 @@ class AudioSessionManager: NSObject, ObservableObject {
     
     func setupAudioSession() {
         do {
-            // Setze Audio Category für Hintergrund-Playback
-            try audioSession.setCategory(
-                .playback,
-                mode: .default,
-                options: [
-                    .allowAirPlay,
-                    .allowBluetoothHFP,
-                    .allowBluetoothA2DP
-                ]
-            )
-            
-            // Aktiviere Audio Session
+            try audioSession.setCategory(.playback)
+            try audioSession.setMode(.default)
             try audioSession.setActive(true)
-            isAudioSessionActive = true
-            
-            print(" Audio Session configured successfully")
-            
+            print("✅ Audio Session OK")
         } catch {
             print("❌ Audio Session setup failed: \(error)")
-            isAudioSessionActive = false
         }
     }
     

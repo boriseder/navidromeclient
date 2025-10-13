@@ -139,6 +139,7 @@ struct NavidromeClientApp: App {
         print("Loading initial data...")
         
         await withTaskGroup(of: Void.self) { group in
+
             group.addTask {
                 await self.exploreManager.loadExploreData()
             }
@@ -167,7 +168,6 @@ struct NavidromeClientApp: App {
         print("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
         
         await navidromeVM.handleNetworkChange(isOnline: isConnected)
-        await exploreManager.handleNetworkChange(isOnline: isConnected)
     }
     
     private func handleAppBecameActive() {
@@ -177,8 +177,6 @@ struct NavidromeClientApp: App {
             if !navidromeVM.isDataFresh {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
             }
-            
-            await exploreManager.refreshIfNeeded()
         }
     }
 }

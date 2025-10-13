@@ -181,8 +181,6 @@ struct SpotifyAlbumArt: View {
                     .aspectRatio(1, contentMode: .fit)
             }
         }
-        //BORIS
-        //.frame(width: min(280, screenWidth - 80), height: min(280, screenWidth - 80))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
     }
@@ -377,7 +375,8 @@ struct BottomControls: View {
     
     var body: some View {
         HStack {
-            AudioSourceButton(audioSessionManager: audioSessionManager)
+            AudioSourceButton()
+                .frame(width: 50, height: 50)
             
             Spacer()
         }
@@ -387,56 +386,14 @@ struct BottomControls: View {
 }
 
 // MARK: - Audio Source Button unchanged
-struct AudioSourceButton: View {
-    let audioSessionManager: AudioSessionManager
-    
-    var body: some View {
-        ZStack {
-            AudioRoutePickerViewRepresentable()
-                .frame(width: 44, height: 44)
-                .opacity(0.001)
-            
-            VStack(spacing: 4) {
-                Image(systemName: audioSourceIcon)
-                    .font(.system(size: 24))
-                    .foregroundStyle(.white.opacity(0.7))
-                
-                Text(audioSourceText)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
-        }
-    }
-    
-    private var audioSourceIcon: String {
-        if audioSessionManager.isHeadphonesConnected {
-            return "headphones"
-        } else if audioSessionManager.audioRoute.contains("Bluetooth") {
-            return "airpods"
-        } else {
-            return "speaker.wave.2"
-        }
-    }
-    
-    private var audioSourceText: String {
-        if audioSessionManager.isHeadphonesConnected {
-            return "Kopfhörer"
-        } else if audioSessionManager.audioRoute.contains("Bluetooth") {
-            return "Bluetooth"
-        } else {
-            return "iPhone"
-        }
-    }
-}
 
-// MARK: - AVRoutePickerView unchanged
-struct AudioRoutePickerViewRepresentable: UIViewRepresentable {
+struct AudioSourceButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
-        let routePickerView = AVRoutePickerView()
-        routePickerView.backgroundColor = UIColor.clear
-        routePickerView.tintColor = UIColor.white
-        routePickerView.prioritizesVideoDevices = false
-        return routePickerView
+        let picker = AVRoutePickerView()
+        picker.backgroundColor = .clear
+        picker.tintColor = .white
+        picker.prioritizesVideoDevices = false
+        return picker
     }
     
     func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
