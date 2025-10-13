@@ -94,7 +94,8 @@ class NavidromeViewModel: ObservableObject {
     }
     
     // MARK: - Search Operations
-    
+    // ---
+    /*
     func search(query: String) async -> SearchResult {
         guard let service = unifiedService else {
             print("UnifiedSubsonicService not available for search")
@@ -108,7 +109,8 @@ class NavidromeViewModel: ObservableObject {
             return SearchResult(artists: [], albums: [], songs: [])
         }
     }
-    
+    */
+    // ---
     // MARK: - Artist/Genre Detail Operations
     
     func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {

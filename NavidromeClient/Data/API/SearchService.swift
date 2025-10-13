@@ -3,7 +3,7 @@
 //  NavidromeClient
 //
 //   FOCUSED: Search queries, filtering, result ranking
-//
+/*
 
 import Foundation
 
@@ -300,3 +300,4 @@ struct SearchFilters {
         durationRange: nil
     )
 }
+*/

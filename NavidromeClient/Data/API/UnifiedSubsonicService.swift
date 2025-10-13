@@ -19,8 +19,13 @@ class UnifiedSubsonicService: ObservableObject {
     private let contentService: ContentService
     private let mediaService: MediaService
     private let discoveryService: DiscoveryService
-    private let searchService: SearchService
     private let favoritesService: FavoritesService
+
+    // -------- SearchService disabled -------- //
+    /*
+    private let searchService: SearchService
+    */
+    // -------- SearchService disabled -------- //
     
     // MARK: - Initialization
     
@@ -34,8 +39,12 @@ class UnifiedSubsonicService: ObservableObject {
         self.contentService = ContentService(connectionService: connectionService)
         self.mediaService = MediaService(connectionService: connectionService)
         self.discoveryService = DiscoveryService(connectionService: connectionService)
-        self.searchService = SearchService(connectionService: connectionService)
         self.favoritesService = FavoritesService(connectionService: connectionService)
+        //  ---
+        /*
+        self.searchService = SearchService(connectionService: connectionService)
+        */
+        // ---
         
         print("UnifiedSubsonicService: Facade initialized with all specialists including favorites")
     }
@@ -228,7 +237,9 @@ class UnifiedSubsonicService: ObservableObject {
     }
     
     // MARK: - Search Operations: Basic Search
-    
+    // disbaled
+    /* ---
+
     func search(query: String, maxResults: Int = 50) async throws -> SearchResult {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
@@ -239,7 +250,6 @@ class UnifiedSubsonicService: ObservableObject {
     }
     
     // MARK: - Search Operations: Advanced Search
-    
     func searchByCategory(
         query: String,
         category: SearchCategory,
@@ -288,6 +298,8 @@ class UnifiedSubsonicService: ObservableObject {
     func rankSearchResults(_ results: SearchResult, for query: String) -> SearchResult {
         return searchService.rankSearchResults(results, for: query)
     }
+    
+    --- */
     
     // MARK: - Favorites Operations
     
@@ -366,11 +378,13 @@ extension UnifiedSubsonicService {
     private func getDiscoveryService() -> DiscoveryService {
         return discoveryService
     }
-    
+    // ---
+    /*
     private func getSearchService() -> SearchService {
         return searchService
     }
-    
+    */
+    // --- 
     private func getFavoritesService() -> FavoritesService {
         return favoritesService
     }

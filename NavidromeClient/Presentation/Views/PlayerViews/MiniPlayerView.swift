@@ -13,6 +13,7 @@ struct MiniPlayerView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var audioSessionManager: AudioSessionManager
     @EnvironmentObject var coverArtManager: CoverArtManager
+    
     @State private var showFullScreen = false
     @State private var isDragging = false
     

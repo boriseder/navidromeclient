@@ -435,13 +435,14 @@ class CoverArtManager: ObservableObject {
     }
 
     func preloadWhenIdle(_ albums: [Album], size: Int = OptimalSizes.album) {
-        Task {
+        Task(priority: .background) {
             await preloadCoverArt(items: albums, type: .album, priority: .background) { $0.id }
         }
     }
 
+
     func preloadArtistsWhenIdle(_ artists: [Artist], size: Int = OptimalSizes.artist) {
-        Task {
+        Task(priority: .background) {
             await preloadCoverArt(items: artists, type: .artist, priority: .background) { $0.id }
         }
     }

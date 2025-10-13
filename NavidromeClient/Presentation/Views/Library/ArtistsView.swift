@@ -86,7 +86,7 @@ struct ArtistsViewContent: View {
                 handleSearchTextChange()
             }
             // Background idle preloading instead of immediate
-            .task(priority: .background) {
+            .onAppear {
                 if !displayedArtists.isEmpty {
                     coverArtManager.preloadArtistsWhenIdle(Array(displayedArtists.prefix(20)), size: 120)
                 }

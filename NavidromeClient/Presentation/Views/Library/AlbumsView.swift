@@ -104,9 +104,9 @@ struct AlbumsViewContent: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            .task(priority: .background) {
+            .onAppear {
                 if !displayedAlbums.isEmpty {
-                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 200)
+                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 300)
                 }
             }
             .toolbar {

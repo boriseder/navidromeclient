@@ -190,12 +190,15 @@ class AudioSessionManager: NSObject, ObservableObject {
         }
         
         if let artwork = artwork {
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: artwork.size) { _ in
+            let artworkItem = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
                 return artwork
             }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artworkItem
         }
         
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+        DispatchQueue.main.async {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+        }
         print("Updated Now Playing Info: \(title) - \(artist)")
     }
     

@@ -195,7 +195,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
 
     private func playFromURL(_ url: URL) async {
-        print("playFromURL called with: \(url)")
+        // print("playFromURL called with: \(url)")
         
         guard currentPlayTask?.isCancelled == false else {
             print("playFromURL cancelled")
@@ -732,9 +732,9 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     
     private func logStreamDiagnostics(for url: URL) {
-        print("Stream URL: \(url)")
-        print("Host: \(url.host ?? "unknown")")
-        print("Path: \(url.path)")
+        // print("Stream URL: \(url)")
+        // print("Host: \(url.host ?? "unknown")")
+        // print("Path: \(url.path)")
         
         if url.query?.contains("maxBitRate") == true {
             print("Transcoding requested")
