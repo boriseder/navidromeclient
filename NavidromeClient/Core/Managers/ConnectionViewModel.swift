@@ -40,6 +40,7 @@ class ConnectionViewModel: ObservableObject {
     // MARK: -  UI Actions (Minimal Interface)
     
     /// Test connection with current form values
+
     func testConnection() async {
         guard let url = buildBasicURL() else {
             connectionError = "Invalid URL format"

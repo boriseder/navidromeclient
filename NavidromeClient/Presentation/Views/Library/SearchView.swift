@@ -6,8 +6,9 @@
 //   CLEAN: Proper offline/online search routing
 //   FIXED: Consistent state management pattern
 //
-
-import SwiftUI
+/*
+ 
+ import SwiftUI
 
 struct SearchView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
@@ -505,5 +506,4 @@ struct SearchTabButton: View {
     }
 }
 
-// MARK: - Supporting Types
-
+*/

@@ -63,7 +63,6 @@ class ConnectionService: ObservableObject {
     }
     
     // MARK: -  CONNECTION TESTING
-    
     func testConnection() async -> ConnectionTestResult {
         let startTime = Date()
         
@@ -71,33 +70,68 @@ class ConnectionService: ObservableObject {
             // Step 1: Basic ping
             let pingInfo = try await pingWithInfo()
             
-            // Step 2: Verify with actual API call
+            // Step 2: Verify with actual API call AND parse response
             let testURL = buildURL(endpoint: "getAlbumList2", params: ["type": "recent", "size": "1"])!
-            let (_, response) = try await session.data(from: testURL)
+            let (data, response) = try await session.data(from: testURL)
             
-            guard let httpResponse = response as? HTTPURLResponse,
-                  httpResponse.statusCode == 200 else {
-                return .failure(.invalidCredentials)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure(.serverUnreachable)
             }
             
-            let responseTime = Date().timeIntervalSince(startTime)
-            updateConnectionState(responseTime: responseTime, success: true)
+            // Check HTTP status
+            guard httpResponse.statusCode == 200 else {
+                if httpResponse.statusCode == 401 {
+                    return .failure(.invalidCredentials)
+                }
+                return .failure(.serverUnreachable)
+            }
             
-            let connectionInfo = ConnectionInfo(
-                version: pingInfo.version,
-                type: pingInfo.type,
-                serverVersion: pingInfo.serverVersion,
-                openSubsonic: pingInfo.openSubsonic
-            )
-            
-            return .success(connectionInfo)
+            // ✨ NEW: Parse and check for Subsonic errors
+            do {
+                let decodedResponse = try JSONDecoder().decode(
+                    SubsonicResponse<SubsonicResponseContent>.self,
+                    from: data
+                )
+                
+                // Check if response contains error
+                if decodedResponse.subsonicResponse.status == "failed" {
+                    if let error = decodedResponse.subsonicResponse.error {
+                        print("❌ Subsonic error: code=\(error.code), message=\(error.message)")
+                        
+                        // Error code 40 = Wrong username/password
+                        if error.code == 40 || error.code == 41 {
+                            return .failure(.invalidCredentials)
+                        }
+                        
+                        return .failure(.networkError(error.message))
+                    }
+                    return .failure(.invalidCredentials)
+                }
+                
+                // Success!
+                let responseTime = Date().timeIntervalSince(startTime)
+                updateConnectionState(responseTime: responseTime, success: true)
+                
+                let connectionInfo = ConnectionInfo(
+                    version: pingInfo.version,
+                    type: pingInfo.type,
+                    serverVersion: pingInfo.serverVersion,
+                    openSubsonic: pingInfo.openSubsonic
+                )
+                
+                return .success(connectionInfo)
+                
+            } catch {
+                print("❌ Failed to parse response: \(error)")
+                return .failure(.invalidServerType)
+            }
             
         } catch {
             updateConnectionState(responseTime: 0, success: false)
             return .failure(mapError(error))
         }
     }
-    
+
     func ping() async -> Bool {
         do {
             let url = buildURL(endpoint: "ping")!

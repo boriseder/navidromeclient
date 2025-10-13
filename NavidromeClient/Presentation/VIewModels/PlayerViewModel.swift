@@ -201,12 +201,46 @@ class PlayerViewModel: NSObject, ObservableObject {
             print("playFromURL cancelled")
             return
         }
-                
-        guard await preloadAudioBuffer(for: url) else {
+        
+        // Try to preload with retry logic
+        var retryCount = 0
+        let maxRetries = 2
+        var isBufferValid = false
+        var lastError: Error?
+        
+        while retryCount <= maxRetries && !isBufferValid {
+            isBufferValid = await preloadAudioBuffer(for: url)
+            
+            if !isBufferValid {
+                retryCount += 1
+                if retryCount <= maxRetries {
+                    print("⚠️ Retry \(retryCount)/\(maxRetries) after buffer validation failed")
+                    
+                    // If this is a stream URL failure, try getting a fresh URL
+                    if let song = currentSong {
+                        print("🔄 Requesting fresh stream URL...")
+                        if let freshURL = await getSimpleStreamURL(for: song) {
+                            print("✅ Got fresh stream URL, retrying...")
+                            await playFromURL(freshURL)
+                            return
+                        }
+                    }
+                    
+                    try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s delay
+                }
+            }
+        }
+        
+        guard isBufferValid else {
             await MainActor.run {
+                print("❌ Audio buffer validation failed after \(retryCount) retries")
                 errorMessage = "Cannot load audio file"
                 isLoading = false
             }
+            
+            // Try to skip to next song instead of stopping
+            print("⏭️ Skipping to next song due to playback error")
+            await playNext()
             return
         }
         
@@ -230,51 +264,103 @@ class PlayerViewModel: NSObject, ObservableObject {
                     player?.replaceCurrentItem(with: nil)
                     
                     let item = AVPlayerItem(url: url)
+                    
+                    // Add status observer to detect failures
+                    setupPlayerItemStatusObserver(for: item)
+                    
                     player = AVPlayer(playerItem: item)
                     player?.volume = volume
-                    
                     player?.automaticallyWaitsToMinimizeStalling = true
                     
                     isPlaying = true
                     isLoading = false
                     
                     player?.play()
-                    print("New player created with buffer optimization")
+                    print("✅ New player created and playing")
                     
                     setupPlayerItemObserver(for: item)
                     setupTimeObserver()
                     updateNowPlayingInfo()
-                   
                     logStreamDiagnostics(for: url)
                 }
             }
         }
     }
-    
+
     private func preloadAudioBuffer(for url: URL) async -> Bool {
         let asset = AVURLAsset(url: url)
         
         do {
-            let duration = try await asset.load(.duration)
+            // Load both duration and tracks concurrently
+            async let durationLoad = asset.load(.duration)
+            async let tracksLoad = asset.loadTracks(withMediaType: .audio)
+            
+            let (duration, tracks) = try await (durationLoad, tracksLoad)
+            
             guard duration.seconds > 0 else {
-                print("Invalid duration")
+                print("Invalid duration: \(duration.seconds)")
+                return false
+            }
+            
+            guard let track = tracks.first else {
+                print("No audio track found")
                 return false
             }
             
             // Validate audio format
-            let isValid = await validateAudioFormat(for: url)
-            if !isValid {
-                print("Audio format validation failed")
+            let formatDescriptions = try await track.load(.formatDescriptions)
+            guard let formatDesc = formatDescriptions.first else {
+                print("No format description")
                 return false
             }
             
-            return true
+            if let audioFormat = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
+                print("✅ Audio validated: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels")
+                return audioFormat.mSampleRate > 0 && audioFormat.mChannelsPerFrame > 0
+            }
+            
+            print("❌ Could not read audio format")
+            return false
+            
         } catch {
-            print("Failed to preload audio: \(error)")
+            print("❌ Audio buffer preload failed: \(error.localizedDescription)")
+            if let urlError = error as? URLError {
+                print("URL Error code: \(urlError.code.rawValue)")
+            }
             return false
         }
     }
-    
+
+    private func setupPlayerItemStatusObserver(for item: AVPlayerItem) {
+        // Observe status changes
+        Task {
+            for await status in item.observeStatus() {
+                await handlePlayerItemStatusChange(status, for: item)
+            }
+        }
+    }
+
+    private func handlePlayerItemStatusChange(_ status: AVPlayerItem.Status, for item: AVPlayerItem) async {
+        switch status {
+        case .readyToPlay:
+            print("✅ Player item ready to play")
+            
+        case .failed:
+            if let error = item.error {
+                print("❌ Player item failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    handlePlaybackError(error)
+                }
+            }
+            
+        case .unknown:
+            print("⚠️ Player item status unknown")
+            
+        @unknown default:
+            print("⚠️ Player item unknown status: \(status.rawValue)")
+        }
+    }
+
     // MARK: - Download Status Methods
     func isAlbumDownloaded(_ albumId: String) -> Bool {
         let isDownloaded = downloadManager.isAlbumDownloaded(albumId)
@@ -445,32 +531,6 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
     }
 
-    private func validateAudioFormat(for url: URL) async -> Bool {
-        let asset = AVURLAsset(url: url)
-        
-        do {
-            let tracks = try await asset.loadTracks(withMediaType: .audio)
-            guard let track = tracks.first else {
-                print("No audio track found")
-                return false
-            }
-            
-            let formatDescriptions = try await track.load(.formatDescriptions)
-            if let formatDesc = formatDescriptions.first {
-                let audioFormat = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)
-                if let format = audioFormat?.pointee {
-                    print("Audio format: \(format.mSampleRate)Hz, \(format.mChannelsPerFrame) channels")
-                    return format.mSampleRate > 0 && format.mChannelsPerFrame > 0
-                }
-            }
-        } catch {
-            print("Audio validation failed: \(error)")
-            return false
-        }
-        
-        return false
-    }
-    
     // MARK: - Error Handling
 
     private func handlePlaybackError(_ error: Error) {
@@ -824,5 +884,75 @@ struct QueueContextActions {
         Task {
             await playerVM.playNext(songs)
         }
+    }
+}
+
+// Extension to observe AVPlayerItem status changes
+extension AVPlayerItem {
+    func observeStatus() -> AsyncStream<Status> {
+        AsyncStream { continuation in
+            let observation = observe(\.status, options: [.new]) { item, change in
+                if let newStatus = change.newValue {
+                    continuation.yield(newStatus)
+                }
+            }
+            
+            continuation.onTermination = { _ in
+                observation.invalidate()
+            }
+        }
+    }
+}
+
+// Update preloadAudioBuffer to provide more diagnostic info
+private func preloadAudioBuffer(for url: URL) async -> Bool {
+    print("🔍 Validating audio buffer for: \(url.lastPathComponent)")
+    
+    let asset = AVURLAsset(url: url)
+    
+    do {
+        async let durationLoad = asset.load(.duration)
+        async let tracksLoad = asset.loadTracks(withMediaType: .audio)
+        
+        let (duration, tracks) = try await (durationLoad, tracksLoad)
+        
+        // Check for invalid duration
+        guard duration.seconds.isFinite, duration.seconds > 0 else {
+            print("❌ Invalid duration: \(duration.seconds)")
+            return false
+        }
+        
+        guard let track = tracks.first else {
+            print("❌ No audio track found")
+            return false
+        }
+        
+        let formatDescriptions = try await track.load(.formatDescriptions)
+        guard let formatDesc = formatDescriptions.first else {
+            print("❌ No format description")
+            return false
+        }
+        
+        if let audioFormat = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc)?.pointee {
+            guard audioFormat.mSampleRate > 0, audioFormat.mChannelsPerFrame > 0 else {
+                print("❌ Invalid audio format: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels")
+                return false
+            }
+            
+            print("✅ Audio validated: \(audioFormat.mSampleRate)Hz, \(audioFormat.mChannelsPerFrame) channels, duration: \(duration.seconds)s")
+            return true
+        }
+        
+        print("❌ Could not read audio format")
+        return false
+        
+    } catch {
+        print("❌ Audio buffer preload failed: \(error.localizedDescription)")
+        if let urlError = error as? URLError {
+            print("   URL Error code: \(urlError.code.rawValue)")
+        } else if let avError = error as? AVError {
+            print("   AVError code: \(avError.code.rawValue)")
+        }
+        return false
     }
 }
