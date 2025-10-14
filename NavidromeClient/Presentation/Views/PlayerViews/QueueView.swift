@@ -247,7 +247,7 @@ struct CurrentlyPlayingRow: View {
     
     private var coverArt: UIImage? {
         guard let albumId = song.albumId else { return nil }
-        return coverArtManager.getAlbumImage(for: albumId, size: 100)
+        return coverArtManager.getAlbumImage(for: albumId, context: .list)
     }
     
     var body: some View {
@@ -323,7 +323,7 @@ struct QueueSongRow: View {
     
     private var coverArt: UIImage? {
         guard let albumId = song.albumId else { return nil }
-        return coverArtManager.getAlbumImage(for: albumId, size: 80)
+        return coverArtManager.getAlbumImage(for: albumId, context: .list)
     }
     
     var body: some View {

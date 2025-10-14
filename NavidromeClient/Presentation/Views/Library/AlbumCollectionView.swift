@@ -253,7 +253,7 @@ struct AlbumCollectionView: View {
         if case .byArtist(let artist) = context {
             artistImage = await coverArtManager.loadArtistImage(
                 artist: artist,
-                size: Int(DSLayout.avatar * 2) // Higher resolution for header
+                context: .artistHero
             )
         }
     }

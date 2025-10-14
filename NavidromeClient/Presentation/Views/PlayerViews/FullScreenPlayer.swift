@@ -10,6 +10,8 @@ struct FullScreenPlayerView: View {
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
     @State private var showingQueue = false
+    @State private var fullscreenImage: UIImage?
+    @State private var isLoadingFullscreen = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -20,11 +22,18 @@ struct FullScreenPlayerView: View {
                     Spacer(minLength: 30)
                     
                     SpotifyAlbumArt(
-                        cover: highResCover ?? regularCover,
+                        cover: fullscreenImage,
                         screenWidth: geometry.size.width
                     )
                     .scaleEffect(isDragging ? 0.95 : 1.0)
                     .animation(.spring(response: 0.3), value: isDragging)
+                    .overlay {
+                        if isLoadingFullscreen {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .tint(.white)
+                        }
+                    }
 
                     Spacer(minLength: 20)
 
@@ -52,7 +61,7 @@ struct FullScreenPlayerView: View {
                 .padding(.top, 70)
                 .padding(.bottom, 20)
                 .background {
-                    SpotifyBackground(image: highResCover ?? regularCover)
+                    SpotifyBackground(image: fullscreenImage)
                 }
             }
             .ignoresSafeArea(.container, edges: [.top, .bottom])
@@ -66,17 +75,50 @@ struct FullScreenPlayerView: View {
                 .environmentObject(playerVM)
                 .environmentObject(coverArtManager)
         }
-    }
-    
-    private var highResCover: UIImage? {
-        playerVM.currentSong?.albumId.flatMap { albumId in
-            coverArtManager.getAlbumImage(for: albumId, size: 800)
+        .task(id: playerVM.currentSong?.id) {
+            // FIXED: Actively load fullscreen image with proper state management
+            await loadFullscreenImage()
+        }
+        .onChange(of: playerVM.currentSong?.albumId) { oldValue, newValue in
+            if oldValue != newValue {
+                Task {
+                    await loadFullscreenImage()
+                }
+            }
         }
     }
     
-    private var regularCover: UIImage? {
-        playerVM.currentSong?.albumId.flatMap { albumId in
-            coverArtManager.getAlbumImage(for: albumId, size: 300)
+    private func loadFullscreenImage() async {
+        guard let albumId = playerVM.currentSong?.albumId else {
+            await MainActor.run {
+                fullscreenImage = nil
+                isLoadingFullscreen = false
+            }
+            return
+        }
+        
+        // Check cache first for immediate display
+        if let cached = coverArtManager.getAlbumImage(for: albumId, context: .fullscreen) {
+            await MainActor.run {
+                fullscreenImage = cached
+                isLoadingFullscreen = false
+            }
+            return
+        }
+        
+        // Load from network with loading state
+        await MainActor.run {
+            isLoadingFullscreen = true
+        }
+        
+        let image = await coverArtManager.loadAlbumImage(
+            for: albumId,
+            context: .fullscreen
+        )
+        
+        await MainActor.run {
+            fullscreenImage = image
+            isLoadingFullscreen = false
         }
     }
     
@@ -101,8 +143,7 @@ struct FullScreenPlayerView: View {
     }
 }
 
-// All other structs (SpotifyBackground, TopBar, SpotifyAlbumArt, etc.) remain unchanged
-// MARK: - Background unchanged
+// MARK: - Background
 struct SpotifyBackground: View {
     let image: UIImage?
     
@@ -122,7 +163,7 @@ struct SpotifyBackground: View {
     }
 }
 
-// MARK: - TopBar unchanged
+// MARK: - TopBar
 struct TopBar: View {
     let dismiss: DismissAction
     @Binding var showingQueue: Bool
@@ -150,7 +191,7 @@ struct TopBar: View {
     }
 }
 
-// MARK: - Album Art unchanged
+// MARK: - Album Art
 struct SpotifyAlbumArt: View {
     let cover: UIImage?
     let screenWidth: CGFloat
@@ -177,7 +218,7 @@ struct SpotifyAlbumArt: View {
     }
 }
 
-// MARK: - Song Info unchanged
+// MARK: - Song Info
 struct SpotifySongInfoView: View {
     let song: Song
     let screenWidth: CGFloat
@@ -206,7 +247,7 @@ struct SpotifySongInfoView: View {
     }
 }
 
-// MARK: - Progress Section unchanged
+// MARK: - Progress Section
 struct ProgressSection: View {
     @ObservedObject var playerVM: PlayerViewModel
     let screenWidth: CGFloat
@@ -217,12 +258,10 @@ struct ProgressSection: View {
         VStack(spacing: 8) {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Background track
                     RoundedRectangle(cornerRadius: 2)
                         .fill(.white.opacity(0.3))
                         .frame(height: 4)
                     
-                    // Progress track
                     RoundedRectangle(cornerRadius: 2)
                         .fill(.white)
                         .frame(width: progressWidth(geometry.size.width), height: 4)
@@ -237,7 +276,6 @@ struct ProgressSection: View {
             }
             .frame(height: 20)
             
-            // Time Labels
             HStack {
                 Text(formatTime(isDragging ? dragValue * playerVM.duration : playerVM.currentTime))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
@@ -281,20 +319,18 @@ struct ProgressSection: View {
     }
 }
 
-// MARK: - Main Controls unchanged
+// MARK: - Main Controls
 struct MainControls: View {
     @ObservedObject var playerVM: PlayerViewModel
     
     var body: some View {
         HStack(spacing: 30) {
-            // Shuffle
             Button { playerVM.toggleShuffle() } label: {
                 Image(systemName: "shuffle")
                     .font(.system(size: 22))
                     .foregroundStyle(playerVM.isShuffling ? .green : .white.opacity(0.7))
             }
             
-            // Previous
             Button {
                 Task { await playerVM.playPrevious() }
             } label: {
@@ -303,7 +339,6 @@ struct MainControls: View {
                     .foregroundStyle(.white)
             }
             
-            // Play/Pause
             Button {
                 playerVM.togglePlayPause()
             } label: {
@@ -324,7 +359,6 @@ struct MainControls: View {
                 }
             }
             
-            // Next
             Button {
                 Task { await playerVM.playNext() }
             } label: {
@@ -333,7 +367,6 @@ struct MainControls: View {
                     .foregroundStyle(.white)
             }
             
-            // Repeat
             Button { playerVM.toggleRepeat() } label: {
                 Image(systemName: repeatIcon)
                     .font(.system(size: 22))
@@ -358,7 +391,7 @@ struct MainControls: View {
     }
 }
 
-// MARK: - Bottom Controls unchanged
+// MARK: - Bottom Controls
 struct BottomControls: View {
     @ObservedObject var playerVM: PlayerViewModel
     let audioSessionManager: AudioSessionManager
@@ -376,8 +409,7 @@ struct BottomControls: View {
     }
 }
 
-// MARK: - Audio Source Button unchanged
-
+// MARK: - Audio Source Button
 struct AudioSourceButton: UIViewRepresentable {
     func makeUIView(context: Context) -> AVRoutePickerView {
         let picker = AVRoutePickerView()

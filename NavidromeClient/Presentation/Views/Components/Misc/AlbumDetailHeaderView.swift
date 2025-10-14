@@ -58,7 +58,7 @@ struct AlbumHeaderView: View {
     @ViewBuilder
     private var backgroundImageLayer: some View {
         GeometryReader { geo in
-            AlbumImageView(album: album, index: 0, size: DSLayout.fullCover * 2)
+            AlbumImageView(album: album, index: 0, context: .hero)
                 .scaledToFit()
                 .frame(
                     width: DSLayout.fullCover * 1.7,
@@ -116,7 +116,7 @@ struct AlbumHeaderView: View {
     @ViewBuilder
     private var albumHeroContent: some View {
         VStack(spacing: 20) {
-            AlbumImageView(album: album, index: 0, size: DSLayout.detailCover)
+            AlbumImageView(album: album, index: 0, context: .detail)
                 .clipShape(
                     RoundedRectangle(cornerRadius: 20)
                 )

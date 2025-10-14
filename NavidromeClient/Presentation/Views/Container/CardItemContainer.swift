@@ -1,9 +1,8 @@
 //
-//  CardItemContainer.swift - FIXED: Import CardContent
+//  CardItemContainer.swift
 //  NavidromeClient
 //
-//  ELIMINATED: Custom image loading states and logic
-//  CLEAN: Delegates to specialized image views
+//  REFACTORED: Context-aware image display
 //
 
 import SwiftUI
@@ -12,7 +11,7 @@ struct CardItemContainer: View {
     let content: CardContent
     let index: Int
     
-    private let textHeight: CGFloat = 40 // fixe Höhe für Titel/Subtitel/Year
+    private let textHeight: CGFloat = 40
     
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
@@ -41,7 +40,7 @@ struct CardItemContainer: View {
                             .font(DSText.footnote)
                             .foregroundColor(DSColor.tertiary)
                     } else {
-                        Text("").hidden() // Platzhalter, damit Höhe gleich bleibt
+                        Text("").hidden()
                     }
                 }
             }
@@ -64,9 +63,9 @@ struct CardItemContainer: View {
     private var imageView: some View {
         switch content {
         case .album(let album):
-            AlbumImageView(album: album, index: index, size: DSLayout.cardCover)
+            AlbumImageView(album: album, index: index, context: .card)
         case .artist(let artist):
-            ArtistImageView(artist: artist, index: index, size: DSLayout.cardCover)
+            ArtistImageView(artist: artist, index: index, context: .artistCard)
         case .genre:
             staticGenreIcon
         }

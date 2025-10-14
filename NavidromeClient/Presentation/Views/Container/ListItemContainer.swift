@@ -1,9 +1,8 @@
 //
-//  ListItemContainer.swift - REFACTORED: Eliminated Custom Loading
+//  ListItemContainer.swift
 //  NavidromeClient
 //
-//  ELIMINATED: Custom image loading states and logic
-//  CLEAN: Delegates to specialized image views
+//  REFACTORED: Context-aware image display
 //
 
 import SwiftUI
@@ -57,10 +56,10 @@ struct ListItemContainer: View {
     private var imageView: some View {
         switch content {
         case .album(let album):
-            AlbumImageView(album: album, index: index, size: DSLayout.smallAvatar)
+            AlbumImageView(album: album, index: index, context: .list)
                 .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
         case .artist(let artist):
-            ArtistImageView(artist: artist, index: index, size: DSLayout.smallAvatar)
+            ArtistImageView(artist: artist, index: index, context: .artistList)
                 .padding(DSLayout.elementGap)
         case .genre:
             staticGenreIcon
@@ -73,7 +72,7 @@ struct ListItemContainer: View {
     private var staticGenreIcon: some View {
         ZStack {
             Circle()
-                .fill(.ultraThinMaterial) // iOS blur-glass Effekt
+                .fill(.ultraThinMaterial)
                 .overlay(
                     Circle().stroke(Color.primary.opacity(0.1), lineWidth: 1)
                 )

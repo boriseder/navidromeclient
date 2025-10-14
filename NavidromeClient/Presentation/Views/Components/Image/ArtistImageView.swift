@@ -1,87 +1,89 @@
 //
-//
-//  ArtistImageView.swift - EXTENDED VERSION
+//  ArtistImageView.swift
 //  NavidromeClient
 //
-//  Created by Boris Eder on 21.09.25.
+//  REFACTORED: Context-aware image loading with smooth transitions
 //
+
 import SwiftUI
 
 struct ArtistImageView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
+    @State private var showImage = false
     
     let artist: Artist
     let index: Int
-    let size: CGFloat?
+    let context: ImageContext
     
-    // Remove hasRequestedLoad state
-    
-    private var actualSize: CGFloat {
-        size ?? DSLayout.smallAvatar
+    private var displaySize: CGFloat {
+        return context.displaySize
     }
     
-    private var imageSize: Int {
-        Int(actualSize * 3)
-    }
-    
-    init(artist: Artist, index: Int, size: CGFloat? = nil) {
+    init(artist: Artist, index: Int, context: ImageContext) {
         self.artist = artist
         self.index = index
-        self.size = size
+        self.context = context
     }
     
     var body: some View {
         ZStack {
-            Circle()
-                .fill(DSColor.surface)
-                .frame(width: actualSize, height: actualSize)
+            // Always show placeholder
+            placeholderView
+                .opacity(showImage ? 0 : 1)
             
-            Group {
-                if let image = coverArtManager.getArtistImage(for: artist.id, size: imageSize) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: actualSize, height: actualSize)
-                        .clipShape(Circle())
-                        .transition(.opacity.animation(.easeInOut(duration: 0.3)))
-                } else {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [.blue, .purple.opacity(0.7)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: actualSize, height: actualSize)
-                        .overlay(artistImageOverlay)
-                }
+            // Fade in actual image
+            if let image = coverArtManager.getArtistImage(for: artist.id, context: context) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: displaySize, height: displaySize)
+                    .clipShape(Circle())
+                    .opacity(showImage ? 1 : 0)
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showImage = true
+                        }
+                    }
             }
         }
-        // ✅ Use .task instead of .onAppear
+        .frame(width: displaySize, height: displaySize)
         .task(id: artist.id) {
             await coverArtManager.loadArtistImage(
-                artist: artist,
-                size: imageSize,
+                for: artist.id,
+                context: context,
                 staggerIndex: index
             )
         }
     }
     
     @ViewBuilder
-    private var artistImageOverlay: some View {
-        if coverArtManager.isLoadingImage(for: artist.id, size: imageSize) {
+    private var placeholderView: some View {
+        Circle()
+            .fill(
+                LinearGradient(
+                    colors: [.blue, .purple.opacity(0.7)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: displaySize, height: displaySize)
+            .overlay(placeholderOverlay)
+    }
+    
+    @ViewBuilder
+    private var placeholderOverlay: some View {
+        if coverArtManager.isLoadingImage(for: artist.id, size: context.size) {
             ProgressView()
                 .scaleEffect(0.7)
                 .tint(.white)
-        } else if let error = coverArtManager.getImageError(for: artist.id, size: imageSize) {
+        } else if let error = coverArtManager.getImageError(for: artist.id, size: context.size) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: DSLayout.smallIcon))
-                .foregroundStyle(.orange)
+                .foregroundStyle(.white.opacity(0.8))
         } else {
             Image(systemName: "music.mic")
                 .font(.system(size: DSLayout.icon))
-                .foregroundStyle(DSColor.onDark)
+                .foregroundStyle(.white.opacity(0.6))
         }
     }
 }

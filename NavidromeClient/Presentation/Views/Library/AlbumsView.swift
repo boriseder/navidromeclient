@@ -106,7 +106,7 @@ struct AlbumsViewContent: View {
             }
             .onAppear {
                 if !displayedAlbums.isEmpty {
-                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), size: 300)
+                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), context: .grid)
                 }
             }
             .toolbar {

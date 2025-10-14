@@ -105,7 +105,7 @@ struct ExploreViewContent: View {
                                exploreManager.randomAlbums
                 
                 if !allAlbums.isEmpty {
-                    coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), size: 200)
+                    coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), context: .card)
                 }
             }
             .navigationTitle("Your Favorites")
@@ -248,7 +248,7 @@ struct ExploreViewContent: View {
     private func refreshRandomAlbums() async {
         await exploreManager.refreshRandomAlbums()
         // Use background idle preloading instead of immediate
-        coverArtManager.preloadWhenIdle(exploreManager.randomAlbums, size: 200)
+        coverArtManager.preloadWhenIdle(exploreManager.randomAlbums, context: .card)
     }
 }
 

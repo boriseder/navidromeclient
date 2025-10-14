@@ -162,6 +162,11 @@ class PlayerViewModel: NSObject, ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // Preload fullscreen cover art
+        if let albumId = song.albumId {
+            coverArtManager.preloadForFullscreen(albumId: albumId)
+        }
+        
         guard let audioURL = await getAudioURL(for: song) else {
             errorMessage = "No audio source available"
             isLoading = false
@@ -258,7 +263,7 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
         
         let albumId = currentAlbumId ?? ""
-        let artwork = coverArtManager.getAlbumImage(for: albumId, size: 300)
+        let artwork = coverArtManager.getAlbumImage(for: albumId, context: .detail)
         
         audioSessionManager.updateNowPlayingInfo(
             title: song.title,

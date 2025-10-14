@@ -45,14 +45,14 @@ class MediaService {
                 try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
             }
             // Check cache again after waiting
-            return PersistentImageCache.shared.image(for: cacheKey)
+            return PersistentImageCache.shared.image(for: coverId, size: size)
         }
         
         activeRequests.insert(cacheKey)
         defer { activeRequests.remove(cacheKey) }
         
         // Check cache first
-        if let cached = PersistentImageCache.shared.image(for: cacheKey) {
+        if let cached = PersistentImageCache.shared.image(for: coverId, size: size) {
             return cached
         }
         
@@ -74,7 +74,7 @@ class MediaService {
             }
             
             // Cache the image
-            PersistentImageCache.shared.store(image, for: cacheKey)
+            PersistentImageCache.shared.store(image, for: coverId, size: size)
             return image
             
         } catch {

@@ -1,3 +1,11 @@
+//
+//  PersistentImageCache.swift
+//  NavidromeClient
+//
+//  Size-aware persistent image cache
+//  FIXED: Multiple sizes per image, better cache key strategy
+//
+
 import Foundation
 import UIKit
 import CryptoKit
@@ -6,13 +14,11 @@ import CryptoKit
 class PersistentImageCache: ObservableObject {
     static let shared = PersistentImageCache()
     
-    // MARK: - Properties
     private let memoryCache = NSCache<NSString, UIImage>()
     private let fileManager = FileManager.default
     private let cacheDirectory: URL
     private let metadataFile: URL
     
-    // Cache-Metadaten
     struct CacheMetadata: Codable {
         let key: String
         let filename: String
@@ -22,10 +28,9 @@ class PersistentImageCache: ObservableObject {
     }
     
     private var metadata: [String: CacheMetadata] = [:]
-    private let maxCacheSize: Int64 = 100 * 1024 * 1024 // 100MB
-    private let maxAge: TimeInterval = 30 * 24 * 60 * 60 // 30 Tage
+    private let maxCacheSize: Int64 = 200 * 1024 * 1024 // 200MB (increased for multi-size)
+    private let maxAge: TimeInterval = 30 * 24 * 60 * 60 // 30 days
     
-    // MARK: - Init
     private init() {
         let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         cacheDirectory = documentsPath.appendingPathComponent("CoverArtCache", isDirectory: true)
@@ -42,40 +47,51 @@ class PersistentImageCache: ObservableObject {
     
     // MARK: - Public API
     
-    func image(for key: String) -> UIImage? {
-        let cacheKey = sanitizeKey(key)
+    func image(for key: String, size: Int) -> UIImage? {
+        let cacheKey = buildCacheKey(key: key, size: size)
         
         // 1. Memory Cache
         if let cached = memoryCache.object(forKey: cacheKey as NSString) {
-            updateLastAccessed(for: key)
+            updateLastAccessed(for: cacheKey)
             return cached
         }
         
         // 2. Disk Cache
-        if let diskImage = loadImageFromDisk(key: key) {
+        if let diskImage = loadImageFromDisk(key: cacheKey) {
             memoryCache.setObject(diskImage, forKey: cacheKey as NSString)
-            updateLastAccessed(for: key)
+            updateLastAccessed(for: cacheKey)
             return diskImage
         }
         
         return nil
     }
     
-    func store(_ image: UIImage, for key: String, quality: CGFloat = 0.8) {
-        let cacheKey = sanitizeKey(key)
+    func store(_ image: UIImage, for key: String, size: Int, quality: CGFloat = 0.85) {
+        let cacheKey = buildCacheKey(key: key, size: size)
         memoryCache.setObject(image, forKey: cacheKey as NSString)
         
         Task {
-            await saveImageToDisk(image, key: key, quality: quality)
+            await saveImageToDisk(image, key: cacheKey, quality: quality)
         }
     }
     
-    func removeImage(for key: String) {
-        let cacheKey = sanitizeKey(key)
-        memoryCache.removeObject(forKey: cacheKey as NSString)
-        
-        Task {
-            await removeImageFromDisk(key: key)
+    func removeImage(for key: String, size: Int? = nil) {
+        if let size = size {
+            let cacheKey = buildCacheKey(key: key, size: size)
+            memoryCache.removeObject(forKey: cacheKey as NSString)
+            Task {
+                await removeImageFromDisk(key: cacheKey)
+            }
+        } else {
+            // Remove all sizes for this key
+            let allSizes = [80, 100, 150, 200, 240, 300, 400, 800]
+            for size in allSizes {
+                let cacheKey = buildCacheKey(key: key, size: size)
+                memoryCache.removeObject(forKey: cacheKey as NSString)
+                Task {
+                    await removeImageFromDisk(key: cacheKey)
+                }
+            }
         }
     }
     
@@ -104,7 +120,16 @@ class PersistentImageCache: ObservableObject {
         await removeOrphanedFiles()
     }
     
+    // MARK: - Cache Key Building
+    
+    private func buildCacheKey(key: String, size: Int) -> String {
+        // FIXED: Key now comes in format "album_id_size" from CoverArtManager
+        // Just use it as-is
+        return key
+    }
+    
     // MARK: - Cache Stats
+    
     struct CacheStats {
         let memoryCount: Int
         let diskCount: Int
@@ -134,14 +159,8 @@ class PersistentImageCache: ObservableObject {
     }
     
     private func configureMemoryCache() {
-        memoryCache.countLimit = 50
-        memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB
-    }
-    
-    private func sanitizeKey(_ key: String) -> String {
-        return key.replacingOccurrences(of: "/", with: "_")
-                 .replacingOccurrences(of: "\\", with: "_")
-                 .replacingOccurrences(of: ":", with: "_")
+        memoryCache.countLimit = 100 // Increased for multi-size
+        memoryCache.totalCostLimit = 80 * 1024 * 1024 // 80MB
     }
     
     private func generateFilename(for key: String) -> String {
@@ -259,7 +278,7 @@ class PersistentImageCache: ObservableObject {
         }
         
         if !expiredKeys.isEmpty {
-            print("🗑️ Removed \(expiredKeys.count) expired cache entries")
+            print("Removed \(expiredKeys.count) expired cache entries")
         }
     }
     
@@ -284,7 +303,7 @@ class PersistentImageCache: ObservableObject {
             }
         }
         
-        print("🧹 Cache cleanup: Removed \(removedCount) items")
+        print("Cache cleanup: Removed \(removedCount) items")
     }
     
     private func removeOrphanedFiles() async {
@@ -307,12 +326,11 @@ class PersistentImageCache: ObservableObject {
         }
         
         if orphanedCount > 0 {
-            print("🧹 Removed \(orphanedCount) orphaned files")
+            print("Removed \(orphanedCount) orphaned files")
         }
     }
 }
 
-// MARK: - String Extension
 extension String {
     func sha256() -> String {
         let inputData = Data(utf8)

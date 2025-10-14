@@ -26,7 +26,7 @@ struct MiniPlayerView: View {
                     HStack(spacing: 12) {
                         AlbumArtView(
                             cover: song.albumId.flatMap { albumId in
-                                coverArtManager.getAlbumImage(for: albumId, size: 150)
+                                coverArtManager.getAlbumImage(for: albumId, context: .miniPlayer)
                             }
                         )
                         
@@ -75,7 +75,7 @@ struct MiniPlayerView: View {
                 .background(
                     ZStack {
                         if let albumId = song.albumId,
-                           let cover = coverArtManager.getAlbumImage(for: albumId, size: 150) {
+                           let cover = coverArtManager.getAlbumImage(for: albumId, context: .miniPlayer) {
                             Image(uiImage: cover)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)

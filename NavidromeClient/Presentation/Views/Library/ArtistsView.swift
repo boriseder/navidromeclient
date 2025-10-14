@@ -88,7 +88,7 @@ struct ArtistsViewContent: View {
             // Background idle preloading instead of immediate
             .onAppear {
                 if !displayedArtists.isEmpty {
-                    coverArtManager.preloadArtistsWhenIdle(Array(displayedArtists.prefix(20)), size: 120)
+                    coverArtManager.preloadArtistsWhenIdle(Array(displayedArtists.prefix(20)), context: .artistList)
                 }
             }
             .toolbar {
@@ -171,7 +171,7 @@ struct ArtistRowView: View {
     var body: some View {
         HStack(spacing: DSLayout.contentGap) {
             // Artist Image
-            ArtistImageView(artist: artist, index: index, size: DSLayout.smallAvatar)
+            ArtistImageView(artist: artist, index: index, context: .artistList)
                 .padding(.leading, DSLayout.elementGap)
             
             // Artist Info

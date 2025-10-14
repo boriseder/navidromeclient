@@ -254,12 +254,12 @@ class DownloadManager: ObservableObject {
             return
         }
         
-        let sizes = [50, 120, 200, 300]
+        let contexts: [ImageContext] = [.list, .card, .grid]
         
         await withTaskGroup(of: Void.self) { group in
-            for size in sizes {
+            for context in contexts {
                 group.addTask {
-                    _ = await coverArtManager.loadAlbumImage(album: album, size: size)
+                    _ = await coverArtManager.loadAlbumImage(album: album, context: context)
                 }
             }
         }
@@ -279,12 +279,12 @@ class DownloadManager: ObservableObject {
             artistImageUrl: nil
         )
         
-        let sizes = [50, 120]
+        let contexts: [ImageContext] = [.artistList, .artistCard]
         
         await withTaskGroup(of: Void.self) { group in
-            for size in sizes {
+            for context in contexts {
                 group.addTask {
-                    _ = await coverArtManager.loadArtistImage(artist: artist, size: size)
+                    _ = await coverArtManager.loadArtistImage(artist: artist, context: context)
                 }
             }
         }
