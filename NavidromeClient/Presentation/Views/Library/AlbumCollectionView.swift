@@ -18,6 +18,7 @@ struct AlbumCollectionView: View {
     let context: AlbumCollectionContext
     
     @EnvironmentObject var navidromeVM: NavidromeViewModel
+    @EnvironmentObject var songManager: SongManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
@@ -159,7 +160,7 @@ struct AlbumCollectionView: View {
         
         // Load songs from all albums
         for album in albumsToPlay {
-            let songs = await navidromeVM.loadSongs(for: album.id)
+            let songs = await songManager.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }
         
@@ -191,7 +192,7 @@ struct AlbumCollectionView: View {
         
         // Load songs from all albums
         for album in albumsToPlay {
-            let songs = await navidromeVM.loadSongs(for: album.id)
+            let songs = await songManager.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }
         

@@ -16,7 +16,7 @@ import SwiftUI
 
 @MainActor
 class CoverArtManager: ObservableObject {
-    static let shared = CoverArtManager()
+    // REMOVED: static let shared = CoverArtManager()
     
     // MARK: - Cache Configuration
     
@@ -36,10 +36,10 @@ class CoverArtManager: ObservableObject {
         case album
         case artist
         
-        var cache: NSCache<NSString, AlbumCoverArt> {
+        func getCache(from manager: CoverArtManager) -> NSCache<NSString, AlbumCoverArt> {
             switch self {
-            case .album: return CoverArtManager.shared.albumCache
-            case .artist: return CoverArtManager.shared.artistCache
+            case .album: return manager.albumCache
+            case .artist: return manager.artistCache
             }
         }
         
@@ -99,8 +99,9 @@ class CoverArtManager: ObservableObject {
     
     // MARK: - Initialization
     
-    private init() {
+    init() {
         setupMemoryCache()
+        setupFactoryResetObserver()
     }
     
     func configure(service: UnifiedSubsonicService) {
@@ -114,6 +115,17 @@ class CoverArtManager: ObservableObject {
         
         artistCache.countLimit = CacheLimits.artistCount
         artistCache.totalCostLimit = CacheLimits.artistMemory
+    }
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearMemoryCache()
+            print("CoverArtManager: Cleared memory cache on factory reset")
+        }
     }
     
     // MARK: - Thread-Safe Request Management
@@ -172,7 +184,7 @@ class CoverArtManager: ObservableObject {
         staggerIndex: Int = 0
     ) async -> UIImage? {
         let key = id as NSString
-        let cache = type.cache
+        let cache = type.getCache(from: self)
         
         // Check memory cache
         if let coverArt = cache.object(forKey: key) {
@@ -294,7 +306,7 @@ class CoverArtManager: ObservableObject {
             image,
             forId: id,
             size: size,
-            cache: type.cache,
+            cache: type.getCache(from: self),
             optimalSize: type.optimalSize,
             type: type.name
         )
@@ -387,7 +399,7 @@ class CoverArtManager: ObservableObject {
                 await withTaskGroup(of: Void.self) { group in
                     for (index, item) in items.enumerated().prefix(5) {
                         let id = getId(item)
-                        if getCachedImage(for: id, cache: type.cache, size: type.optimalSize) == nil {
+                        if getCachedImage(for: id, cache: type.getCache(from: self), size: type.optimalSize) == nil {
                             group.addTask {
                                 _ = await self.loadCoverArt(id: id, type: type, size: type.optimalSize, staggerIndex: index)
                             }
@@ -399,7 +411,7 @@ class CoverArtManager: ObservableObject {
                 for (index, item) in items.enumerated() {
                     guard !Task.isCancelled else { break }
                     let id = getId(item)
-                    if getCachedImage(for: id, cache: type.cache, size: type.optimalSize) == nil {
+                    if getCachedImage(for: id, cache: type.getCache(from: self), size: type.optimalSize) == nil {
                         _ = await self.loadCoverArt(id: id, type: type, size: type.optimalSize)
                         if index < items.count - 1 {
                             try? await Task.sleep(nanoseconds: 200_000_000)
@@ -411,7 +423,7 @@ class CoverArtManager: ObservableObject {
                 await withTaskGroup(of: Void.self) { group in
                     for item in items.prefix(10) {
                         let id = getId(item)
-                        if getCachedImage(for: id, cache: type.cache, size: type.optimalSize) == nil {
+                        if getCachedImage(for: id, cache: type.getCache(from: self), size: type.optimalSize) == nil {
                             group.addTask {
                                 await self.preloadSemaphore.wait()
                                 defer { Task { await self.preloadSemaphore.signal() } }

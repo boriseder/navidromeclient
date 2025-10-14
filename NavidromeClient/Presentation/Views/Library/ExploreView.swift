@@ -16,8 +16,7 @@ struct ExploreViewContent: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var coverArtManager: CoverArtManager
-    
-    @StateObject private var exploreManager = ExploreManager.shared
+    @EnvironmentObject var exploreManager: ExploreManager
     
     @State private var hasAttemptedInitialLoad = false
     @State private var loadingCompleted = false

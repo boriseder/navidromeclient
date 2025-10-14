@@ -35,10 +35,25 @@ class SongManager: ObservableObject {
     
     init(downloadManager: DownloadManager = DownloadManager.shared) {
         self.downloadManager = downloadManager
+        setupFactoryResetObserver()
     }
     
     deinit {
         loadTasks.values.forEach { $0.cancel() }
+    }
+    
+    // MARK: - Setup
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reset()
+            }
+        }
     }
     
     // MARK: - Configuration

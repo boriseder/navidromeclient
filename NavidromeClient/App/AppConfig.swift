@@ -88,27 +88,22 @@ final class AppConfig: ObservableObject {
     func performFactoryReset() async {
         print("Starting factory reset")
         
-        // 1. Stop any current playback immediately
-        if let playerVM = getPlayerViewModel() {
-            playerVM.stop()
-        }
-        
-        // 2. Clear all keychain data
+        // 1. Clear all keychain data
         _ = KeychainHelper.shared.delete(forKey: "navidrome_credentials")
         _ = KeychainHelper.shared.delete(forKey: "navidrome_password_hash")
         _ = KeychainHelper.shared.delete(forKey: "navidrome_password_session")
         
-        // 3. Reset local state
+        // 2. Reset local state
         credentials = nil
         isConfigured = false
                 
-        // 5. Reset all managers and clear data
+        // 3. Reset all managers and clear data
         await resetAllManagers()
         
-        // 6. Clear all caches
+        // 4. Clear all caches
         clearAllCaches()
         
-        // 7. Force UI updates
+        // 5. Force UI updates
         objectWillChange.send()
         
         print("Factory reset completed")
@@ -117,44 +112,24 @@ final class AppConfig: ObservableObject {
     // MARK: - Private Reset Methods
     
     private func resetAllManagers() async {
-        // Reset DownloadManager
-        DownloadManager.shared.deleteAllDownloads()
+        // Notify all managers to reset themselves
+        // This decouples AppConfig from manager instances
+        NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
         
-        // Reset OfflineManager
-        OfflineManager.shared.performCompleteReset()
+        // Give managers time to process reset
+        try? await Task.sleep(nanoseconds: 100_000_000)
         
-        // Reset ViewModels if accessible
-        if let navidromeVM = getNavidromeViewModel() {
-            navidromeVM.reset()
-        }
-        
-        // Force manager updates
-        DownloadManager.shared.objectWillChange.send()
-        OfflineManager.shared.objectWillChange.send()
+        print("Factory reset notification posted to all managers")
     }
     
     private func clearAllCaches() {
-        // Clear image caches
+        // Clear persistent image cache
         PersistentImageCache.shared.clearCache()
         
-        // Clear cover art service
-        CoverArtManager.shared.clearMemoryCache()
-        
         // Clear album metadata cache
-        // Note: This would need to be implemented in AlbumMetadataCache
-        // AlbumMetadataCache.shared.clearCache()
-    }
-    
-    // MARK: - Helper Methods to Access ViewModels
-    private func getPlayerViewModel() -> PlayerViewModel? {
-        // In a real app, you'd inject these dependencies or use a service locator
-        // For now, we'll rely on the managers being singletons
-        return nil // PlayerViewModel is not a singleton in current architecture
-    }
-    
-    private func getNavidromeViewModel() -> NavidromeViewModel? {
-        // Similar issue - NavidromeViewModel is not globally accessible
-        return nil
+        AlbumMetadataCache.shared.clearCache()
+        
+        print("Persistent caches cleared")
     }
     
     // MARK: - Credentials
@@ -191,15 +166,6 @@ final class AppConfig: ObservableObject {
             password: sessionPassword
         )
         
-        // Update NetworkMonitor
-        if !sessionPassword.isEmpty {
-            let service = SubsonicService(
-                baseURL: creds.baseURL,
-                username: creds.username,
-                password: sessionPassword
-            )
-        }
-        
         isConfigured = true
         
         // Add this at the very end:
@@ -234,13 +200,6 @@ final class AppConfig: ObservableObject {
             
             // Store password in keychain for session
             _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
-            
-            // Update NetworkMonitor
-            let service = SubsonicService(
-                baseURL: creds.baseURL,
-                username: creds.username,
-                password: password
-            )
             
             return true
         }

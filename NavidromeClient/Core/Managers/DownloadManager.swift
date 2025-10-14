@@ -320,6 +320,17 @@ class DownloadManager: ObservableObject {
                 self?.objectWillChange.send()
             }
         }
+        
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.deleteAllDownloads()
+                print("DownloadManager: Deleted all downloads on factory reset")
+            }
+        }
     }
 
     func getDownloadState(for albumId: String) -> DownloadState {

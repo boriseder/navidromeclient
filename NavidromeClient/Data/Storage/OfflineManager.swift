@@ -37,6 +37,7 @@ class OfflineManager: ObservableObject {
     
     private init() {
         observeDownloadChanges()
+        setupFactoryResetObserver()
     }
     
     // MARK: - Public API (Delegates to NetworkMonitor)
@@ -144,13 +145,25 @@ class OfflineManager: ObservableObject {
         )
     }
     
-    // MARK: - Reset (Simplified)
+    // MARK: - Reset
     
     func performCompleteReset() {
-        print("🔄 OfflineManager: Reset completed (NetworkMonitor owns strategy)")
+        // OfflineManager doesn't own any state that needs resetting
+        // All data is owned by DownloadManager and AlbumMetadataCache
+        print("🔄 OfflineManager: Reset completed (no state to clear)")
     }
     
-    // MARK: - Reactive Updates (Simplified)
+    // MARK: - Reactive Updates
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.performCompleteReset()
+        }
+    }
     
     private func observeDownloadChanges() {
         // Only observe download changes for data updates
@@ -237,8 +250,9 @@ struct OfflineStats {
     }
 }
 
-// MARK: - Notification Names (Unchanged)
+// MARK: - Notification Names
 extension Notification.Name {
     static let offlineModeChanged = Notification.Name("offlineModeChanged") // Legacy - not used anymore
     static let servicesNeedInitialization = Notification.Name("servicesNeedInitialization")
+    static let factoryResetRequested = Notification.Name("factoryResetRequested")
 }

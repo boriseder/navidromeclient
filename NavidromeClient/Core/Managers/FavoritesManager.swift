@@ -13,7 +13,7 @@ import SwiftUI
 
 @MainActor
 class FavoritesManager: ObservableObject {
-    static let shared = FavoritesManager()
+    // REMOVED: static let shared = FavoritesManager()
     
     // MARK: - Published State
     @Published private(set) var favoriteSongs: [Song] = []
@@ -28,7 +28,23 @@ class FavoritesManager: ObservableObject {
     // MARK: - Configuration
     private let refreshInterval: TimeInterval = 5 * 60
     
-    private init() {}
+    init() {
+        setupFactoryResetObserver()
+    }
+    
+    // MARK: - Setup
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reset()
+            }
+        }
+    }
     
     // MARK: - Service Configuration
     

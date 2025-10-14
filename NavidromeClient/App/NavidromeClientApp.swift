@@ -3,21 +3,31 @@ import SwiftUI
 @main
 struct NavidromeClientApp: App {
     @StateObject private var serviceContainer = ServiceContainer()
-    @StateObject private var navidromeVM = NavidromeViewModel()
+    @StateObject private var musicLibraryManager: MusicLibraryManager
+    @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var songManager = SongManager()
-    @StateObject private var playerVM = PlayerViewModel()
+    @StateObject private var coverArtManager: CoverArtManager
+    @StateObject private var playerVM: PlayerViewModel
+    @StateObject private var exploreManager = ExploreManager()
+    @StateObject private var favoritesManager = FavoritesManager()
     
+    // Singletons that MUST remain singletons
     @StateObject private var appConfig = AppConfig.shared
     @StateObject private var downloadManager = DownloadManager.shared
     @StateObject private var audioSessionManager = AudioSessionManager.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
     @StateObject private var offlineManager = OfflineManager.shared
-    @StateObject private var coverArtManager = CoverArtManager.shared
-    @StateObject private var exploreManager = ExploreManager.shared
-    @StateObject private var favoritesManager = FavoritesManager.shared
     
     init() {
-        // PlayerViewModel is now initialized directly without songManager dependency
+        let musicLib = MusicLibraryManager()
+        let navidromeViewModel = NavidromeViewModel(musicLibraryManager: musicLib)
+        let coverArt = CoverArtManager()
+        let player = PlayerViewModel(coverArtManager: coverArt)
+        
+        _musicLibraryManager = StateObject(wrappedValue: musicLib)
+        _navidromeVM = StateObject(wrappedValue: navidromeViewModel)
+        _coverArtManager = StateObject(wrappedValue: coverArt)
+        _playerVM = StateObject(wrappedValue: player)
     }
 
     var body: some Scene {
@@ -34,8 +44,8 @@ struct NavidromeClientApp: App {
                 .environmentObject(offlineManager)
                 .environmentObject(coverArtManager)
                 .environmentObject(exploreManager)
-                .environmentObject(MusicLibraryManager.shared)
-                .environmentObject(FavoritesManager.shared)
+                .environmentObject(musicLibraryManager)
+                .environmentObject(favoritesManager)
                 .tint(appConfig.userAccentColor.color)
                 .task {
                     await setupServicesAfterAppLaunch()
@@ -85,15 +95,20 @@ struct NavidromeClientApp: App {
             appConfig.setInitializingServices(true)
         }
         
-        // Create unified service
-        let unifiedService = UnifiedSubsonicService(
-            baseURL: credentials.baseURL,
-            username: credentials.username,
-            password: credentials.password
-        )
-        
-        // Store in container
+        // Create unified service ONCE and store in container
         await serviceContainer.initializeServices(with: credentials)
+        
+        // Get the service from container
+        guard let unifiedService = serviceContainer.unifiedService else {
+            let errorMsg = serviceContainer.initializationError ?? "Unknown initialization error"
+            print("❌ Failed to create UnifiedSubsonicService: \(errorMsg)")
+            await MainActor.run {
+                appConfig.setInitializingServices(false)
+            }
+            return
+        }
+        
+        print("✅ UnifiedSubsonicService created successfully")
         
         // Configure all managers in dependency order
         await MainActor.run {
@@ -108,7 +123,7 @@ struct NavidromeClientApp: App {
             downloadManager.configure(coverArtManager: coverArtManager)
             favoritesManager.configure(service: unifiedService)
             exploreManager.configure(service: unifiedService)
-            MusicLibraryManager.shared.configure(service: unifiedService)
+            musicLibraryManager.configure(service: unifiedService)
             
             // Phase 3: ViewModels
             navidromeVM.updateService(unifiedService)
@@ -141,7 +156,7 @@ struct NavidromeClientApp: App {
             }
 
             group.addTask {
-                await MusicLibraryManager.shared.loadInitialDataIfNeeded()
+                await self.musicLibraryManager.loadInitialDataIfNeeded()
             }
         }
         
@@ -157,13 +172,23 @@ struct NavidromeClientApp: App {
     // MARK: - Network Handling
     
     private func handleNetworkChange(isConnected: Bool) async {
-        await navidromeVM.handleNetworkChange(isOnline: isConnected)
-
-        print("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
+        // Guard: Don't handle network changes until services are initialized
+        guard serviceContainer.isInitialized else {
+            print("⏸️ Network change ignored - services not initialized")
+            return
+        }
         
+        await navidromeVM.handleNetworkChange(isOnline: isConnected)
+        print("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
     }
     
     private func handleAppBecameActive() {
+        // Guard: Don't handle app activation until services are initialized
+        guard serviceContainer.isInitialized else {
+            print("⏸️ App activation ignored - services not initialized")
+            return
+        }
+        
         Task {
             if !navidromeVM.isDataFresh {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
@@ -179,24 +204,49 @@ struct NavidromeClientApp: App {
 class ServiceContainer: ObservableObject {
     @Published private(set) var unifiedService: UnifiedSubsonicService?
     @Published private(set) var isInitialized = false
+    @Published private(set) var initializationError: String?
+    
+    init() {
+        setupFactoryResetObserver()
+    }
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.clearServices()
+            print("ServiceContainer: Cleared services on factory reset")
+        }
+    }
     
     func initializeServices(with credentials: ServerCredentials?) async {
         guard let credentials = credentials else {
             unifiedService = nil
             isInitialized = false
+            initializationError = "No credentials provided"
             return
         }
         
-        unifiedService = UnifiedSubsonicService(
-            baseURL: credentials.baseURL,
-            username: credentials.username,
-            password: credentials.password
-        )
-        isInitialized = true
+        do {
+            unifiedService = UnifiedSubsonicService(
+                baseURL: credentials.baseURL,
+                username: credentials.username,
+                password: credentials.password
+            )
+            isInitialized = true
+            initializationError = nil
+        } catch {
+            unifiedService = nil
+            isInitialized = false
+            initializationError = "Failed to initialize service: \(error.localizedDescription)"
+        }
     }
     
     func clearServices() {
         unifiedService = nil
         isInitialized = false
+        initializationError = nil
     }
 }

@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct FavoritesStatsHeader: View {
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @EnvironmentObject var favoritesManager: FavoritesManager
     
     var body: some View {
         let stats = favoritesManager.getFavoriteStats()

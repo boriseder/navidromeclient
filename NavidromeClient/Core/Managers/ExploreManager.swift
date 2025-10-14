@@ -13,7 +13,7 @@ import Foundation
 
 @MainActor
 class ExploreManager: ObservableObject {
-    static let shared = ExploreManager()
+    // REMOVED: static let shared = ExploreManager()
     
     // MARK: - Home Screen Data
     @Published private(set) var recentAlbums: [Album] = []
@@ -32,7 +32,23 @@ class ExploreManager: ObservableObject {
     private let exploreDataBatchSize = 10
     private let refreshInterval: TimeInterval = 5 * 60 // 5 minutes
     
-    private init() {}
+    init() {
+        setupFactoryResetObserver()
+    }
+    
+    // MARK: - Setup
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reset()
+            }
+        }
+    }
     
     // MARK: - Configuration
     

@@ -14,7 +14,7 @@ import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
-    static let shared = MusicLibraryManager()
+    // REMOVED: static let shared = MusicLibraryManager()
     
     // MARK: - Progressive Library Data
     @Published private(set) var loadedAlbums: [Album] = []
@@ -46,8 +46,9 @@ class MusicLibraryManager: ObservableObject {
         static let batchDelay: UInt64 = 200_000_000
     }
     
-    private init() {
+    init() {
         setupNetworkStateObserver()
+        setupFactoryResetObserver()
     }
     
     // MARK: - PUBLIC API
@@ -146,6 +147,18 @@ class MusicLibraryManager: ObservableObject {
                 Task { @MainActor in
                     await self?.handleNetworkStateChange(newState)
                 }
+            }
+        }
+    }
+    
+    private func setupFactoryResetObserver() {
+        NotificationCenter.default.addObserver(
+            forName: .factoryResetRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reset()
             }
         }
     }

@@ -39,6 +39,12 @@ class AlbumMetadataCache: ObservableObject {
         return Array(cachedAlbums.values)
     }
     
+    func clearCache() {
+        cachedAlbums.removeAll()
+        try? FileManager.default.removeItem(at: cacheFile)
+        print("📦 AlbumMetadataCache: Cache cleared")
+    }
+    
     private func loadCache() {
         guard FileManager.default.fileExists(atPath: cacheFile.path),
               let data = try? Data(contentsOf: cacheFile),

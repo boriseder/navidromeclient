@@ -13,9 +13,9 @@ struct HeartButton: View {
     let song: Song
     let size: HeartButtonSize
     let style: HeartButtonStyle
-    let unfavoriteColor: Color  // ✅ SIMPLE: Direct color parameter
+    let unfavoriteColor: Color
     
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @EnvironmentObject var favoritesManager: FavoritesManager
     @State private var isAnimating = false
     
     enum HeartButtonSize {

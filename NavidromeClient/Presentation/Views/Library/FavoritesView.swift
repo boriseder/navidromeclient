@@ -14,8 +14,7 @@ struct FavoritesViewContent: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
-    
-    @StateObject private var favoritesManager = FavoritesManager.shared
+    @EnvironmentObject var favoritesManager: FavoritesManager
     @StateObject private var debouncer = Debouncer()
     
     @State private var searchText = ""

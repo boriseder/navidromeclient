@@ -9,9 +9,11 @@ class NavidromeViewModel: ObservableObject {
     
     // MARK: - Manager Dependencies
     private let connectionManager = ConnectionViewModel()
-    let musicLibraryManager = MusicLibraryManager.shared
+    private let musicLibraryManager: MusicLibraryManager
     
-    init() {}
+    init(musicLibraryManager: MusicLibraryManager) {
+        self.musicLibraryManager = musicLibraryManager
+    }
     
     // MARK: - Service Configuration
     

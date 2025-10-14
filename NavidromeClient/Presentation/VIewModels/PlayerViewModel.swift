@@ -44,7 +44,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     init(
         downloadManager: DownloadManager = .shared,
-        coverArtManager: CoverArtManager = .shared
+        coverArtManager: CoverArtManager
     ) {
         self.downloadManager = downloadManager
         self.coverArtManager = coverArtManager
