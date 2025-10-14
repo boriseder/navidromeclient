@@ -1,9 +1,3 @@
-//
-//  UserBackgroundStyle.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 30.09.25.
-//
 import SwiftUI
 
 enum UserBackgroundStyle: String, CaseIterable {

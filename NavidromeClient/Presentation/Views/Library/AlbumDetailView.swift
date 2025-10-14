@@ -4,6 +4,7 @@ struct AlbumDetailViewContent: View {
     let album: Album
 
     @EnvironmentObject var navidromeVM: NavidromeViewModel
+    @EnvironmentObject var songManager: SongManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var coverArtManager: CoverArtManager
@@ -81,7 +82,7 @@ struct AlbumDetailViewContent: View {
         
         isOfflineAlbum = isNetworkOffline || isDownloaded
         
-        songs = await navidromeVM.loadSongs(for: album.id)
+        songs = await songManager.loadSongs(for: album.id)
     }
 }
 

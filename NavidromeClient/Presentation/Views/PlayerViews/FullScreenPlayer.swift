@@ -1,12 +1,3 @@
-//
-//  FullScreenPlayerView.swift - FIXED: Use CoverArtManager Directly
-//  NavidromeClient
-//
-//   FIXED: Removed dependency on playerVM.coverArt
-//   CLEAN: Direct CoverArtManager integration for both regular and high-res images
-//   CONSISTENT: Single source of truth for cover art
-//
-
 import SwiftUI
 import AVKit
 

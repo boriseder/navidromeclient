@@ -1,11 +1,3 @@
-//
-//  AlbumMetadataCache.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 11.09.25.
-//
-
-
 import Foundation
 import SwiftUI
 

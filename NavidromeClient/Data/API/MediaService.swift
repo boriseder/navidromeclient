@@ -163,7 +163,7 @@ class MediaService {
     }
     
     // MARK: -  AUDIO QUALITY OPTIMIZATION
-    
+    /*
     func getOptimalStreamURL(
         for songId: String,
         preferredBitRate: Int? = nil,
@@ -190,7 +190,7 @@ class MediaService {
         
         return connectionService.buildURL(endpoint: "stream", params: params)
     }
-    
+    */
     // MARK: -  CACHE MANAGEMENT
     
     func clearCoverArtCache() {

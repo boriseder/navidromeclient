@@ -1,10 +1,3 @@
-//
-//  AppDelegate.swift
-//  NavidromeClient
-//
-//  Created by Boris Eder on 11.09.25.
-//
-
 import UIKit
 import AVFoundation
 import MediaPlayer
@@ -14,22 +7,24 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
                 
-        // Configure background tasks (iOS 13+)
+        // Configure background tasks
         registerBackgroundTasks()
         
         print(" App launched with audio session configured")
         return true
     }
     
-    // MARK: - Background Tasks (iOS 13+)
+    // MARK: - Background Tasks
     
     private func registerBackgroundTasks() {
+        
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "com.navidrome.client.refresh", using: nil) { task in
             self.handleAppRefresh(task: task as! BGAppRefreshTask)
         }
     }
     
     private func handleAppRefresh(task: BGAppRefreshTask) {
+        
         task.expirationHandler = {
             task.setTaskCompleted(success: false)
         }
@@ -42,12 +37,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     // MARK: - App Lifecycle for Audio
     
     func applicationWillResignActive(_ application: UIApplication) {
-        // App wird inaktiv (z.B. Control Center öffnet sich)
+        
         print("App will resign active")
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
-        // App geht in Hintergrund - Audio sollte weiterlaufen
+        
         print("App entered background - audio should continue")
         
         // Schedule background refresh
@@ -55,12 +50,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func applicationWillEnterForeground(_ application: UIApplication) {
-        // App kommt zurück in Vordergrund
+
         print("App will enter foreground")
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // App wird wieder aktiv
+
         print("App became active")
         
         // Delegate audio session management to AudioSessionManager
@@ -69,7 +64,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     func applicationWillTerminate(_ application: UIApplication) {
-        // App wird beendet
+
         print("App will terminate")
         
         // Delegate cleanup to AudioSessionManager
@@ -77,7 +72,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
     
     private func scheduleAppRefresh() {
-        let request = BGAppRefreshTaskRequest(identifier: "com.navidrome.client.refresh")
+        
+        let request = BGAppRefreshTaskRequest(identifier: "at.amtabor.navidromeclient.refresh")
         request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60) // 15 minutes
         
         try? BGTaskScheduler.shared.submit(request)

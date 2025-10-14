@@ -37,10 +37,3 @@ class KeychainHelper {
         return SecItemDelete(query as CFDictionary) == errSecSuccess
     }
 }
-
-// 2. Credentials-Model
-struct ServerCredentials: Codable {
-    let baseURL: URL
-    let username: String
-    let password: String
-}

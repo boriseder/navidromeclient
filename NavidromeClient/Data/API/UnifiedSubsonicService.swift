@@ -153,6 +153,7 @@ class UnifiedSubsonicService: ObservableObject {
         return mediaService.downloadURL(for: songId, maxBitRate: maxBitRate)
     }
     
+    /*
     func getOptimalStreamURL(
         for songId: String,
         preferredBitRate: Int? = nil,
@@ -165,6 +166,7 @@ class UnifiedSubsonicService: ObservableObject {
             connectionQuality: connectionQuality
         )
     }
+    */
     
     func getMediaInfo(for songId: String) async throws -> MediaInfo? {
         guard !songId.isEmpty else { return nil }

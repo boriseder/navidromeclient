@@ -1,16 +1,11 @@
-//
-//  NavidromeClientApp.swift - UNIFIED: Single Initialization Path
-//  NavidromeClient
-//
-
 import SwiftUI
 
 @main
 struct NavidromeClientApp: App {
     @StateObject private var serviceContainer = ServiceContainer()
     @StateObject private var navidromeVM = NavidromeViewModel()
-    @StateObject private var songManager = SongManager(downloadManager: .shared)
-    @StateObject private var playerVM: PlayerViewModel
+    @StateObject private var songManager = SongManager()
+    @StateObject private var playerVM = PlayerViewModel()
     
     @StateObject private var appConfig = AppConfig.shared
     @StateObject private var downloadManager = DownloadManager.shared
@@ -22,11 +17,7 @@ struct NavidromeClientApp: App {
     @StateObject private var favoritesManager = FavoritesManager.shared
     
     init() {
-        let songMgr = SongManager(downloadManager: .shared)
-        let playerViewModel = PlayerViewModel(songManager: songMgr)
-        
-        _songManager = StateObject(wrappedValue: songMgr)
-        _playerVM = StateObject(wrappedValue: playerViewModel)
+        // PlayerViewModel is now initialized directly without songManager dependency
     }
 
     var body: some Scene {
@@ -35,8 +26,8 @@ struct NavidromeClientApp: App {
                 .environmentObject(serviceContainer)
                 .environmentObject(appConfig)
                 .environmentObject(navidromeVM)
-                .environmentObject(playerVM)
                 .environmentObject(songManager)
+                .environmentObject(playerVM)
                 .environmentObject(downloadManager)
                 .environmentObject(audioSessionManager)
                 .environmentObject(networkMonitor)
@@ -121,6 +112,7 @@ struct NavidromeClientApp: App {
             
             // Phase 3: ViewModels
             navidromeVM.updateService(unifiedService)
+            playerVM.configure(service: unifiedService)
             
             print("Services configured")
         }
@@ -145,11 +137,11 @@ struct NavidromeClientApp: App {
             }
             
             group.addTask {
-                await MusicLibraryManager.shared.loadInitialDataIfNeeded()
-            }
-            
-            group.addTask {
                 await self.favoritesManager.loadFavoriteSongs()
+            }
+
+            group.addTask {
+                await MusicLibraryManager.shared.loadInitialDataIfNeeded()
             }
         }
         
@@ -165,19 +157,19 @@ struct NavidromeClientApp: App {
     // MARK: - Network Handling
     
     private func handleNetworkChange(isConnected: Bool) async {
+        await navidromeVM.handleNetworkChange(isOnline: isConnected)
+
         print("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
         
-        await navidromeVM.handleNetworkChange(isOnline: isConnected)
     }
     
     private func handleAppBecameActive() {
-        print("App became active")
-        
         Task {
             if !navidromeVM.isDataFresh {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
             }
         }
+        print("App became active")
     }
 }
 

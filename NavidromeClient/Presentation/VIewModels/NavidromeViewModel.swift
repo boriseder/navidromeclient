@@ -1,13 +1,5 @@
-//
-//  NavidromeViewModel.swift - FIXED: Pure Facade Pattern
-//  NavidromeClient
-//
-//
-
 import Foundation
 import SwiftUI
-
-
 
 @MainActor
 class NavidromeViewModel: ObservableObject {
@@ -18,7 +10,6 @@ class NavidromeViewModel: ObservableObject {
     // MARK: - Manager Dependencies
     private let connectionManager = ConnectionViewModel()
     let musicLibraryManager = MusicLibraryManager.shared
-    private let songManager = SongManager()
     
     init() {}
     
@@ -27,7 +18,6 @@ class NavidromeViewModel: ObservableObject {
     func updateService(_ newService: UnifiedSubsonicService) {
         self.unifiedService = newService
         musicLibraryManager.configure(service: newService)
-        songManager.configure(service: newService)
         objectWillChange.send()
         print("NavidromeViewModel configured with UnifiedSubsonicService facade")
     }
@@ -47,7 +37,6 @@ class NavidromeViewModel: ObservableObject {
     var connectionStatus: Bool { connectionManager.isConnected }
     var errorMessage: String? { connectionManager.connectionError }
     
-    var albumSongs: [String: [Song]] { songManager.albumSongs }
     
     // MARK: - Connection Operations
     
@@ -59,6 +48,7 @@ class NavidromeViewModel: ObservableObject {
     func saveCredentials() async -> Bool {
         return await connectionManager.saveCredentials()
     }
+    
     
     // MARK: - Content Operations
     
@@ -82,35 +72,7 @@ class NavidromeViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // MARK: - Song Management
     
-    func loadSongs(for albumId: String) async -> [Song] {
-        return await songManager.loadSongs(for: albumId)
-    }
-    
-    func clearSongCache() {
-        songManager.clearSongCache()
-        objectWillChange.send()
-    }
-    
-    // MARK: - Search Operations
-    // ---
-    /*
-    func search(query: String) async -> SearchResult {
-        guard let service = unifiedService else {
-            print("UnifiedSubsonicService not available for search")
-            return SearchResult(artists: [], albums: [], songs: [])
-        }
-        
-        do {
-            return try await service.search(query: query, maxResults: 50)
-        } catch {
-            print("Search failed via facade: \(error)")
-            return SearchResult(artists: [], albums: [], songs: [])
-        }
-    }
-    */
-    // ---
     // MARK: - Artist/Genre Detail Operations
     
     func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {
@@ -125,6 +87,7 @@ class NavidromeViewModel: ObservableObject {
             return try await service.getAlbumsByGenre(genre: genre.value)
         }
     }
+
     
     // MARK: - Network Change Handling
     
@@ -138,6 +101,7 @@ class NavidromeViewModel: ObservableObject {
         
         objectWillChange.send()
     }
+    
     
     // MARK: - Connection Health
     
@@ -160,36 +124,12 @@ class NavidromeViewModel: ObservableObject {
         objectWillChange.send()
     }
     
-    // MARK: - Statistics
-    
-    func getCachedSongCount() -> Int {
-        return songManager.getCachedSongCount()
-    }
-    
-    func hasSongsAvailableOffline(for albumId: String) -> Bool {
-        return songManager.hasSongsAvailableOffline(for: albumId)
-    }
-    
-    func getOfflineSongCount(for albumId: String) -> Int {
-        return songManager.getOfflineSongCount(for: albumId)
-    }
-    
-    func getSongLoadingStats() -> SongLoadingStats {
-        let stats = songManager.getCacheStats()
-        return SongLoadingStats(
-            totalCachedSongs: stats.totalCachedSongs,
-            cachedAlbums: stats.cachedAlbums,
-            offlineAlbums: stats.offlineAlbums,
-            offlineSongs: stats.offlineSongs
-        )
-    }
     
     // MARK: - Reset & Cleanup
     
     func reset() {
         connectionManager.reset()
         musicLibraryManager.reset()
-        songManager.reset()
         unifiedService = nil
         
         objectWillChange.send()
@@ -201,12 +141,10 @@ class NavidromeViewModel: ObservableObject {
     func getServiceArchitectureDiagnostics() async -> ServiceArchitectureDiagnostics {
         let connectionDiag = await getConnectionDiagnostics()
         let networkDiag = NetworkMonitor.shared.getDiagnostics()
-        let songStats = songManager.getCacheStats()
         
         return ServiceArchitectureDiagnostics(
             connectionDiagnostics: connectionDiag,
             networkDiagnostics: networkDiag,
-            songCacheStats: songStats,
             managersConfigured: unifiedService != nil
         )
     }
@@ -232,45 +170,6 @@ class NavidromeViewModel: ObservableObject {
         }
     }
     
-    struct ServiceArchitectureDiagnostics {
-        let connectionDiagnostics: ConnectionDiagnostics
-        let networkDiagnostics: NetworkMonitor.NetworkDiagnostics
-        let songCacheStats: SongCacheStats
-        let managersConfigured: Bool
-        
-        var overallHealth: String {
-            let connection = connectionDiagnostics.isConnected
-            let network = networkDiagnostics.state.isConnected  // Use state directly
-            let server = connectionDiagnostics.hasService
-
-            if connection && network && server {
-                return "All systems operational"
-            } else if network {
-                return "Network issues detected"
-            } else {
-                return "System issues detected"
-            }
-        }
-
-        var architectureSummary: String {
-            return """
-            FACADE ARCHITECTURE STATUS:
-            \(overallHealth)
-            
-            Connection Layer:
-            \(connectionDiagnostics.summary)
-            
-            Network Layer:
-            \(networkDiagnostics.summary)
-            
-            Cache Layer:
-            \(songCacheStats.summary)
-            
-            Managers: \(managersConfigured ? "Configured" : "Not Configured")
-            """
-        }
-    }
-    
     #if DEBUG
     func printServiceDiagnostics() {
         Task {
@@ -291,7 +190,43 @@ class NavidromeViewModel: ObservableObject {
     #endif
 }
 
+
 // MARK: - Supporting Types
+
+struct ServiceArchitectureDiagnostics {
+    let connectionDiagnostics: ConnectionDiagnostics
+    let networkDiagnostics: NetworkMonitor.NetworkDiagnostics
+    let managersConfigured: Bool
+    
+    var overallHealth: String {
+        let connection = connectionDiagnostics.isConnected
+        let network = networkDiagnostics.state.isConnected  // Use state directly
+        let server = connectionDiagnostics.hasService
+
+        if connection && network && server {
+            return "All systems operational"
+        } else if network {
+            return "Network issues detected"
+        } else {
+            return "System issues detected"
+        }
+    }
+
+    var architectureSummary: String {
+        return """
+        FACADE ARCHITECTURE STATUS:
+        \(overallHealth)
+        
+        Connection Layer:
+        \(connectionDiagnostics.summary)
+        
+        Network Layer:
+        \(networkDiagnostics.summary)
+        
+        Managers: \(managersConfigured ? "Configured" : "Not Configured")
+        """
+    }
+}
 
 struct ConnectionDiagnostics {
     let isConnected: Bool
@@ -318,17 +253,6 @@ struct ConnectionDiagnostics {
     }
 }
 
-struct SongLoadingStats {
-    let totalCachedSongs: Int
-    let cachedAlbums: Int
-    let offlineAlbums: Int
-    let offlineSongs: Int
-    
-    var cacheHitRate: Double {
-        guard offlineSongs > 0 else { return 0 }
-        return Double(totalCachedSongs) / Double(offlineSongs) * 100
-    }
-}
 
 // MARK: - Convenience Computed Properties
 

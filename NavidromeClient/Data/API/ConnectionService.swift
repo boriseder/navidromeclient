@@ -165,9 +165,8 @@ class ConnectionService: ObservableObject {
     // MARK: -  URL BUILDING & SECURITY
     
     func buildURL(endpoint: String, params: [String: String] = [:]) -> URL? {
-        // Input validation
         guard validateEndpoint(endpoint) else {
-            print("❌ Invalid endpoint: \(endpoint)")
+            print("Invalid endpoint: \(endpoint)")
             return nil
         }
         
@@ -184,25 +183,27 @@ class ConnectionService: ObservableObject {
             URLQueryItem(name: "u", value: username),
             URLQueryItem(name: "t", value: token),
             URLQueryItem(name: "s", value: salt),
-            URLQueryItem(name: "f", value: "json"),
             URLQueryItem(name: "v", value: "1.16.1"),
             URLQueryItem(name: "c", value: "NavidromeClient")
         ]
         
-        // Validate and add parameters mit proper encoding
+        // Only add format parameter for non-stream endpoints
+        if endpoint != "stream" && endpoint != "download" {
+            queryItems.append(URLQueryItem(name: "f", value: "json"))
+        }
+        
         for (key, value) in params {
             guard validateParameter(key: key, value: value) else {
-                print("❌ Invalid parameter: \(key)")
+                print("Invalid parameter: \(key)")
                 continue
             }
-            
-            // URL-encode den Wert für Sonderzeichen
             queryItems.append(URLQueryItem(name: key, value: value))
         }
         
         components.queryItems = queryItems
         return components.url
     }
+
     // MARK: -  HEALTH MONITORING
     
     func performHealthCheck() async -> ConnectionHealth {

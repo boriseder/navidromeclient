@@ -1,8 +1,3 @@
-//
-//  AppConfig.swift - Refactored with Factory Reset
-//  NavidromeClient
-//
-
 import Foundation
 import CryptoKit
 
@@ -10,8 +5,9 @@ import CryptoKit
 final class AppConfig: ObservableObject {
     static let shared = AppConfig()
     
-    @Published var isConfigured = false  // ADD THIS LINE
+    @Published var isConfigured = false
     @Published var isInitializingServices = false
+    
     private var hasInitializedServices = false
 
     var areServicesReady: Bool {
@@ -27,32 +23,34 @@ final class AppConfig: ObservableObject {
 
     @Published var userBackgroundStyle: UserBackgroundStyle {
         didSet {
-            // Speichert die Auswahl direkt in UserDefaults
             UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "userBackgroundStyle")
         }
     }
 
     @Published var userAccentColor: UserAccentColor = .blue {
-    didSet {
-        UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
+        didSet {
+            UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
+        }
     }
-}
     
     private var credentials: ServerCredentials?
 
+    // MARK: Initialization
+    
     private init() {
         // Stored property initialisieren
         let raw = UserDefaults.standard.string(forKey: "userBackgroundStyle") ?? UserBackgroundStyle.dynamic.rawValue
         self.userBackgroundStyle = UserBackgroundStyle(rawValue: raw) ?? .dynamic
         if let saved = UserDefaults.standard.string(forKey: "userAccentColor"),
            let color = UserAccentColor(rawValue: saved) {
-            self.userAccentColor = color
+        self.userAccentColor = color
         }
         
         loadCredentials()
     }
         
     // MARK: - Configuration
+    
     func configure(baseURL: URL, username: String, password: String) {
         guard validateCredentials(baseURL: baseURL, username: username, password: password) else {
             print("❌ Invalid credentials provided")
@@ -84,15 +82,11 @@ final class AppConfig: ObservableObject {
         // Trigger service initialization via notification
         NotificationCenter.default.post(name: .servicesNeedInitialization, object: fullCredentials)
     }
-
-
-    func getCredentials() -> ServerCredentials? {
-        return credentials
-    }
     
-    // MARK: -  NEW: Factory Reset (Complete App Reset)
+    // MARK: -  Factory Reset (Complete App Reset)
+
     func performFactoryReset() async {
-        print("🔄 Starting factory reset...")
+        print("Starting factory reset")
         
         // 1. Stop any current playback immediately
         if let playerVM = getPlayerViewModel() {
@@ -117,16 +111,9 @@ final class AppConfig: ObservableObject {
         // 7. Force UI updates
         objectWillChange.send()
         
-        print(" Factory reset completed")
+        print("Factory reset completed")
     }
-    
-    // MARK: -  DEPRECATED: Simple logout (keep for backward compatibility)
-    func logout() {
-        Task {
-            await performFactoryReset()
-        }
-    }
-    
+        
     // MARK: - Private Reset Methods
     
     private func resetAllManagers() async {
@@ -159,7 +146,6 @@ final class AppConfig: ObservableObject {
     }
     
     // MARK: - Helper Methods to Access ViewModels
-    
     private func getPlayerViewModel() -> PlayerViewModel? {
         // In a real app, you'd inject these dependencies or use a service locator
         // For now, we'll rely on the managers being singletons
@@ -171,8 +157,12 @@ final class AppConfig: ObservableObject {
         return nil
     }
     
-    // MARK: - Existing Methods (unchanged)
+    // MARK: - Credentials
     
+    func getCredentials() -> ServerCredentials? {
+        return credentials
+    }
+
     private func loadCredentials() {
         // Load BaseURL + Username
         guard let data = KeychainHelper.shared.load(forKey: "navidrome_credentials"),

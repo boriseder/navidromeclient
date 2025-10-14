@@ -2,10 +2,15 @@
 //  SongManager.swift
 //  NavidromeClient
 //
+//  SIMPLIFIED: Focused on core responsibilities
+//  - In-memory song cache
+//  - Task deduplication for parallel requests
+//  - Smart loading with online/offline fallback
 //
-//  SongManager.swift
-//  Manages song metadata loading with intelligent caching
-//  Responsibilities: Load songs per album, cache in memory, offline fallback
+//  REMOVED:
+//  - Legacy fallback logic (DownloadManager provides complete metadata)
+//  - Stream URL pass-through (belongs to MediaService)
+//  - Batch operations (belongs to discovery/content layers)
 
 import Foundation
 import SwiftUI
@@ -13,15 +18,20 @@ import SwiftUI
 @MainActor
 class SongManager: ObservableObject {
     
-    // MARK: -  SONG CACHE (unchanged)
+    // MARK: - Published State
     
     @Published private(set) var albumSongs: [String: [Song]] = [:]
+    
+    // MARK: - Private State
+    
     private var loadTasks: [String: Task<[Song], Never>] = [:]
-
+    
+    // MARK: - Dependencies
+    
     private weak var service: UnifiedSubsonicService?
     private let downloadManager: DownloadManager
     
-    // MARK: -  INITIALIZATION (unchanged)
+    // MARK: - Initialization
     
     init(downloadManager: DownloadManager = DownloadManager.shared) {
         self.downloadManager = downloadManager
@@ -31,22 +41,24 @@ class SongManager: ObservableObject {
         loadTasks.values.forEach { $0.cancel() }
     }
     
-    // MARK: -  PURE FOCUSED SERVICE CONFIGURATION
+    // MARK: - Configuration
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
         print("SongManager configured with UnifiedSubsonicService")
     }
-
-    // MARK: -  PRIMARY API: Smart Song Loading (focused service only)
     
+    // MARK: - Primary API: Smart Song Loading
+    
+    /// Load songs for an album with intelligent caching and offline fallback
+    /// - Returns cached songs if available
+    /// - Deduplicates parallel requests for the same album
+    /// - Tries online first, falls back to offline if needed
     func loadSongs(for albumId: String) async -> [Song] {
         guard service != nil else {
-            print("❌ SongManager.loadSongs called before service configured")
-            
-            // Fallback to offline
+            print("SongManager.loadSongs called before service configured - using offline")
             return await loadOfflineSongs(for: albumId)
-        }      
+        }
         
         // Return cached if available
         if let cached = albumSongs[albumId], !cached.isEmpty {
@@ -63,59 +75,29 @@ class SongManager: ObservableObject {
         let task = Task {
             defer {
                 loadTasks.removeValue(forKey: albumId)
-                print("Cleaned up load task for album \(albumId)")
             }
             
-            // Check cancellation early
             guard !Task.isCancelled else {
-                print("⚠️ Load cancelled for album \(albumId)")
+                print("Load cancelled for album \(albumId)")
                 return [Song]()
             }
             
-            print("Starting new load for album \(albumId)")
+            let songs = await loadWithFallback(for: albumId)
             
-            // Try offline first if available
-            if downloadManager.isAlbumDownloaded(albumId) {
-                guard !Task.isCancelled else { return [Song]() }
-                
-                print("Loading offline songs for album \(albumId)")
-                let offlineSongs = await loadOfflineSongs(for: albumId)
-                if !offlineSongs.isEmpty {
-                    albumSongs[albumId] = offlineSongs
-                    return offlineSongs
-                }
+            if !songs.isEmpty {
+                albumSongs[albumId] = songs
             }
             
-            // Try online
-            if NetworkMonitor.shared.canLoadOnlineContent && !OfflineManager.shared.isOfflineMode {
-                guard !Task.isCancelled else { return [Song]() }
-                
-                print("Loading online songs for album \(albumId)")
-                let onlineSongs = await loadOnlineSongs(for: albumId)
-                if !onlineSongs.isEmpty {
-                    albumSongs[albumId] = onlineSongs
-                    return onlineSongs
-                }
-            }
-            
-            // Final offline fallback
-            guard !Task.isCancelled else { return [Song]() }
-            
-            print("Final offline fallback for album \(albumId)")
-            let fallbackSongs = await loadOfflineSongs(for: albumId)
-            if !fallbackSongs.isEmpty {
-                albumSongs[albumId] = fallbackSongs
-            }
-            
-            return fallbackSongs
+            return songs
         }
         
         loadTasks[albumId] = task
         return await task.value
     }
     
-    // MARK: -  CACHE MANAGEMENT (unchanged)
+    // MARK: - Cache Management
     
+    /// Get cached songs without loading
     func getCachedSongs(for albumId: String) -> [Song]? {
         return albumSongs[albumId]
     }
@@ -125,10 +107,25 @@ class SongManager: ObservableObject {
         return albumSongs[albumId] != nil && !albumSongs[albumId]!.isEmpty
     }
     
+    /// Clear cache for specific album
+    func clearCache(for albumId: String) {
+        albumSongs.removeValue(forKey: albumId)
+        loadTasks.removeValue(forKey: albumId)
+        print("Cleared cache for album \(albumId)")
+    }
+    
+    /// Clear all cached songs
+    func clearSongCache() {
+        let cacheSize = albumSongs.count
+        albumSongs.removeAll()
+        loadTasks.removeAll()
+        print("Cleared song cache (\(cacheSize) albums)")
+    }
+    
     /// Preload songs for multiple albums
     func preloadSongs(for albumIds: [String]) async {
         await withTaskGroup(of: Void.self) { group in
-            for albumId in albumIds.prefix(5) { // Limit to 5 concurrent loads
+            for albumId in albumIds.prefix(5) {
                 group.addTask {
                     _ = await self.loadSongs(for: albumId)
                 }
@@ -136,22 +133,17 @@ class SongManager: ObservableObject {
         }
     }
     
-    /// Clear all cached songs
-    func clearSongCache() {
-        let cacheSize = albumSongs.count
-        albumSongs.removeAll()
-        loadTasks.removeAll()  // ADD this line
-        print("Cleared song cache (\(cacheSize) albums)")
+    /// Warm up cache for visible albums
+    func warmUpCache(for albumIds: [String]) async {
+        let uncachedAlbums = albumIds.filter { !hasCachedSongs(for: $0) }
+        
+        if !uncachedAlbums.isEmpty {
+            print("Warming up cache for \(uncachedAlbums.count) albums")
+            await preloadSongs(for: Array(uncachedAlbums.prefix(3)))
+        }
     }
     
-    /// Clear cache for specific album
-    func clearCache(for albumId: String) {
-        albumSongs.removeValue(forKey: albumId)
-        loadTasks.removeValue(forKey: albumId)  // ADD this line
-        print("Cleared cache for album \(albumId)")
-    }
-    
-    // MARK: -  STATISTICS (unchanged)
+    // MARK: - Statistics
     
     /// Get total number of cached songs
     func getCachedSongCount() -> Int {
@@ -183,109 +175,10 @@ class SongManager: ObservableObject {
         return downloadManager.getDownloadedSongs(for: albumId).count
     }
     
-    // MARK: -  Online song loading via ContentService only
-    
-    private func loadOnlineSongs(for albumId: String) async -> [Song] {
-    guard let service = service else {
-        print("UnifiedSubsonicService not available for online song loading")
-        return []
-    }
-    
-    do {
-        let songs = try await service.getSongs(for: albumId)
-        print("Loaded \(songs.count) online songs for album \(albumId)")
-        return songs
-    } catch {
-        print("Failed to load online songs for album \(albumId): \(error)")
-        return []
-    }
-}
-
-    // MARK: - Stream URL Management
-
-    func getStreamURL(for songId: String, preferredBitRate: Int? = nil) -> URL? {
-        guard let service = service else {
-            print("Service not available for stream URL")
-            return nil
-        }
-        
-        let connectionQuality: ConnectionService.ConnectionQuality =
-            NetworkMonitor.shared.canLoadOnlineContent ? .good : .poor
-        
-        return service.getOptimalStreamURL(
-            for: songId,
-            preferredBitRate: preferredBitRate,
-            connectionQuality: connectionQuality
-        )
-    }
-    
-    // MARK: -  PRIVATE IMPLEMENTATION (unchanged - no service calls)
-    
-    private func loadOfflineSongs(for albumId: String) async -> [Song] {
-        // Try downloaded songs with full metadata first (unchanged)
-        let downloadedSongs = downloadManager.getDownloadedSongs(for: albumId)
-        if !downloadedSongs.isEmpty {
-            let songs = downloadedSongs.map { $0.toSong() }
-            print(" Loaded \(songs.count) offline songs with full metadata for album \(albumId)")
-            return songs
-        }
-        
-        guard let legacyAlbum = downloadManager.downloadedAlbums.first(where: { $0.albumId == albumId }) else {
-            print("⚠️ Album \(albumId) not found in downloads")
-            return []
-        }
-        
-        // Get album metadata for better fallback (unchanged)
-        let albumMetadata = AlbumMetadataCache.shared.getAlbum(id: albumId)
-        
-        let fallbackSongs = legacyAlbum.songIds.enumerated().map { index, songId in
-            Song.createFromDownload(
-                id: songId,
-                title: generateFallbackTitle(index: index, songId: songId, albumMetadata: albumMetadata),
-                duration: nil,
-                coverArt: albumId,
-                artist: albumMetadata?.artist ?? "Unknown Artist",
-                album: albumMetadata?.name ?? "Unknown Album",
-                albumId: albumId,
-                track: index + 1,
-                year: albumMetadata?.year,
-                genre: albumMetadata?.genre,
-                contentType: "audio/mpeg"
-            )
-        }
-        
-        print(" Created \(fallbackSongs.count) fallback songs for legacy album \(albumId)")
-        return fallbackSongs
-    }
-    
-    private func generateFallbackTitle(index: Int, songId: String, albumMetadata: Album?) -> String {
-        let trackNumber = String(format: "%02d", index + 1)
-        
-        // If songId looks like a hash, use generic title (unchanged)
-        if songId.count > 10 && songId.allSatisfy({ $0.isHexDigit }) {
-            return "Track \(trackNumber)"
-        }
-        
-        // Try to clean up songId as title (unchanged)
-        let cleanTitle = songId
-            .replacingOccurrences(of: "_", with: " ")
-            .replacingOccurrences(of: "-", with: " ")
-            .capitalized
-        
-        // Use album name as prefix if available and title is too generic (unchanged)
-        if let albumName = albumMetadata?.name,
-           cleanTitle.count < 5 {
-            return "\(albumName) - Track \(trackNumber)"
-        }
-        
-        return cleanTitle.isEmpty ? "Track \(trackNumber)" : cleanTitle
-    }
-    
-    // MARK: -  RESET (unchanged)
+    // MARK: - Reset
     
     func reset() {
-        // Cancel all active tasks
-        print("🧹 Cancelling \(loadTasks.count) active load tasks")
+        print("Cancelling \(loadTasks.count) active load tasks")
         loadTasks.values.forEach { $0.cancel() }
         loadTasks.removeAll()
         
@@ -293,56 +186,16 @@ class SongManager: ObservableObject {
         service = nil
         print("SongManager reset completed")
     }
-
     
-    // MARK: -  DIAGNOSTICS
+    // MARK: - Diagnostics
     
     func getServiceDiagnostics() -> SongManagerDiagnostics {
         return SongManagerDiagnostics(
             hasService: service != nil,
             cachedAlbums: albumSongs.count,
             totalCachedSongs: getCachedSongCount(),
-            activeLoading: loadTasks.count  // CHANGE from isLoadingSongs.count
+            activeLoading: loadTasks.count
         )
-    }
-    
-    struct SongManagerDiagnostics {
-        let hasService: Bool
-        let cachedAlbums: Int
-        let totalCachedSongs: Int
-        let activeLoading: Int
-        
-        var healthScore: Double {
-            var score = 0.0
-            
-            if hasService { score += 0.5 }
-            if activeLoading < 5 { score += 0.3 }
-            if cachedAlbums > 0 { score += 0.2 }
-            
-            return min(score, 1.0)
-        }
-        
-        var statusDescription: String {
-            let score = healthScore * 100
-            
-            switch score {
-            case 90...100: return "Excellent"
-            case 70..<90: return "Good"
-            case 50..<70: return "Fair"
-            default: return "Needs Service"
-            }
-        }
-        
-        var summary: String {
-            return """
-            SONGMANAGER DIAGNOSTICS:
-            - UnifiedSubsonicService: \(hasService ? "Available" : "Not Available")
-            - Cached Albums: \(cachedAlbums)
-            - Cached Songs: \(totalCachedSongs)
-            - Active Loading: \(activeLoading)
-            - Health: \(statusDescription)
-            """
-        }
     }
     
     #if DEBUG
@@ -351,9 +204,67 @@ class SongManager: ObservableObject {
         print(diagnostics.summary)
     }
     #endif
+    
+    // MARK: - Private Implementation
+    
+    /// Load songs with intelligent fallback strategy
+    private func loadWithFallback(for albumId: String) async -> [Song] {
+        // Priority 1: Try offline first if album is downloaded
+        if downloadManager.isAlbumDownloaded(albumId) {
+            print("Loading offline songs for album \(albumId)")
+            let offlineSongs = await loadOfflineSongs(for: albumId)
+            if !offlineSongs.isEmpty {
+                return offlineSongs
+            }
+        }
+        
+        // Priority 2: Try online if network allows
+        if NetworkMonitor.shared.canLoadOnlineContent && !OfflineManager.shared.isOfflineMode {
+            print("Loading online songs for album \(albumId)")
+            let onlineSongs = await loadOnlineSongs(for: albumId)
+            if !onlineSongs.isEmpty {
+                return onlineSongs
+            }
+        }
+        
+        // Priority 3: Final offline fallback
+        print("Final offline fallback for album \(albumId)")
+        return await loadOfflineSongs(for: albumId)
+    }
+    
+    /// Load songs from server via UnifiedSubsonicService
+    private func loadOnlineSongs(for albumId: String) async -> [Song] {
+        guard let service = service else {
+            print("UnifiedSubsonicService not available for online song loading")
+            return []
+        }
+        
+        do {
+            let songs = try await service.getSongs(for: albumId)
+            print("Loaded \(songs.count) online songs for album \(albumId)")
+            return songs
+        } catch {
+            print("Failed to load online songs for album \(albumId): \(error)")
+            return []
+        }
+    }
+    
+    /// Load songs from local downloads
+    private func loadOfflineSongs(for albumId: String) async -> [Song] {
+        let downloadedSongs = downloadManager.getDownloadedSongs(for: albumId)
+        
+        if downloadedSongs.isEmpty {
+            print("No offline songs found for album \(albumId)")
+            return []
+        }
+        
+        let songs = downloadedSongs.map { $0.toSong() }
+        print("Loaded \(songs.count) offline songs for album \(albumId)")
+        return songs
+    }
 }
 
-// MARK: -  SUPPORTING TYPES (unchanged)
+// MARK: - Supporting Types
 
 struct SongCacheStats {
     let totalCachedSongs: Int
@@ -371,69 +282,41 @@ struct SongCacheStats {
     }
 }
 
-// MARK: -  HELPER EXTENSIONS (unchanged)
-
-extension Character {
-    var isHexDigit: Bool {
-        return self.isNumber || ("a"..."f").contains(self.lowercased()) || ("A"..."F").contains(self)
-    }
-}
-
-// MARK: -  BATCH OPERATIONS SUPPORT (focused service only)
-
-extension SongManager {
+struct SongManagerDiagnostics {
+    let hasService: Bool
+    let cachedAlbums: Int
+    let totalCachedSongs: Int
+    let activeLoading: Int
     
-    func loadSongsForArtist(_ artist: Artist) async -> [Song] {
-        guard let service = service else {
-            print("UnifiedSubsonicService not available for artist songs")
-            return []
-        }
+    var healthScore: Double {
+        var score = 0.0
         
-        do {
-            let albums = try await service.getAlbumsByArtist(artistId: artist.id)
-            var allSongs: [Song] = []
-            
-            for album in albums.prefix(10) {
-                let songs = await loadSongs(for: album.id)
-                allSongs.append(contentsOf: songs)
-            }
-            
-            return allSongs
-        } catch {
-            print("Failed to load songs for artist: \(error)")
-            return []
+        if hasService { score += 0.5 }
+        if activeLoading < 5 { score += 0.3 }
+        if cachedAlbums > 0 { score += 0.2 }
+        
+        return min(score, 1.0)
+    }
+    
+    var statusDescription: String {
+        let score = healthScore * 100
+        
+        switch score {
+        case 90...100: return "Excellent"
+        case 70..<90: return "Good"
+        case 50..<70: return "Fair"
+        default: return "Needs Service"
         }
     }
-
-    func loadSongsForGenre(_ genre: Genre) async -> [Song] {
-        guard let service = service else {
-            print("UnifiedSubsonicService not available for genre songs")
-            return []
-        }
-        
-        do {
-            let albums = try await service.getAlbumsByGenre(genre: genre.value)
-            var allSongs: [Song] = []
-            
-            for album in albums.prefix(10) {
-                let songs = await loadSongs(for: album.id)
-                allSongs.append(contentsOf: songs)
-            }
-            
-            return allSongs
-        } catch {
-            print("Failed to load songs for genre: \(error)")
-            return []
-        }
-    }
-
-    /// Warm up cache for visible albums
-    func warmUpCache(for albumIds: [String]) async {
-        let uncachedAlbums = albumIds.filter { !hasCachedSongs(for: $0) }
-        
-        if !uncachedAlbums.isEmpty {
-            print("🔥 Warming up cache for \(uncachedAlbums.count) albums via ContentService")
-            await preloadSongs(for: Array(uncachedAlbums.prefix(3))) // Limit concurrent loads
-        }
+    
+    var summary: String {
+        return """
+        SONGMANAGER DIAGNOSTICS:
+        - UnifiedSubsonicService: \(hasService ? "Available" : "Not Available")
+        - Cached Albums: \(cachedAlbums)
+        - Cached Songs: \(totalCachedSongs)
+        - Active Loading: \(activeLoading)
+        - Health: \(statusDescription)
+        """
     }
 }
