@@ -41,25 +41,25 @@ class NetworkMonitor: ObservableObject {
     }
     
     private init() {
-        // START with UNKNOWN state, not optimistic true
+        // SYNCHRONOUSLY determine initial network state before publishing
+        let currentPath = monitor.currentPath
+        let initialConnectionState = currentPath.status == .satisfied
+        
         self.state = NetworkState(
-            isConnected: false,  // ← Changed from true
+            isConnected: initialConnectionState,
             isConfigured: false,
             hasServerErrors: false,
             manualOfflineMode: false
         )
         
+        // Update internal state to match
+        self.isConnected = initialConnectionState
+        self.connectionType = getConnectionType(currentPath)
+        
+        print("[NetworkMonitor] Initial state: \(initialConnectionState ? "Connected" : "Disconnected") (\(connectionType.displayName))")
+        
         startNetworkMonitoring()
         observeAppConfigChanges()
-        
-        // IMMEDIATELY check network status synchronously if possible
-        checkInitialNetworkStatus()
-    }
-    
-    private func checkInitialNetworkStatus() {
-        let currentPath = monitor.currentPath
-        isConnected = currentPath.status == .satisfied
-        updateState()
     }
 
     
@@ -128,19 +128,25 @@ class NetworkMonitor: ObservableObject {
     }
     
     func setManualOfflineMode(_ enabled: Bool) {
-        guard state.isConnected else {
-            print("[NetworkMonitor] Cannot change offline mode: no network connection")
-            return
-        }
+        // When enabling manual offline: no restrictions (user can always choose to go offline)
+        // When disabling manual offline: verify we can actually go online
         
-        guard state.isConfigured else {
-            print("[NetworkMonitor] Cannot change offline mode: server not configured")
-            return
-        }
-        
-        guard !hasRecentServerErrors else {
-            print("[NetworkMonitor] Cannot change offline mode: server has errors")
-            return
+        if !enabled {
+            // User wants to go online - verify conditions
+            guard state.isConnected else {
+                print("[NetworkMonitor] Cannot go online: no network connection")
+                return
+            }
+            
+            guard state.isConfigured else {
+                print("[NetworkMonitor] Cannot go online: server not configured")
+                return
+            }
+            
+            guard !hasRecentServerErrors else {
+                print("[NetworkMonitor] Cannot go online: server has errors")
+                return
+            }
         }
         
         manualOfflineMode = enabled

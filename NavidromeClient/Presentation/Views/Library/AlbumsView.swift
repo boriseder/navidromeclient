@@ -23,7 +23,7 @@ struct AlbumsViewContent: View {
     @State private var showOnlyDownloaded = false
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - FIXED: Complete Filter Logic
+    // MARK: - Filter Logic
     
     private var displayedAlbums: [Album] {
         // Step 1: Get base albums based on strategy
@@ -33,14 +33,14 @@ struct AlbumsViewContent: View {
         case .online:
             baseAlbums = musicLibraryManager.albums
         case .offlineOnly:
-            baseAlbums = getOfflineAlbums()
+            baseAlbums = offlineManager.offlineAlbums
         case .setupRequired:
             baseAlbums = []
         }
         
-        // Step 2: Apply download filter if enabled
+        // Step 2: Apply download filter if enabled (only in online mode)
         let filteredAlbums: [Album]
-        if showOnlyDownloaded {
+        if showOnlyDownloaded && networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
             let downloadedIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
             filteredAlbums = baseAlbums.filter { downloadedIds.contains($0.id) }
         } else {
@@ -214,11 +214,6 @@ struct AlbumsViewContent: View {
     }
     
     // MARK: - Business Logic
-    
-    private func getOfflineAlbums() -> [Album] {
-        let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
-        return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
-    }
     
     private func refreshAllData() async {
         await musicLibraryManager.refreshAllData()

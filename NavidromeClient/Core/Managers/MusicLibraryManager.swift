@@ -181,14 +181,16 @@ class MusicLibraryManager: ObservableObject {
             if !isDataFresh && service != nil {
                 print("Network online - refreshing stale data")
                 await refreshAllData()
+                // objectWillChange fired by refreshAllData when data actually changes
             } else {
-                print("Network online - data is fresh, triggering UI update")
-                objectWillChange.send()
+                print("Network online - data is fresh, no UI update needed")
+                // No objectWillChange: data hasn't changed, views will react to NetworkMonitor
             }
             
         case .userOffline, .serverUnreachable, .disconnected:
-            print("Network effectively offline - triggering UI update for offline content")
-            objectWillChange.send()
+            print("Network effectively offline - no UI update needed")
+            // No objectWillChange: views will react to NetworkMonitor's state change
+            // Only views displaying different data (offline vs online) will re-render
         }
         
         if let pendingState = pendingNetworkStateChange {

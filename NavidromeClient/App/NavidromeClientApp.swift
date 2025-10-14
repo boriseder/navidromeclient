@@ -96,7 +96,9 @@ struct NavidromeClientApp: App {
         }
         
         // Create unified service ONCE and store in container
-        await serviceContainer.initializeServices(with: credentials)
+        await MainActor.run {
+            serviceContainer.initializeServices(with: credentials)
+        }
         
         // Get the service from container
         guard let unifiedService = serviceContainer.unifiedService else {
@@ -221,7 +223,7 @@ class ServiceContainer: ObservableObject {
         }
     }
     
-    func initializeServices(with credentials: ServerCredentials?) async {
+    func initializeServices(with credentials: ServerCredentials?) {
         guard let credentials = credentials else {
             unifiedService = nil
             isInitialized = false
@@ -229,19 +231,13 @@ class ServiceContainer: ObservableObject {
             return
         }
         
-        do {
-            unifiedService = UnifiedSubsonicService(
-                baseURL: credentials.baseURL,
-                username: credentials.username,
-                password: credentials.password
-            )
-            isInitialized = true
-            initializationError = nil
-        } catch {
-            unifiedService = nil
-            isInitialized = false
-            initializationError = "Failed to initialize service: \(error.localizedDescription)"
-        }
+        unifiedService = UnifiedSubsonicService(
+            baseURL: credentials.baseURL,
+            username: credentials.username,
+            password: credentials.password
+        )
+        isInitialized = true
+        initializationError = nil
     }
     
     func clearServices() {

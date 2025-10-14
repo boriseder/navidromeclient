@@ -17,9 +17,17 @@ class OfflineManager: ObservableObject {
     
     // MARK: - Offline Data Management (Core Responsibility)
     
+    // Cached offline albums list - updated only when downloads change
+    private var cachedOfflineAlbums: [Album] = []
+    private var cacheNeedsRefresh = true
+    
     var offlineAlbums: [Album] {
-        let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
-        return AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
+        if cacheNeedsRefresh {
+            let downloadedAlbumIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
+            cachedOfflineAlbums = AlbumMetadataCache.shared.getAlbums(ids: downloadedAlbumIds)
+            cacheNeedsRefresh = false
+        }
+        return cachedOfflineAlbums
     }
     
     var offlineArtists: [Artist] {
@@ -73,29 +81,9 @@ class OfflineManager: ObservableObject {
     // MARK: - UI State Properties (Read-Only)
     
     
-    /// Legacy compatibility
+    /// Legacy compatibility: check if app is in offline mode
     var isOfflineMode: Bool {
         return !networkMonitor.shouldLoadOnlineContent
-    }
-    
-    enum Mode: Equatable {
-        case online
-        case offline(userChoice: Bool)
-        
-        var isOffline: Bool {
-            switch self {
-            case .online: return false
-            case .offline: return true
-            }
-        }
-                
-        var displayDescription: String {
-            switch self {
-            case .online: return "Online Mode"
-            case .offline(userChoice: true): return "Offline Mode (User Choice)"
-            case .offline(userChoice: false): return "Offline Mode (No Connection)"
-            }
-        }
     }
     
     // MARK: - Network Change Handling (Simplified)
@@ -148,9 +136,15 @@ class OfflineManager: ObservableObject {
     // MARK: - Reset
     
     func performCompleteReset() {
-        // OfflineManager doesn't own any state that needs resetting
-        // All data is owned by DownloadManager and AlbumMetadataCache
-        print("🔄 OfflineManager: Reset completed (no state to clear)")
+        // Clear cache
+        cachedOfflineAlbums = []
+        cacheNeedsRefresh = true
+        
+        // Clear subscriptions
+        cancellables.removeAll()
+        
+        // Data is owned by DownloadManager and AlbumMetadataCache
+        print("🔄 OfflineManager: Reset completed")
     }
     
     // MARK: - Reactive Updates
@@ -172,6 +166,7 @@ class OfflineManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.cacheNeedsRefresh = true
             self?.objectWillChange.send()
         }
         
@@ -180,17 +175,13 @@ class OfflineManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.cacheNeedsRefresh = true
             self?.objectWillChange.send()
         }
         
-        // Listen to NetworkMonitor for UI updates
-        networkMonitor.$state
-            .map(\.contentLoadingStrategy)
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
+        // NO need to observe NetworkMonitor: views that depend on network state
+        // already observe NetworkMonitor directly. OfflineManager only manages
+        // offline data, which changes when downloads change (handled above).
     }
     
     // MARK: - Private Implementation (Unchanged)

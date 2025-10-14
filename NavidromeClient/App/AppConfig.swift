@@ -96,14 +96,19 @@ final class AppConfig: ObservableObject {
         // 2. Reset local state
         credentials = nil
         isConfigured = false
+        hasInitializedServices = false
+        
+        // 3. Update NetworkMonitor configuration state
+        NetworkMonitor.shared.updateConfiguration(isConfigured: false)
+        NetworkMonitor.shared.reset()
                 
-        // 3. Reset all managers and clear data
+        // 4. Reset all managers and clear data
         await resetAllManagers()
         
-        // 4. Clear all caches
+        // 5. Clear all caches
         clearAllCaches()
         
-        // 5. Force UI updates
+        // 6. Force UI updates
         objectWillChange.send()
         
         print("Factory reset completed")
@@ -144,10 +149,8 @@ final class AppConfig: ObservableObject {
               let creds = try? JSONDecoder().decode(ServerCredentials.self, from: data) else {
             isConfigured = false
             
-            // Notify NetworkMonitor of "not configured" state
-            Task { @MainActor in
-                NetworkMonitor.shared.updateConfiguration(isConfigured: false)
-            }
+            // SYNCHRONOUSLY notify NetworkMonitor of "not configured" state
+            NetworkMonitor.shared.updateConfiguration(isConfigured: false)
             return
         }
 
@@ -168,10 +171,8 @@ final class AppConfig: ObservableObject {
         
         isConfigured = true
         
-        // Add this at the very end:
-        Task { @MainActor in
-            NetworkMonitor.shared.updateConfiguration(isConfigured: true)
-        }
+        // SYNCHRONOUSLY update NetworkMonitor before any other code can observe isConfigured
+        NetworkMonitor.shared.updateConfiguration(isConfigured: true)
     }
     
     func needsPassword() -> Bool {

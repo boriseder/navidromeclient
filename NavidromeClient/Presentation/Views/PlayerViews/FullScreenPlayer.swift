@@ -9,6 +9,8 @@ struct FullScreenPlayerView: View {
     
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
+    @State private var horizontalDragOffset: CGFloat = 0
+    @State private var isHorizontalDragging = false
     @State private var showingQueue = false
     @State private var fullscreenImage: UIImage?
     @State private var isLoadingFullscreen = false
@@ -27,11 +29,32 @@ struct FullScreenPlayerView: View {
                     )
                     .scaleEffect(isDragging ? 0.95 : 1.0)
                     .animation(.spring(response: 0.3), value: isDragging)
+                    .offset(x: horizontalDragOffset)
                     .overlay {
                         if isLoadingFullscreen {
                             ProgressView()
                                 .scaleEffect(1.5)
                                 .tint(.white)
+                        }
+                    }
+                    .overlay(alignment: .leading) {
+                        if isHorizontalDragging && horizontalDragOffset > 50 {
+                            Image(systemName: "backward.end.fill")
+                                .font(.system(size: 40, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .shadow(color: .black.opacity(0.3), radius: 4)
+                                .padding(.leading, 40)
+                                .opacity(min(horizontalDragOffset / 150.0, 1.0))
+                        }
+                    }
+                    .overlay(alignment: .trailing) {
+                        if isHorizontalDragging && horizontalDragOffset < -50 {
+                            Image(systemName: "forward.end.fill")
+                                .font(.system(size: 40, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .shadow(color: .black.opacity(0.3), radius: 4)
+                                .padding(.trailing, 40)
+                                .opacity(min(abs(horizontalDragOffset) / 150.0, 1.0))
                         }
                     }
 
@@ -66,7 +89,7 @@ struct FullScreenPlayerView: View {
             }
             .ignoresSafeArea(.container, edges: [.top, .bottom])
             .offset(y: dragOffset)
-            .gesture(dismissGesture)
+            .gesture(combinedGesture)
             .background(Color.black)
         }
         .animation(.interactiveSpring(), value: dragOffset)
@@ -122,24 +145,62 @@ struct FullScreenPlayerView: View {
         }
     }
     
-    private var dismissGesture: some Gesture {
+    private var combinedGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                if value.translation.height > 0 {
+                let horizontalAmount = abs(value.translation.width)
+                let verticalAmount = abs(value.translation.height)
+                
+                if horizontalAmount > verticalAmount && horizontalAmount > 10 {
+                    horizontalDragOffset = value.translation.width
+                    isHorizontalDragging = true
+                    isDragging = false
+                    dragOffset = 0
+                } else if verticalAmount > horizontalAmount && value.translation.height > 0 {
                     dragOffset = value.translation.height
                     isDragging = true
+                    isHorizontalDragging = false
+                    horizontalDragOffset = 0
                 }
             }
             .onEnded { value in
-                isDragging = false
-                if value.translation.height > 200 {
-                    dismiss()
-                } else {
-                    withAnimation(.spring()) {
-                        dragOffset = 0
-                    }
+                if isHorizontalDragging {
+                    handleHorizontalSwipeEnd(translation: value.translation.width)
+                } else if isDragging {
+                    handleVerticalSwipeEnd(translation: value.translation.height)
                 }
+                
+                isDragging = false
+                isHorizontalDragging = false
             }
+    }
+    
+    private func handleHorizontalSwipeEnd(translation: CGFloat) {
+        let threshold: CGFloat = 100
+        
+        if translation > threshold {
+            Task {
+                await playerVM.playPrevious()
+            }
+        } else if translation < -threshold {
+            Task {
+                await playerVM.playNext()
+            }
+        }
+        
+        withAnimation(.spring()) {
+            horizontalDragOffset = 0
+        }
+    }
+    
+    private func handleVerticalSwipeEnd(translation: CGFloat) {
+        if translation > 200 {
+            dismiss()
+        } else {
+            withAnimation(.spring()) {
+                dragOffset = 0
+            }
+        }
     }
 }
 

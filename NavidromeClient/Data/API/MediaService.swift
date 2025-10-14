@@ -50,12 +50,7 @@ class MediaService {
         
         activeRequests.insert(cacheKey)
         defer { activeRequests.remove(cacheKey) }
-        
-        // Check cache first
-        if let cached = PersistentImageCache.shared.image(for: coverId, size: size) {
-            return cached
-        }
-        
+                
         // Load from server
         guard let url = connectionService.buildURL(
             endpoint: "getCoverArt",
