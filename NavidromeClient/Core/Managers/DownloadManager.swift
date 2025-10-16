@@ -86,7 +86,7 @@ class DownloadManager: ObservableObject {
     
     func startDownload(album: Album, songs: [Song]) async {
         guard getDownloadState(for: album.id).canStartDownload else {
-            print("Cannot start download for album \(album.id) in current state")
+            AppLogger.general.error("Cannot start download for album \(album.id) in current state")
             return
         }
         
@@ -94,12 +94,12 @@ class DownloadManager: ObservableObject {
             let errorMessage = "Service not available for downloads"
             downloadErrors[album.id] = errorMessage
             setDownloadState(.error(errorMessage), for: album.id)
-            print("UnifiedSubsonicService not configured for DownloadManager")
+            AppLogger.general.error("UnifiedSubsonicService not configured for DownloadManager")
             return
         }
         
         AlbumMetadataCache.shared.cacheAlbum(album)
-        print("Cached album metadata for download: \(album.name) (ID: \(album.id))")
+        AppLogger.general.info("Cached album metadata for download: \(album.name) (ID: \(album.id))")
         
         setDownloadState(.downloading, for: album.id)
         downloadErrors.removeValue(forKey: album.id)
@@ -119,7 +119,7 @@ class DownloadManager: ObservableObject {
             downloadErrors[album.id] = errorMessage
             setDownloadState(.error(errorMessage), for: album.id)
             
-            print("Download failed for album \(album.id): \(error)")
+            AppLogger.general.error("Download failed for album \(album.id): \(error)")
             
             NotificationCenter.default.post(
                 name: .downloadFailed,
@@ -145,7 +145,7 @@ class DownloadManager: ObservableObject {
             throw DownloadError.missingMetadata
         }
         
-        print("Starting download of album '\(albumMetadata.name)' with \(songs.count) songs")
+        AppLogger.general.info("Starting download of album '\(albumMetadata.name)' with \(songs.count) songs")
         
         isDownloading.insert(albumId)
         downloadProgress[albumId] = 0
@@ -170,7 +170,7 @@ class DownloadManager: ObservableObject {
 
         for (index, song) in songs.enumerated() {
             guard let streamURL = getStreamURL(for: song.id, from: service) else {
-                print("No stream URL for song: \(song.title)")
+                AppLogger.general.error("No stream URL for song: \(song.title)")
                 continue
             }
             
@@ -180,12 +180,12 @@ class DownloadManager: ObservableObject {
             let fileURL = albumFolder.appendingPathComponent(fileName)
 
             do {
-                print("Downloading: \(song.title)")
+                AppLogger.general.info("Downloading: \(song.title)")
                 let (data, response) = try await URLSession.shared.data(from: streamURL)
                 
                 if let httpResponse = response as? HTTPURLResponse {
                     guard httpResponse.statusCode == 200 else {
-                        print("Download failed for \(song.title): HTTP \(httpResponse.statusCode)")
+                        AppLogger.general.error("Download failed for \(song.title): HTTP \(httpResponse.statusCode)")
                         continue
                     }
                 }
@@ -213,7 +213,7 @@ class DownloadManager: ObservableObject {
                 
                 downloadProgress[albumId] = Double(index + 1) / Double(totalSongs)
             } catch {
-                print("Download error for \(song.title): \(error)")
+                AppLogger.general.error("Download error for \(song.title): \(error)")
                 throw DownloadError.songDownloadFailed(song.title, error)
             }
         }
@@ -250,7 +250,7 @@ class DownloadManager: ObservableObject {
     
     private func downloadAlbumCoverArt(album: Album) async {
         guard let coverArtManager = coverArtManager else {
-            print("CoverArtManager not configured - skipping cover art")
+            AppLogger.general.error("CoverArtManager not configured - skipping cover art")
             return
         }
         
@@ -267,7 +267,7 @@ class DownloadManager: ObservableObject {
     
     private func downloadArtistImage(for album: Album) async {
         guard let coverArtManager = coverArtManager else {
-            print("CoverArtManager not configured - skipping artist image")
+            AppLogger.general.info("CoverArtManager not configured - skipping artist image")
             return
         }
         
@@ -328,7 +328,7 @@ class DownloadManager: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.deleteAllDownloads()
-                print("DownloadManager: Deleted all downloads on factory reset")
+                AppLogger.general.info("DownloadManager: Deleted all downloads on factory reset")
             }
         }
     }
@@ -361,7 +361,7 @@ class DownloadManager: ObservableObject {
     
     func cancelDownload(albumId: String) {
         guard getDownloadState(for: albumId).canCancel else {
-            print("Cannot cancel download for album \(albumId) in current state")
+            AppLogger.general.error("Cannot cancel download for album \(albumId) in current state")
             return
         }
         
@@ -378,7 +378,7 @@ class DownloadManager: ObservableObject {
     
     func deleteDownload(albumId: String) {
         guard getDownloadState(for: albumId).canDelete else {
-            print("Cannot delete download for album \(albumId) in current state")
+            AppLogger.general.error("Cannot delete download for album \(albumId) in current state")
             return
         }
         
@@ -480,7 +480,7 @@ class DownloadManager: ObservableObject {
     
     func deleteAlbum(albumId: String) {
         guard let album = downloadedAlbums.first(where: { $0.albumId == albumId }) else {
-            print("Album \(albumId) not found for deletion")
+            AppLogger.general.error("Album \(albumId) not found for deletion")
             return
         }
 
@@ -488,9 +488,9 @@ class DownloadManager: ObservableObject {
         let albumFolder = URL(fileURLWithPath: album.folderPath)
         do {
             try FileManager.default.removeItem(at: albumFolder)
-            print("Deleted album folder: \(albumFolder.path)")
+            AppLogger.general.info("Deleted album folder: \(albumFolder.path)")
         } catch {
-            print("Failed to delete album folder: \(error)")
+            AppLogger.general.error("Failed to delete album folder: \(error)")
         }
 
         for song in album.songs {
@@ -511,15 +511,15 @@ class DownloadManager: ObservableObject {
     }
 
     func deleteAllDownloads() {
-        print("Starting complete download deletion...")
+        AppLogger.general.info("Starting complete download deletion...")
         
         let folder = downloadsFolder
         do {
             try FileManager.default.removeItem(at: folder)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            print("Deleted all downloads folder")
+            AppLogger.general.info("Deleted all downloads folder")
         } catch {
-            print("Failed to delete downloads folder: \(error)")
+            AppLogger.general.error("Failed to delete downloads folder: \(error)")
         }
 
         downloadedAlbums.removeAll()
@@ -550,12 +550,12 @@ class DownloadManager: ObservableObject {
                     updateDownloadState(for: album.albumId)
                 }
                 
-                print("Loaded \(downloadedAlbums.count) albums with full metadata")
+                AppLogger.general.info("Loaded \(downloadedAlbums.count) albums with full metadata")
                 return
             }
             
         } catch {
-            print("Failed to load downloaded albums: \(error)")
+            AppLogger.general.error("Failed to load downloaded albums: \(error)")
             downloadedAlbums = []
         }
     }
@@ -571,7 +571,7 @@ class DownloadManager: ObservableObject {
     
     private func migrateOldDataIfNeeded() {
         if !downloadedAlbums.isEmpty {
-            print("Migrating \(downloadedAlbums.count) albums to new path structure")
+            AppLogger.general.info("Migrating \(downloadedAlbums.count) albums to new path structure")
             saveDownloadedAlbums()
         }
     }
@@ -580,9 +580,9 @@ class DownloadManager: ObservableObject {
         do {
             let data = try JSONEncoder().encode(downloadedAlbums)
             try data.write(to: downloadedAlbumsFile)
-            print("Saved \(downloadedAlbums.count) albums with full metadata")
+            AppLogger.general.info("Saved \(downloadedAlbums.count) albums with full metadata")
         } catch {
-            print("Failed to save downloaded albums: \(error)")
+            AppLogger.general.error("Failed to save downloaded albums: \(error)")
         }
     }
     
@@ -651,7 +651,7 @@ class DownloadManager: ObservableObject {
     #if DEBUG
     func printServiceDiagnostics() {
         let diagnostics = getServiceDiagnostics()
-        print(diagnostics.summary)
+        AppLogger.general.info(diagnostics.summary)
     }
     #endif
 }

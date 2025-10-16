@@ -54,7 +54,7 @@ class ExploreManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("ExploreManager configured with UnifiedSubsonicService facade")
+        AppLogger.general.info("ExploreManager configured with UnifiedSubsonicService facade")
     }
     
     // MARK: - HOME SCREEN DATA LOADING
@@ -78,10 +78,10 @@ class ExploreManager: ObservableObject {
             randomAlbums = Array(discoveryMix.random.prefix(exploreDataBatchSize))
             
             lastHomeRefresh = Date()
-            print("Home screen data loaded: \(discoveryMix.totalCount) total albums")
+            AppLogger.general.info("Home screen data loaded: \(discoveryMix.totalCount) total albums")
             
         } catch {
-            print("Failed to load discovery mix, falling back to individual calls")
+            AppLogger.general.info("Failed to load discovery mix, falling back to individual calls")
             await loadExploreDataFallback()
         }
     }
@@ -92,7 +92,7 @@ class ExploreManager: ObservableObject {
         do {
             return try await service.getRecommendationsFor(album: album, limit: 10)
         } catch {
-            print("Failed to load recommendations for \(album.name): \(error)")
+            AppLogger.general.info("Failed to load recommendations for \(album.name): \(error)")
             return []
         }
     }
@@ -102,9 +102,9 @@ class ExploreManager: ObservableObject {
         
         do {
             randomAlbums = try await service.getRandomAlbums(size: exploreDataBatchSize)
-            print("Refreshed random albums: \(randomAlbums.count)")
+            AppLogger.general.info("Refreshed random albums: \(randomAlbums.count)")
         } catch {
-            print("Failed to refresh random albums: \(error)")
+            AppLogger.general.info("Failed to refresh random albums: \(error)")
         }
     }
     
@@ -120,7 +120,7 @@ class ExploreManager: ObservableObject {
         }
         
         lastHomeRefresh = Date()
-        print("Home screen data loaded via fallback method")
+        AppLogger.general.info("Home screen data loaded via fallback method")
     }
     
     
@@ -130,7 +130,7 @@ class ExploreManager: ObservableObject {
         do {
             recentAlbums = try await service.getRecentAlbums(size: exploreDataBatchSize)
         } catch {
-            print("Failed to load recent albums: \(error)")
+            AppLogger.general.info("Failed to load recent albums: \(error)")
             handleExploreDataError(error, for: "recent albums")
         }
     }
@@ -141,7 +141,7 @@ class ExploreManager: ObservableObject {
         do {
             newestAlbums = try await service.getNewestAlbums(size: exploreDataBatchSize)
         } catch {
-            print("Failed to load newest albums: \(error)")
+            AppLogger.general.info("Failed to load newest albums: \(error)")
             handleExploreDataError(error, for: "newest albums")
         }
     }
@@ -152,7 +152,7 @@ class ExploreManager: ObservableObject {
         do {
             frequentAlbums = try await service.getFrequentAlbums(size: exploreDataBatchSize)
         } catch {
-            print("Failed to load frequent albums: \(error)")
+            AppLogger.general.info("Failed to load frequent albums: \(error)")
             handleExploreDataError(error, for: "frequent albums")
         }
     }
@@ -163,7 +163,7 @@ class ExploreManager: ObservableObject {
         do {
             randomAlbums = try await service.getRandomAlbums(size: exploreDataBatchSize)
         } catch {
-            print("Failed to load random albums: \(error)")
+            AppLogger.general.info("Failed to load random albums: \(error)")
             handleExploreDataError(error, for: "random albums")
         }
     }
@@ -211,14 +211,14 @@ class ExploreManager: ObservableObject {
         exploreError = nil
         lastHomeRefresh = nil
         
-        print("ExploreManager reset completed")
+        AppLogger.general.info("ExploreManager reset completed")
     }
     
     private func handleExploreDataError(_ error: Error, for section: String) {
         if case SubsonicError.unauthorized = error {
             exploreError = "Authentication failed"
         } else if case SubsonicError.network = error {
-            print("Network error loading \(section): \(error)")
+            AppLogger.general.info("Network error loading \(section): \(error)")
         }
     }
     

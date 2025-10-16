@@ -53,7 +53,7 @@ final class AppConfig: ObservableObject {
     
     func configure(baseURL: URL, username: String, password: String) {
         guard validateCredentials(baseURL: baseURL, username: username, password: password) else {
-            print("❌ Invalid credentials provided")
+            AppLogger.general.error("❌ Invalid credentials provided")
             return
         }
         
@@ -86,7 +86,7 @@ final class AppConfig: ObservableObject {
     // MARK: -  Factory Reset (Complete App Reset)
 
     func performFactoryReset() async {
-        print("Starting factory reset")
+        AppLogger.general.info("Starting factory reset")
         
         // 1. Clear all keychain data
         _ = KeychainHelper.shared.delete(forKey: "navidrome_credentials")
@@ -111,7 +111,7 @@ final class AppConfig: ObservableObject {
         // 6. Force UI updates
         objectWillChange.send()
         
-        print("Factory reset completed")
+        AppLogger.general.info("Factory reset completed")
     }
         
     // MARK: - Private Reset Methods
@@ -124,7 +124,7 @@ final class AppConfig: ObservableObject {
         // Give managers time to process reset
         try? await Task.sleep(nanoseconds: 100_000_000)
         
-        print("Factory reset notification posted to all managers")
+        AppLogger.general.info("Factory reset notification posted to all managers")
     }
     
     private func clearAllCaches() {
@@ -134,7 +134,7 @@ final class AppConfig: ObservableObject {
         // Clear album metadata cache
         AlbumMetadataCache.shared.clearCache()
         
-        print("Persistent caches cleared")
+        AppLogger.general.info("Persistent caches cleared")
     }
     
     // MARK: - Credentials
@@ -188,7 +188,7 @@ final class AppConfig: ObservableObject {
             
             let inputHash = hashPassword(password)
             guard inputHash == storedHash else {
-                print("❌ Password verification failed")
+                AppLogger.general.error("❌ Password verification failed")
                 return false
             }
             
@@ -219,16 +219,16 @@ final class AppConfig: ObservableObject {
     private func validateCredentials(baseURL: URL, username: String, password: String) -> Bool {
         guard let scheme = baseURL.scheme, ["http", "https"].contains(scheme),
               let host = baseURL.host, !host.isEmpty else {
-            print("❌ Invalid server URL")
+            AppLogger.general.error("❌ Invalid server URL")
             return false
         }
         guard !username.trimmingCharacters(in: .whitespaces).isEmpty,
               username.count >= 2, username.count <= 50 else {
-            print("❌ Invalid username")
+            AppLogger.general.error("❌ Invalid username")
             return false
         }
         guard !password.isEmpty, password.count >= 4, password.count <= 100 else {
-            print("❌ Invalid password")
+            AppLogger.general.error("❌ Invalid password")
             return false
         }
         return true

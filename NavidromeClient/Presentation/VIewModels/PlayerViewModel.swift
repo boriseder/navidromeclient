@@ -62,7 +62,7 @@ class PlayerViewModel: NSObject, ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.unifiedService = service
-        print("PlayerViewModel configured with UnifiedSubsonicService")
+        AppLogger.general.info("PlayerViewModel configured with UnifiedSubsonicService")
     }
     
     deinit {
@@ -182,17 +182,17 @@ class PlayerViewModel: NSObject, ObservableObject {
     private func getAudioURL(for song: Song) async -> URL? {
         // Priority 1: Downloaded file
         if let localURL = downloadManager.getLocalFileURL(for: song.id) {
-            print("Using downloaded file for: \(song.title)")
+            AppLogger.general.info("Using downloaded file for: \(song.title)")
             return localURL
         }
         
         // Priority 2: Stream URL from service
         if let service = unifiedService, let streamURL = service.streamURL(for: song.id) {
-            print("Using stream URL for: \(song.title)")
+            AppLogger.general.info("Using stream URL for: \(song.title)")
             return streamURL
         }
         
-        print("No audio source available for: \(song.title)")
+        AppLogger.general.info("No audio source available for: \(song.title)")
         return nil
     }
     

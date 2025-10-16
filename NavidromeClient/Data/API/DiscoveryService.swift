@@ -160,7 +160,7 @@ class DiscoveryService {
         )
         
         let albums = decoded.subsonicResponse.albumList2.album
-        print(" Loaded \(albums.count) \(type.rawValue) albums")
+        AppLogger.general.info(" Loaded \(albums.count) \(type.rawValue) albums")
         return albums
     }
     

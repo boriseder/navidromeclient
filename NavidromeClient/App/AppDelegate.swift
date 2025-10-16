@@ -10,7 +10,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // Configure background tasks
         registerBackgroundTasks()
         
-        print(" App launched with audio session configured")
+        AppLogger.general.info(" App launched with audio session configured")
         return true
     }
     
@@ -30,7 +30,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         
         // Hier könntest du z.B. Playlists aktualisieren
-        print("Background refresh triggered")
+        AppLogger.general.info("Background refresh triggered")
         task.setTaskCompleted(success: true)
     }
     
@@ -38,12 +38,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func applicationWillResignActive(_ application: UIApplication) {
         
-        print("App will resign active")
+        AppLogger.general.info("App will resign active")
     }
     
     func applicationDidEnterBackground(_ application: UIApplication) {
         
-        print("App entered background - audio should continue")
+        AppLogger.general.info("App entered background - audio should continue")
         
         // Schedule background refresh
         scheduleAppRefresh()
@@ -51,12 +51,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func applicationWillEnterForeground(_ application: UIApplication) {
 
-        print("App will enter foreground")
+        AppLogger.general.info("App will enter foreground")
     }
     
     func applicationDidBecomeActive(_ application: UIApplication) {
 
-        print("App became active")
+        AppLogger.general.info("App became active")
         
         // Delegate audio session management to AudioSessionManager
         AudioSessionManager.shared.handleAppBecameActive()
@@ -65,7 +65,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     
     func applicationWillTerminate(_ application: UIApplication) {
 
-        print("App will terminate")
+        AppLogger.general.info("App will terminate")
         
         // Delegate cleanup to AudioSessionManager
         AudioSessionManager.shared.handleAppWillTerminate()

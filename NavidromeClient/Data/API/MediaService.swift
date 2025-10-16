@@ -73,7 +73,7 @@ class MediaService {
             return image
             
         } catch {
-            print("❌ Cover art load error: \(error)")
+            AppLogger.ui.error("❌ Cover art load error: \(error)")
             return nil
         }
     }
@@ -89,7 +89,7 @@ class MediaService {
             }
         }
         
-        print(" Preloaded cover art for \(albumsToPreload.count) albums")
+        AppLogger.general.info(" Preloaded cover art for \(albumsToPreload.count) albums")
     }
     
     // MARK: -  STREAMING URLS
@@ -191,7 +191,7 @@ class MediaService {
     func clearCoverArtCache() {
         PersistentImageCache.shared.clearCache()
         activeRequests.removeAll()
-        print("🧹 Cleared media cache")
+        AppLogger.general.info("🧹 Cleared media cache")
     }
     
     func getCacheStats() -> MediaCacheStats {

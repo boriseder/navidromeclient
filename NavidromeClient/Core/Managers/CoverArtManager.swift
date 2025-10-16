@@ -85,7 +85,7 @@ class CoverArtManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("CoverArtManager configured with UnifiedSubsonicService")
+        AppLogger.general.info("CoverArtManager configured with UnifiedSubsonicService")
     }
 
     private func setupMemoryCache() {
@@ -103,7 +103,7 @@ class CoverArtManager: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             self?.clearMemoryCache()
-            print("CoverArtManager: Cleared memory cache on factory reset")
+            AppLogger.general.info("CoverArtManager: Cleared memory cache on factory reset")
         }
     }
     
@@ -519,14 +519,14 @@ class CoverArtManager: ObservableObject {
     func resetPerformanceStats() {
         loadingStates.removeAll()
         errorStates.removeAll()
-        print("CoverArtManager: Performance stats reset")
+        AppLogger.general.info("CoverArtManager: Performance stats reset")
     }
     
     func printDiagnostics() {
         let stats = getCacheStats()
         let health = getHealthStatus()
         
-        print("""
+        AppLogger.general.info("""
         COVERARTMANAGER DIAGNOSTICS:
         Health: \(health.statusDescription)
         \(stats.summary)

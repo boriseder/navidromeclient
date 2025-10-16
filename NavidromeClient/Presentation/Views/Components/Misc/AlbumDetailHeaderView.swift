@@ -312,14 +312,14 @@ struct AlbumHeaderView: View {
 
     private func downloadAlbum() async {
         guard !isDownloading else {
-            print("Download already in progress for album: \(album.id)")
+            AppLogger.ui.info("Download already in progress for album: \(album.id)")
             return
         }
 
         if isDownloaded {
             downloadManager.deleteAlbum(albumId: album.id)
         } else {
-            print("Starting download for album: \(album.name)")
+            AppLogger.ui.info("Starting download for album: \(album.name)")
             isDownloading = true
             defer { isDownloading = false }
 

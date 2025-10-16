@@ -49,7 +49,7 @@ class SearchService {
             songs: decoded.subsonicResponse.searchResult2.song ?? []
         )
         
-        print(" Search '\(trimmedQuery)': \(result.artists.count) artists, \(result.albums.count) albums, \(result.songs.count) songs")
+        AppLogger.general.info(" Search '\(trimmedQuery)': \(result.artists.count) artists, \(result.albums.count) albums, \(result.songs.count) songs")
         
         return result
     }
@@ -123,7 +123,7 @@ class SearchService {
             return Array(suggestions.prefix(limit)).sorted()
             
         } catch {
-            print("❌ Failed to get search suggestions: \(error)")
+            AppLogger.ui.error("❌ Failed to get search suggestions: \(error)")
             return []
         }
     }

@@ -73,25 +73,25 @@ class PlaybackEngine {
         player?.play()
         delegate?.playbackEngine(self, didChangePlayingState: true)
         
-        print("PlaybackEngine: Started playback for \(url.lastPathComponent)")
+        AppLogger.general.info("PlaybackEngine: Started playback for \(url.lastPathComponent)")
     }
     
     func pause() {
         player?.pause()
         delegate?.playbackEngine(self, didChangePlayingState: false)
-        print("PlaybackEngine: Paused")
+        AppLogger.general.info("PlaybackEngine: Paused")
     }
     
     func resume() {
         player?.play()
         delegate?.playbackEngine(self, didChangePlayingState: true)
-        print("PlaybackEngine: Resumed")
+        AppLogger.general.info("PlaybackEngine: Resumed")
     }
     
     func stop() {
         cleanup()
         delegate?.playbackEngine(self, didChangePlayingState: false)
-        print("PlaybackEngine: Stopped")
+        AppLogger.general.info("PlaybackEngine: Stopped")
     }
     
     func seek(to time: TimeInterval) {
@@ -138,7 +138,7 @@ class PlaybackEngine {
             queue: .main
         ) { [weak self] _ in
             guard let self = self else { return }
-            print("PlaybackEngine: Playback finished")
+            AppLogger.general.info("PlaybackEngine: Playback finished")
             self.delegate?.playbackEngine(self, didFinishPlaying: true)
         }
     }
@@ -157,12 +157,12 @@ class PlaybackEngine {
             let duration = item.duration.seconds
             if !duration.isNaN && duration.isFinite {
                 delegate?.playbackEngine(self, didUpdateDuration: duration)
-                print("PlaybackEngine: Ready to play, duration: \(duration)s")
+                AppLogger.general.info("PlaybackEngine: Ready to play, duration: \(duration)s")
             }
             
         case .failed:
             if let error = item.error {
-                print("PlaybackEngine: Failed with error: \(error.localizedDescription)")
+                AppLogger.general.info("PlaybackEngine: Failed with error: \(error.localizedDescription)")
                 delegate?.playbackEngine(self, didEncounterError: "Playback failed")
                 delegate?.playbackEngine(self, didFinishPlaying: false)
             }

@@ -150,11 +150,11 @@ struct AlbumCollectionView: View {
     private func playAllAlbums() async {
         let albumsToPlay = displayedAlbums
         guard !albumsToPlay.isEmpty else {
-            print("⚠️ No albums to play")
+            AppLogger.ui.info("⚠️ No albums to play")
             return
         }
         
-        print("🎵 Playing all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
+        AppLogger.ui.info("🎵 Playing all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
         
         var allSongs: [Song] = []
         
@@ -165,11 +165,11 @@ struct AlbumCollectionView: View {
         }
         
         guard !allSongs.isEmpty else {
-            print("⚠️ No songs found in albums")
+            AppLogger.ui.info("⚠️ No songs found in albums")
             return
         }
         
-        print("🎵 Starting playback with \(allSongs.count) songs")
+        AppLogger.ui.info("🎵 Starting playback with \(allSongs.count) songs")
         await playerVM.setPlaylist(allSongs, startIndex: 0, albumId: nil)
         
         // Ensure shuffle is OFF for play all
@@ -182,11 +182,11 @@ struct AlbumCollectionView: View {
     private func shuffleAllAlbums() async {
         let albumsToPlay = displayedAlbums
         guard !albumsToPlay.isEmpty else {
-            print("⚠️ No albums to shuffle")
+            AppLogger.ui.info("⚠️ No albums to shuffle")
             return
         }
         
-        print("🔀 Shuffling all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
+        AppLogger.ui.info("🔀 Shuffling all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
         
         var allSongs: [Song] = []
         
@@ -197,14 +197,14 @@ struct AlbumCollectionView: View {
         }
         
         guard !allSongs.isEmpty else {
-            print("⚠️ No songs found in albums")
+            AppLogger.ui.info("⚠️ No songs found in albums")
             return
         }
         
         // Shuffle the complete song list
         let shuffledSongs = allSongs.shuffled()
         
-        print("🔀 Starting shuffled playback with \(shuffledSongs.count) songs")
+        AppLogger.ui.info("🔀 Starting shuffled playback with \(shuffledSongs.count) songs")
         await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
         
         // Ensure shuffle is ON for shuffle all
@@ -241,11 +241,11 @@ struct AlbumCollectionView: View {
         
         do {
             albums = try await musicLibraryManager.loadAlbums(context: context)
-            print("Loaded \(albums.count) albums for \(contextTitle)")
+            AppLogger.ui.info("Loaded \(albums.count) albums for \(contextTitle)")
         } catch {
             errorMessage = "Failed to load albums: \(error.localizedDescription)"
             albums = availableOfflineAlbums
-            print("❌ Failed to load albums: \(error)")
+            AppLogger.ui.error("❌ Failed to load albums: \(error)")
         }
     }
     

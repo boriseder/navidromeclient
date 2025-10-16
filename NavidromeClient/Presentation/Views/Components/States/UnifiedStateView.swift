@@ -28,7 +28,7 @@ struct UnifiedStateView: View {
         self.primaryAction = primaryAction
         self.secondaryAction = secondaryAction
         
-        print("🔴 UnifiedStateView CREATED with state: \(state.title)")
+        AppLogger.ui.info("🔴 UnifiedStateView CREATED with state: \(state.title)")
 
     }
     

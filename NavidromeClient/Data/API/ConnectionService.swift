@@ -96,7 +96,7 @@ class ConnectionService: ObservableObject {
                 // Check if response contains error
                 if decodedResponse.subsonicResponse.status == "failed" {
                     if let error = decodedResponse.subsonicResponse.error {
-                        print("❌ Subsonic error: code=\(error.code), message=\(error.message)")
+                        AppLogger.ui.error("❌ Subsonic error: code=\(error.code), message=\(error.message)")
                         
                         // Error code 40 = Wrong username/password
                         if error.code == 40 || error.code == 41 {
@@ -122,7 +122,7 @@ class ConnectionService: ObservableObject {
                 return .success(connectionInfo)
                 
             } catch {
-                print("❌ Failed to parse response: \(error)")
+                AppLogger.ui.error("❌ Failed to parse response: \(error)")
                 return .failure(.invalidServerType)
             }
             
@@ -166,7 +166,7 @@ class ConnectionService: ObservableObject {
     
     func buildURL(endpoint: String, params: [String: String] = [:]) -> URL? {
         guard validateEndpoint(endpoint) else {
-            print("Invalid endpoint: \(endpoint)")
+            AppLogger.general.info("Invalid endpoint: \(endpoint)")
             return nil
         }
         
@@ -194,7 +194,7 @@ class ConnectionService: ObservableObject {
         
         for (key, value) in params {
             guard validateParameter(key: key, value: value) else {
-                print("Invalid parameter: \(key)")
+                AppLogger.general.info("Invalid parameter: \(key)")
                 continue
             }
             queryItems.append(URLQueryItem(name: key, value: value))

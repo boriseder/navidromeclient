@@ -27,7 +27,7 @@ extension Task where Failure == Error {
 /// Helper to check cancellation with logging
 func checkCancellation(context: String) throws {
     if Task.isCancelled {
-        print("⚠️ Task cancelled: \(context)")
+        AppLogger.general.info("⚠️ Task cancelled: \(context)")
         throw CancellationError()
     }
 }

@@ -52,12 +52,12 @@ class OfflineManager: ObservableObject {
     
     func switchToOnlineMode() {
         networkMonitor.setManualOfflineMode(false)
-        print("🌐 Requested switch to online mode")
+        AppLogger.general.info("🌐 Requested switch to online mode")
     }
 
     func switchToOfflineMode() {
         networkMonitor.setManualOfflineMode(true)
-        print("📱 Requested switch to offline mode")
+        AppLogger.general.info("📱 Requested switch to offline mode")
     }
     
     func toggleOfflineMode() {
@@ -71,10 +71,10 @@ class OfflineManager: ObservableObject {
             case .userChoice:
                 switchToOnlineMode()
             case .noNetwork, .serverUnreachable:
-                print("⚠️ Cannot switch to online: \(reason.message)")
+                AppLogger.general.info("⚠️ Cannot switch to online: \(reason.message)")
             }
         case .setupRequired:
-            print("⚠️ Cannot toggle offline mode: Server setup required")
+            AppLogger.general.info("⚠️ Cannot toggle offline mode: Server setup required")
         }
     }
     
@@ -91,13 +91,13 @@ class OfflineManager: ObservableObject {
     func handleNetworkLoss() {
         // NetworkMonitor handles the strategy change
         // OfflineManager just logs for UI feedback
-        print("📵 Network lost - NetworkMonitor will handle strategy")
+        AppLogger.general.info("📵 Network lost - NetworkMonitor will handle strategy")
     }
     
     func handleNetworkRestored() {
         // NetworkMonitor handles the strategy change
         // OfflineManager just logs for UI feedback
-        print("📶 Network restored - NetworkMonitor will handle strategy")
+        AppLogger.general.info("📶 Network restored - NetworkMonitor will handle strategy")
     }
     
     // MARK: - Album/Artist/Genre Queries (Unchanged)
@@ -144,7 +144,7 @@ class OfflineManager: ObservableObject {
         cancellables.removeAll()
         
         // Data is owned by DownloadManager and AlbumMetadataCache
-        print("🔄 OfflineManager: Reset completed")
+        AppLogger.general.info("🔄 OfflineManager: Reset completed")
     }
     
     // MARK: - Reactive Updates

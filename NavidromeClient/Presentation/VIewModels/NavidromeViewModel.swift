@@ -21,7 +21,7 @@ class NavidromeViewModel: ObservableObject {
         self.unifiedService = newService
         musicLibraryManager.configure(service: newService)
         objectWillChange.send()
-        print("NavidromeViewModel configured with UnifiedSubsonicService facade")
+        AppLogger.general.info("NavidromeViewModel configured with UnifiedSubsonicService facade")
     }
     
     // MARK: - Published Properties (Delegated to Managers)
@@ -98,7 +98,7 @@ class NavidromeViewModel: ObservableObject {
         
         if isOnline {
             await connectionManager.performQuickHealthCheck()
-            print("NavidromeViewModel: Network restored - health checked")
+            AppLogger.general.info("NavidromeViewModel: Network restored - health checked")
         }
         
         objectWillChange.send()
@@ -109,7 +109,7 @@ class NavidromeViewModel: ObservableObject {
     
     func getConnectionHealth() async -> ConnectionHealth? {
         guard let service = unifiedService else {
-            print("UnifiedSubsonicService not available for health check")
+            AppLogger.general.info("UnifiedSubsonicService not available for health check")
             return nil
         }
         
@@ -120,7 +120,7 @@ class NavidromeViewModel: ObservableObject {
         await connectionManager.performQuickHealthCheck()
         
         if let health = await getConnectionHealth() {
-            print("NavidromeViewModel: Health check completed - \(health.statusDescription)")
+            AppLogger.general.info("NavidromeViewModel: Health check completed - \(health.statusDescription)")
         }
         
         objectWillChange.send()
@@ -135,7 +135,7 @@ class NavidromeViewModel: ObservableObject {
         unifiedService = nil
         
         objectWillChange.send()
-        print("NavidromeViewModel: Complete reset")
+        AppLogger.general.info("NavidromeViewModel: Complete reset")
     }
     
     // MARK: - Diagnostics
@@ -176,10 +176,10 @@ class NavidromeViewModel: ObservableObject {
     func printServiceDiagnostics() {
         Task {
             let diagnostics = await getServiceArchitectureDiagnostics()
-            print(diagnostics.architectureSummary)
+            AppLogger.general.info(diagnostics.architectureSummary)
             
             if let health = await getConnectionHealth() {
-                print("""
+                AppLogger.general.info("""
                 
                 FACADE CONNECTION DETAILS:
                 - Quality: \(health.quality.description)

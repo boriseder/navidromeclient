@@ -56,7 +56,7 @@ class NetworkMonitor: ObservableObject {
         self.isConnected = initialConnectionState
         self.connectionType = getConnectionType(currentPath)
         
-        print("[NetworkMonitor] Initial state: \(initialConnectionState ? "Connected" : "Disconnected") (\(connectionType.displayName))")
+        AppLogger.network.info("[NetworkMonitor] Initial state: \(initialConnectionState ? "Connected" : "Disconnected") (\(connectionType.displayName))")
         
         startNetworkMonitoring()
         observeAppConfigChanges()
@@ -118,13 +118,13 @@ class NetworkMonitor: ObservableObject {
     func reportServerError() {
         hasRecentServerErrors = true
         updateState()
-        print("[NetworkMonitor] Server error reported")
+        AppLogger.network.info("[NetworkMonitor] Server error reported")
     }
     
     func clearServerErrors() {
         hasRecentServerErrors = false
         updateState()
-        print("[NetworkMonitor] Server errors cleared")
+        AppLogger.network.info("[NetworkMonitor] Server errors cleared")
     }
     
     func setManualOfflineMode(_ enabled: Bool) {
@@ -134,31 +134,31 @@ class NetworkMonitor: ObservableObject {
         if !enabled {
             // User wants to go online - verify conditions
             guard state.isConnected else {
-                print("[NetworkMonitor] Cannot go online: no network connection")
+                AppLogger.network.info("[NetworkMonitor] Cannot go online: no network connection")
                 return
             }
             
             guard state.isConfigured else {
-                print("[NetworkMonitor] Cannot go online: server not configured")
+                AppLogger.network.info("[NetworkMonitor] Cannot go online: server not configured")
                 return
             }
             
             guard !hasRecentServerErrors else {
-                print("[NetworkMonitor] Cannot go online: server has errors")
+                AppLogger.network.info("[NetworkMonitor] Cannot go online: server has errors")
                 return
             }
         }
         
         manualOfflineMode = enabled
         updateState()
-        print("[NetworkMonitor] Manual offline mode: \(enabled ? "enabled" : "disabled")")
+        AppLogger.network.info("[NetworkMonitor] Manual offline mode: \(enabled ? "enabled" : "disabled")")
     }
     
     func reset() {
         hasRecentServerErrors = false
         manualOfflineMode = false
         updateState()
-        print("[NetworkMonitor] Reset completed")
+        AppLogger.network.info("[NetworkMonitor] Reset completed")
     }
     
     // MARK: - State Update
@@ -178,7 +178,7 @@ class NetworkMonitor: ObservableObject {
             state = newState
             
             if oldStrategy != newStrategy {
-                print("[NetworkMonitor] Strategy changed: \(oldStrategy.displayName) -> \(newStrategy.displayName)")
+                AppLogger.network.info("[NetworkMonitor] Strategy changed: \(oldStrategy.displayName) -> \(newStrategy.displayName)")
                 
                 NotificationCenter.default.post(
                     name: .contentLoadingStrategyChanged,
@@ -202,10 +202,10 @@ class NetworkMonitor: ObservableObject {
                 self.connectionType = self.getConnectionType(path)
                 
                 if isNowConnected && !wasConnected {
-                    print("[NetworkMonitor] Network restored: \(self.connectionType.displayName)")
+                    AppLogger.network.info("[NetworkMonitor] Network restored: \(self.connectionType.displayName)")
                     self.hasRecentServerErrors = false
                 } else if !isNowConnected && wasConnected {
-                    print("[NetworkMonitor] Network lost")
+                    AppLogger.network.info("[NetworkMonitor] Network lost")
                 }
                 
                 self.updateState()
@@ -242,7 +242,7 @@ class NetworkMonitor: ObservableObject {
     
     private func handleServiceConfigurationChange() {
         hasRecentServerErrors = false
-        print("[NetworkMonitor] Service configuration change detected")
+        AppLogger.network.info("[NetworkMonitor] Service configuration change detected")
         updateState(isConfigured: true)  // Tell it the server is configured
     }
     
@@ -288,7 +288,7 @@ class NetworkMonitor: ObservableObject {
     func printDiagnostics() {
         let diagnostics = getDiagnostics()
         
-        print("""
+        AppLogger.network.info("""
         
         [NetworkMonitor] DIAGNOSTICS:
         \(diagnostics.summary)
@@ -305,7 +305,7 @@ class NetworkMonitor: ObservableObject {
     
     func debugSetState(_ state: NetworkState) {
         self.state = state
-        print("[NetworkMonitor] DEBUG: Forced state to \(state.contentLoadingStrategy.displayName)")
+        AppLogger.network.info("[NetworkMonitor] DEBUG: Forced state to \(state.contentLoadingStrategy.displayName)")
     }
     #endif
 }

@@ -60,7 +60,7 @@ class SongManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("SongManager configured with UnifiedSubsonicService")
+        AppLogger.general.info("SongManager configured with UnifiedSubsonicService")
     }
     
     // MARK: - Primary API: Smart Song Loading
@@ -71,7 +71,7 @@ class SongManager: ObservableObject {
     /// - Tries online first, falls back to offline if needed
     func loadSongs(for albumId: String) async -> [Song] {
         guard service != nil else {
-            print("SongManager.loadSongs called before service configured - using offline")
+            AppLogger.general.info("SongManager.loadSongs called before service configured - using offline")
             return await loadOfflineSongs(for: albumId)
         }
         
@@ -82,7 +82,7 @@ class SongManager: ObservableObject {
         
         // Join existing task if loading
         if let existingTask = loadTasks[albumId] {
-            print("Joining existing load task for album \(albumId)")
+            AppLogger.general.info("Joining existing load task for album \(albumId)")
             return await existingTask.value
         }
         
@@ -93,7 +93,7 @@ class SongManager: ObservableObject {
             }
             
             guard !Task.isCancelled else {
-                print("Load cancelled for album \(albumId)")
+                AppLogger.general.info("Load cancelled for album \(albumId)")
                 return [Song]()
             }
             
@@ -126,7 +126,7 @@ class SongManager: ObservableObject {
     func clearCache(for albumId: String) {
         albumSongs.removeValue(forKey: albumId)
         loadTasks.removeValue(forKey: albumId)
-        print("Cleared cache for album \(albumId)")
+        AppLogger.general.info("Cleared cache for album \(albumId)")
     }
     
     /// Clear all cached songs
@@ -134,7 +134,7 @@ class SongManager: ObservableObject {
         let cacheSize = albumSongs.count
         albumSongs.removeAll()
         loadTasks.removeAll()
-        print("Cleared song cache (\(cacheSize) albums)")
+        AppLogger.general.info("Cleared song cache (\(cacheSize) albums)")
     }
     
     /// Preload songs for multiple albums
@@ -153,7 +153,7 @@ class SongManager: ObservableObject {
         let uncachedAlbums = albumIds.filter { !hasCachedSongs(for: $0) }
         
         if !uncachedAlbums.isEmpty {
-            print("Warming up cache for \(uncachedAlbums.count) albums")
+            AppLogger.general.info("Warming up cache for \(uncachedAlbums.count) albums")
             await preloadSongs(for: Array(uncachedAlbums.prefix(3)))
         }
     }
@@ -193,13 +193,13 @@ class SongManager: ObservableObject {
     // MARK: - Reset
     
     func reset() {
-        print("Cancelling \(loadTasks.count) active load tasks")
+        AppLogger.general.info("Cancelling \(loadTasks.count) active load tasks")
         loadTasks.values.forEach { $0.cancel() }
         loadTasks.removeAll()
         
         albumSongs.removeAll()
         service = nil
-        print("SongManager reset completed")
+        AppLogger.general.info("SongManager reset completed")
     }
     
     // MARK: - Diagnostics
@@ -216,7 +216,7 @@ class SongManager: ObservableObject {
     #if DEBUG
     func printServiceDiagnostics() {
         let diagnostics = getServiceDiagnostics()
-        print(diagnostics.summary)
+        AppLogger.general.info(diagnostics.summary)
     }
     #endif
     
@@ -226,7 +226,7 @@ class SongManager: ObservableObject {
     private func loadWithFallback(for albumId: String) async -> [Song] {
         // Priority 1: Try offline first if album is downloaded
         if downloadManager.isAlbumDownloaded(albumId) {
-            print("Loading offline songs for album \(albumId)")
+            AppLogger.general.info("Loading offline songs for album \(albumId)")
             let offlineSongs = await loadOfflineSongs(for: albumId)
             if !offlineSongs.isEmpty {
                 return offlineSongs
@@ -235,7 +235,7 @@ class SongManager: ObservableObject {
         
         // Priority 2: Try online if network allows
         if NetworkMonitor.shared.canLoadOnlineContent && !OfflineManager.shared.isOfflineMode {
-            print("Loading online songs for album \(albumId)")
+            AppLogger.general.info("Loading online songs for album \(albumId)")
             let onlineSongs = await loadOnlineSongs(for: albumId)
             if !onlineSongs.isEmpty {
                 return onlineSongs
@@ -243,23 +243,23 @@ class SongManager: ObservableObject {
         }
         
         // Priority 3: Final offline fallback
-        print("Final offline fallback for album \(albumId)")
+        AppLogger.general.info("Final offline fallback for album \(albumId)")
         return await loadOfflineSongs(for: albumId)
     }
     
     /// Load songs from server via UnifiedSubsonicService
     private func loadOnlineSongs(for albumId: String) async -> [Song] {
         guard let service = service else {
-            print("UnifiedSubsonicService not available for online song loading")
+            AppLogger.general.info("UnifiedSubsonicService not available for online song loading")
             return []
         }
         
         do {
             let songs = try await service.getSongs(for: albumId)
-            print("Loaded \(songs.count) online songs for album \(albumId)")
+            AppLogger.general.info("Loaded \(songs.count) online songs for album \(albumId)")
             return songs
         } catch {
-            print("Failed to load online songs for album \(albumId): \(error)")
+            AppLogger.general.info("Failed to load online songs for album \(albumId): \(error)")
             return []
         }
     }
@@ -269,12 +269,12 @@ class SongManager: ObservableObject {
         let downloadedSongs = downloadManager.getDownloadedSongs(for: albumId)
         
         if downloadedSongs.isEmpty {
-            print("No offline songs found for album \(albumId)")
+            AppLogger.general.info("No offline songs found for album \(albumId)")
             return []
         }
         
         let songs = downloadedSongs.map { $0.toSong() }
-        print("Loaded \(songs.count) offline songs for album \(albumId)")
+        AppLogger.general.info("Loaded \(songs.count) offline songs for album \(albumId)")
         return songs
     }
 }

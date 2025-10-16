@@ -59,10 +59,10 @@ struct ContentView: View {
 
     private func handleNetworkChange(_ isConnected: Bool) {
         if !isConnected {
-            print("Network lost - switching to offline mode")
+            AppLogger.ui.info("Network lost - switching to offline mode")
             offlineManager.switchToOfflineMode()
         } else {
-            print("Network restored")
+            AppLogger.ui.info("Network restored")
         }
     }
     
@@ -84,7 +84,7 @@ struct ContentView: View {
         for attempt in 0..<10 {
             try? await Task.sleep(nanoseconds: 500_000_000)
             if appConfig.areServicesReady {
-                print("Service initialization retry succeeded")
+                AppLogger.ui.info("Service initialization retry succeeded")
                 return
             }
         }

@@ -46,7 +46,7 @@ class UnifiedSubsonicService: ObservableObject {
         */
         // ---
         
-        print("UnifiedSubsonicService: Facade initialized with all specialists including favorites")
+        AppLogger.general.info("UnifiedSubsonicService: Facade initialized with all specialists including favorites")
     }
     
     // MARK: - Connection Operations
@@ -328,7 +328,7 @@ class UnifiedSubsonicService: ObservableObject {
     
     func clearAllCaches() {
         mediaService.clearCoverArtCache()
-        print("All service caches cleared")
+        AppLogger.general.info("All service caches cleared")
     }
     
     func getServiceDiagnostics() async -> ServiceDiagnostics {

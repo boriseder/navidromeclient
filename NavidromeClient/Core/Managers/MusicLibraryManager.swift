@@ -72,7 +72,7 @@ class MusicLibraryManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("MusicLibraryManager configured with UnifiedSubsonicService facade")
+        AppLogger.general.info("MusicLibraryManager configured with UnifiedSubsonicService facade")
     }
     
     // MARK: - Coordinated Loading
@@ -82,14 +82,14 @@ class MusicLibraryManager: ObservableObject {
               !isCurrentlyLoading,
               let service = service,
               NetworkMonitor.shared.shouldLoadOnlineContent else {
-            print("Skipping initial data load")
+            AppLogger.general.info("Skipping initial data load")
             return
         }
         
         isCurrentlyLoading = true
         defer { isCurrentlyLoading = false }
         
-        print("Starting coordinated initial data load...")
+        AppLogger.general.info("Starting coordinated initial data load...")
         
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -111,14 +111,14 @@ class MusicLibraryManager: ObservableObject {
     func refreshAllData() async {
         guard !isCurrentlyLoading,
               NetworkMonitor.shared.shouldLoadOnlineContent else {
-            print("Skipping refresh")
+            AppLogger.general.info("Skipping refresh")
             return
         }
         
         isCurrentlyLoading = true
         defer { isCurrentlyLoading = false }
         
-        print("Starting coordinated data refresh...")
+        AppLogger.general.info("Starting coordinated data refresh...")
         
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -170,7 +170,7 @@ class MusicLibraryManager: ObservableObject {
     private func handleNetworkStateChange(_ newState: EffectiveConnectionState) async {
         if isCurrentlyLoading {
             pendingNetworkStateChange = newState
-            print("Network state change queued during loading: \(newState.displayName)")
+            AppLogger.general.info("Network state change queued during loading: \(newState.displayName)")
             return
         }
         
@@ -179,16 +179,16 @@ class MusicLibraryManager: ObservableObject {
         switch newState {
         case .online:
             if !isDataFresh && service != nil {
-                print("Network online - refreshing stale data")
+                AppLogger.general.info("Network online - refreshing stale data")
                 await refreshAllData()
                 // objectWillChange fired by refreshAllData when data actually changes
             } else {
-                print("Network online - data is fresh, no UI update needed")
+                AppLogger.general.info("Network online - data is fresh, no UI update needed")
                 // No objectWillChange: data hasn't changed, views will react to NetworkMonitor
             }
             
         case .userOffline, .serverUnreachable, .disconnected:
-            print("Network effectively offline - no UI update needed")
+            AppLogger.general.info("Network effectively offline - no UI update needed")
             // No objectWillChange: views will react to NetworkMonitor's state change
             // Only views displaying different data (offline vs online) will re-render
         }
@@ -215,13 +215,13 @@ class MusicLibraryManager: ObservableObject {
         
         guard let service = service else {
             albumLoadingState = .error("Service not available")
-            print("UnifiedSubsonicService not configured")
+            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
             albumLoadingState = .completed
-            print("Not loading albums - should not load online content")
+            AppLogger.general.info("Not loading albums - should not load online content")
             return
         }
         
@@ -286,13 +286,13 @@ class MusicLibraryManager: ObservableObject {
         
         guard let service = service else {
             artistLoadingState = .error("Service not available")
-            print("UnifiedSubsonicService not configured")
+            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
             artistLoadingState = .completed
-            print("Not loading artists - should not load online content")
+            AppLogger.general.info("Not loading artists - should not load online content")
             return
         }
         
@@ -325,13 +325,13 @@ class MusicLibraryManager: ObservableObject {
         
         guard let service = service else {
             genreLoadingState = .error("Service not available")
-            print("UnifiedSubsonicService not configured")
+            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
             genreLoadingState = .completed
-            print("Not loading genres - should not load online content")
+            AppLogger.general.info("Not loading genres - should not load online content")
             return
         }
         
@@ -360,12 +360,12 @@ class MusicLibraryManager: ObservableObject {
     
     func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {
         guard let service = service else {
-            print("UnifiedSubsonicService not available for context loading")
+            AppLogger.general.info("UnifiedSubsonicService not available for context loading")
             throw URLError(.networkConnectionLost)
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
-            print("Cannot load albums for context - should not load online content")
+            AppLogger.general.info("Cannot load albums for context - should not load online content")
             throw URLError(.notConnectedToInternet)
         }
         
@@ -380,7 +380,7 @@ class MusicLibraryManager: ObservableObject {
     // MARK: - Private Implementation
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
-        print("Failed to load \(dataType): \(error)")
+        AppLogger.general.info("Failed to load \(dataType): \(error)")
         
         let errorMessage: String
         if let subsonicError = error as? SubsonicError {
@@ -440,7 +440,7 @@ class MusicLibraryManager: ObservableObject {
         totalAlbumCount = 0
         totalArtistCount = 0
         
-        print("MusicLibraryManager reset completed")
+        AppLogger.general.info("MusicLibraryManager reset completed")
     }
 }
 

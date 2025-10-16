@@ -66,16 +66,16 @@ class ContentService {
     func getAlbumsByGenre(genre: String) async throws -> [Album] {
         guard !genre.isEmpty else { return [] }
         
-        print("🎵 DEBUG: Original genre: '\(genre)'")
+        AppLogger.general.info("🎵 DEBUG: Original genre: '\(genre)'")
         
         let params = ["type": "byGenre", "genre": genre]
-        print("🎵 DEBUG: Request params: \(params)")
+        AppLogger.general.info("🎵 DEBUG: Request params: \(params)")
         
         // Test URL building
         if let testURL = connectionService.buildURL(endpoint: "getAlbumList2", params: params) {
-            print("🎵 DEBUG: Built URL: \(testURL.absoluteString)")
+            AppLogger.general.info("🎵 DEBUG: Built URL: \(testURL.absoluteString)")
         } else {
-            print("❌ DEBUG: Failed to build URL")
+            AppLogger.ui.error("❌ DEBUG: Failed to build URL")
         }
         
         do {
@@ -89,10 +89,10 @@ class ContentService {
             return albums
             
         } catch {
-            print("❌ DEBUG: getAlbumsByGenre failed with error: \(error)")
+            AppLogger.ui.error("❌ DEBUG: getAlbumsByGenre failed with error: \(error)")
             
             // Fallback: Test mit fetchDataWithFallback
-            print("🔄 DEBUG: Trying fallback method...")
+            AppLogger.general.info("🔄 DEBUG: Trying fallback method...")
             
             let emptyAlbumList = AlbumList(album: [])
             let emptyContainer = AlbumListContainer(albumList2: emptyAlbumList)

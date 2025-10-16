@@ -50,7 +50,7 @@ class FavoritesManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        print("FavoritesManager configured with UnifiedSubsonicService facade")
+        AppLogger.general.info("FavoritesManager configured with UnifiedSubsonicService facade")
     }
     
     // MARK: - Public API
@@ -62,7 +62,7 @@ class FavoritesManager: ObservableObject {
     func toggleFavorite(_ song: Song) async {
         guard let service = service else {
             errorMessage = "Service not available"
-            print("UnifiedSubsonicService not configured")
+            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
@@ -81,7 +81,7 @@ class FavoritesManager: ObservableObject {
             errorMessage = nil
             
         } catch {
-            print("Failed to \(wasFavorite ? "unstar" : "star") song: \(error)")
+            AppLogger.general.info("Failed to \(wasFavorite ? "unstar" : "star") song: \(error)")
             updateUIOptimistically(song: song, isFavorite: wasFavorite)
             errorMessage = error.localizedDescription
         }
@@ -94,7 +94,7 @@ class FavoritesManager: ObservableObject {
         }
         
         guard shouldRefresh || forceRefresh else {
-            print("Favorites are fresh, skipping refresh")
+            AppLogger.general.info("Favorites are fresh, skipping refresh")
             return
         }
         
@@ -109,7 +109,7 @@ class FavoritesManager: ObservableObject {
             lastRefresh = Date()
             
         } catch {
-            print("Failed to load favorite songs: \(error)")
+            AppLogger.general.info("Failed to load favorite songs: \(error)")
             errorMessage = error.localizedDescription
         }
         
@@ -135,7 +135,7 @@ class FavoritesManager: ObservableObject {
             favoriteSongIds.removeAll()
             
         } catch {
-            print("Failed to clear favorites: \(error)")
+            AppLogger.general.info("Failed to clear favorites: \(error)")
             errorMessage = error.localizedDescription
         }
         
@@ -147,7 +147,7 @@ class FavoritesManager: ObservableObject {
     func handleNetworkChange(isOnline: Bool) async {
         guard isOnline, !isDataFresh else { return }
         
-        print("Network restored - refreshing favorites")
+        AppLogger.general.info("Network restored - refreshing favorites")
         await loadFavoriteSongs(forceRefresh: true)
     }
     
@@ -206,7 +206,7 @@ class FavoritesManager: ObservableObject {
         errorMessage = nil
         service = nil
         
-        print("FavoritesManager reset completed")
+        AppLogger.general.info("FavoritesManager reset completed")
     }
 }
 

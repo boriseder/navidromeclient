@@ -76,20 +76,20 @@ struct NavidromeClientApp: App {
     private func setupServicesAfterAppLaunch() async {
         // Access the wrapped value directly
         guard AppConfig.shared.isConfigured else {
-            print("App not configured - waiting for login")
+            AppLogger.general.info("App not configured - waiting for login")
             return
         }
         
         guard let credentials = AppConfig.shared.getCredentials() else {
-            print("No credentials available")
+            AppLogger.general.info("No credentials available")
             return
         }
         
-        print("App launch: Initializing services with saved credentials")
+        AppLogger.general.info("App launch: Initializing services with saved credentials")
         await initializeServices(with: credentials)
     }
     private func initializeServices(with credentials: ServerCredentials) async {
-        print("=== Starting Service Initialization ===")
+        AppLogger.general.info("=== Starting Service Initialization ===")
         
         await MainActor.run {
             appConfig.setInitializingServices(true)
@@ -103,18 +103,18 @@ struct NavidromeClientApp: App {
         // Get the service from container
         guard let unifiedService = serviceContainer.unifiedService else {
             let errorMsg = serviceContainer.initializationError ?? "Unknown initialization error"
-            print("❌ Failed to create UnifiedSubsonicService: \(errorMsg)")
+            AppLogger.ui.error("❌ Failed to create UnifiedSubsonicService: \(errorMsg)")
             await MainActor.run {
                 appConfig.setInitializingServices(false)
             }
             return
         }
         
-        print("✅ UnifiedSubsonicService created successfully")
+        AppLogger.general.info("✅ UnifiedSubsonicService created successfully")
         
         // Configure all managers in dependency order
         await MainActor.run {
-            print("Configuring services...")
+            AppLogger.general.info("Configuring services...")
             
             // Phase 1: Independent services
             coverArtManager.configure(service: unifiedService)
@@ -131,7 +131,7 @@ struct NavidromeClientApp: App {
             navidromeVM.updateService(unifiedService)
             playerVM.configure(service: unifiedService)
             
-            print("Services configured")
+            AppLogger.general.info("Services configured")
         }
         
         // Load initial data for all views
@@ -140,12 +140,12 @@ struct NavidromeClientApp: App {
         // Mark initialization complete
         await MainActor.run {
             appConfig.setInitializingServices(false)
-            print("=== Service Initialization Complete ===")
+            AppLogger.general.info("=== Service Initialization Complete ===")
         }
     }
     
     private func loadInitialDataForAllViews() async {
-        print("Loading initial data...")
+        AppLogger.general.info("Loading initial data...")
         
         await withTaskGroup(of: Void.self) { group in
 
@@ -162,7 +162,7 @@ struct NavidromeClientApp: App {
             }
         }
         
-        print("Initial data loaded")
+        AppLogger.general.info("Initial data loaded")
     }
     
     // MARK: - Initial Configuration
@@ -176,18 +176,18 @@ struct NavidromeClientApp: App {
     private func handleNetworkChange(isConnected: Bool) async {
         // Guard: Don't handle network changes until services are initialized
         guard serviceContainer.isInitialized else {
-            print("⏸️ Network change ignored - services not initialized")
+            AppLogger.general.info("⏸️ Network change ignored - services not initialized")
             return
         }
         
         await navidromeVM.handleNetworkChange(isOnline: isConnected)
-        print("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
+        AppLogger.general.info("Network state changed: \(isConnected ? "Connected" : "Disconnected")")
     }
     
     private func handleAppBecameActive() {
         // Guard: Don't handle app activation until services are initialized
         guard serviceContainer.isInitialized else {
-            print("⏸️ App activation ignored - services not initialized")
+            AppLogger.general.info("⏸️ App activation ignored - services not initialized")
             return
         }
         
@@ -196,7 +196,7 @@ struct NavidromeClientApp: App {
                 await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
             }
         }
-        print("App became active")
+        AppLogger.general.info("App became active")
     }
 }
 
@@ -219,7 +219,7 @@ class ServiceContainer: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             self?.clearServices()
-            print("ServiceContainer: Cleared services on factory reset")
+            AppLogger.general.info("ServiceContainer: Cleared services on factory reset")
         }
     }
     

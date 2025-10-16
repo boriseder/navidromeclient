@@ -42,7 +42,7 @@ class AlbumMetadataCache: ObservableObject {
     func clearCache() {
         cachedAlbums.removeAll()
         try? FileManager.default.removeItem(at: cacheFile)
-        print("📦 AlbumMetadataCache: Cache cleared")
+        AppLogger.general.info("📦 AlbumMetadataCache: Cache cleared")
     }
     
     private func loadCache() {
@@ -52,7 +52,7 @@ class AlbumMetadataCache: ObservableObject {
             return
         }
         cachedAlbums = albums
-        print("📦 Loaded \(cachedAlbums.count) albums from metadata cache")
+        AppLogger.general.info("📦 Loaded \(cachedAlbums.count) albums from metadata cache")
     }
     
     private func saveCache() {

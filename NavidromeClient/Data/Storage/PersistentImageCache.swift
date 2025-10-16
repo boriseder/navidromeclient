@@ -209,7 +209,7 @@ class PersistentImageCache: ObservableObject {
             await checkCacheSizeAndCleanup()
             
         } catch {
-            print("Cache save error: \(error)")
+            AppLogger.general.info("Cache save error: \(error)")
         }
     }
     
@@ -278,7 +278,7 @@ class PersistentImageCache: ObservableObject {
         }
         
         if !expiredKeys.isEmpty {
-            print("Removed \(expiredKeys.count) expired cache entries")
+            AppLogger.general.info("Removed \(expiredKeys.count) expired cache entries")
         }
     }
     
@@ -303,7 +303,7 @@ class PersistentImageCache: ObservableObject {
             }
         }
         
-        print("Cache cleanup: Removed \(removedCount) items")
+        AppLogger.general.info("Cache cleanup: Removed \(removedCount) items")
     }
     
     private func removeOrphanedFiles() async {
@@ -326,7 +326,7 @@ class PersistentImageCache: ObservableObject {
         }
         
         if orphanedCount > 0 {
-            print("Removed \(orphanedCount) orphaned files")
+            AppLogger.general.info("Removed \(orphanedCount) orphaned files")
         }
     }
 }

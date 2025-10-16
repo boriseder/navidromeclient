@@ -90,7 +90,7 @@ extension Song {
             let song = try JSONDecoder().decode(Song.self, from: jsonData)
             return song
         } catch {
-            print("❌ Failed to create Song from download data: \(error)")
+            AppLogger.ui.error("❌ Failed to create Song from download data: \(error)")
             // Fallback - this should not happen, but just in case
             fatalError("Could not create Song object")
         }

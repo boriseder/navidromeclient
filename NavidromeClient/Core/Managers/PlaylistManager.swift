@@ -50,11 +50,11 @@ extension PlaylistManager {
     /// Jump to a specific song in the queue
     func jumpToSong(at index: Int) {
         guard currentPlaylist.indices.contains(index) else {
-            print("⚠️ Invalid queue index: \(index)")
+            AppLogger.general.info("⚠️ Invalid queue index: \(index)")
             return
         }
         currentIndex = index
-        print("🎵 Jumped to queue position \(index): \(currentPlaylist[index].title)")
+        AppLogger.general.info("🎵 Jumped to queue position \(index): \(currentPlaylist[index].title)")
     }
     
     // MARK: - Queue Modification
@@ -62,12 +62,12 @@ extension PlaylistManager {
     /// Remove a song from the queue
     func removeSong(at index: Int) {
         guard currentPlaylist.indices.contains(index) else {
-            print("⚠️ Cannot remove song at invalid index: \(index)")
+            AppLogger.general.info("⚠️ Cannot remove song at invalid index: \(index)")
             return
         }
         
         let removedSong = currentPlaylist.remove(at: index)
-        print("🗑️ Removed from queue: \(removedSong.title)")
+        AppLogger.general.info("🗑️ Removed from queue: \(removedSong.title)")
         
         // Adjust current index
         if index < currentIndex {
@@ -94,7 +94,7 @@ extension PlaylistManager {
     func moveSong(from source: Int, to destination: Int) {
         guard currentPlaylist.indices.contains(source),
               destination >= 0 && destination <= currentPlaylist.count else {
-            print("⚠️ Invalid move operation: \(source) -> \(destination)")
+            AppLogger.general.info("⚠️ Invalid move operation: \(source) -> \(destination)")
             return
         }
         
@@ -111,7 +111,7 @@ extension PlaylistManager {
             currentIndex += 1
         }
         
-        print("🔄 Moved queue item: \(song.title) from \(source) to \(adjustedDestination)")
+        AppLogger.general.info("🔄 Moved queue item: \(song.title) from \(source) to \(adjustedDestination)")
     }
     
     /// Move multiple songs within the queue
@@ -135,7 +135,7 @@ extension PlaylistManager {
     /// Shuffle only the upcoming songs (not the current song)
     func shuffleUpNext() {
         guard currentPlaylist.count > currentIndex + 1 else {
-            print("⚠️ No upcoming songs to shuffle")
+            AppLogger.general.info("⚠️ No upcoming songs to shuffle")
             return
         }
         
@@ -146,20 +146,20 @@ extension PlaylistManager {
         // Rebuild playlist: current song + shuffled upcoming
         currentPlaylist = Array(currentPlaylist[0...currentIndex]) + shuffledUpcoming
         
-        print("🔀 Shuffled \(shuffledUpcoming.count) upcoming songs")
+        AppLogger.general.info("🔀 Shuffled \(shuffledUpcoming.count) upcoming songs")
     }
     
     /// Clear all songs after the current song
     func clearUpNext() {
         guard currentPlaylist.count > currentIndex + 1 else {
-            print("⚠️ No upcoming songs to clear")
+            AppLogger.general.info("⚠️ No upcoming songs to clear")
             return
         }
         
         let removedCount = currentPlaylist.count - currentIndex - 1
         currentPlaylist = Array(currentPlaylist[0...currentIndex])
         
-        print("🗑️ Cleared \(removedCount) upcoming songs from queue")
+        AppLogger.general.info("🗑️ Cleared \(removedCount) upcoming songs from queue")
     }
     
     /// Add songs to the end of the queue
@@ -167,7 +167,7 @@ extension PlaylistManager {
         guard !songs.isEmpty else { return }
         
         currentPlaylist.append(contentsOf: songs)
-        print("➕ Added \(songs.count) songs to queue")
+        AppLogger.general.info("➕ Added \(songs.count) songs to queue")
     }
     
     /// Insert songs after the current song
@@ -179,7 +179,7 @@ extension PlaylistManager {
             currentPlaylist.insert(song, at: insertIndex + offset)
         }
         
-        print("⏭️ Inserted \(songs.count) songs to play next")
+        AppLogger.general.info("⏭️ Inserted \(songs.count) songs to play next")
     }
     
     // MARK: - Queue Information
