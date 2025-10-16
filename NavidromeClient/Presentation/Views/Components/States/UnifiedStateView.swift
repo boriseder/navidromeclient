@@ -49,16 +49,23 @@ struct UnifiedStateView: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
             }
-            .padding(.horizontal, DSLayout.contentPadding)
-            
+            .padding(DSLayout.contentPadding)
+            /*
             if primaryAction != nil || secondaryAction != nil {
                 actionButtons
                     .padding(.top, DSLayout.elementGap)
             }
+             */
         }
         .frame(maxWidth: 400)
-        .padding(DSLayout.comfortPadding)
-        .background(modernGlassBackground)
+        .background(.regularMaterial)          // Hintergrund-Blur
+        .cornerRadius(DSCorners.comfortable)   // Runde Ecken
+        .shadow(
+            color: DSColor.overlay.opacity(0.2),  // leichterer Schatten
+            radius: 8,                            // weicher Radius
+            x: 0, y: 4                            // sanfte Verschiebung
+        )
+        .padding(.vertical, DSLayout.contentPadding)
         .padding(.horizontal, DSLayout.screenPadding)
     }
     
@@ -335,7 +342,6 @@ enum ViewState: Equatable {
         }
     }
 }
-// MARK: - Content Type Extensions
 
 // MARK: - State Action
 

@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var isInitialSetup = false
     @State private var serviceInitError: String?
 
+    
     var body: some View {
         Group {
             switch networkMonitor.contentLoadingStrategy {
@@ -20,18 +21,31 @@ struct ContentView: View {
                     isInitialSetup = true
                     showingSettings = true
                 }
-                
             case .online, .offlineOnly:
-                if appConfig.isInitializingServices {
-                    VStack(spacing: DSLayout.contentGap) {
-                        ProgressView()
-                        Text("Initializing services...")
-                            .font(DSText.body)
-                            .foregroundStyle(DSColor.secondary)
+                /*
+                 if appConfig.isInitializingServices {
+                    ZStack {
+                        VStack(spacing: DSLayout.contentGap) {
+                            Spacer()
+                            
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(1.5)
+                                .frame(width: 60, height: 60, alignment: .center)
+
+                            Text("Initializing services...")
+                                .font(DSText.body)
+                                .foregroundStyle(DSColor.onDark)
+                            
+                            Spacer()
+                        }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.accent)
                 } else {
+                 */
                     MainTabView()
-                }
+                // }
             }
         }
         .sheet(isPresented: $showingSettings) {
