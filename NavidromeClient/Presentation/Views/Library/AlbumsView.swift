@@ -1,9 +1,10 @@
 //
-//  AlbumsViewContent.swift - FIXED: Filter & Download Button
+//  AlbumsViewContent.swift - FIXED: Filter & Download Button & Preloading Context
 //  NavidromeClient
 //
 //   FIXED: Filter logic now works correctly with all albums
 //   FIXED: Download button state reactivity restored
+//   FIXED: Preloading uses correct context matching displayed images
 //
 
 import SwiftUI
@@ -93,7 +94,7 @@ struct AlbumsViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                appConfig.userBackgroundStyle.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search albums...")
@@ -106,7 +107,8 @@ struct AlbumsViewContent: View {
             }
             .onAppear {
                 if !displayedAlbums.isEmpty {
-                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), context: .grid)
+                    // FIXED: Use .card context to match CardItemContainer display
+                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), context: .card)
                 }
             }
             .toolbar {
@@ -184,11 +186,6 @@ struct AlbumsViewContent: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
                 
-                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
-                    OfflineReasonBanner(reason: reason)
-                        .padding(.bottom, DSLayout.elementPadding)
-                }
-
                 LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
                     ForEach(displayedAlbums.indices, id: \.self) { index in
                         let album = displayedAlbums[index]

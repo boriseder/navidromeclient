@@ -33,6 +33,7 @@ enum DSLayout {
     static let miniCover: CGFloat = 50      // Song rows, mini player
     static let listCover: CGFloat = 70      // List items
     static let cardCover: CGFloat = 150     // Grid cards
+    static let cardCoverNoPadding: CGFloat = 168     // Grid cards
     static let detailCover: CGFloat = 300   // Detail views
     static let fullCover: CGFloat = 400     // Full screen
     static let smallAvatar: CGFloat = 72    // User avatars
@@ -91,7 +92,7 @@ enum DSColor {
     static let quaternary = SwiftUI.Color(.quaternaryLabel)
     
     // MARK: Surfaces
-    static let background = SwiftUI.Color(.systemBackground)
+    static let background = SwiftUI.Color(.black)
     static let surface = SwiftUI.Color(.secondarySystemBackground)
     static let surfaceSecondary = SwiftUI.Color(.tertiarySystemBackground)
     static let surfaceLight = SwiftUI.Color(UIColor.systemGray6)
@@ -147,63 +148,4 @@ enum GridColumns {
 
 
 // MARK: - Semantic Extensions (Deine bestehenden, umbenannt)
-
-extension View {
-    // MARK: Layout
-    func elementGap<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: DSLayout.elementGap, content: content)
-    }
-    
-    func contentGap<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: DSLayout.contentGap, content: content)
-    }
-    
-    func sectionGap<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: DSLayout.sectionGap, content: content)
-    }
-    
-    func screenPadding() -> some View {
-        padding(.horizontal, DSLayout.screenPadding)
-    }
-    
-    func contentPadding() -> some View {
-        padding(DSLayout.contentPadding)
-    }
-    
-    func elementPadding() -> some View {
-        padding(DSLayout.elementPadding)
-    }
-    
-    func listItemPadding() -> some View {
-        self.padding(.horizontal, DSLayout.contentPadding)
-            .padding(.vertical, DSLayout.elementPadding)
-    }
-
-    
-    // MARK: Shapes
-    func elementCorners() -> some View {
-        clipShape(RoundedRectangle(cornerRadius: DSCorners.element))
-    }
-    
-    func contentCorners() -> some View {
-        clipShape(RoundedRectangle(cornerRadius: DSCorners.content))
-    }
-    
-    // MARK: Surfaces
-    func surfaceStyle() -> some View {
-        background(DSColor.surface)
-            .contentCorners()
-    }
-    
-    func cardStyle() -> some View {
-        background(DSColor.surface)
-            .contentCorners()
-            .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
-    }
-    
-    func glassMorphic() -> some View {
-        background(.ultraThinMaterial)
-            .contentCorners()
-    }
-}
 

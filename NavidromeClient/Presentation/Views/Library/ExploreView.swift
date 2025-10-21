@@ -21,9 +21,6 @@ struct ExploreViewContent: View {
     @State private var hasAttemptedInitialLoad = false
     @State private var loadingCompleted = false
 
-    
-    @State private var dummySearch = ""
-
     private var hasContent: Bool {
         let result: Bool
         
@@ -77,20 +74,20 @@ struct ExploreViewContent: View {
             ZStack {
                 DynamicMusicBackground()
                 
-                    if let state = currentState {
-                        UnifiedStateView(
-                            state: state,
-                            primaryAction: StateAction("Refresh") {
-                                Task {
-                                    guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
-                                   // await exploreManager.loadExploreData()
-                                }
+                if let state = currentState {
+                    UnifiedStateView(
+                        state: state,
+                        primaryAction: StateAction("Refresh") {
+                            Task {
+                                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
+                                // await exploreManager.loadExploreData()
                             }
-                        )
-                    } else {
-                        contentView
-                    }
-
+                        }
+                    )
+                } else {
+                    contentView
+                }
+                
             }
             .task {
                 guard !hasAttemptedInitialLoad else { return }
@@ -100,9 +97,9 @@ struct ExploreViewContent: View {
             .task(priority: .background) {
                 // Background preload when idle
                 let allAlbums = exploreManager.recentAlbums +
-                               exploreManager.newestAlbums +
-                               exploreManager.frequentAlbums +
-                               exploreManager.randomAlbums
+                exploreManager.newestAlbums +
+                exploreManager.frequentAlbums +
+                exploreManager.randomAlbums
                 
                 if !allAlbums.isEmpty {
                     coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), context: .card)
@@ -113,7 +110,7 @@ struct ExploreViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,
+                appConfig.userBackgroundStyle.colorScheme,
                 for: .navigationBar
             )
             .toolbar {
@@ -124,7 +121,7 @@ struct ExploreViewContent: View {
                         } label: {
                             Label("Refrssh random albums", systemImage: "arrow.clockwise")
                         }
-                                                
+                        
                         Divider()
                         // NavigationLink -> öffnet Settings
                         NavigationLink(destination: SettingsView()) {
@@ -150,12 +147,7 @@ struct ExploreViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
-                
-                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
-                    OfflineReasonBanner(reason: reason)
-                        .padding(.horizontal, DSLayout.screenPadding)
-                }
-                
+                                
                 switch networkMonitor.contentLoadingStrategy {
                 case .online:
                     onlineContent
@@ -271,7 +263,7 @@ struct ExploreSection: View {
             HStack {
                 Label(title, systemImage: icon)
                     .font(DSText.prominent)
-                    .foregroundColor(appConfig.userBackgroundStyle.textColor)
+                    .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
 
                 Spacer()
                 
@@ -287,13 +279,24 @@ struct ExploreSection: View {
                             ProgressView()
                                 .scaleEffect(0.8)
                                 .frame(width: 16, height: 16)
+                                .padding(.trailing, DSLayout.elementPadding)
+
                         } else {
                             Image(systemName: "arrow.clockwise")
                                 .font(DSText.emphasized)
+                                .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                                .padding(.trailing, DSLayout.elementPadding)
                         }
                     }
                     .disabled(isRefreshing)
                     .foregroundColor(accentColor)
+                }
+                else {
+                    Image(systemName: "arrow.right")
+                        .font(DSText.emphasized)
+                        .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                        .padding(.trailing, DSLayout.elementPadding)
+
                 }
             }
             

@@ -12,29 +12,11 @@ struct OfflineWelcomeHeader: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
-            HStack {
-                VStack(alignment: .leading, spacing: DSLayout.tightGap) {
-                    Text("Offline Music")
-                        .font(DSText.sectionTitle)
-                        .foregroundColor(DSColor.primary)
-                    
-                    Text(statusText)
-                        .font(DSText.body)
-                        .foregroundColor(DSColor.secondary)
-                }
-                
-                Spacer()
-                
-                VStack(spacing: DSLayout.tightGap) {
-                    Image(systemName: isConnected ? "wifi" : "wifi.slash")
-                        .font(DSText.sectionTitle)
-                        .foregroundColor(isConnected ? DSColor.success : DSColor.warning)
-                    
-                    Text(isConnected ? "Online" : "Offline")
-                        .font(DSText.body)
-                        .foregroundColor(isConnected ? DSColor.success : DSColor.warning)
-                }
-            }
+            
+            Text(statusText)
+                .font(DSText.body)
+                .foregroundColor(DSColor.onDark)
+                .background(.yellow)
         }
     }
     
@@ -42,7 +24,7 @@ struct OfflineWelcomeHeader: View {
         if downloadedAlbums == 0 {
             return "No downloaded music available"
         } else {
-            return "\(downloadedAlbums) album\(downloadedAlbums != 1 ? "s" : "") available"
+            return "\(downloadedAlbums) album\(downloadedAlbums != 1 ? "s" : "") available offline"
         }
     }
 }

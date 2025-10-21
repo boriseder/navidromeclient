@@ -12,15 +12,15 @@ struct FavoritesStatsHeader: View {
     var body: some View {
         let stats = favoritesManager.getFavoriteStats()
         
-        HStack(spacing: DSLayout.elementGap) {
+        HStack(spacing: DSLayout.contentGap) {
             VStack {
                 Text("\(stats.songCount)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.primary)
+                    .foregroundStyle(DSColor.onDark)
                 
                 Text("Songs")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.secondary)
+                    .foregroundStyle(DSColor.onDark)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
@@ -30,11 +30,11 @@ struct FavoritesStatsHeader: View {
             VStack {
                 Text("\(stats.uniqueArtists)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.primary)
+                    .foregroundStyle(DSColor.onDark)
                 
                 Text("Artists")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.secondary)
+                    .foregroundStyle(DSColor.onDark)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
@@ -44,11 +44,11 @@ struct FavoritesStatsHeader: View {
             VStack {
                 Text("\(stats.uniqueAlbums)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.primary)
+                    .foregroundStyle(DSColor.onDark)
                 
                 Text("Albums")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.secondary)
+                    .foregroundStyle(DSColor.onDark)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
@@ -58,18 +58,18 @@ struct FavoritesStatsHeader: View {
             VStack {
                 Text("\(stats.formattedDurationShort)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.primary)
+                    .foregroundStyle(DSColor.onDark)
                 
                 Text("Duration")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.secondary)
+                    .foregroundStyle(DSColor.onDark)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
         }
         .frame(maxWidth: .infinity) // volle Breite wie Song-Rows
         .background(
-            DSMaterial.background
+            DSColor.surfaceLight.opacity(0.3)
         )
         .shadow(radius:DSCorners.element, y: 4)
         .cornerRadius(DSCorners.element)

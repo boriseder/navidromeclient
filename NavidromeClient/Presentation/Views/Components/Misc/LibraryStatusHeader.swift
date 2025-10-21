@@ -38,9 +38,6 @@ struct LibraryStatusHeader: View {
                 OfflineModeToggle()
             }
         }
-        .listItemPadding()
-        .cardStyle()
-        .screenPadding()
         .padding(.bottom, DSLayout.elementGap)
     }
     

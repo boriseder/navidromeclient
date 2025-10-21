@@ -31,7 +31,6 @@ struct WelcomeView: View {
                     .font(DSText.body)
                     .foregroundStyle(DSColor.secondary)
                     .multilineTextAlignment(.center)
-                    .screenPadding()
             }
             
             Button("Get Started") {

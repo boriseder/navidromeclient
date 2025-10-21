@@ -78,7 +78,7 @@ struct FavoritesViewContent: View {
             ZStack {
                 DynamicMusicBackground()
 
-                // UNIFIED: Single component handles all states
+                // Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
                         state: state,
@@ -98,7 +98,7 @@ struct FavoritesViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                appConfig.userBackgroundStyle.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search favorites...")
@@ -165,49 +165,41 @@ struct FavoritesViewContent: View {
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
-
-                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
-                    OfflineReasonBanner(reason: reason)
-                        .padding(.horizontal, DSLayout.screenPadding)
+            LazyVStack(spacing: 1) {
+                if !favoritesManager.favoriteSongs.isEmpty {
+                    FavoritesStatsHeader()
+                        .padding(.top, DSLayout.tightGap)
+                        .padding(.bottom, DSLayout.sectionGap)
                 }
                 
-                LazyVStack(spacing: DSLayout.elementGap) {
-                    if !favoritesManager.favoriteSongs.isEmpty {
-                        FavoritesStatsHeader()
-                            .padding(.top, DSLayout.tightGap)
-                            .padding(.bottom, DSLayout.sectionGap)
-                    }
+                ForEach(displayedSongs.indices, id: \.self) { index in
+                    let song = displayedSongs[index]
                     
-                    ForEach(displayedSongs.indices, id: \.self) { index in
-                        let song = displayedSongs[index]
-                        
-                        SongRow(
-                            song: song,
-                            index: index + 1,
-                            isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
-                            action: {
-                                Task {
-                                    await playerVM.setPlaylist(
-                                        displayedSongs,
-                                        startIndex: index,
-                                        albumId: nil
-                                    )
-                                }
-                            },
-                            onMore: { /* existing more action */ },
-                            favoriteAction: {
-                                Task {
-                                    await favoritesManager.toggleFavorite(song)
-                                }
+                    SongRow(
+                        song: song,
+                        index: index + 1,
+                        isPlaying: playerVM.currentSong?.id == song.id && playerVM.isPlaying,
+                        action: {
+                            Task {
+                                await playerVM.setPlaylist(
+                                    displayedSongs,
+                                    startIndex: index,
+                                    albumId: nil
+                                )
                             }
-                        )
-                    }
+                        },
+                        onMore: { /* existing more action */ },
+                        favoriteAction: {
+                            Task {
+                                await favoritesManager.toggleFavorite(song)
+                            }
+                        }
+                    )
                 }
-                .padding(.bottom, DSLayout.miniPlayerHeight)
             }
+            .padding(.bottom, DSLayout.miniPlayerHeight)
+            .padding(.horizontal, DSLayout.screenPadding)
         }
-        .padding(.horizontal, DSLayout.screenPadding)
     }
 
     // MARK: - Business Logic (unchanged)

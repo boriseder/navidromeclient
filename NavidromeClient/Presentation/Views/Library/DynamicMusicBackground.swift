@@ -31,13 +31,13 @@ struct DynamicMusicBackground: View {
     
     private var dynamicGradient: some View {
         ZStack {
-            // Hauptgradient mit subtilen Rotstichen
+            // Hauptgradient in subtilen Blautönen
             LinearGradient(
                 colors: [
-                    Color(red: 0.12, green: 0.12, blue: 0.16),
-                    Color(red: 0.25, green: 0.08, blue: 0.12),
-                    Color(red: 0.18, green: 0.15, blue: 0.20),
-                    Color(red: 0.20, green: 0.10, blue: 0.15)
+                    Color(red: 0.05, green: 0.07, blue: 0.18),
+                    Color(red: 0.10, green: 0.12, blue: 0.25),
+                    Color(red: 0.08, green: 0.10, blue: 0.20),
+                    Color(red: 0.12, green: 0.08, blue: 0.22)
                 ],
                 startPoint: animateGradient ? .topLeading : .bottomTrailing,
                 endPoint: animateGradient ? .bottomTrailing : .topLeading
@@ -51,11 +51,11 @@ struct DynamicMusicBackground: View {
                     animateGradient.toggle()
                 }
             }
-            
-            // Eleganter roter Glow-Effekt
+
+            // Eleganter blauer Glow-Effekt
             RadialGradient(
                 colors: [
-                    Color(red: 0.6, green: 0.1, blue: 0.15).opacity(0.4),
+                    Color(red: 0.2, green: 0.3, blue: 0.6).opacity(0.4),
                     Color.clear
                 ],
                 center: UnitPoint(x: 0.4, y: 0.3),
@@ -64,7 +64,7 @@ struct DynamicMusicBackground: View {
             )
             .blendMode(.screen)
             .ignoresSafeArea()
-            
+
             // Leichte Textur für Tiefe
             Rectangle()
                 .fill(
@@ -81,5 +81,4 @@ struct DynamicMusicBackground: View {
                 .blendMode(.overlay)
                 .ignoresSafeArea()
         }
-    }
-}
+    }}

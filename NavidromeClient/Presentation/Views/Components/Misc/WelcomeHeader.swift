@@ -6,107 +6,6 @@
 //
 
 import SwiftUI
-/*
-struct WelcomeHeader: View {
-    let username: String
-    let nowPlaying: Song?
-    
-    @State private var rainbowShift = false
-    @State private var cosmicPulse = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            
-            // 🌈 LSD-Gradient Title
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(greetingText())
-                        .font(.system(size: 28, weight: .heavy, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [.pink, .purple, .blue, .green, .yellow],
-                                startPoint: rainbowShift ? .topLeading : .bottomTrailing,
-                                endPoint: rainbowShift ? .bottomTrailing : .topLeading
-                            )
-                        )
-                        .animation(.easeInOut(duration: 3).repeatForever(autoreverses: true), value: rainbowShift)
-                    
-                    if let track = nowPlaying {
-                        Text("Currently vibing with:")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        
-                        Text("🎶 \(track.title) – \(track.artist)")
-                            .font(.callout.bold())
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
-                    } else {
-                        Text("No track right now – the silence hums 🌌")
-                            .font(.subheadline.italic())
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                // 🌀 Cosmic Orb Clock
-                ZStack {
-                    Circle()
-                        .strokeBorder(
-                            AngularGradient(
-                                gradient: Gradient(colors: [.pink, .purple, .blue, .green, .yellow, .pink]),
-                                center: .center
-                            ),
-                            lineWidth: 3
-                        )
-                        .frame(width: 60, height: 60)
-                        .rotationEffect(.degrees(cosmicPulse ? 360 : 0))
-                        .animation(.linear(duration: 20).repeatForever(autoreverses: false), value: cosmicPulse)
-                    
-                    Text(currentTimeString())
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.primary)
-                }
-            }
-            
-            // ✨ Animated underline wave
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [.purple.opacity(0.5), .blue.opacity(0.5), .green.opacity(0.5)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 2)
-                .cornerRadius(1)
-                .shadow(color: .blue.opacity(0.4), radius: 6, x: 0, y: 3)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .onAppear {
-            rainbowShift = true
-            cosmicPulse = true
-        }
-    }
-    
-    private func greetingText() -> String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12: return "☀️ Good Morning, Cosmic Traveler \(username)"
-        case 12..<17: return "🌻 Afternoon Vibrations, \(username)"
-        case 17..<22: return "🌙 Good Evening, Dreamer \(username)"
-        default: return "✨ Midnight Frequencies, \(username)"
-        }
-    }
-    
-    private func currentTimeString() -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: Date())
-    }
-}
-*/
 
 // Less intrusive
 import SwiftUI
@@ -114,7 +13,8 @@ import SwiftUI
 struct WelcomeHeader: View {
     let username: String
     let nowPlaying: Song?
-
+    @EnvironmentObject var offlineManager: OfflineManager
+    
     @State private var showingNetworkTestView = false
     @State private var showingCoverArtDebugView = false
     
@@ -209,12 +109,16 @@ struct WelcomeHeader: View {
                 
                 Spacer()
                 
+                Button {
+                    offlineManager.toggleOfflineMode()
+                } label: {
                     Image(systemName: nowPlaying == nil ? "music.note" : "waveform")
                         .font(.system(size: 36, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.9))
                         .padding()
                         .background(.white.opacity(0.15))
                         .clipShape(Circle())
+                }
             }
             .padding(.horizontal, DSLayout.contentPadding)
         }

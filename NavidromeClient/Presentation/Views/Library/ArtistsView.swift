@@ -74,7 +74,7 @@ struct ArtistsViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.textColor == .white ? .dark : .light,  // ← UMGEKEHRT!
+                appConfig.userBackgroundStyle.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search artists...")
@@ -110,13 +110,8 @@ struct ArtistsViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
-                // Show offline banner when using offline content
-                if case .offlineOnly(let reason) = networkMonitor.contentLoadingStrategy {
-                    OfflineReasonBanner(reason: reason)
-                        .padding(.horizontal, DSLayout.screenPadding)
-                }
                 
-                LazyVStack(spacing: DSLayout.elementGap) {
+                LazyVStack(spacing: 2) {
                     ForEach(displayedArtists.indices, id: \.self) { index in
                         let artist = displayedArtists[index]
                         
@@ -169,72 +164,46 @@ struct ArtistRowView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     
     var body: some View {
-        HStack(spacing: DSLayout.contentGap) {
+        HStack(spacing: DSLayout.elementGap) {
             // Artist Image
             ArtistImageView(artist: artist, index: index, context: .artistList)
-                .padding(.leading, DSLayout.elementGap)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(.black.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                .padding(.vertical, DSLayout.tightPadding)
+                .padding(.leading, DSLayout.tightPadding)
             
-            // Artist Info
-            VStack(alignment: .leading, spacing: DSLayout.tightGap) {
-                Text(artist.name)
-                    .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.primary)
-                    .lineLimit(1)
-                
-                HStack(spacing: DSLayout.elementGap) {
-                    HStack(spacing: DSLayout.tightGap) {
-                        Image(systemName: "music.mic")
-                            .font(DSText.metadata)
-                            .foregroundStyle(DSColor.secondary)
-                        
-                        if let count = artist.albumCount {
-                            Text("\(count) Album\(count != 1 ? "s" : "")")
-                                .font(DSText.metadata)
-                                .foregroundStyle(DSColor.secondary)
-                        } else {
-                            Text("Artist")
-                                .font(DSText.metadata)
-                                .foregroundStyle(DSColor.secondary)
-                        }
-                    }
-                    
-                    // Show offline indicator if available offline
-                    if isAvailableOffline {
-                        HStack(spacing: DSLayout.tightGap) {
-                            Text("•")
-                                .font(DSText.metadata)
-                                .foregroundStyle(DSColor.secondary)
-                            
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(DSText.metadata)
-                                .foregroundStyle(DSColor.success)
-                            
-                            Text("Downloaded")
-                                .font(DSText.metadata)
-                                .foregroundStyle(DSColor.success)
-                        }
-                    }
-                }
-            }
-            
+            Text(artist.name)
+                .font(DSText.emphasized)
+                .foregroundStyle(DSColor.onDark)
+                .lineLimit(1)
+        
             Spacer()
             
-            // Chevron
-            Image(systemName: "chevron.right")
-                .font(DSText.metadata.weight(.semibold))
-                .foregroundStyle(DSColor.tertiary)
-                .padding(.trailing, DSLayout.elementGap)
+            if let count = artist.albumCount {
+                
+                // Show offline indicator if available offline
+                if isAvailableOffline {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(DSText.fine)
+                        .foregroundStyle(DSColor.onDark)
+                } else {
+                    Image(systemName: "record.circle")
+                        .font(DSText.fine)
+                        .foregroundStyle(DSColor.onDark)
+                }
+                
+                Text("\(count) Album\(count != 1 ? "s" : "")")
+                    .font(DSText.fine)
+                    .foregroundStyle(DSColor.onDark)
+                    .padding(.trailing, DSLayout.contentPadding)
+            }
         }
-        .padding(.vertical, DSLayout.elementPadding)
-        .background(
-            RoundedRectangle(cornerRadius: DSCorners.element)
-                .fill(DSMaterial.background)
-                .overlay(
-                    RoundedRectangle(cornerRadius: DSCorners.element)
-                        .stroke(DSColor.quaternary.opacity(0.3), lineWidth: 0.5)
-                )
-        )
-        .shadow(color: .black.opacity(0.05), radius: 2, x: 0, y: 1)
+        .background(DSColor.background.opacity(0.40)
+)
     }
     
     private var isAvailableOffline: Bool {

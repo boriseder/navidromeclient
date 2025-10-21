@@ -1,10 +1,10 @@
 //
-//  AlbumCollectionView.swift - MIGRATED: Unified State System
+//  AlbumCollectionView.swift - FIXED: Action buttons and simplified logic
 //  NavidromeClient
 //
-//   ELIMINATED: Custom LoadingView, EmptyStateView (~40 LOC)
-//   UNIFIED: Complete offline pattern with 4-line state logic
-//   CLEAN: Single state component handles all scenarios
+//   FIXED: Play All and Shuffle buttons now functional
+//   CLEANED: Removed unused properties and redundant logic
+//   SIMPLIFIED: Direct manager usage without view state duplication
 //
 
 import SwiftUI
@@ -17,7 +17,6 @@ enum AlbumCollectionContext {
 struct AlbumCollectionView: View {
     let context: AlbumCollectionContext
     
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var songManager: SongManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var coverArtManager: CoverArtManager
@@ -26,20 +25,15 @@ struct AlbumCollectionView: View {
     @EnvironmentObject var musicLibraryManager: MusicLibraryManager
     
     @State private var albums: [Album] = []
-    @State private var artistImage: UIImage?
-    @State private var isLoading = false
-    @State private var errorMessage: String?
-    
+
     private var displayedAlbums: [Album] {
         return networkMonitor.shouldLoadOnlineContent ? albums : availableOfflineAlbums
     }
     
     private var currentState: ViewState? {
-        if isLoading && displayedAlbums.isEmpty {
+        if albums.isEmpty && !musicLibraryManager.hasLoadedInitialData {
             return .loading("Loading albums")
-        } else if let error = errorMessage {
-            return .serverError
-        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
+        } else if albums.isEmpty {
             return .empty(type: .albums)
         }
         return nil
@@ -68,22 +62,29 @@ struct AlbumCollectionView: View {
     
     var body: some View {
         ZStack {
-            DynamicMusicBackground()
+            // Background Layer
+            if case .byArtist = context {
+                artistBlurredBackground
+            } else {
+                Color.black
+            }
             
             ScrollView {
                 LazyVStack(spacing: DSLayout.screenGap) {
-                    // MARK: - Header Section
-                    AlbumCollectionHeaderView(
-                        context: context,
-                        artistImage: artistImage,
-                        contextTitle: contextTitle,
-                        albumCountText: albumCountText,
-                        contextIcon: contextIcon,
-                        onPlayAll: { Task { await playAllAlbums() } },
-                        onShuffle: { Task { await shuffleAllAlbums() } }
-                    )
-                    
-                    // UNIFIED: Single component handles all states
+                    // Header Section
+                    ZStack {
+                        VStack(spacing: DSLayout.screenGap) {
+                            if case .byArtist = context {
+                                artistHeroHeader
+                            } else if case .byGenre = context {
+                                genreHeroHeader
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .ignoresSafeArea(edges: .top)
+
+                    // Unified State View or Content
                     if let state = currentState {
                         UnifiedStateView(
                             state: state,
@@ -91,7 +92,8 @@ struct AlbumCollectionView: View {
                                 Task {
                                     await loadContent()
                                 }
-                            }                        )
+                            }
+                        )
                         .padding(.horizontal, DSLayout.screenPadding)
                     } else {
                         contentView
@@ -119,11 +121,6 @@ struct AlbumCollectionView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                if !networkMonitor.shouldLoadOnlineContent {
-                    OfflineStatusBanner()
-                        .padding(.horizontal, DSLayout.screenPadding)
-                        .padding(.bottom, DSLayout.elementGap)
-                }
                 
                 LazyVGrid(
                     columns: GridColumns.two,
@@ -144,128 +141,82 @@ struct AlbumCollectionView: View {
         }
     }
     
-    // MARK: - Button Action Methods
+    // MARK: - Data Loading
     
-    /// Play all albums sequentially
+    @MainActor
+    private func loadContent() async {
+        do {
+            albums = try await musicLibraryManager.loadAlbums(context: context)
+            AppLogger.ui.info("Loaded \(albums.count) albums for \(contextTitle)")
+        } catch {
+            albums = availableOfflineAlbums
+            AppLogger.ui.error("Failed to load albums: \(error)")
+        }
+    }
+    
+    // MARK: - Playback Actions
+    
     private func playAllAlbums() async {
         let albumsToPlay = displayedAlbums
         guard !albumsToPlay.isEmpty else {
-            AppLogger.ui.info("⚠️ No albums to play")
+            AppLogger.ui.info("No albums to play")
             return
         }
         
-        AppLogger.ui.info("🎵 Playing all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
+        AppLogger.ui.info("Playing all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
         
         var allSongs: [Song] = []
         
-        // Load songs from all albums
         for album in albumsToPlay {
             let songs = await songManager.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }
         
         guard !allSongs.isEmpty else {
-            AppLogger.ui.info("⚠️ No songs found in albums")
+            AppLogger.ui.info("No songs found in albums")
             return
         }
         
-        AppLogger.ui.info("🎵 Starting playback with \(allSongs.count) songs")
+        AppLogger.ui.info("Starting playback with \(allSongs.count) songs")
         await playerVM.setPlaylist(allSongs, startIndex: 0, albumId: nil)
         
-        // Ensure shuffle is OFF for play all
         if playerVM.isShuffling {
             playerVM.toggleShuffle()
         }
     }
     
-    /// Shuffle all albums
     private func shuffleAllAlbums() async {
         let albumsToPlay = displayedAlbums
         guard !albumsToPlay.isEmpty else {
-            AppLogger.ui.info("⚠️ No albums to shuffle")
+            AppLogger.ui.info("No albums to shuffle")
             return
         }
         
-        AppLogger.ui.info("🔀 Shuffling all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
+        AppLogger.ui.info("Shuffling all albums for \(contextTitle) (\(albumsToPlay.count) albums)")
         
         var allSongs: [Song] = []
         
-        // Load songs from all albums
         for album in albumsToPlay {
             let songs = await songManager.loadSongs(for: album.id)
             allSongs.append(contentsOf: songs)
         }
         
         guard !allSongs.isEmpty else {
-            AppLogger.ui.info("⚠️ No songs found in albums")
+            AppLogger.ui.info("No songs found in albums")
             return
         }
         
-        // Shuffle the complete song list
         let shuffledSongs = allSongs.shuffled()
         
-        AppLogger.ui.info("🔀 Starting shuffled playback with \(shuffledSongs.count) songs")
+        AppLogger.ui.info("Starting shuffled playback with \(shuffledSongs.count) songs")
         await playerVM.setPlaylist(shuffledSongs, startIndex: 0, albumId: nil)
         
-        // Ensure shuffle is ON for shuffle all
         if !playerVM.isShuffling {
             playerVM.toggleShuffle()
         }
     }
     
-    // MARK: - Data Loading
-    
-    @MainActor
-    private func loadContent() async {
-        isLoading = true
-        errorMessage = nil
-        
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await self.loadAlbumsViaManager()
-            }
-            
-            group.addTask {
-                await self.loadArtistImageViaManager()
-            }
-        }
-        
-        isLoading = false
-    }
-    
-    private func loadAlbumsViaManager() async {
-        guard networkMonitor.shouldLoadOnlineContent else {
-            albums = availableOfflineAlbums
-            return
-        }
-        
-        do {
-            albums = try await musicLibraryManager.loadAlbums(context: context)
-            AppLogger.ui.info("Loaded \(albums.count) albums for \(contextTitle)")
-        } catch {
-            errorMessage = "Failed to load albums: \(error.localizedDescription)"
-            albums = availableOfflineAlbums
-            AppLogger.ui.error("❌ Failed to load albums: \(error)")
-        }
-    }
-    
-    private func loadArtistImageViaManager() async {
-        if case .byArtist(let artist) = context {
-            artistImage = await coverArtManager.loadArtistImage(
-                artist: artist,
-                context: .artistHero
-            )
-        }
-    }
-    
     // MARK: - Helper Properties
-    
-    private var contextIcon: String {
-        switch context {
-        case .byArtist: return "music.mic"
-        case .byGenre: return "music.note.list"
-        }
-    }
     
     private var albumCountText: String {
         let count = displayedAlbums.count
@@ -274,6 +225,183 @@ struct AlbumCollectionView: View {
             return "\(count) Album\(count != 1 ? "s" : "")"
         case .byGenre:
             return "\(count) Album\(count != 1 ? "s" : "") in this genre"
+        }
+    }
+    
+    @ViewBuilder
+    private var artistBlurredBackground: some View {
+        GeometryReader { geo in
+            if let artist {
+                ArtistImageView(artist: artist, index: 0, context: .fullscreen)
+                    .contentShape(Rectangle())
+                    .blur(radius: 20)
+                    .offset(
+                        x: -1 * (CGFloat(ImageContext.fullscreen.size) - geo.size.width) / 2,
+                        y: -geo.size.height * 0.15
+                    )
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                .black.opacity(0.7),
+                                .black.opacity(0.35),
+                                .black.opacity(0.3),
+                                .black.opacity(0.2),
+                                .black.opacity(0.7),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .offset(
+                            x: -1 * (CGFloat(ImageContext.fullscreen.size) - geo.size.width) / 2,
+                            y: -geo.size.height * 0.15)
+                    )
+                    .ignoresSafeArea(edges: .top)
+            }
+        }
+    }
+    
+    // MARK: - Artist Hero Content
+    
+    @ViewBuilder
+    private var artistHeroHeader: some View {
+        VStack(spacing: DSLayout.elementPadding) {
+            if let artist {
+                ArtistImageView(artist: artist, index: 0, context: .detail)
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: DSCorners.tight)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DSCorners.tight)
+                            .stroke(
+                                .white.opacity(0.25),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(
+                        color: .black.opacity(0.6),
+                        radius: 20,
+                        x: 0,
+                        y: 10
+                    )
+                    .shadow(
+                        color: .black.opacity(0.3),
+                        radius: 40,
+                        x: 0,
+                        y: 20
+                    )
+            }
+                
+            VStack(spacing: DSLayout.tightGap) {
+                Text(contextTitle)
+                    .font(DSText.pageTitle)
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 1)
+                    .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                
+                Text(albumCountText)
+                    .font(DSText.detail)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(0.6), radius: 2, x: 0, y: 1)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, DSLayout.screenPadding)
+
+            actionButtonsFloating
+            
+            Spacer()
+        }
+    }
+    
+    // MARK: - Genre Content
+    
+    @ViewBuilder
+    private var genreHeroHeader: some View {
+        VStack(spacing: DSLayout.elementGap) {
+            Text(contextTitle)
+                .font(DSText.pageTitle)
+                .foregroundStyle(DSColor.onDark)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+            
+            Text(albumCountText)
+                .font(DSText.detail)
+                .foregroundStyle(DSColor.onDark)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, DSLayout.screenPadding)
+        .padding(.top, DSLayout.screenPadding)
+    }
+    
+    // MARK: - Floating Action Buttons
+    
+    @ViewBuilder
+    private var actionButtonsFloating: some View {
+        HStack(spacing: DSLayout.contentGap) {
+            
+            // Play All Button - Primary action
+            Button {
+                Task { await playAllAlbums() }
+            } label: {
+                HStack(spacing: DSLayout.contentGap) {
+                    Image(systemName: "play.fill")
+                        .font(DSText.emphasized)
+                    Text("Play All")
+                        .font(DSText.emphasized)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, DSLayout.contentPadding)
+                .padding(.vertical, DSLayout.elementPadding)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.2, green: 0.8, blue: 0.2),
+                                    Color(red: 0.15, green: 0.7, blue: 0.15)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
+                        .shadow(color: .green.opacity(0.3), radius: 12, x: 0, y: 6)
+                )
+            }
+            
+            // Shuffle Button - Secondary action
+            Button {
+                Task { await shuffleAllAlbums() }
+            } label: {
+                HStack(spacing: DSLayout.contentGap) {
+                    Image(systemName: "shuffle")
+                        .font(DSText.emphasized)
+                    Text("Shuffle")
+                        .font(DSText.emphasized)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, DSLayout.contentPadding)
+                .padding(.vertical, DSLayout.elementPadding)
+                .background(
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.25),
+                                    .white.opacity(0.15)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(.white.opacity(0.3), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.4), radius: 8, x: 0, y: 4)
+                )
+            }
         }
     }
 }

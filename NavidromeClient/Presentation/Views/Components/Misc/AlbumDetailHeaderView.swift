@@ -21,12 +21,10 @@ struct AlbumHeaderView: View {
     @State private var isDownloading = false
 
     var body: some View {
-        ZStack {
-            backgroundImageLayer
-            contentLayer
+        VStack {
+            //backgroundImageLayer
+            albumHeroContent
         }
-        .frame(height: DSLayout.fullCover)
-        .ignoresSafeArea(edges: .top)
         .onAppear {
             updateDownloadState()
         }
@@ -55,77 +53,13 @@ struct AlbumHeaderView: View {
         isDownloading = downloadManager.isAlbumDownloading(album.id)
     }
 
-    @ViewBuilder
-    private var backgroundImageLayer: some View {
-        GeometryReader { geo in
-            AlbumImageView(album: album, index: 0, context: .hero)
-                .scaledToFit()
-                .frame(
-                    width: DSLayout.fullCover * 1.7,
-                    height: DSLayout.fullCover * 1.7
-                )
-                .blur(radius: 20)
-                .clipped() // Blur wird hier abgeschnitten
-                .ignoresSafeArea(edges: .top)
-                .offset(
-                    x: -(DSLayout.fullCover * 1.7 - geo.size.width) / 2,
-                    y: -70
-                )
-                .overlay(
-                    Rectangle()
-                        .fill(
-                            LinearGradient(
-                                colors: appConfig.userBackgroundStyle.textColor == .white
-                                    ? [
-                                        .black.opacity(0.5),
-                                        .black.opacity(0.2),
-                                        .black.opacity(0.1),
-                                        .black.opacity(1),
-                                      ]
-                                    : [
-                                        .white.opacity(0.5),
-                                        .white.opacity(0.2),
-                                        .white.opacity(0.1),
-                                        .white.opacity(1),
-                                      ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                        .offset(y: -70)
-                        .ignoresSafeArea(edges: .top)
-                )
-        }
-    }
-
-    @ViewBuilder
-    private var contentLayer: some View {
-        VStack(spacing: 0) {
-            Color.clear.frame(height: DSLayout.contentGap)
-
-            VStack(spacing: DSLayout.screenGap) {
-                albumHeroContent
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, DSLayout.screenPadding)
-
-            Spacer()
-        }
-    }
 
     @ViewBuilder
     private var albumHeroContent: some View {
-        VStack(spacing: 20) {
+        VStack(alignment: .leading, spacing: DSLayout.sectionGap) {
             AlbumImageView(album: album, index: 0, context: .detail)
                 .clipShape(
-                    RoundedRectangle(cornerRadius: 20)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(
-                            .white.opacity(0.15),
-                            lineWidth: 1
-                        )
+                    RoundedRectangle(cornerRadius: DSCorners.element)
                 )
                 .shadow(
                     color: .black.opacity(0.6),
@@ -140,35 +74,36 @@ struct AlbumHeaderView: View {
                     y: 20
                 )
 
-            VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: DSLayout.contentGap) {
                 Text(album.name)
-                    .font(.system(size: 24, weight: .bold, design: .default))
+                    .font(DSText.sectionTitle)
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.9), radius: 1, x: 0, y: 1)
                     .shadow(color: .black.opacity(0.7), radius: 4, x: 0, y: 2)
                     .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 6)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
-
+                
                 Text(album.artist)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(DSText.prominent)
                     .foregroundStyle(.white.opacity(0.95))
                     .shadow(color: .black.opacity(0.8), radius: 1, x: 0, y: 1)
                     .shadow(color: .black.opacity(0.5), radius: 6, x: 0, y: 3)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
-
+                
                 Text(buildMetadataString())
-                    .font(.system(size: 15, weight: .medium))
+                    .font(DSText.metadata)
                     .foregroundStyle(.white.opacity(0.85))
                     .shadow(color: .black.opacity(0.7), radius: 1, x: 0, y: 1)
                     .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 2)
-                    .multilineTextAlignment(.center)
+                    .multilineTextAlignment(.leading)
+               
+                actionButtonsFloating
+                
+                Spacer()
             }
-
-            actionButtonsFloating
         }
-        .padding(.top, DSLayout.largeGap)
     }
 
     @ViewBuilder

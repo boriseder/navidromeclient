@@ -16,11 +16,15 @@ struct OfflineReasonBanner: View {
         HStack(spacing: DSLayout.elementGap) {
             Image(systemName: reason.icon)
                 .foregroundStyle(reason.color)
+                .padding(.leading, DSLayout.elementPadding)
             
             Text(reason.message)
                 .font(DSText.metadata)
                 .foregroundStyle(reason.color)
-            
+                .multilineTextAlignment(.leading)
+                .padding(.vertical, DSLayout.elementPadding)
+
+
             Spacer()
             
             if reason.canGoOnline {
@@ -29,17 +33,19 @@ struct OfflineReasonBanner: View {
                 }
                 .font(DSText.metadata)
                 .foregroundStyle(DSColor.accent)
+                .padding(.trailing, DSLayout.contentPadding)
             }
         }
-        .listItemPadding()
         .background(
-            reason.color.opacity(0.1),
+            reason.color.opacity(0.2),
             in: RoundedRectangle(cornerRadius: DSCorners.element)
         )
         .overlay(
             RoundedRectangle(cornerRadius: DSCorners.element)
                 .stroke(reason.color.opacity(0.3), lineWidth: 1)
         )
+        .padding(.trailing, 45)
+
     }
 }
 

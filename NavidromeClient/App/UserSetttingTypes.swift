@@ -4,15 +4,36 @@ enum UserBackgroundStyle: String, CaseIterable {
     case dynamic
     case light
     case dark
-    
-    var textColor: Color {
+
+    var dynamicTextColor: Color {
         switch self {
+        case .light:
+            return .black
         case .dynamic, .dark:
             return .white
+        }
+    }
+
+    var dynamicBackgroundColor: Color {
+        switch self {
         case .light:
+            return .white
+        case .dynamic, .dark:
             return .black
         }
     }
+    
+    var colorScheme: ColorScheme {
+        switch self {
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        case .dynamic:
+            return .dark
+        }
+    }
+
 }
 
 enum UserAccentColor: String, CaseIterable, Identifiable {

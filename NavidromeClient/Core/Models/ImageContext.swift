@@ -28,21 +28,21 @@ enum ImageContext {
         case .list:
             return 80
         case .card, .miniPlayer:
-            return 150
+            return Int(DSLayout.cardCoverNoPadding)
         case .grid:
             return 200
         case .artistList:
-            return 100
+            return 50
         case .artistCard:
             return 150
         case .artistHero:
             return 240
         case .detail:
-            return 300
+            return 360
         case .hero:
-            return 400
+            return 600
         case .fullscreen:
-            return 800
+            return 1000
         }
     }
     

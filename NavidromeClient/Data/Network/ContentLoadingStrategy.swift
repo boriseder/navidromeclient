@@ -70,7 +70,7 @@ extension ContentLoadingStrategy.OfflineReason {
         switch self {
         case .noNetwork: return "No internet connection - showing downloaded content"
         case .serverUnreachable: return "Server unreachable - showing downloaded content"
-        case .userChoice: return "Offline mode active - showing downloaded content"
+        case .userChoice: return "Offline mode \nshowing downloaded content"
         }
     }
     

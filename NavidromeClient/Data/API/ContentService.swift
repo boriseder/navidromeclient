@@ -63,20 +63,17 @@ class ContentService {
         return decoded.subsonicResponse.artist.album ?? []
     }
     
-    func getAlbumsByGenre(genre: String) async throws -> [Album] {
+    func getAlbumsByGenre(
+        size: Int = 500,
+        genre: String
+    ) async throws -> [Album] {
+
         guard !genre.isEmpty else { return [] }
         
-        AppLogger.general.info("🎵 DEBUG: Original genre: '\(genre)'")
-        
-        let params = ["type": "byGenre", "genre": genre]
-        AppLogger.general.info("🎵 DEBUG: Request params: \(params)")
-        
-        // Test URL building
-        if let testURL = connectionService.buildURL(endpoint: "getAlbumList2", params: params) {
-            AppLogger.general.info("🎵 DEBUG: Built URL: \(testURL.absoluteString)")
-        } else {
-            AppLogger.ui.error("❌ DEBUG: Failed to build URL")
-        }
+        let params = [
+            "size": "\(size)",
+            "type": "byGenre",
+            "genre": genre]
         
         do {
             let decoded: SubsonicResponse<AlbumListContainer> = try await fetchData(
@@ -89,10 +86,10 @@ class ContentService {
             return albums
             
         } catch {
-            AppLogger.ui.error("❌ DEBUG: getAlbumsByGenre failed with error: \(error)")
+            AppLogger.ui.error("❌ getAlbumsByGenre failed with error: \(error)")
             
             // Fallback: Test mit fetchDataWithFallback
-            AppLogger.general.info("🔄 DEBUG: Trying fallback method...")
+            AppLogger.general.debug(" DEBUG: Trying fallback method...")
             
             let emptyAlbumList = AlbumList(album: [])
             let emptyContainer = AlbumListContainer(albumList2: emptyAlbumList)
@@ -104,8 +101,8 @@ class ContentService {
                 type: SubsonicResponse<AlbumListContainer>.self,
                 fallback: fallbackResponse
             )
-            
             return result.subsonicResponse.albumList2.album
+
         }
     }
     

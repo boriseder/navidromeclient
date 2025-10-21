@@ -37,13 +37,20 @@ struct ArtistImageView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: displaySize, height: displaySize)
-                    .clipShape(Circle())
+                    .clipped() // verhindert Überlauf
+                    .aspectRatio(1, contentMode: .fill)
                     .opacity(showImage ? 1 : 0)
                     .onAppear {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showImage = true
                         }
                     }
+                    .overlay(
+                        Rectangle()
+                            .stroke(DSColor.onLight.opacity(0.1), lineWidth: 1)
+                    )
+                    .shadow(color: DSColor.onLight.opacity(0.1), radius: 4, x: 0, y: 2)
+
             }
         }
         .frame(width: displaySize, height: displaySize)
@@ -58,7 +65,7 @@ struct ArtistImageView: View {
     
     @ViewBuilder
     private var placeholderView: some View {
-        Circle()
+        Rectangle()
             .fill(
                 LinearGradient(
                     colors: [.blue, .purple.opacity(0.7)],

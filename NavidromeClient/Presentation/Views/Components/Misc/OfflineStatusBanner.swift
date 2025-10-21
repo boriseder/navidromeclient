@@ -26,7 +26,6 @@ struct OfflineStatusBanner: View {
             .font(DSText.metadata)
             .foregroundStyle(DSColor.accent)
         }
-        .listItemPadding()
         .background(
             DSColor.warning.opacity(0.1),
             in: RoundedRectangle(cornerRadius: DSCorners.element)
