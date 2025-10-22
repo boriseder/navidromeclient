@@ -17,7 +17,7 @@ struct CardItemContainer: View {
     let content: CardContent
     let index: Int
     
-    @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var theme: ThemeManager
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -27,18 +27,18 @@ struct CardItemContainer: View {
                 .clipShape(RoundedRectangle(cornerRadius: DSCorners.tight))
                 .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
                // .padding(DSLayout.elementPadding)
-            
+                        
             VStack(alignment: .leading, spacing: DSLayout.tightGap) {
                 Text(content.title)
                     .font(DSText.metadata)
                     .fontWeight(.bold)
-                    .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                    .foregroundColor(theme.textColor)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 Text(content.subtitle)
                     .font(DSText.fine)
-                    .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                    .foregroundColor(theme.textColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)

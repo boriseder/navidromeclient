@@ -28,37 +28,16 @@ final class AppConfig: ObservableObject {
             hasInitializedServices = true
         }
     }
-
-    @Published var userBackgroundStyle: UserBackgroundStyle {
-        didSet {
-            UserDefaults.standard.set(userBackgroundStyle.rawValue, forKey: "userBackgroundStyle")
-        }
-    }
-
-    @Published var userAccentColor: UserAccentColor = .blue {
-        didSet {
-            UserDefaults.standard.set(userAccentColor.rawValue, forKey: "userAccentColor")
-        }
-    }
     
     private var credentials: ServerCredentials?
 
     // MARK: - Initialization
     
     private init() {
-        AppLogger.general.info("[AppConfig] Initializing...")
-        
-        let raw = UserDefaults.standard.string(forKey: "userBackgroundStyle") ?? UserBackgroundStyle.dynamic.rawValue
-        self.userBackgroundStyle = UserBackgroundStyle(rawValue: raw) ?? .dynamic
-        
-        if let saved = UserDefaults.standard.string(forKey: "userAccentColor"),
-           let color = UserAccentColor(rawValue: saved) {
-            self.userAccentColor = color
-        }
-        
+                
         loadCredentials()
-        
-        AppLogger.general.info("[AppConfig] Initialization complete, isConfigured: \(isConfigured)")
+        AppLogger.general.info("[AppConfig] Credentials loaded")
+
     }
         
     // MARK: - Configuration

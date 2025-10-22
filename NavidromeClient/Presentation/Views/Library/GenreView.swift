@@ -13,6 +13,7 @@ struct GenreViewContent: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var theme: ThemeManager
     @EnvironmentObject var musicLibraryManager: MusicLibraryManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
@@ -54,8 +55,11 @@ struct GenreViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground()
 
+                if theme.backgroundStyle == .dynamic {
+                    DynamicMusicBackground()
+                }
+                
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
@@ -73,7 +77,7 @@ struct GenreViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.colorScheme,
+                theme.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search genres...")
@@ -151,7 +155,9 @@ struct GenreViewContent: View {
 struct GenreRowView: View {
     let genre: Genre
     let index: Int
-    
+   
+    @EnvironmentObject var theme: ThemeManager
+
     var body: some View {
         HStack(spacing: DSLayout.elementGap) {
             ZStack {
@@ -198,7 +204,7 @@ struct GenreRowView: View {
                 .foregroundStyle(DSColor.onDark)
                 .padding(.trailing, DSLayout.contentPadding)
         }
-        .background(DSColor.background.opacity(0.60))
+        .background(theme.backgroundContrastColor.opacity(0.12))
     }
     
 }

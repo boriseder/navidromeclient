@@ -10,7 +10,8 @@ struct NavidromeClientApp: App {
     @StateObject private var playerVM: PlayerViewModel
     @StateObject private var exploreManager = ExploreManager()
     @StateObject private var favoritesManager = FavoritesManager()
-    
+    @StateObject private var theme = ThemeManager()
+
     // Singletons that MUST remain singletons
     @StateObject private var appConfig = AppConfig.shared
     @StateObject private var downloadManager = DownloadManager.shared
@@ -46,7 +47,8 @@ struct NavidromeClientApp: App {
                 .environmentObject(exploreManager)
                 .environmentObject(musicLibraryManager)
                 .environmentObject(favoritesManager)
-                .tint(appConfig.userAccentColor.color)
+                .environmentObject(theme)
+                .preferredColorScheme(theme.colorScheme)
                 .task {
                     await setupServicesAfterAppLaunch()
                 }

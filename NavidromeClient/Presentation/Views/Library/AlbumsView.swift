@@ -13,6 +13,7 @@ struct AlbumsViewContent: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var theme: ThemeManager
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var musicLibraryManager: MusicLibraryManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
@@ -76,8 +77,11 @@ struct AlbumsViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground()
-
+                
+                if theme.backgroundStyle == .dynamic {
+                    DynamicMusicBackground()
+                }
+                
                 if let state = currentState {
                     UnifiedStateView(
                         state: state,
@@ -91,10 +95,13 @@ struct AlbumsViewContent: View {
             }
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.colorScheme,
+                theme.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search albums...")
@@ -174,9 +181,6 @@ struct AlbumsViewContent: View {
                             .foregroundColor(.white)
                     }
                 }
-            }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
             }
         }
     }

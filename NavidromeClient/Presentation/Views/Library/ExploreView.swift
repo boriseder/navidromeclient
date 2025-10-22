@@ -11,6 +11,7 @@ import SwiftUI
 
 struct ExploreViewContent: View {
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var theme: ThemeManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
@@ -72,7 +73,10 @@ struct ExploreViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground()
+                
+                if theme.backgroundStyle == .dynamic {
+                    DynamicMusicBackground()
+                }
                 
                 if let state = currentState {
                     UnifiedStateView(
@@ -107,10 +111,13 @@ struct ExploreViewContent: View {
             }
             .navigationTitle("Your Favorites")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: Album.self) { album in
+                AlbumDetailViewContent(album: album)
+            }
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.colorScheme,
+                theme.colorScheme,
                 for: .navigationBar
             )
             .toolbar {
@@ -137,9 +144,6 @@ struct ExploreViewContent: View {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await exploreManager.loadExploreData()
             }
-            .navigationDestination(for: Album.self) { album in
-                AlbumDetailViewContent(album: album)
-            }
         }
     }
     
@@ -157,10 +161,11 @@ struct ExploreViewContent: View {
                     EmptyView()  // This case shouldn't happen in contentView but we need it for exhaustiveness
                 }
             }
+            .padding(.bottom, DSLayout.miniPlayerHeight)   // ← Für beide cases
+
         }
         .scrollIndicators(.hidden)
         .padding(.horizontal, DSLayout.screenPadding)  // ← Verschiebe hier rein
-        .padding(.bottom, DSLayout.miniPlayerHeight)   // ← Für beide cases
     }
 
     private var onlineContent: some View {
@@ -247,7 +252,7 @@ struct ExploreViewContent: View {
 // MARK: - ExploreSection (unchanged)
 
 struct ExploreSection: View {
-    @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var theme: ThemeManager
 
     let title: String
     let albums: [Album]
@@ -263,7 +268,7 @@ struct ExploreSection: View {
             HStack {
                 Label(title, systemImage: icon)
                     .font(DSText.prominent)
-                    .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                    .foregroundColor(theme.textColor)
 
                 Spacer()
                 
@@ -284,7 +289,7 @@ struct ExploreSection: View {
                         } else {
                             Image(systemName: "arrow.clockwise")
                                 .font(DSText.emphasized)
-                                .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                                .foregroundColor(theme.textColor)
                                 .padding(.trailing, DSLayout.elementPadding)
                         }
                     }
@@ -294,7 +299,7 @@ struct ExploreSection: View {
                 else {
                     Image(systemName: "arrow.right")
                         .font(DSText.emphasized)
-                        .foregroundColor(appConfig.userBackgroundStyle.dynamicTextColor)
+                        .foregroundColor(theme.textColor)
                         .padding(.trailing, DSLayout.elementPadding)
 
                 }

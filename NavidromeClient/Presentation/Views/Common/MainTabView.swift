@@ -22,6 +22,7 @@ struct MainTabView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
+    @EnvironmentObject var theme: ThemeManager
 
     var body: some View {
         TabView {
@@ -60,15 +61,14 @@ struct MainTabView: View {
                 }
                 .tag(4)
         }
+        .accentColor(theme.accent)
+        .id(theme.accent) // zwingt SwiftUI, die TabView neu zu rendern, wenn sich die Farbe ändert
         .overlay(networkStatusOverlay, alignment: .top)
         .overlay(alignment: .bottom) {
             MiniPlayerView()
                 .environmentObject(playerVM)
                 .padding(.bottom, DSLayout.miniPlayerHeight) // Standard tab bar height
         }
-        .id(appConfig.userBackgroundStyle) // ← NUR HIER!
-        .environment(\.colorScheme,
-            appConfig.userBackgroundStyle == .dark ? .dark : .light)
     }
     
     // MARK: - Network Status Overlay

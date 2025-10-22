@@ -41,6 +41,8 @@ struct SongRow: View {
     let onMore: () -> Void
     let favoriteAction: (() -> Void)?
     
+    @EnvironmentObject var theme: ThemeManager
+    
     // Interaction states for better UX
     @State private var isPressed = false
     @State private var playIndicatorPhase = 0.0
@@ -238,7 +240,7 @@ struct SongRow: View {
         } else if isPlaying {
             return DSColor.background
         } else {
-            return DSColor.background.opacity(0.60)
+            return theme.backgroundContrastColor.opacity(0.12)
         }
     }
     

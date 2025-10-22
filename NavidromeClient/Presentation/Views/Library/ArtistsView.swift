@@ -18,7 +18,8 @@ struct ArtistsViewContent: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var downloadManager: DownloadManager
-    
+    @EnvironmentObject var theme: ThemeManager
+
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     
@@ -55,8 +56,10 @@ struct ArtistsViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground()
-
+                
+                if theme.backgroundStyle == .dynamic {
+                    DynamicMusicBackground()
+                }
                 // UNIFIED: Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
@@ -71,10 +74,13 @@ struct ArtistsViewContent: View {
             }
             .navigationTitle("Artists")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: Artist.self) { artist in
+                AlbumCollectionView(context: .byArtist(artist))
+            }
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.colorScheme,
+                theme.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search artists...")
@@ -100,9 +106,7 @@ struct ArtistsViewContent: View {
                     }
                 }
             }
-            .navigationDestination(for: Artist.self) { artist in
-                AlbumCollectionView(context: .byArtist(artist))
-            }
+
         }
     }
     
@@ -162,7 +166,8 @@ struct ArtistRowView: View {
     let index: Int
     
     @EnvironmentObject var coverArtManager: CoverArtManager
-    
+    @EnvironmentObject var theme: ThemeManager
+
     var body: some View {
         HStack(spacing: DSLayout.elementGap) {
             // Artist Image
@@ -202,7 +207,7 @@ struct ArtistRowView: View {
                     .padding(.trailing, DSLayout.contentPadding)
             }
         }
-        .background(DSColor.background.opacity(0.40)
+        .background(theme.backgroundContrastColor.opacity(0.12)
 )
     }
     

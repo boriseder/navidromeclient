@@ -23,7 +23,8 @@ struct AlbumCollectionView: View {
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var musicLibraryManager: MusicLibraryManager
-    
+    @EnvironmentObject var theme: ThemeManager
+
     @State private var albums: [Album] = []
 
     private var displayedAlbums: [Album] {
@@ -65,9 +66,10 @@ struct AlbumCollectionView: View {
             // Background Layer
             if case .byArtist = context {
                 artistBlurredBackground
-            } else {
-                Color.black
             }
+            
+            theme.backgroundColor.opacity(0.3).ignoresSafeArea()
+
             
             ScrollView {
                 LazyVStack(spacing: DSLayout.screenGap) {
@@ -244,8 +246,8 @@ struct AlbumCollectionView: View {
                             colors: [
                                 .black.opacity(0.7),
                                 .black.opacity(0.35),
-                                .black.opacity(0.3),
                                 .black.opacity(0.2),
+                                .black.opacity(0.3),
                                 .black.opacity(0.7),
                             ],
                             startPoint: .top,

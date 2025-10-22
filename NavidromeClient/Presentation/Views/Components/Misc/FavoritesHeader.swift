@@ -8,7 +8,8 @@ import SwiftUI
 
 struct FavoritesStatsHeader: View {
     @EnvironmentObject var favoritesManager: FavoritesManager
-    
+    @EnvironmentObject var theme: ThemeManager
+
     var body: some View {
         let stats = favoritesManager.getFavoriteStats()
         
@@ -16,60 +17,64 @@ struct FavoritesStatsHeader: View {
             VStack {
                 Text("\(stats.songCount)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
                 
                 Text("Songs")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
 
-            Spacer()
+            Divider()
             
             VStack {
                 Text("\(stats.uniqueArtists)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
                 
                 Text("Artists")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
             
-            Spacer()
+            Divider()
             
             VStack {
                 Text("\(stats.uniqueAlbums)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
                 
                 Text("Albums")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
             
-            Spacer()
+            Divider()
             
             VStack {
                 Text("\(stats.formattedDurationShort)")
                     .font(DSText.emphasized)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
                 
                 Text("Duration")
                     .font(DSText.metadata)
-                    .foregroundStyle(DSColor.onDark)
+                    .foregroundStyle(theme.textColor)
             }
             .frame(minWidth: 60)
             .padding(.vertical, DSLayout.elementPadding)
         }
         .frame(maxWidth: .infinity) // volle Breite wie Song-Rows
         .background(
-            DSColor.surfaceLight.opacity(0.3)
+            theme.backgroundContrastColor.opacity(0.05)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DSCorners.element)
+                .stroke(theme.backgroundContrastColor, lineWidth: 0.1)
         )
         .shadow(radius:DSCorners.element, y: 4)
         .cornerRadius(DSCorners.element)

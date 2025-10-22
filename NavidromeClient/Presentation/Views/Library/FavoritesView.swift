@@ -15,6 +15,8 @@ struct FavoritesViewContent: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var favoritesManager: FavoritesManager
+    @EnvironmentObject var theme: ThemeManager
+
     @StateObject private var debouncer = Debouncer()
     
     @State private var searchText = ""
@@ -76,8 +78,11 @@ struct FavoritesViewContent: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DynamicMusicBackground()
 
+                if theme.backgroundStyle == .dynamic {
+                    DynamicMusicBackground()
+                }
+                
                 // Single component handles all states
                 if let state = currentState {
                     UnifiedStateView(
@@ -98,7 +103,7 @@ struct FavoritesViewContent: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
             .toolbarColorScheme(
-                appConfig.userBackgroundStyle.colorScheme,
+                theme.colorScheme,
                 for: .navigationBar
             )
             .searchable(text: $searchText, prompt: "Search favorites...")

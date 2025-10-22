@@ -96,7 +96,7 @@ struct HeartButton: View {
     }
     
     private var heartColor: Color {
-        return isFavorite ? DSColor.error : unfavoriteColor
+        return Color.white
     }
     
     // MARK: - Actions

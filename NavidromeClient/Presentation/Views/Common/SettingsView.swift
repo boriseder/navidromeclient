@@ -13,6 +13,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var theme: ThemeManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var songManager: SongManager
     @EnvironmentObject var downloadManager: DownloadManager
@@ -96,10 +97,9 @@ struct SettingsView: View {
                 }
             }
             Section(header: Text("Appearance")) {
-                Picker("Select Theme", selection: $appConfig.userBackgroundStyle) {
+                Picker("Select Theme", selection: $theme.backgroundStyle) {
                     ForEach(UserBackgroundStyle.allCases, id: \.self) { option in
-                        Text(option.rawValue.capitalized)
-                            .tag(option)
+                        Text(option.rawValue.capitalized).tag(option)
                     }
                 }
                 .pickerStyle(.menu)
@@ -110,11 +110,10 @@ struct SettingsView: View {
                     Menu {
                         ForEach(UserAccentColor.allCases) { colorOption in
                             Button {
-                                appConfig.userAccentColor = colorOption
+                                theme.accentColor = colorOption
                             } label: {
-                                Label(colorOption.rawValue.capitalized,
-                                      systemImage: "circle.fill")
-                                if appConfig.userAccentColor == colorOption {
+                                Label(colorOption.rawValue.capitalized, systemImage: "circle.fill")
+                                if theme.accentColor == colorOption {
                                     Image(systemName: "checkmark")
                                 }
                             }
@@ -123,8 +122,8 @@ struct SettingsView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "circle.fill")
-                                .foregroundStyle(appConfig.userAccentColor.color)
-                            Text(appConfig.userAccentColor.rawValue.capitalized)
+                                .foregroundStyle(theme.accent)
+                            Text(theme.accentColor.rawValue.capitalized)
                                 .foregroundStyle(.secondary)
                         }
                     }

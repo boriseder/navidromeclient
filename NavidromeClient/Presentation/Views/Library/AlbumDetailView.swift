@@ -18,7 +18,8 @@ struct AlbumDetailViewContent: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
-    
+    @EnvironmentObject var theme: ThemeManager
+
     @State private var songs: [Song] = []
     @State private var isOfflineAlbum = false
     
@@ -32,7 +33,8 @@ struct AlbumDetailViewContent: View {
     var body: some View {
         ZStack {
             blurredAlbumBackground
-            
+            theme.backgroundColor.opacity(0.3).ignoresSafeArea()
+
             ScrollView {
                 VStack(spacing: 1) {
                      

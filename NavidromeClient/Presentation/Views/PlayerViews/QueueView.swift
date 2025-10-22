@@ -31,8 +31,6 @@ struct QueueView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                DynamicMusicBackground()
-                    .ignoresSafeArea()
                 
                 if currentPlaylist.isEmpty {
                     emptyQueueView
