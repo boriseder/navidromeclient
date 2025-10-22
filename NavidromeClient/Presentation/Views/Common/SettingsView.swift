@@ -1,10 +1,10 @@
 //
-//  SettingsView.swift - CLEANED: Pure Service Architecture
+//  SettingsView.swift - CLEANED: Removed fake metrics and dead code
 //  NavidromeClient
 //
-//   ELIMINATED: All legacy service patterns and direct service extraction
-//   CLEAN: Routes through ViewModels and AppConfig only
-//   REMOVED: All problematic dynamic members and missing components
+//   REMOVED: Fake response times, duplicate health indicators
+//   REMOVED: Always-zero memory count KPIs
+//   IMPROVED: Replaced with useful download statistics
 //
 
 import SwiftUI
@@ -37,7 +37,7 @@ struct SettingsView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial Setup")
-            .toolbarColorScheme(.light, for: .navigationBar) // helle Icons/Titel
+            .toolbarColorScheme(.light, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .disabled(isPerformingReset)
             .overlay { if isPerformingReset { FactoryResetOverlayView() } }
@@ -96,7 +96,6 @@ struct SettingsView: View {
                 }
             }
             Section(header: Text("Appearance")) {
-                // Theme Picker
                 Picker("Select Theme", selection: $appConfig.userBackgroundStyle) {
                     ForEach(UserBackgroundStyle.allCases, id: \.self) { option in
                         Text(option.rawValue.capitalized)
@@ -105,7 +104,6 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 
-                // AccentColor Picke
                 HStack {
                     Text("Accent Color")
                     Spacer()
@@ -131,22 +129,18 @@ struct SettingsView: View {
                         }
                     }
                 }
-
             }
-                
-            
         }
     }
     
     private var ServerDetailsSection: some View {
         Section {
-            SettingsRow(title: "Status:", value: navidromeVM.connectionStatus ? "Connected" : "Disconnected")
-            SettingsRow(title: "Network:", value: networkMonitor.connectionStatusDescription)
-            if networkMonitor.canLoadOnlineContent {
-                SettingsRow(title: "Quality Description:", value: navidromeVM.connectionQualityDescription)
-                SettingsRow(title: "Response Time:", value: navidromeVM.connectionResponseTime)
-                SettingsRow(title: "Server Health:", value: navidromeVM.connectionQualityDescription)
-            }
+            SettingsRow(
+                title: "Connection:",
+                value: navidromeVM.connectionStatus ? 
+                    "Connected via \(networkMonitor.currentConnectionType.displayName)" : 
+                    networkMonitor.connectionStatusDescription
+            )
         } header: {
             Text("Server Info")
         }
@@ -177,9 +171,7 @@ struct SettingsView: View {
         
         await appConfig.performFactoryReset()
         
-        // FIXED: Direct service reset instead of notification
         await MainActor.run {
-            // Reset ViewModels directly
             navidromeVM.reset()
             songManager.reset()
         }
@@ -222,7 +214,7 @@ struct FactoryResetOverlayView: View {
     }
 }
 
-// MARK: - CacheSettingsView - CLEANED
+// MARK: - CacheSettingsView
 struct CacheSettingsView: View {
     @EnvironmentObject var downloadManager: DownloadManager
     @EnvironmentObject var coverArtManager: CoverArtManager
@@ -245,13 +237,23 @@ struct CacheSettingsView: View {
                 }
             }
 
-            Section("Download Cache") {
-                HStack {
-                    Text("Downloaded Music")
-                    Spacer()
-                    Text(downloadManager.totalDownloadSize())
-                        .foregroundStyle(.secondary)
-                }
+            Section("Downloaded Music") {
+                CacheStatsRow(
+                    title: "Downloaded Albums",
+                    value: "\(downloadManager.downloadedAlbums.count)",
+                    icon: "arrow.down.circle.fill"
+                )
+                CacheStatsRow(
+                    title: "Total Size",
+                    value: downloadManager.totalDownloadSize(),
+                    icon: "internaldrive"
+                )
+                CacheStatsRow(
+                    title: "Songs Available Offline",
+                    value: "\(downloadManager.downloadedAlbums.reduce(0) { $0 + $1.songs.count })",
+                    icon: "music.note"
+                )
+                
                 Button(role: .destructive) {
                     downloadManager.deleteAllDownloads()
                 } label: {
@@ -259,15 +261,16 @@ struct CacheSettingsView: View {
                 }
             }
             
-            Section("Performance") {
-                let coverStats = coverArtManager.getCacheStats()
-                CacheStatsRow(title: "Memory Images", value: "\(coverStats.memoryCount)", icon: "memorychip")
-                CacheStatsRow(title: "Active Requests", value: "\(coverStats.activeRequests)", icon: "arrow.down.circle")
-                
+            Section {
                 Button("Clear Memory Cache") {
                     coverArtManager.clearMemoryCache()
                     updateCacheStats()
                 }
+            } header: {
+                Text("Memory Management")
+            } footer: {
+                Text("Clears in-memory cached images. They will be reloaded from disk or network as needed.")
+                    .font(.caption)
             }
         }
         .navigationTitle("Cache Management")

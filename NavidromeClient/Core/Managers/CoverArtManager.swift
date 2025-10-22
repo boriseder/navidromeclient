@@ -548,7 +548,6 @@ class CoverArtManager: ObservableObject {
         let persistentStats = persistentCache.getCacheStats()
         
         return CoverArtCacheStats(
-            memoryCount: 0, // NSCache doesn't expose current count
             diskCount: persistentStats.diskCount,
             diskSize: persistentStats.diskSize,
             activeRequests: loadingStates.count,
@@ -605,30 +604,14 @@ class CoverArtManager: ObservableObject {
 // MARK: - Supporting Types
 
 struct CoverArtCacheStats {
-    let memoryCount: Int
     let diskCount: Int
     let diskSize: Int64
     let activeRequests: Int
     let errorCount: Int
     
     var summary: String {
-        return "Memory: \(memoryCount), Disk: \(diskCount), Active: \(activeRequests), Errors: \(errorCount)"
+        return "Disk: \(diskCount), Active: \(activeRequests), Errors: \(errorCount)"
     }
-    
-    var performanceStats: CoverArtPerformanceStats {
-        let hitRate = diskCount > 0 ? Double(diskCount) / Double(diskCount + activeRequests) * 100 : 0.0
-        let avgTime = activeRequests > 0 ? 0.350 : 0.250
-        
-        return CoverArtPerformanceStats(
-            cacheHitRate: max(0, min(100, hitRate)),
-            averageLoadTime: avgTime
-        )
-    }
-}
-
-struct CoverArtPerformanceStats {
-    let cacheHitRate: Double
-    let averageLoadTime: Double
 }
 
 struct CoverArtHealthStatus {

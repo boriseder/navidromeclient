@@ -202,7 +202,7 @@ struct ServiceArchitectureDiagnostics {
     
     var overallHealth: String {
         let connection = connectionDiagnostics.isConnected
-        let network = networkDiagnostics.state.isConnected  // Use state directly
+        let network = networkDiagnostics.state.isConnected
         let server = connectionDiagnostics.hasService
 
         if connection && network && server {
@@ -270,13 +270,5 @@ extension NavidromeViewModel {
     
     var connectionStatusColor: Color {
         return connectionManager.connectionStatusColor
-    }
-    
-    var connectionQualityDescription: String {
-        return connectionManager.connectionStatusText
-    }
-    
-    var connectionResponseTime: String {
-        return connectionManager.isConnected ? "< 1000 ms" : "No connection"
     }
 }
