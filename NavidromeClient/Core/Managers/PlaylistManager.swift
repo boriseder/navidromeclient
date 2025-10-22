@@ -208,4 +208,35 @@ extension PlaylistManager {
     func hasUpNext() -> Bool {
         return currentIndex + 1 < currentPlaylist.count
     }
+    
+    /// Get upcoming songs for preloading (respects repeat mode)
+    func getUpcoming(count: Int) -> [Song] {
+        guard !currentPlaylist.isEmpty else { return [] }
+        
+        var upcoming: [Song] = []
+        var index = currentIndex + 1
+        
+        for _ in 0..<count {
+            if index >= currentPlaylist.count {
+                switch repeatMode {
+                case .off:
+                    break
+                case .all:
+                    index = 0
+                case .one:
+                    if let currentSong = currentSong {
+                        upcoming.append(currentSong)
+                    }
+                    continue
+                }
+            }
+            
+            if index < currentPlaylist.count {
+                upcoming.append(currentPlaylist[index])
+                index += 1
+            }
+        }
+        
+        return upcoming
+    }
 }

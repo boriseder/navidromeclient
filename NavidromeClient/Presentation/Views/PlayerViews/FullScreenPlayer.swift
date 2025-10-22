@@ -11,8 +11,11 @@ struct FullScreenPlayerView: View {
     @State private var isDragging = false
     @State private var horizontalDragOffset: CGFloat = 0
     @State private var isHorizontalDragging = false
+    @State private var hasSnapped = false
     @State private var showingQueue = false
     @State private var fullscreenImage: UIImage?
+    @State private var previousImage: UIImage?
+    @State private var nextImage: UIImage?
     @State private var isLoadingFullscreen = false
 
     var body: some View {
@@ -23,40 +26,17 @@ struct FullScreenPlayerView: View {
                         .padding(.horizontal, 20)
                     Spacer(minLength: 30)
                     
-                    SpotifyAlbumArt(
-                        cover: fullscreenImage,
+                    SpotifyStackedAlbumArt(
+                        currentCover: fullscreenImage,
+                        previousCover: previousImage,
+                        nextCover: nextImage,
+                        horizontalDragOffset: horizontalDragOffset,
+                        isHorizontalDragging: isHorizontalDragging,
+                        isLoadingFullscreen: isLoadingFullscreen,
                         screenWidth: geometry.size.width
                     )
                     .scaleEffect(isDragging ? 0.95 : 1.0)
                     .animation(.spring(response: 0.3), value: isDragging)
-                    .offset(x: horizontalDragOffset)
-                    .overlay {
-                        if isLoadingFullscreen {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .tint(.white)
-                        }
-                    }
-                    .overlay(alignment: .leading) {
-                        if isHorizontalDragging && horizontalDragOffset > 50 {
-                            Image(systemName: "backward.end.fill")
-                                .font(.system(size: 40, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .shadow(color: .black.opacity(0.3), radius: 4)
-                                .padding(.leading, 40)
-                                .opacity(min(horizontalDragOffset / 150.0, 1.0))
-                        }
-                    }
-                    .overlay(alignment: .trailing) {
-                        if isHorizontalDragging && horizontalDragOffset < -50 {
-                            Image(systemName: "forward.end.fill")
-                                .font(.system(size: 40, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .shadow(color: .black.opacity(0.3), radius: 4)
-                                .padding(.trailing, 40)
-                                .opacity(min(abs(horizontalDragOffset) / 150.0, 1.0))
-                        }
-                    }
 
                     Spacer(minLength: 20)
 
@@ -89,7 +69,7 @@ struct FullScreenPlayerView: View {
             }
             .ignoresSafeArea(.container, edges: [.top, .bottom])
             .offset(y: dragOffset)
-            .gesture(combinedGesture)
+            .gesture(combinedGesture(screenWidth: geometry.size.width))
             .background(Color.black)
         }
         .animation(.interactiveSpring(), value: dragOffset)
@@ -99,7 +79,6 @@ struct FullScreenPlayerView: View {
                 .environmentObject(coverArtManager)
         }
         .task(id: playerVM.currentSong?.id) {
-            // FIXED: Actively load fullscreen image with proper state management
             await loadFullscreenImage()
         }
         .onChange(of: playerVM.currentSong?.albumId) { oldValue, newValue in
@@ -107,6 +86,11 @@ struct FullScreenPlayerView: View {
                 Task {
                     await loadFullscreenImage()
                 }
+            }
+        }
+        .onChange(of: playerVM.currentIndex) { oldValue, newValue in
+            Task {
+                await preloadAdjacentCovers()
             }
         }
     }
@@ -120,16 +104,15 @@ struct FullScreenPlayerView: View {
             return
         }
         
-        // Check cache first for immediate display
         if let cached = coverArtManager.getAlbumImage(for: albumId, context: .fullscreen) {
             await MainActor.run {
                 fullscreenImage = cached
                 isLoadingFullscreen = false
             }
+            await preloadAdjacentCovers()
             return
         }
         
-        // Load from network with loading state
         await MainActor.run {
             isLoadingFullscreen = true
         }
@@ -143,9 +126,60 @@ struct FullScreenPlayerView: View {
             fullscreenImage = image
             isLoadingFullscreen = false
         }
+        
+        await preloadAdjacentCovers()
     }
     
-    private var combinedGesture: some Gesture {
+    private func preloadAdjacentCovers() async {
+        let playlist = playerVM.currentPlaylist
+        let currentIdx = playerVM.currentIndex
+        
+        guard !playlist.isEmpty else { return }
+        
+        async let previous = loadPreviousCover(playlist: playlist, currentIndex: currentIdx)
+        async let next = loadNextCover(playlist: playlist, currentIndex: currentIdx)
+        
+        let (prevImg, nextImg) = await (previous, next)
+        
+        await MainActor.run {
+            previousImage = prevImg
+            nextImage = nextImg
+        }
+    }
+    
+    private func loadPreviousCover(playlist: [Song], currentIndex: Int) async -> UIImage? {
+        guard currentIndex > 0 else {
+            if playerVM.repeatMode == .all && !playlist.isEmpty {
+                return await loadCoverForSong(playlist[playlist.count - 1])
+            }
+            return nil
+        }
+        
+        return await loadCoverForSong(playlist[currentIndex - 1])
+    }
+    
+    private func loadNextCover(playlist: [Song], currentIndex: Int) async -> UIImage? {
+        guard currentIndex + 1 < playlist.count else {
+            if playerVM.repeatMode == .all && !playlist.isEmpty {
+                return await loadCoverForSong(playlist[0])
+            }
+            return nil
+        }
+        
+        return await loadCoverForSong(playlist[currentIndex + 1])
+    }
+    
+    private func loadCoverForSong(_ song: Song) async -> UIImage? {
+        guard let albumId = song.albumId else { return nil }
+        
+        if let cached = coverArtManager.getAlbumImage(for: albumId, context: .fullscreen) {
+            return cached
+        }
+        
+        return await coverArtManager.loadAlbumImage(for: albumId, context: .fullscreen)
+    }
+    
+    private func combinedGesture(screenWidth: CGFloat) -> some Gesture {
         DragGesture()
             .onChanged { value in
                 let horizontalAmount = abs(value.translation.width)
@@ -156,33 +190,94 @@ struct FullScreenPlayerView: View {
                     isHorizontalDragging = true
                     isDragging = false
                     dragOffset = 0
+                    
+                    checkSnapThreshold(screenWidth: screenWidth)
+                    
                 } else if verticalAmount > horizontalAmount && value.translation.height > 0 {
                     dragOffset = value.translation.height
                     isDragging = true
                     isHorizontalDragging = false
                     horizontalDragOffset = 0
+                    hasSnapped = false
                 }
             }
             .onEnded { value in
                 if isHorizontalDragging {
-                    handleHorizontalSwipeEnd(translation: value.translation.width)
+                    handleHorizontalSwipeEnd(translation: value.translation.width, screenWidth: screenWidth)
                 } else if isDragging {
                     handleVerticalSwipeEnd(translation: value.translation.height)
                 }
                 
                 isDragging = false
                 isHorizontalDragging = false
+                hasSnapped = false
             }
     }
     
-    private func handleHorizontalSwipeEnd(translation: CGFloat) {
-        let threshold: CGFloat = 100
+    private func checkSnapThreshold(screenWidth: CGFloat) {
+        guard !hasSnapped else { return }
         
-        if translation > threshold {
+        let snapThreshold = screenWidth * 0.5
+        
+        if horizontalDragOffset > snapThreshold {
+            hasSnapped = true
+            triggerSnapToPrevious()
+        } else if horizontalDragOffset < -snapThreshold {
+            hasSnapped = true
+            triggerSnapToNext()
+        }
+    }
+    
+    private func triggerSnapToPrevious() {
+        let finalOffset = UIScreen.main.bounds.width
+        
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            horizontalDragOffset = finalOffset
+        }
+        
+        Task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            await playerVM.playPrevious()
+            
+            await MainActor.run {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    horizontalDragOffset = 0
+                }
+            }
+        }
+    }
+    
+    private func triggerSnapToNext() {
+        let finalOffset = -UIScreen.main.bounds.width
+        
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            horizontalDragOffset = finalOffset
+        }
+        
+        Task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            await playerVM.playNext()
+            
+            await MainActor.run {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    horizontalDragOffset = 0
+                }
+            }
+        }
+    }
+    
+    private func handleHorizontalSwipeEnd(translation: CGFloat, screenWidth: CGFloat) {
+        if hasSnapped {
+            return
+        }
+        
+        let minimumThreshold: CGFloat = 80
+        
+        if translation > minimumThreshold {
             Task {
                 await playerVM.playPrevious()
             }
-        } else if translation < -threshold {
+        } else if translation < -minimumThreshold {
             Task {
                 await playerVM.playNext()
             }
@@ -199,6 +294,183 @@ struct FullScreenPlayerView: View {
         } else {
             withAnimation(.spring()) {
                 dragOffset = 0
+            }
+        }
+    }
+}
+
+// MARK: - Stacked Album Art (Spotify Style)
+struct SpotifyStackedAlbumArt: View {
+    let currentCover: UIImage?
+    let previousCover: UIImage?
+    let nextCover: UIImage?
+    let horizontalDragOffset: CGFloat
+    let isHorizontalDragging: Bool
+    let isLoadingFullscreen: Bool
+    let screenWidth: CGFloat
+    
+    private let sideScale: CGFloat = 0.85
+    private let sideOpacity: Double = 0.6
+    private let sideOffset: CGFloat = 60
+    
+    var body: some View {
+        ZStack {
+            if let previous = previousCover {
+                AlbumCoverCard(
+                    cover: previous,
+                    screenWidth: screenWidth
+                )
+                .scaleEffect(calculateScale(for: .previous))
+                .opacity(calculateOpacity(for: .previous))
+                .offset(x: calculateOffset(for: .previous))
+                .zIndex(calculateZIndex(for: .previous))
+            }
+            
+            AlbumCoverCard(
+                cover: currentCover,
+                screenWidth: screenWidth,
+                isLoading: isLoadingFullscreen
+            )
+            .scaleEffect(calculateScale(for: .current))
+            .opacity(calculateOpacity(for: .current))
+            .offset(x: calculateOffset(for: .current))
+            .zIndex(calculateZIndex(for: .current))
+            
+            if let next = nextCover {
+                AlbumCoverCard(
+                    cover: next,
+                    screenWidth: screenWidth
+                )
+                .scaleEffect(calculateScale(for: .next))
+                .opacity(calculateOpacity(for: .next))
+                .offset(x: calculateOffset(for: .next))
+                .zIndex(calculateZIndex(for: .next))
+            }
+        }
+        .frame(height: screenWidth * 0.9)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: horizontalDragOffset)
+    }
+    
+    private enum CardPosition {
+        case previous, current, next
+    }
+    
+    private func calculateScale(for position: CardPosition) -> CGFloat {
+        guard isHorizontalDragging else {
+            return position == .current ? 1.0 : sideScale
+        }
+        
+        let progress = abs(horizontalDragOffset) / screenWidth
+        let scaleDiff = 1.0 - sideScale
+        
+        switch position {
+        case .previous:
+            if horizontalDragOffset > 0 {
+                return sideScale + (scaleDiff * min(progress * 2, 1.0))
+            }
+            return sideScale
+            
+        case .current:
+            return 1.0 - (scaleDiff * min(progress * 2, 1.0))
+            
+        case .next:
+            if horizontalDragOffset < 0 {
+                return sideScale + (scaleDiff * min(progress * 2, 1.0))
+            }
+            return sideScale
+        }
+    }
+    
+    private func calculateOpacity(for position: CardPosition) -> Double {
+        guard isHorizontalDragging else {
+            return position == .current ? 1.0 : sideOpacity
+        }
+        
+        let progress = abs(horizontalDragOffset) / screenWidth
+        let opacityDiff = 1.0 - sideOpacity
+        
+        switch position {
+        case .previous:
+            if horizontalDragOffset > 0 {
+                return sideOpacity + (opacityDiff * min(progress * 2, 1.0))
+            }
+            return sideOpacity
+            
+        case .current:
+            return 1.0 - (opacityDiff * min(progress * 2, 1.0))
+            
+        case .next:
+            if horizontalDragOffset < 0 {
+                return sideOpacity + (opacityDiff * min(progress * 2, 1.0))
+            }
+            return sideOpacity
+        }
+    }
+    
+    private func calculateOffset(for position: CardPosition) -> CGFloat {
+        let baseOffset: CGFloat
+        
+        switch position {
+        case .previous:
+            baseOffset = -screenWidth - sideOffset
+        case .current:
+            baseOffset = 0
+        case .next:
+            baseOffset = screenWidth + sideOffset
+        }
+        
+        return baseOffset + horizontalDragOffset
+    }
+    
+    private func calculateZIndex(for position: CardPosition) -> Double {
+        guard isHorizontalDragging else {
+            return position == .current ? 10 : 5
+        }
+        
+        switch position {
+        case .previous:
+            return horizontalDragOffset > 0 ? 15 : 5
+        case .current:
+            return 10
+        case .next:
+            return horizontalDragOffset < 0 ? 15 : 5
+        }
+    }
+}
+
+// MARK: - Album Cover Card
+struct AlbumCoverCard: View {
+    let cover: UIImage?
+    let screenWidth: CGFloat
+    var isLoading: Bool = false
+    
+    var body: some View {
+        Group {
+            if let cover = cover {
+                Image(uiImage: cover)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.3))
+                    .overlay(
+                        Image(systemName: "music.note")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.gray)
+                    )
+                    .aspectRatio(1, contentMode: .fit)
+            }
+        }
+        .frame(width: screenWidth * 0.9)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
+        .overlay {
+            if isLoading {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.3))
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
             }
         }
     }
@@ -249,33 +521,6 @@ struct TopBar: View {
                     .foregroundStyle(.white)
             }
         }
-    }
-}
-
-// MARK: - Album Art
-struct SpotifyAlbumArt: View {
-    let cover: UIImage?
-    let screenWidth: CGFloat
-    
-    var body: some View {
-        Group {
-            if let cover = cover {
-                Image(uiImage: cover)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.3))
-                    .overlay(
-                        Image(systemName: "music.note")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.gray)
-                    )
-                    .aspectRatio(1, contentMode: .fit)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 10)
     }
 }
 

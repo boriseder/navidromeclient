@@ -162,22 +162,51 @@ class PlayerViewModel: NSObject, ObservableObject {
         isLoading = true
         errorMessage = nil
         
-        // Preload fullscreen cover art
         if let albumId = song.albumId {
             coverArtManager.preloadForFullscreen(albumId: albumId)
         }
         
-        guard let audioURL = await getAudioURL(for: song) else {
+        let upcomingSongs = playlistManager.getUpcoming(count: 3)
+        
+        async let currentURL = getAudioURL(for: song)
+        async let upcomingURLs = resolveUpcomingURLs(for: upcomingSongs)
+        
+        guard let audioURL = await currentURL else {
             errorMessage = "No audio source available"
             isLoading = false
             return
         }
         
-        await playbackEngine.play(url: audioURL)
+        let upcoming = await upcomingURLs
+        await playbackEngine.setQueue(
+            primaryURL: audioURL,
+            primaryId: song.id,
+            upcomingURLs: upcoming
+        )
+        
         isLoading = false
     }
     
     // MARK: - Audio Source Selection
+    
+    private func resolveUpcomingURLs(for songs: [Song]) async -> [(id: String, url: URL)] {
+        await withTaskGroup(of: (String, URL?).self) { group in
+            for song in songs {
+                group.addTask {
+                    let url = await self.getAudioURL(for: song)
+                    return (song.id, url)
+                }
+            }
+            
+            var results: [(String, URL)] = []
+            for await (id, url) in group {
+                if let url = url {
+                    results.append((id, url))
+                }
+            }
+            return results
+        }
+    }
     
     private func getAudioURL(for song: Song) async -> URL? {
         // Priority 1: Downloaded file
