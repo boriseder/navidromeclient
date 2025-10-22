@@ -11,7 +11,6 @@ struct FullScreenPlayerView: View {
     @State private var isDragging = false
     @State private var horizontalDragOffset: CGFloat = 0
     @State private var isHorizontalDragging = false
-    @State private var hasSnapped = false
     @State private var showingQueue = false
     @State private var fullscreenImage: UIImage?
     @State private var previousImage: UIImage?
@@ -83,15 +82,11 @@ struct FullScreenPlayerView: View {
         }
         .onChange(of: playerVM.currentSong?.albumId) { oldValue, newValue in
             if oldValue != newValue {
-                Task {
-                    await loadFullscreenImage()
-                }
+                Task { await loadFullscreenImage() }
             }
         }
         .onChange(of: playerVM.currentIndex) { oldValue, newValue in
-            Task {
-                await preloadAdjacentCovers()
-            }
+            Task { await preloadAdjacentCovers() }
         }
     }
     
@@ -113,14 +108,9 @@ struct FullScreenPlayerView: View {
             return
         }
         
-        await MainActor.run {
-            isLoadingFullscreen = true
-        }
+        await MainActor.run { isLoadingFullscreen = true }
         
-        let image = await coverArtManager.loadAlbumImage(
-            for: albumId,
-            context: .fullscreen
-        )
+        let image = await coverArtManager.loadAlbumImage(for: albumId, context: .fullscreen)
         
         await MainActor.run {
             fullscreenImage = image
@@ -154,7 +144,6 @@ struct FullScreenPlayerView: View {
             }
             return nil
         }
-        
         return await loadCoverForSong(playlist[currentIndex - 1])
     }
     
@@ -165,7 +154,6 @@ struct FullScreenPlayerView: View {
             }
             return nil
         }
-        
         return await loadCoverForSong(playlist[currentIndex + 1])
     }
     
@@ -175,7 +163,6 @@ struct FullScreenPlayerView: View {
         if let cached = coverArtManager.getAlbumImage(for: albumId, context: .fullscreen) {
             return cached
         }
-        
         return await coverArtManager.loadAlbumImage(for: albumId, context: .fullscreen)
     }
     
@@ -190,15 +177,11 @@ struct FullScreenPlayerView: View {
                     isHorizontalDragging = true
                     isDragging = false
                     dragOffset = 0
-                    
-                    checkSnapThreshold(screenWidth: screenWidth)
-                    
                 } else if verticalAmount > horizontalAmount && value.translation.height > 0 {
                     dragOffset = value.translation.height
                     isDragging = true
                     isHorizontalDragging = false
                     horizontalDragOffset = 0
-                    hasSnapped = false
                 }
             }
             .onEnded { value in
@@ -207,84 +190,28 @@ struct FullScreenPlayerView: View {
                 } else if isDragging {
                     handleVerticalSwipeEnd(translation: value.translation.height)
                 }
-                
                 isDragging = false
                 isHorizontalDragging = false
-                hasSnapped = false
             }
-    }
-    
-    private func checkSnapThreshold(screenWidth: CGFloat) {
-        guard !hasSnapped else { return }
-        
-        let snapThreshold = screenWidth * 0.5
-        
-        if horizontalDragOffset > snapThreshold {
-            hasSnapped = true
-            triggerSnapToPrevious()
-        } else if horizontalDragOffset < -snapThreshold {
-            hasSnapped = true
-            triggerSnapToNext()
-        }
-    }
-    
-    private func triggerSnapToPrevious() {
-        let finalOffset = UIScreen.main.bounds.width
-        
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-            horizontalDragOffset = finalOffset
-        }
-        
-        Task {
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            await playerVM.playPrevious()
-            
-            await MainActor.run {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    horizontalDragOffset = 0
-                }
-            }
-        }
-    }
-    
-    private func triggerSnapToNext() {
-        let finalOffset = -UIScreen.main.bounds.width
-        
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-            horizontalDragOffset = finalOffset
-        }
-        
-        Task {
-            try? await Task.sleep(nanoseconds: 100_000_000)
-            await playerVM.playNext()
-            
-            await MainActor.run {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                    horizontalDragOffset = 0
-                }
-            }
-        }
     }
     
     private func handleHorizontalSwipeEnd(translation: CGFloat, screenWidth: CGFloat) {
-        if hasSnapped {
-            return
-        }
-        
-        let minimumThreshold: CGFloat = 80
-        
-        if translation > minimumThreshold {
-            Task {
-                await playerVM.playPrevious()
-            }
-        } else if translation < -minimumThreshold {
-            Task {
-                await playerVM.playNext()
+        let threshold = screenWidth * 0.25
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            if translation > threshold {
+                horizontalDragOffset = screenWidth
+                Task { await playerVM.playPrevious() }
+            } else if translation < -threshold {
+                horizontalDragOffset = -screenWidth
+                Task { await playerVM.playNext() }
+            } else {
+                horizontalDragOffset = 0
             }
         }
-        
-        withAnimation(.spring()) {
-            horizontalDragOffset = 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                horizontalDragOffset = 0
+            }
         }
     }
     
@@ -292,14 +219,12 @@ struct FullScreenPlayerView: View {
         if translation > 200 {
             dismiss()
         } else {
-            withAnimation(.spring()) {
-                dragOffset = 0
-            }
+            withAnimation(.spring()) { dragOffset = 0 }
         }
     }
 }
 
-// MARK: - Stacked Album Art (Spotify Style)
+// MARK: - Stacked Album Art
 struct SpotifyStackedAlbumArt: View {
     let currentCover: UIImage?
     let previousCover: UIImage?
@@ -311,129 +236,83 @@ struct SpotifyStackedAlbumArt: View {
     
     private let sideScale: CGFloat = 0.85
     private let sideOpacity: Double = 0.6
-    private let sideOffset: CGFloat = 60
     
     var body: some View {
         ZStack {
             if let previous = previousCover {
-                AlbumCoverCard(
-                    cover: previous,
-                    screenWidth: screenWidth
-                )
-                .scaleEffect(calculateScale(for: .previous))
-                .opacity(calculateOpacity(for: .previous))
-                .offset(x: calculateOffset(for: .previous))
-                .zIndex(calculateZIndex(for: .previous))
+                AlbumCoverCard(cover: previous, screenWidth: screenWidth)
+                    .scaleEffect(calculateScale(for: .previous))
+                    .opacity(calculateOpacity(for: .previous))
+                    .offset(x: calculateOffset(for: .previous))
+                    .zIndex(calculateZIndex(for: .previous))
             }
             
-            AlbumCoverCard(
-                cover: currentCover,
-                screenWidth: screenWidth,
-                isLoading: isLoadingFullscreen
-            )
-            .scaleEffect(calculateScale(for: .current))
-            .opacity(calculateOpacity(for: .current))
-            .offset(x: calculateOffset(for: .current))
-            .zIndex(calculateZIndex(for: .current))
+            AlbumCoverCard(cover: currentCover, screenWidth: screenWidth, isLoading: isLoadingFullscreen)
+                .scaleEffect(calculateScale(for: .current))
+                .opacity(calculateOpacity(for: .current))
+                .offset(x: calculateOffset(for: .current))
+                .rotationEffect(.degrees(Double(horizontalDragOffset / screenWidth) * 8))
+                .zIndex(calculateZIndex(for: .current))
             
             if let next = nextCover {
-                AlbumCoverCard(
-                    cover: next,
-                    screenWidth: screenWidth
-                )
-                .scaleEffect(calculateScale(for: .next))
-                .opacity(calculateOpacity(for: .next))
-                .offset(x: calculateOffset(for: .next))
-                .zIndex(calculateZIndex(for: .next))
+                AlbumCoverCard(cover: next, screenWidth: screenWidth)
+                    .scaleEffect(calculateScale(for: .next))
+                    .opacity(calculateOpacity(for: .next))
+                    .offset(x: calculateOffset(for: .next))
+                    .zIndex(calculateZIndex(for: .next))
             }
         }
         .frame(height: screenWidth * 0.9)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: horizontalDragOffset)
     }
     
-    private enum CardPosition {
-        case previous, current, next
-    }
+    private enum CardPosition { case previous, current, next }
     
     private func calculateScale(for position: CardPosition) -> CGFloat {
-        guard isHorizontalDragging else {
-            return position == .current ? 1.0 : sideScale
-        }
-        
+        guard isHorizontalDragging else { return position == .current ? 1.0 : sideScale }
         let progress = abs(horizontalDragOffset) / screenWidth
         let scaleDiff = 1.0 - sideScale
-        
         switch position {
         case .previous:
-            if horizontalDragOffset > 0 {
-                return sideScale + (scaleDiff * min(progress * 2, 1.0))
-            }
-            return sideScale
-            
+            return horizontalDragOffset > 0 ? sideScale + (scaleDiff * min(progress, 1.0)) : sideScale
         case .current:
-            return 1.0 - (scaleDiff * min(progress * 2, 1.0))
-            
+            return 1.0 - (scaleDiff * min(progress, 1.0))
         case .next:
-            if horizontalDragOffset < 0 {
-                return sideScale + (scaleDiff * min(progress * 2, 1.0))
-            }
-            return sideScale
+            return horizontalDragOffset < 0 ? sideScale + (scaleDiff * min(progress, 1.0)) : sideScale
         }
     }
     
     private func calculateOpacity(for position: CardPosition) -> Double {
-        guard isHorizontalDragging else {
-            return position == .current ? 1.0 : sideOpacity
-        }
-        
+        guard isHorizontalDragging else { return position == .current ? 1.0 : sideOpacity }
         let progress = abs(horizontalDragOffset) / screenWidth
         let opacityDiff = 1.0 - sideOpacity
-        
         switch position {
         case .previous:
-            if horizontalDragOffset > 0 {
-                return sideOpacity + (opacityDiff * min(progress * 2, 1.0))
-            }
-            return sideOpacity
-            
+            return horizontalDragOffset > 0 ? sideOpacity + (opacityDiff * min(progress, 1.0)) : sideOpacity
         case .current:
-            return 1.0 - (opacityDiff * min(progress * 2, 1.0))
-            
+            return 1.0 - (opacityDiff * min(progress, 1.0))
         case .next:
-            if horizontalDragOffset < 0 {
-                return sideOpacity + (opacityDiff * min(progress * 2, 1.0))
-            }
-            return sideOpacity
+            return horizontalDragOffset < 0 ? sideOpacity + (opacityDiff * min(progress, 1.0)) : sideOpacity
         }
     }
     
     private func calculateOffset(for position: CardPosition) -> CGFloat {
-        let baseOffset: CGFloat
-        
         switch position {
         case .previous:
-            baseOffset = -screenWidth - sideOffset
+            return -screenWidth * 0.6 + horizontalDragOffset * 0.3
         case .current:
-            baseOffset = 0
+            return horizontalDragOffset
         case .next:
-            baseOffset = screenWidth + sideOffset
+            return screenWidth * 0.6 + horizontalDragOffset * 0.3
         }
-        
-        return baseOffset + horizontalDragOffset
     }
     
     private func calculateZIndex(for position: CardPosition) -> Double {
-        guard isHorizontalDragging else {
-            return position == .current ? 10 : 5
-        }
-        
+        guard isHorizontalDragging else { return position == .current ? 10 : 5 }
         switch position {
-        case .previous:
-            return horizontalDragOffset > 0 ? 15 : 5
-        case .current:
-            return 10
-        case .next:
-            return horizontalDragOffset < 0 ? 15 : 5
+        case .previous: return horizontalDragOffset > 0 ? 15 : 5
+        case .current: return 10
+        case .next: return horizontalDragOffset < 0 ? 15 : 5
         }
     }
 }
@@ -503,19 +382,13 @@ struct TopBar: View {
     
     var body: some View {
         HStack {
-            Button {
-                dismiss()
-            } label: {
+            Button { dismiss() } label: {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(.white)
             }
-            
             Spacer()
-            
-            Button {
-                showingQueue = true
-            } label: {
+            Button { showingQueue = true } label: {
                 Image(systemName: "list.bullet")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(.white)
