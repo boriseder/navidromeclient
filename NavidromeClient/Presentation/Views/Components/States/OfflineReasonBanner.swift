@@ -12,9 +12,27 @@ struct OfflineReasonBanner: View {
     @EnvironmentObject private var offlineManager: OfflineManager
     @EnvironmentObject private var networkMonitor: NetworkMonitor
     
+    var body: some View{
+        Button {
+            reason.performAction()
+        } label: {
+            HStack(spacing: DSLayout.elementGap) {
+                Image(systemName: reason.icon)
+                Text("Offline mode")
+            }
+            .foregroundColor(.white)
+            .padding(DSLayout.elementPadding)
+        }
+        .background(Color.red.opacity(0.7))
+        .clipShape(Capsule())
+        .shadow(radius: 4)
+        }
+    
+    /*
     var body: some View {
         HStack(spacing: DSLayout.elementGap) {
-            Image(systemName: reason.icon)
+
+     Image(systemName: reason.icon)
                 .foregroundStyle(reason.color)
                 .padding(.leading, DSLayout.elementPadding)
             
@@ -28,7 +46,7 @@ struct OfflineReasonBanner: View {
             Spacer()
             
             if reason.canGoOnline {
-                Button(reason.actionTitle) {
+                Button("reason.actionTitle") {
                     reason.performAction()
                 }
                 .font(DSText.metadata)
@@ -47,5 +65,6 @@ struct OfflineReasonBanner: View {
         .padding(.trailing, 45)
 
     }
+     */
 }
 

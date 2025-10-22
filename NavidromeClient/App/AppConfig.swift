@@ -1,5 +1,12 @@
+//
+//  AppConfig.swift
+//  NavidromeClient
+//
+//  REFACTORED: Uses CredentialStore for all credential operations
+//  CLEAN: Single responsibility - app configuration state only
+//
+
 import Foundation
-import CryptoKit
 
 @MainActor
 final class AppConfig: ObservableObject {
@@ -9,6 +16,7 @@ final class AppConfig: ObservableObject {
     @Published var isInitializingServices = false
     
     private var hasInitializedServices = false
+    private let credentialStore = CredentialStore()
 
     var areServicesReady: Bool {
         return isConfigured && !isInitializingServices && hasInitializedServices
@@ -35,202 +43,153 @@ final class AppConfig: ObservableObject {
     
     private var credentials: ServerCredentials?
 
-    // MARK: Initialization
+    // MARK: - Initialization
     
     private init() {
-        // Stored property initialisieren
+        AppLogger.general.info("[AppConfig] Initializing...")
+        
         let raw = UserDefaults.standard.string(forKey: "userBackgroundStyle") ?? UserBackgroundStyle.dynamic.rawValue
         self.userBackgroundStyle = UserBackgroundStyle(rawValue: raw) ?? .dynamic
+        
         if let saved = UserDefaults.standard.string(forKey: "userAccentColor"),
            let color = UserAccentColor(rawValue: saved) {
-        self.userAccentColor = color
+            self.userAccentColor = color
         }
         
         loadCredentials()
+        
+        AppLogger.general.info("[AppConfig] Initialization complete, isConfigured: \(isConfigured)")
     }
         
     // MARK: - Configuration
     
     func configure(baseURL: URL, username: String, password: String) {
-        guard validateCredentials(baseURL: baseURL, username: username, password: password) else {
-            AppLogger.general.error("❌ Invalid credentials provided")
+        AppLogger.general.info("[AppConfig] Configure called for user: \(username)")
+        
+        let newCredentials = ServerCredentials(
+            baseURL: baseURL,
+            username: username,
+            password: password
+        )
+        
+        do {
+            try credentialStore.saveCredentials(newCredentials)
+            AppLogger.general.info("[AppConfig] Credentials saved successfully")
+        } catch {
+            AppLogger.general.error("[AppConfig] Failed to save credentials: \(error)")
             return
         }
         
-        // Store BaseURL + Username
-        let credsWithoutPassword = ServerCredentials(baseURL: baseURL, username: username, password: "")
-        if let data = try? JSONEncoder().encode(credsWithoutPassword) {
-            _ = KeychainHelper.shared.save(data, forKey: "navidrome_credentials")
-        }
-        
-        // Store password hash
-        let hashedPassword = hashPassword(password)
-        if let passwordData = hashedPassword.data(using: .utf8) {
-            _ = KeychainHelper.shared.save(passwordData, forKey: "navidrome_password_hash")
-        }
-        
-        // Store password for session
-        _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
-        
-        // Set credentials for current session
-        let fullCredentials = ServerCredentials(baseURL: baseURL, username: username, password: password)
-        self.credentials = fullCredentials
+        self.credentials = newCredentials
         isConfigured = true
         
+        AppLogger.general.info("[AppConfig] Setting isConfigured = true")
         NetworkMonitor.shared.updateConfiguration(isConfigured: true)
 
-        // Trigger service initialization via notification
-        NotificationCenter.default.post(name: .servicesNeedInitialization, object: fullCredentials)
+        AppLogger.general.info("[AppConfig] Posting servicesNeedInitialization notification")
+        NotificationCenter.default.post(name: .servicesNeedInitialization, object: newCredentials)
     }
     
-    // MARK: -  Factory Reset (Complete App Reset)
+    // MARK: - Factory Reset (Complete App Reset)
 
     func performFactoryReset() async {
-        AppLogger.general.info("Starting factory reset")
+        AppLogger.general.info("[AppConfig] Starting factory reset")
         
-        // 1. Clear all keychain data
-        _ = KeychainHelper.shared.delete(forKey: "navidrome_credentials")
-        _ = KeychainHelper.shared.delete(forKey: "navidrome_password_hash")
-        _ = KeychainHelper.shared.delete(forKey: "navidrome_password_session")
+        credentialStore.clearCredentials()
         
-        // 2. Reset local state
         credentials = nil
         isConfigured = false
         hasInitializedServices = false
         
-        // 3. Update NetworkMonitor configuration state
         NetworkMonitor.shared.updateConfiguration(isConfigured: false)
         NetworkMonitor.shared.reset()
                 
-        // 4. Reset all managers and clear data
         await resetAllManagers()
         
-        // 5. Clear all caches
         clearAllCaches()
         
-        // 6. Force UI updates
         objectWillChange.send()
         
-        AppLogger.general.info("Factory reset completed")
+        AppLogger.general.info("[AppConfig] Factory reset completed")
     }
         
     // MARK: - Private Reset Methods
     
     private func resetAllManagers() async {
-        // Notify all managers to reset themselves
-        // This decouples AppConfig from manager instances
         NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
         
-        // Give managers time to process reset
         try? await Task.sleep(nanoseconds: 100_000_000)
         
-        AppLogger.general.info("Factory reset notification posted to all managers")
+        AppLogger.general.info("[AppConfig] Factory reset notification posted to all managers")
     }
     
     private func clearAllCaches() {
-        // Clear persistent image cache
         PersistentImageCache.shared.clearCache()
-        
-        // Clear album metadata cache
         AlbumMetadataCache.shared.clearCache()
         
-        AppLogger.general.info("Persistent caches cleared")
+        AppLogger.general.info("[AppConfig] Persistent caches cleared")
     }
     
     // MARK: - Credentials
     
     func getCredentials() -> ServerCredentials? {
+        if let creds = credentials {
+            AppLogger.general.info("[AppConfig] Returning credentials: \(creds.username), password length: \(creds.password.count)")
+        } else {
+            AppLogger.general.info("[AppConfig] No credentials available")
+        }
         return credentials
     }
 
     private func loadCredentials() {
-        // Load BaseURL + Username
-        guard let data = KeychainHelper.shared.load(forKey: "navidrome_credentials"),
-              let creds = try? JSONDecoder().decode(ServerCredentials.self, from: data) else {
+        AppLogger.general.info("[AppConfig] Loading credentials from CredentialStore...")
+        
+        guard let creds = credentialStore.loadCredentials() else {
+            AppLogger.general.info("[AppConfig] No credentials found, setting isConfigured = false")
             isConfigured = false
-            
-            // SYNCHRONOUSLY notify NetworkMonitor of "not configured" state
             NetworkMonitor.shared.updateConfiguration(isConfigured: false)
             return
         }
-
         
-        // Load session password
-        var sessionPassword = ""
-        if let pwdData = KeychainHelper.shared.load(forKey: "navidrome_password_session"),
-           let pwd = String(data: pwdData, encoding: .utf8) {
-            sessionPassword = pwd
-        }
+        AppLogger.general.info("[AppConfig] Credentials loaded: \(creds.username), password length: \(creds.password.count)")
         
-        // Set credentials for app session
-        self.credentials = ServerCredentials(
-            baseURL: creds.baseURL,
-            username: creds.username,
-            password: sessionPassword
-        )
-        
+        self.credentials = creds
         isConfigured = true
         
-        // SYNCHRONOUSLY update NetworkMonitor before any other code can observe isConfigured
+        AppLogger.general.info("[AppConfig] Setting isConfigured = true")
         NetworkMonitor.shared.updateConfiguration(isConfigured: true)
     }
     
     func needsPassword() -> Bool {
-        return isConfigured && (credentials?.password.isEmpty ?? true)
+        let needs = isConfigured && (credentials?.password.isEmpty ?? true)
+        AppLogger.general.info("[AppConfig] needsPassword: \(needs)")
+        return needs
     }
     
     func restorePassword(_ password: String) -> Bool {
-        guard let creds = credentials else { return false }
+        AppLogger.general.info("[AppConfig] Attempting to restore password...")
         
-        // Verify password hash
-        if let hashData = KeychainHelper.shared.load(forKey: "navidrome_password_hash"),
-           let storedHash = String(data: hashData, encoding: .utf8) {
-            
-            let inputHash = hashPassword(password)
-            guard inputHash == storedHash else {
-                AppLogger.general.error("❌ Password verification failed")
-                return false
-            }
-            
-            // Set password for session
-            self.credentials = ServerCredentials(
-                baseURL: creds.baseURL,
-                username: creds.username,
-                password: password
-            )
-            
-            // Store password in keychain for session
-            _ = KeychainHelper.shared.save(password.data(using: .utf8)!, forKey: "navidrome_password_session")
-            
-            return true
+        guard let creds = credentials else {
+            AppLogger.general.error("[AppConfig] Cannot restore password - no credentials")
+            return false
         }
         
-        return false
-    }
-    
-    // MARK: - Private Helper Methods
-    
-    private func hashPassword(_ password: String) -> String {
-        let inputData = Data(password.utf8)
-        let hashedData = SHA256.hash(data: inputData)
-        return hashedData.compactMap { String(format: "%02x", $0) }.joined()
-    }
-    
-    private func validateCredentials(baseURL: URL, username: String, password: String) -> Bool {
-        guard let scheme = baseURL.scheme, ["http", "https"].contains(scheme),
-              let host = baseURL.host, !host.isEmpty else {
-            AppLogger.general.error("❌ Invalid server URL")
+        guard credentialStore.verifyPassword(password) else {
+            AppLogger.general.error("[AppConfig] Password verification failed")
             return false
         }
-        guard !username.trimmingCharacters(in: .whitespaces).isEmpty,
-              username.count >= 2, username.count <= 50 else {
-            AppLogger.general.error("❌ Invalid username")
-            return false
+        
+        self.credentials = ServerCredentials(
+            baseURL: creds.baseURL,
+            username: creds.username,
+            password: password
+        )
+        
+        if let sessionData = password.data(using: .utf8) {
+            _ = KeychainHelper.shared.save(sessionData, forKey: "navidrome_password_session")
         }
-        guard !password.isEmpty, password.count >= 4, password.count <= 100 else {
-            AppLogger.general.error("❌ Invalid password")
-            return false
-        }
+        
+        AppLogger.general.info("[AppConfig] Password restored successfully")
         return true
     }
 }

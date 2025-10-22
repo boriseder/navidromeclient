@@ -12,11 +12,9 @@ struct OfflineWelcomeHeader: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: DSLayout.elementGap) {
-            
             Text(statusText)
                 .font(DSText.body)
                 .foregroundColor(DSColor.onDark)
-                .background(.yellow)
         }
     }
     

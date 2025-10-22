@@ -129,23 +129,28 @@ class NetworkMonitor: ObservableObject {
     
     func setManualOfflineMode(_ enabled: Bool) {
         // When enabling manual offline: no restrictions (user can always choose to go offline)
-        // When disabling manual offline: verify we can actually go online
+        // When disabling manual offline: verify network is available
         
         if !enabled {
-            // User wants to go online - verify conditions
+            // User wants to go online - only check network connection
+            // Don't check isConfigured because user needs to go online to configure/login
             guard state.isConnected else {
                 AppLogger.network.info("[NetworkMonitor] Cannot go online: no network connection")
                 return
             }
-            
+            /*
             guard state.isConfigured else {
                 AppLogger.network.info("[NetworkMonitor] Cannot go online: server not configured")
                 return
             }
             
             guard !hasRecentServerErrors else {
-                AppLogger.network.info("[NetworkMonitor] Cannot go online: server has errors")
-                return
+             */
+            // Allow going online even if not configured (needed for login)
+            // Only block if there are actual server errors (not just unconfigured)
+            if state.isConfigured && hasRecentServerErrors {
+                 AppLogger.network.info("[NetworkMonitor] Cannot go online: server has errors")
+                 return
             }
         }
         

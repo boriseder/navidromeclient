@@ -37,10 +37,10 @@ struct ServerEditView: View {
     
     var body: some View {
         Form {
-            if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
+            if offlineManager.isOfflineMode || !networkMonitor.shouldLoadOnlineContent {
                 OfflineWarningSection()
             }
-
+            
             Section("Server & Login") {
                 Picker("Protocol", selection: $connectionManager.scheme) {
                     Text("http").tag("http")
@@ -94,6 +94,7 @@ struct ServerEditView: View {
             if connectionManager.canTestConnection {
                 Task { await testConnectionWithOfflineCheck() }
             }
+
         }
         .alert("Success", isPresented: $showingSaveSuccess) {
             Button("OK", role: .cancel) {}
@@ -161,7 +162,7 @@ struct ServerEditView: View {
     }
 
     private func testConnectionWithOfflineCheck() async {
-        if offlineManager.isOfflineMode || !networkMonitor.canLoadOnlineContent {
+        if offlineManager.isOfflineMode || !networkMonitor.shouldLoadOnlineContent {
             showingOfflineWarning = true
             return
         }

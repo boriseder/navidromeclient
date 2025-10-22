@@ -30,9 +30,11 @@ enum ContentLoadingStrategy: Equatable {
     var shouldLoadOnlineContent: Bool {
         switch self {
         case .online: return true
-        case .offlineOnly, .setupRequired: return false  // ADD .setupRequired HERE
+        case .setupRequired: return true  // Allow network requests during setup/login
+        case .offlineOnly: return false
         }
     }
+
     
     var displayName: String {
         switch self {
