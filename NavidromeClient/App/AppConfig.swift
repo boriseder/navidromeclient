@@ -74,41 +74,30 @@ final class AppConfig: ObservableObject {
     func performFactoryReset() async {
         AppLogger.general.info("[AppConfig] Starting factory reset")
         
+        // 1. Clear credentials
         credentialStore.clearCredentials()
         
+        // 2. Reset local state
         credentials = nil
         isConfigured = false
         hasInitializedServices = false
         
+        // 3. Notify NetworkMonitor
         NetworkMonitor.shared.updateConfiguration(isConfigured: false)
         NetworkMonitor.shared.reset()
                 
-        await resetAllManagers()
-        
-        clearAllCaches()
+        // 4. Clear caches
+        PersistentImageCache.shared.clearCache()
+        AlbumMetadataCache.shared.clearCache()
+
+        // 5. Notify managers to reset
+        NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
         
         objectWillChange.send()
         
         AppLogger.general.info("[AppConfig] Factory reset completed")
     }
-        
-    // MARK: - Private Reset Methods
-    
-    private func resetAllManagers() async {
-        NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
-        
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
-        AppLogger.general.info("[AppConfig] Factory reset notification posted to all managers")
-    }
-    
-    private func clearAllCaches() {
-        PersistentImageCache.shared.clearCache()
-        AlbumMetadataCache.shared.clearCache()
-        
-        AppLogger.general.info("[AppConfig] Persistent caches cleared")
-    }
-    
+            
     // MARK: - Credentials
     
     func getCredentials() -> ServerCredentials? {
@@ -120,6 +109,10 @@ final class AppConfig: ObservableObject {
         return credentials
     }
 
+    func getCredentialsForInitialization() -> ServerCredentials? {
+        return credentials
+    }
+    
     private func loadCredentials() {
         AppLogger.general.info("[AppConfig] Loading credentials from CredentialStore...")
         

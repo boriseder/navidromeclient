@@ -59,7 +59,7 @@ class NetworkMonitor: ObservableObject {
         AppLogger.network.info("[NetworkMonitor] Initial state: \(initialConnectionState ? "Connected" : "Disconnected") (\(connectionType.displayName))")
         
         startNetworkMonitoring()
-        observeAppConfigChanges()
+       //BORIS observeAppConfigChanges()
     }
 
     
@@ -110,6 +110,11 @@ class NetworkMonitor: ObservableObject {
     }
     
     // MARK: - Public API - State Updates
+    
+    func initialize(isConfigured: Bool) {
+        updateState(isConfigured: isConfigured)
+        AppLogger.network.info("[NetworkMonitor] Explicitly initialized (configured: \(isConfigured))")
+    }
     
     func updateConfiguration(isConfigured: Bool) {
         updateState(isConfigured: isConfigured)
@@ -229,26 +234,6 @@ class NetworkMonitor: ObservableObject {
         } else {
             return .unknown
         }
-    }
-    
-    // MARK: - AppConfig Integration
-    
-    private func observeAppConfigChanges() {
-        NotificationCenter.default.addObserver(
-            forName: .servicesNeedInitialization,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.handleServiceConfigurationChange()
-            }
-        }
-    }
-    
-    private func handleServiceConfigurationChange() {
-        hasRecentServerErrors = false
-        AppLogger.network.info("[NetworkMonitor] Service configuration change detected")
-        updateState(isConfigured: true)  // Tell it the server is configured
     }
     
     // MARK: - Diagnostics
