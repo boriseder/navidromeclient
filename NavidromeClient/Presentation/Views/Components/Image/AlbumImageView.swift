@@ -45,8 +45,7 @@ struct AlbumImageView: View {
         }
         .frame(width: displaySize, height: displaySize)
         .animation(.easeInOut(duration: 0.3), value: hasImage)
-        .task(id: "\(album.id)_\(context.size)") {
-            // FIXED: Use .task instead of .onAppear for proper cancellation and idempotency
+        .task(id: "\(album.id)_\(context.size)_\(coverArtManager.cacheGeneration)") {            // FIXED: Use .task instead of .onAppear for proper cancellation and idempotency
             await coverArtManager.loadAlbumImage(
                 for: album.id,
                 context: context,

@@ -26,6 +26,7 @@ class CoverArtManager: ObservableObject {
         case album
         case artist
         
+        @MainActor
         func getCache(from manager: CoverArtManager) -> NSCache<NSString, AlbumCoverArt> {
             switch self {
             case .album: return manager.albumCache
@@ -58,9 +59,6 @@ class CoverArtManager: ObservableObject {
     private let albumCache = NSCache<NSString, AlbumCoverArt>()
     private let artistCache = NSCache<NSString, AlbumCoverArt>()
         
-    @Published private(set) var loadingStates: [String: Bool] = [:]
-    @Published private(set) var errorStates: [String: String] = [:]
-
     // MARK: - Dependencies
     
     private weak var service: UnifiedSubsonicService?
@@ -75,11 +73,23 @@ class CoverArtManager: ObservableObject {
     private var currentPreloadTask: Task<Void, Never>?
     private let preloadSemaphore = AsyncSemaphore(value: 3)
     
+    @Published private(set) var loadingStates: [String: Bool] = [:]
+    @Published private(set) var errorStates: [String: String] = [:]
+    @Published private(set) var cacheGeneration: Int = 0
+
+    // Public method to increment cache generation
+    func incrementCacheGeneration() {
+        cacheGeneration += 1
+        AppLogger.general.info("Cache generation incremented to: \(cacheGeneration)")
+    }
+
+
     // MARK: - Initialization
     
     init() {
         setupMemoryCache()
         setupFactoryResetObserver()
+        setupScenePhaseObserver()
         AppLogger.general.info("CoverArtManager initialized with hybrid multi-size strategy")
     }
     
@@ -91,9 +101,23 @@ class CoverArtManager: ObservableObject {
     private func setupMemoryCache() {
         albumCache.countLimit = CacheLimits.albumCount
         albumCache.totalCostLimit = CacheLimits.albumMemory
+        albumCache.evictsObjectsWithDiscardedContent = false
         
         artistCache.countLimit = CacheLimits.artistCount
         artistCache.totalCostLimit = CacheLimits.artistMemory
+        artistCache.evictsObjectsWithDiscardedContent = false
+        
+        // Monitor for memory warnings
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                AppLogger.general.warn("Memory warning received - incrementing cache generation")
+                self?.incrementCacheGeneration()
+            }
+        }
         
         AppLogger.general.debug("Memory cache limits: Albums=\(CacheLimits.albumCount), Artists=\(CacheLimits.artistCount)")
     }
@@ -104,30 +128,33 @@ class CoverArtManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.clearMemoryCache()
-            AppLogger.general.info("CoverArtManager: Memory cache cleared on factory reset")
+            Task { @MainActor in
+                self?.clearMemoryCache()
+                AppLogger.general.info("CoverArtManager: Memory cache cleared on factory reset")
+            }
         }
     }
     
     // MARK: - Thread-Safe Request Management
-    
+
     private func isRequestActive(_ id: String, type: String, size: Int) -> Bool {
         return requestQueue.sync {
-            activeRequests.contains("\(type)_\(id)_\(size)")
+            return activeRequests.contains("\(type)_\(id)_\(size)")
         }
     }
-    
+
     private func addActiveRequest(_ id: String, type: String, size: Int) {
         requestQueue.sync {
-            activeRequests.insert("\(type)_\(id)_\(size)")
+            _ = activeRequests.insert("\(type)_\(id)_\(size)")
+        }
+    }
+
+    private func removeActiveRequest(_ id: String, type: String, size: Int) {
+        requestQueue.sync {
+            _ = activeRequests.remove("\(type)_\(id)_\(size)")
         }
     }
     
-    private func removeActiveRequest(_ id: String, type: String, size: Int) {
-        requestQueue.sync {
-            activeRequests.remove("\(type)_\(id)_\(size)")
-        }
-    }
     
     // MARK: - Context-Aware Image Retrieval
     
@@ -338,9 +365,10 @@ class CoverArtManager: ObservableObject {
         }
         
         if let image = await service.getCoverArt(for: id, size: size) {
-            await storeImage(image, forId: id, type: type, size: size)
+            storeImage(image, forId: id, type: type, size: size)
+            
             await MainActor.run {
-                errorStates.removeValue(forKey: requestKey)
+                _ = errorStates.removeValue(forKey: requestKey)
             }
             
             // Store in disk cache
@@ -358,8 +386,9 @@ class CoverArtManager: ObservableObject {
         }
     }
     
-    // MARK: - Image Storage
     
+    // MARK: - Image Storage
+
     private func storeImage(
         _ image: UIImage,
         forId id: String,
@@ -378,11 +407,9 @@ class CoverArtManager: ObservableObject {
     }
     
     private func notifyChange() {
-        cacheQueue.async(flags: .barrier) {
+        Task { @MainActor in
             self._cacheVersion += 1
-            DispatchQueue.main.async {
-                self.objectWillChange.send()
-            }
+            self.objectWillChange.send()
         }
     }
     
@@ -450,7 +477,6 @@ class CoverArtManager: ObservableObject {
             )
         }
     }
-
     func preloadAlbumsControlled(_ albums: [Album], context: ImageContext) async {
         await preloadCoverArt(
             items: albums,
@@ -530,7 +556,7 @@ class CoverArtManager: ObservableObject {
         await currentPreloadTask?.value
         AppLogger.general.info("Preload completed")
     }
-    
+        
     // MARK: - Cache Management
     
     func clearMemoryCache() {
@@ -538,9 +564,12 @@ class CoverArtManager: ObservableObject {
         artistCache.removeAllObjects()
         loadingStates.removeAll()
         errorStates.removeAll()
+        incrementCacheGeneration()
         persistentCache.clearCache()
+ 
         AppLogger.general.info("All caches cleared")
     }
+
 
     // MARK: - Diagnostics
     

@@ -10,6 +10,7 @@ struct NavidromeClientApp: App {
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     @StateObject private var coverArtManager = CoverArtManager()
+    @StateObject private var cacheWarmer: CoverArtCacheWarmer
     @StateObject private var songManager = SongManager()
     @StateObject private var exploreManager = ExploreManager()
     @StateObject private var favoritesManager = FavoritesManager()
@@ -27,6 +28,8 @@ struct NavidromeClientApp: App {
         _musicLibraryManager = StateObject(wrappedValue: musicLib)
         _navidromeVM = StateObject(wrappedValue: navidromeViewModel)
         _coverArtManager = StateObject(wrappedValue: coverArt)
+        _cacheWarmer = StateObject(wrappedValue: CoverArtCacheWarmer(coverArtManager: coverArt))
+
         _playerVM = StateObject(wrappedValue: player)
     }
 
@@ -150,14 +153,41 @@ struct NavidromeClientApp: App {
             return
         }
         
-        Task {
-            if !navidromeVM.isDataFresh {
-                await navidromeVM.handleNetworkChange(isOnline: networkMonitor.canLoadOnlineContent)
+        Task { @MainActor in
+            await handleAppActivation()
+        }
+    }
+
+    private func handleAppActivation() async {
+        AppLogger.general.info("[App] App becoming active - starting parallel activation")
+        
+        let startTime = Date()
+        
+        // Run all activation tasks in parallel
+        await withTaskGroup(of: Void.self) { group in
+            // Audio session reactivation
+            group.addTask {
+                await self.audioSessionManager.handleAppBecameActive()
+            }
+            
+            // Network state recheck
+            group.addTask {
+                await self.networkMonitor.recheckConnection()
+            }
+            
+            // Connection health check (only if data is not fresh)
+            group.addTask {
+                if await !self.navidromeVM.isDataFresh {
+                    await self.navidromeVM.handleNetworkChange(
+                        isOnline: self.networkMonitor.canLoadOnlineContent
+                    )
+                }
             }
         }
-        AppLogger.general.info("[App] App became active")
+        
+        let duration = Date().timeIntervalSince(startTime)
+        AppLogger.general.info("[App] App activation completed in \(String(format: "%.2f", duration))s")
     }
-    
     private func handleFactoryReset() async {
         appInitializer.reset()
         AppLogger.general.info("[App] Reset AppInitializer state")

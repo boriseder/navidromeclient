@@ -171,6 +171,27 @@ class NetworkMonitor: ObservableObject {
         AppLogger.network.info("[NetworkMonitor] Reset completed")
     }
     
+    func recheckConnection() async {
+        // Perform quick connectivity check without blocking
+        await Task.detached(priority: .userInitiated) {
+            // Network path is already monitored, just verify current state
+            let currentPath = self.monitor.currentPath
+            let isConnected = currentPath.status == .satisfied
+            
+            await MainActor.run {
+                if isConnected != self.isConnected {
+                    self.isConnected = isConnected
+                    self.updateState()
+                    AppLogger.network.info("[NetworkMonitor] Connection rechecked: \(isConnected ? "Connected" : "Disconnected")")
+                }
+            }
+        }.value
+        
+        await MainActor.run {
+            self.objectWillChange.send()
+        }
+    }
+    
     // MARK: - State Update
     
     private func updateState(isConfigured: Bool? = nil) {

@@ -85,6 +85,10 @@ struct FullScreenPlayerView: View {
                 await preloadAdjacentCovers()
             }
         }
+        .task(id: "\(playerVM.currentSong?.albumId ?? "")_\(coverArtManager.cacheGeneration)") {
+            await loadFullscreenImage()
+            await preloadAdjacentCovers()
+        }
     }
     
     private func loadFullscreenImage() async {

@@ -188,15 +188,29 @@ class AudioSessionManager: NSObject, ObservableObject {
         AppLogger.audio.info("Updated Now Playing Info: \(title) - \(artist)")
     }
     
-    func handleAppBecameActive() {
+    func handleAppBecameActive() async {
         do {
-            try audioSession.setActive(true)
+            // Run on background thread to avoid blocking main
+            try await Task.detached {
+                try AVAudioSession.sharedInstance().setActive(true)
+            }.value
+            
+            await MainActor.run {
+                self.isAudioSessionActive = true
+            }
+            
             AppLogger.audio.info("Audio session reactivated")
+            
         } catch {
-            AppLogger.audio.info("❌ Failed to reactivate audio session: \(error)")
+            await MainActor.run {
+                self.isAudioSessionActive = false
+            }
+            AppLogger.audio.info("Failed to reactivate audio session: \(error)")
         }
     }
 
+    
+    
     func handleAppWillTerminate() {
         performCleanup()
         

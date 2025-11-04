@@ -102,6 +102,11 @@ struct MiniPlayerView: View {
                         }
                 )
             }
+            .task(id: song.albumId) {
+                if let albumId = song.albumId {
+                    _ = await coverArtManager.loadAlbumImage(for: albumId, context: .miniPlayer)
+                }
+            }
             .clipShape(RoundedRectangle(cornerRadius: 0))
             .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: -2)
             .fullScreenCover(isPresented: $showFullScreen) {
