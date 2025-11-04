@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import AVFoundation
 import MediaPlayer
+import Combine
 
 @MainActor
 class PlayerViewModel: NSObject, ObservableObject {
@@ -21,6 +22,8 @@ class PlayerViewModel: NSObject, ObservableObject {
     }
     @Published var playlistManager = PlaylistManager()
     
+    private var playlistObserver: AnyCancellable?
+
     // MARK: - Playlist Delegation
     
     var isShuffling: Bool { playlistManager.isShuffling }
@@ -56,8 +59,23 @@ class PlayerViewModel: NSObject, ObservableObject {
         
         setupNotifications()
         configureAudioSession()
+   
+        // Chain PlaylistManager changes to PlayerViewModel
+        setupPlaylistObserver()
+
     }
     
+    private func setupPlaylistObserver() {
+        playlistObserver = playlistManager.objectWillChange.sink { [weak self] _ in
+            guard let self = self else { return }
+            
+            // Forward playlist changes to PlayerViewModel observers
+            Task { @MainActor in
+                self.objectWillChange.send()
+            }
+        }
+    }
+
     // MARK: - Configuration
     
     func configure(service: UnifiedSubsonicService) {
@@ -275,6 +293,10 @@ class PlayerViewModel: NSObject, ObservableObject {
         }
         notificationObservers.removeAll()
         
+        // Cancel playlist observer
+        playlistObserver?.cancel()
+        playlistObserver = nil
+
         audioSessionManager.clearNowPlayingInfo()
     }
     
@@ -378,6 +400,37 @@ extension PlayerViewModel: PlaybackEngineDelegate {
             await playNext()
         }
     }
+    
+    func playbackEngineNeedsMoreItems(_ engine: PlaybackEngine) async {
+        let currentQueueSize = engine.currentQueueSize
+        
+        guard currentQueueSize < 3 else {
+            AppLogger.general.info("PlayerViewModel: Queue sufficient (\(currentQueueSize) items)")
+            return
+        }
+        
+        let itemsNeeded = 3 - currentQueueSize
+        AppLogger.general.info("PlayerViewModel: Need \(itemsNeeded) more items for queue")
+        
+        let nextSongs = playlistManager.getUpcoming(count: itemsNeeded)
+        
+        guard !nextSongs.isEmpty else {
+            AppLogger.general.info("PlayerViewModel: No more songs available in playlist")
+            return
+        }
+        
+        AppLogger.general.info("PlayerViewModel: Loading \(nextSongs.count) upcoming songs")
+        let urls = await resolveUpcomingURLs(for: nextSongs)
+        
+        guard !urls.isEmpty else {
+            AppLogger.general.info("PlayerViewModel: Failed to resolve URLs for upcoming songs")
+            return
+        }
+        
+        await playbackEngine.addItemsToQueue(urls)
+        AppLogger.general.info("PlayerViewModel: Successfully added \(urls.count) items to queue")
+    }
+    
 }
 
 // MARK: - Queue Management Extension

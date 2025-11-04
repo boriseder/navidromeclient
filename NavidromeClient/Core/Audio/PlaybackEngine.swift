@@ -9,6 +9,9 @@ protocol PlaybackEngineDelegate: AnyObject {
     func playbackEngine(_ engine: PlaybackEngine, didChangePlayingState isPlaying: Bool)
     func playbackEngine(_ engine: PlaybackEngine, didFinishPlaying successfully: Bool)
     func playbackEngine(_ engine: PlaybackEngine, didEncounterError error: String)
+    
+    func playbackEngineNeedsMoreItems(_ engine: PlaybackEngine) async
+
 }
 
 // MARK: - PlaybackEngine
@@ -29,6 +32,13 @@ class PlaybackEngine {
     private var itemObservers: [NSObjectProtocol] = []
     private var statusObservers: [Task<Void, Never>] = []
     
+    private let queueTargetSize = 3
+    private var isExtendingQueue = false
+    
+    var currentQueueSize: Int {
+        queuePlayer.items().count
+    }
+
     weak var delegate: PlaybackEngineDelegate?
     
     var volume: Float {
@@ -140,6 +150,18 @@ class PlaybackEngine {
         AppLogger.general.info("PlaybackEngine: Queue replaced with \(itemsToLoad) items")
     }
     
+    func addItemsToQueue(_ urls: [(id: String, url: URL)]) async {
+        guard !urls.isEmpty else { return }
+        
+        for (songId, url) in urls {
+            let item = AVPlayerItem(url: url)
+            registerItem(item, songId: songId)
+            queuePlayer.insert(item, after: queuePlayer.items().last)
+        }
+        
+        AppLogger.general.info("PlaybackEngine: Added \(urls.count) items to queue, total: \(currentQueueSize)")
+    }
+
     // MARK: - Playback Control
     
     func pause() {
@@ -232,16 +254,34 @@ class PlaybackEngine {
         currentItemObserver = queuePlayer.observe(\.currentItem, options: [.new]) { [weak self] player, change in
             guard let self = self else { return }
             
-            if let newItem = change.newValue as? AVPlayerItem {
-                let itemId = ObjectIdentifier(newItem)
-                if let songId = self.itemToSongId[itemId] {
-                    self.currentSongId = songId
-                    AppLogger.general.info("PlaybackEngine: Current item changed to: \(songId)")
+            Task { @MainActor in
+                if let newItem = change.newValue as? AVPlayerItem {
+                    let itemId = ObjectIdentifier(newItem)
+                    if let songId = self.itemToSongId[itemId] {
+                        self.currentSongId = songId
+                        AppLogger.general.info("PlaybackEngine: Current item changed to: \(songId)")
+                        await self.checkAndExtendQueue()
+                    }
                 }
+                self.pruneOldItems()
             }
-            
-            self.pruneOldItems()
         }
+    }
+       
+    private func checkAndExtendQueue() async {
+        guard !isExtendingQueue else { return }
+        
+        let queueSize = currentQueueSize
+        
+        guard queueSize < queueTargetSize else {
+            return
+        }
+        
+        isExtendingQueue = true
+        defer { isExtendingQueue = false }
+        
+        AppLogger.general.info("PlaybackEngine: Queue low (\(queueSize) items), requesting more")
+        await delegate?.playbackEngineNeedsMoreItems(self)
     }
     
     private func setupItemObserver(for item: AVPlayerItem) {

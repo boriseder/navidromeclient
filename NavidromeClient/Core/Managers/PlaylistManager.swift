@@ -16,6 +16,7 @@ class PlaylistManager: ObservableObject {
     func setPlaylist(_ songs: [Song], startIndex: Int = 0) {
         currentPlaylist = songs
         currentIndex = max(0, min(startIndex, songs.count - 1))
+        objectWillChange.send()
     }
 
     func nextIndex() -> Int? {
@@ -31,15 +32,33 @@ class PlaylistManager: ObservableObject {
         else { return currentIndex > 0 ? currentIndex - 1 : (repeatMode == .all ? currentPlaylist.count - 1 : 0) }
     }
 
-    func advanceToNext() { if let next = nextIndex() { currentIndex = next } }
-    func moveToPrevious(currentTime: TimeInterval) { currentIndex = previousIndex(currentTime: currentTime) }
-    func toggleShuffle() { isShuffling.toggle(); if isShuffling { currentPlaylist.shuffle() } }
+    func advanceToNext() {
+        if let next = nextIndex() {
+            currentIndex = next
+            objectWillChange.send()
+        }
+    }
+    
+    func moveToPrevious(currentTime: TimeInterval) {
+        currentIndex = previousIndex(currentTime: currentTime)
+        objectWillChange.send()
+    }
+    
+    func toggleShuffle() {
+        isShuffling.toggle();
+        if isShuffling {
+            currentPlaylist.shuffle()
+            objectWillChange.send()
+        }
+    }
+    
     func toggleRepeat() {
         switch repeatMode {
         case .off: repeatMode = .all
         case .all: repeatMode = .one
         case .one: repeatMode = .off
         }
+        objectWillChange.send()
     }
 }
 
@@ -50,11 +69,12 @@ extension PlaylistManager {
     /// Jump to a specific song in the queue
     func jumpToSong(at index: Int) {
         guard currentPlaylist.indices.contains(index) else {
-            AppLogger.general.info("⚠️ Invalid queue index: \(index)")
+            AppLogger.general.warn("Invalid queue index: \(index)")
             return
         }
         currentIndex = index
-        AppLogger.general.info("🎵 Jumped to queue position \(index): \(currentPlaylist[index].title)")
+        objectWillChange.send()
+        AppLogger.general.info("Jumped to queue position \(index): \(currentPlaylist[index].title)")
     }
     
     // MARK: - Queue Modification
@@ -78,6 +98,7 @@ extension PlaylistManager {
                 currentIndex = max(0, currentPlaylist.count - 1)
             }
         }
+        objectWillChange.send()
     }
     
     /// Remove multiple songs from the queue
@@ -111,6 +132,7 @@ extension PlaylistManager {
             currentIndex += 1
         }
         
+        objectWillChange.send()
         AppLogger.general.info("🔄 Moved queue item: \(song.title) from \(source) to \(adjustedDestination)")
     }
     
@@ -135,31 +157,33 @@ extension PlaylistManager {
     /// Shuffle only the upcoming songs (not the current song)
     func shuffleUpNext() {
         guard currentPlaylist.count > currentIndex + 1 else {
-            AppLogger.general.info("⚠️ No upcoming songs to shuffle")
+            AppLogger.general.warn("No upcoming songs to shuffle")
             return
         }
         
-        let currentSong = currentPlaylist[currentIndex]
+        //let currentSong = currentPlaylist[currentIndex]
         let upcomingSongs = Array(currentPlaylist[(currentIndex + 1)...])
         let shuffledUpcoming = upcomingSongs.shuffled()
         
         // Rebuild playlist: current song + shuffled upcoming
         currentPlaylist = Array(currentPlaylist[0...currentIndex]) + shuffledUpcoming
         
-        AppLogger.general.info("🔀 Shuffled \(shuffledUpcoming.count) upcoming songs")
+        objectWillChange.send()
+        AppLogger.general.info("Shuffled \(shuffledUpcoming.count) upcoming songs")
     }
     
     /// Clear all songs after the current song
     func clearUpNext() {
         guard currentPlaylist.count > currentIndex + 1 else {
-            AppLogger.general.info("⚠️ No upcoming songs to clear")
+            AppLogger.general.warn("No upcoming songs to clear")
             return
         }
         
         let removedCount = currentPlaylist.count - currentIndex - 1
         currentPlaylist = Array(currentPlaylist[0...currentIndex])
         
-        AppLogger.general.info("🗑️ Cleared \(removedCount) upcoming songs from queue")
+        objectWillChange.send()
+        AppLogger.general.info("Cleared \(removedCount) upcoming songs from queue")
     }
     
     /// Add songs to the end of the queue
@@ -167,7 +191,9 @@ extension PlaylistManager {
         guard !songs.isEmpty else { return }
         
         currentPlaylist.append(contentsOf: songs)
-        AppLogger.general.info("➕ Added \(songs.count) songs to queue")
+        
+        objectWillChange.send()
+        AppLogger.general.info("Added \(songs.count) songs to queue")
     }
     
     /// Insert songs after the current song
@@ -178,8 +204,8 @@ extension PlaylistManager {
         for (offset, song) in songs.enumerated() {
             currentPlaylist.insert(song, at: insertIndex + offset)
         }
-        
-        AppLogger.general.info("⏭️ Inserted \(songs.count) songs to play next")
+        objectWillChange.send()
+        AppLogger.general.info("Inserted \(songs.count) songs to play next")
     }
     
     // MARK: - Queue Information
