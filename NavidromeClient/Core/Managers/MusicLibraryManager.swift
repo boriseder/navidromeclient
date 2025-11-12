@@ -35,7 +35,7 @@ class MusicLibraryManager: ObservableObject {
     
     // MARK: - Loading Coordination
     private var isCurrentlyLoading = false
-    private var pendingNetworkStateChange: EffectiveConnectionState?
+    private var pendingNetworkStrategyChange: ContentLoadingStrategy?
     
     private weak var service: UnifiedSubsonicService?
     
@@ -139,13 +139,13 @@ class MusicLibraryManager: ObservableObject {
     
     private func setupNetworkStateObserver() {
         NotificationCenter.default.addObserver(
-            forName: .networkStateChanged,
+            forName: .contentLoadingStrategyChanged,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            if let newState = notification.object as? EffectiveConnectionState {
+            if let newStrategy = notification.object as? ContentLoadingStrategy {
                 Task { @MainActor in
-                    await self?.handleNetworkStateChange(newState)
+                    await self?.handleNetworkStrategyChange(newStrategy)
                 }
             }
         }
@@ -164,19 +164,19 @@ class MusicLibraryManager: ObservableObject {
     }
     
     func handleNetworkChange(isOnline: Bool) async {
-        await handleNetworkStateChange(NetworkMonitor.shared.effectiveConnectionState)
+        await handleNetworkStrategyChange(NetworkMonitor.shared.contentLoadingStrategy)
     }
     
-    private func handleNetworkStateChange(_ newState: EffectiveConnectionState) async {
+    private func handleNetworkStrategyChange(_ newStrategy: ContentLoadingStrategy) async {
         if isCurrentlyLoading {
-            pendingNetworkStateChange = newState
-            AppLogger.general.info("Network state change queued during loading: \(newState.displayName)")
+            pendingNetworkStrategyChange = newStrategy
+            AppLogger.general.info("Network strategy change queued during loading: \(newStrategy.displayName)")
             return
         }
         
-        pendingNetworkStateChange = nil
+        pendingNetworkStrategyChange = nil
         
-        switch newState {
+        switch newStrategy {
         case .online:
             if !isDataFresh && service != nil {
                 AppLogger.general.info("Network online - refreshing stale data")
@@ -187,14 +187,14 @@ class MusicLibraryManager: ObservableObject {
                 // No objectWillChange: data hasn't changed, views will react to NetworkMonitor
             }
             
-        case .userOffline, .serverUnreachable, .disconnected:
+        case .offlineOnly, .setupRequired:
             AppLogger.general.info("Network effectively offline - no UI update needed")
             // No objectWillChange: views will react to NetworkMonitor's state change
             // Only views displaying different data (offline vs online) will re-render
         }
         
-        if let pendingState = pendingNetworkStateChange {
-            await handleNetworkStateChange(pendingState)
+        if let pendingStrategy = pendingNetworkStrategyChange {
+            await handleNetworkStrategyChange(pendingStrategy)
         }
     }
     
@@ -424,7 +424,7 @@ class MusicLibraryManager: ObservableObject {
     
     func reset() {
         isCurrentlyLoading = false
-        pendingNetworkStateChange = nil
+        pendingNetworkStrategyChange = nil
         
         loadedAlbums = []
         loadedArtists = []

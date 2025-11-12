@@ -7,11 +7,12 @@ struct ContentView: View {
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
+    @EnvironmentObject var downloadManager: DownloadManager
+    @EnvironmentObject var theme: ThemeManager
     
     @State private var showingSettings = false
     @State private var isInitialSetup = false
     @State private var serviceInitError: String?
-
     
     var body: some View {
         Group {
@@ -22,30 +23,50 @@ struct ContentView: View {
                     showingSettings = true
                 }
             case .online, .offlineOnly:
-                /*
-                 if appConfig.isInitializingServices {
-                    ZStack {
-                        VStack(spacing: DSLayout.contentGap) {
-                            Spacer()
-                            
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(1.5)
-                                .frame(width: 60, height: 60, alignment: .center)
-
-                            Text("Initializing services...")
-                                .font(DSText.body)
-                                .foregroundStyle(DSColor.onDark)
-                            
-                            Spacer()
+                TabView {
+                    ExploreViewContent()
+                        .tabItem {
+                            Image(systemName: "music.note.house")
+                            Text("Explore")
                         }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.accent)
-                } else {
-                 */
-                    MainTabView()
-                // }
+                        .tag(0)
+                    
+                    AlbumsViewContent()
+                        .tabItem {
+                            Image(systemName: "record.circle")
+                            Text("Albums")
+                        }
+                        .tag(1)
+                    
+                    ArtistsViewContent()
+                        .tabItem {
+                            Image(systemName: "person.2")
+                            Text("Artists")
+                        }
+                        .tag(2)
+                    
+                    GenreViewContent()
+                        .tabItem {
+                            Image(systemName: "music.note.list")
+                            Text("Genres")
+                        }
+                        .tag(3)
+                    
+                    FavoritesViewContent()
+                        .tabItem {
+                            Image(systemName: "heart")
+                            Text("Favorites")
+                        }
+                        .tag(4)
+                }
+                .accentColor(theme.accent)
+                .id(theme.accent) // zwingt SwiftUI, die TabView neu zu rendern, wenn sich die Farbe ändert
+                .overlay(networkStatusOverlay, alignment: .top)
+                .overlay(alignment: .bottom) {
+                    MiniPlayerView()
+                        .environmentObject(playerVM)
+                        .padding(.bottom, DSLayout.miniPlayerHeight) // Standard tab bar height
+                }
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -66,19 +87,8 @@ struct ContentView: View {
                 showingSettings = true
             }
         }
-        .onChange(of: networkMonitor.canLoadOnlineContent) { _, isConnected in
-            handleNetworkChange(isConnected)
-        }
     }
 
-    private func handleNetworkChange(_ isConnected: Bool) {
-        if !isConnected {
-            AppLogger.ui.info("Network lost - switching to offline mode")
-            offlineManager.switchToOfflineMode()
-        } else {
-            AppLogger.ui.info("Network restored")
-        }
-    }
     
     private func retryServiceInitialization() async {
         guard let credentials = appConfig.getCredentials() else {
@@ -105,4 +115,21 @@ struct ContentView: View {
         
         serviceInitError = "Retry failed - check your connection"
     }
+    
+    // MARK: - Network Status Overlay
+    @ViewBuilder
+    private var networkStatusOverlay: some View {
+        // DISTINGUISH between different offline reasons
+        switch networkMonitor.contentLoadingStrategy {
+            case .offlineOnly(let reason):
+                OfflineReasonBanner(reason: reason)
+                    .padding(.horizontal, DSLayout.screenPadding)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(DSAnimations.ease, value: networkMonitor.canLoadOnlineContent)
+                
+            case .online, .setupRequired:
+                EmptyView()
+        }
+    }
+
 }

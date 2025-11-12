@@ -31,15 +31,6 @@ struct AlbumCollectionView: View {
         return networkMonitor.shouldLoadOnlineContent ? albums : availableOfflineAlbums
     }
     
-    private var currentState: ViewState? {
-        if albums.isEmpty && !musicLibraryManager.hasLoadedInitialData {
-            return .loading("Loading albums")
-        } else if albums.isEmpty {
-            return .empty(type: .albums)
-        }
-        return nil
-    }
-
     private var artist: Artist? {
         if case .byArtist(let a) = context { return a }
         return nil
@@ -86,20 +77,7 @@ struct AlbumCollectionView: View {
                     }
                     .ignoresSafeArea(edges: .top)
 
-                    // Unified State View or Content
-                    if let state = currentState {
-                        UnifiedStateView(
-                            state: state,
-                            primaryAction: StateAction("Try Again") {
-                                Task {
-                                    await loadContent()
-                                }
-                            }
-                        )
-                        .padding(.horizontal, DSLayout.screenPadding)
-                    } else {
-                        contentView
-                    }
+                    contentView
                 }
             }
             .navigationTitle("")

@@ -185,7 +185,7 @@ class ExploreManager: ObservableObject {
         return Date().timeIntervalSince(lastRefresh) < refreshInterval
     }
     
-    var hasHomeScreenData: Bool {
+    var hasExploreViewData: Bool {
         return !recentAlbums.isEmpty ||
                !newestAlbums.isEmpty ||
                !frequentAlbums.isEmpty ||

@@ -159,6 +159,9 @@ final class AppInitializer: ObservableObject {
         unifiedService = nil
         state = .notStarted
         
+        // Clear NetworkMonitor service reference
+        NetworkMonitor.shared.configureService(nil)
+
         AppLogger.general.info("[AppInitializer] Reset complete")
     }
     
@@ -202,6 +205,9 @@ final class AppInitializer: ObservableObject {
             username: credentials.username,
             password: credentials.password
         )
+        
+        // Configure NetworkMonitor with service reference
+        NetworkMonitor.shared.configureService(unifiedService)
         
         AppLogger.general.info("[AppInitializer] UnifiedSubsonicService created successfully")
     }

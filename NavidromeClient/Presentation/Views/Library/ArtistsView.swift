@@ -40,18 +40,6 @@ struct ArtistsViewContent: View {
         return artists
     }
     
-    private var currentState: ViewState? {
-        if !appConfig.isConfigured {
-            return .setupRequired
-        } else if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        } else if musicLibraryManager.isLoading && displayedArtists.isEmpty {  // displayedArtists
-            return .loading("Loading artists")
-        } else if displayedArtists.isEmpty && musicLibraryManager.hasLoadedInitialData {  // displayedArtists
-            return .empty(type: .artists)
-        }
-        return nil
-    }
 
     var body: some View {
         NavigationStack {
@@ -60,17 +48,8 @@ struct ArtistsViewContent: View {
                 if theme.backgroundStyle == .dynamic {
                     DynamicMusicBackground()
                 }
-                // UNIFIED: Single component handles all states
-                if let state = currentState {
-                    UnifiedStateView(
-                        state: state,
-                        primaryAction: StateAction("Refresh") {
-                            Task { await refreshAllData() }
-                        }
-                    )
-                } else {
-                    contentView
-                }
+                
+                contentView
             }
             .navigationTitle("Artists")
             .navigationBarTitleDisplayMode(.large)

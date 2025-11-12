@@ -59,21 +59,7 @@ struct AlbumsViewContent: View {
             }
         }
     }
-    
-    private var currentState: ViewState? {
-        // CHECK FOR SETUP REQUIRED FIRST
-        if !appConfig.isConfigured {
-            return .setupRequired
-        } else if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        } else if musicLibraryManager.isLoading && displayedAlbums.isEmpty {
-            return .loading("Loading albums")
-        } else if displayedAlbums.isEmpty && musicLibraryManager.hasLoadedInitialData {
-            return .empty(type: .albums)
-        }
-        return nil
-    }
-    
+        
     var body: some View {
         NavigationStack {
             ZStack {
@@ -82,16 +68,7 @@ struct AlbumsViewContent: View {
                     DynamicMusicBackground()
                 }
                 
-                if let state = currentState {
-                    UnifiedStateView(
-                        state: state,
-                        primaryAction: StateAction("Refresh") {
-                            Task { await refreshAllData() }
-                        }
-                    )
-                } else {
                     contentView
-                }
             }
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)

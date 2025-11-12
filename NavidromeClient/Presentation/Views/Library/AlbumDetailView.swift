@@ -23,12 +23,6 @@ struct AlbumDetailViewContent: View {
     @State private var songs: [Song] = []
     @State private var isOfflineAlbum = false
     
-    private var currentState: ViewState? {
-        if songs.isEmpty {
-            return .empty(type: .songs)
-        }
-        return nil
-    }
     
     var body: some View {
         ZStack {
@@ -44,21 +38,10 @@ struct AlbumDetailViewContent: View {
                         isOfflineAlbum: isOfflineAlbum
                      )
                      
-                     if let state = currentState {
-                        UnifiedStateView(
-                            state: state,
-                            primaryAction: StateAction("Refresh") {
-                                Task {
-                                    await loadAlbumData()
-                                }
-                            }
-                        )
-                     } else {
                         AlbumSongsListView(
                             songs: songs,
                             album: album
                         )
-                    }
                 }
                 .padding(.horizontal, DSLayout.screenPadding)
                 .padding(.bottom, DSLayout.miniPlayerHeight)

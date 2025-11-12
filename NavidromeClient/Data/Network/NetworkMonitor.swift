@@ -5,6 +5,10 @@
 //  Pure state management for network connectivity and content loading strategy.
 //  NetworkState is the single source of truth, all dependencies are explicit.
 //
+//  REFACTORED: Clear semantic naming
+//  - hasInternet: Device has internet connectivity
+//  - isServerReachable: Navidrome server responds
+//
 
 import Foundation
 import Network
@@ -22,10 +26,19 @@ class NetworkMonitor: ObservableObject {
     private let queue = DispatchQueue(label: "NetworkMonitor")
     
     // MARK: - Internal Hardware State
-    private var isConnected = true
+    private var hasInternet = false              // Device has internet connection
+    private var isServerReachable = true         // Navidrome server responds (optimistic default)
     private var connectionType: NetworkConnectionType = .unknown
-    private var hasRecentServerErrors = false
     private var manualOfflineMode = false
+
+    // Rate limiting for internet checks
+    private var lastInternetCheck: Date?
+    private let minimumCheckInterval: TimeInterval = 3.0
+    
+    // Server health tracking
+    private weak var subsonicService: UnifiedSubsonicService?
+    private var lastServerCheck: Date?
+    private let serverCheckInterval: TimeInterval = 10.0
     
     enum NetworkConnectionType {
         case wifi, cellular, ethernet, unknown
@@ -41,27 +54,17 @@ class NetworkMonitor: ObservableObject {
     }
     
     private init() {
-        // SYNCHRONOUSLY determine initial network state before publishing
-        let currentPath = monitor.currentPath
-        let initialConnectionState = currentPath.status == .satisfied
-        
+        // Start with conservative state
         self.state = NetworkState(
-            isConnected: initialConnectionState,
+            hasInternet: false,
+            isServerReachable: false,
             isConfigured: false,
-            hasServerErrors: false,
             manualOfflineMode: false
         )
         
-        // Update internal state to match
-        self.isConnected = initialConnectionState
-        self.connectionType = getConnectionType(currentPath)
-        
-        AppLogger.network.info("[NetworkMonitor] Initial state: \(initialConnectionState ? "Connected" : "Disconnected") (\(connectionType.displayName))")
-        
+        AppLogger.network.info("[NetworkMonitor] Initializing...")
         startNetworkMonitoring()
-       //BORIS observeAppConfigChanges()
     }
-
     
     deinit {
         monitor.cancel()
@@ -82,32 +85,20 @@ class NetworkMonitor: ObservableObject {
     }
     
     var canLoadOnlineContent: Bool {
-        state.isConnected && state.isConfigured && !hasRecentServerErrors
+        state.isFullyConnected && state.isConfigured
     }
     
     var connectionStatusDescription: String {
         state.contentLoadingStrategy.displayName
     }
     
-    // MARK: - Legacy Compatibility
-    
-    var effectiveConnectionState: EffectiveConnectionState {
-        switch state.contentLoadingStrategy {
-        case .online:
-            return .online
-        case .offlineOnly(let reason):
-            switch reason {
-            case .noNetwork:
-                return .disconnected
-            case .serverUnreachable:
-                return .serverUnreachable
-            case .userChoice:
-                return .userOffline
-            }
-        case .setupRequired:
-            return .disconnected  // Treat as disconnected for legacy compatibility
-        }
+    // MARK: - Service Configuration
+
+    func configureService(_ service: UnifiedSubsonicService?) {
+        self.subsonicService = service
+        AppLogger.network.info("[NetworkMonitor] Service configured: \(service != nil ? "yes" : "no")")
     }
+    
     
     // MARK: - Public API - State Updates
     
@@ -121,84 +112,148 @@ class NetworkMonitor: ObservableObject {
     }
     
     func reportServerError() {
-        hasRecentServerErrors = true
+        isServerReachable = false
         updateState()
         AppLogger.network.info("[NetworkMonitor] Server error reported")
     }
     
     func clearServerErrors() {
-        hasRecentServerErrors = false
+        isServerReachable = true
         updateState()
         AppLogger.network.info("[NetworkMonitor] Server errors cleared")
     }
     
     func setManualOfflineMode(_ enabled: Bool) {
-        // When enabling manual offline: no restrictions (user can always choose to go offline)
-        // When disabling manual offline: verify network is available
-        
         if !enabled {
-            // User wants to go online - only check network connection
-            // Don't check isConfigured because user needs to go online to configure/login
-            guard state.isConnected else {
-                AppLogger.network.info("[NetworkMonitor] Cannot go online: no network connection")
-                return
-            }
-            /*
-            guard state.isConfigured else {
-                AppLogger.network.info("[NetworkMonitor] Cannot go online: server not configured")
+            // User wants to go online
+            // CRITICAL: Verify BOTH internet AND server are actually available!
+            
+            let hasInternetCached = state.hasInternet
+            
+            if !hasInternetCached {
+                AppLogger.network.info("[NetworkMonitor] Cached state says offline - triggering recheck...")
+                
+                // Trigger immediate network recheck
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    
+                    await self.recheckConnection()
+                    
+                    // After recheck, verify BOTH conditions
+                    if self.state.hasInternet && self.isServerReachable {
+                        AppLogger.network.info("[NetworkMonitor] Network and server available after recheck")
+                        self.manualOfflineMode = false
+                        self.updateState()
+                        AppLogger.network.info("[NetworkMonitor] Manual offline mode: disabled (after recheck)")
+                    } else if !self.state.hasInternet {
+                        AppLogger.network.info("[NetworkMonitor] Cannot go online: no internet connection (verified)")
+                    } else if !self.isServerReachable {
+                        AppLogger.network.info("[NetworkMonitor] Cannot go online: server unreachable (verified)")
+                    }
+                }
                 return
             }
             
-            guard !hasRecentServerErrors else {
-             */
-            // Allow going online even if not configured (needed for login)
-            // Only block if there are actual server errors (not just unconfigured)
-            if state.isConfigured && hasRecentServerErrors {
-                 AppLogger.network.info("[NetworkMonitor] Cannot go online: server has errors")
-                 return
+            // If we have internet but server is unreachable, prevent going online
+            if !isServerReachable {
+                AppLogger.network.info("[NetworkMonitor] Cannot go online: server unreachable")
+                return  // ✅ Block the attempt!
             }
+            
+            // Both internet AND server available - allow going online
+            manualOfflineMode = false
+            updateState()
+            AppLogger.network.info("[NetworkMonitor] Manual offline mode: disabled")
+            return
         }
         
+        // Going offline is always allowed
         manualOfflineMode = enabled
         updateState()
-        AppLogger.network.info("[NetworkMonitor] Manual offline mode: \(enabled ? "enabled" : "disabled")")
+        AppLogger.network.info("[NetworkMonitor] Manual offline mode: enabled")
     }
     
     func reset() {
-        hasRecentServerErrors = false
+        isServerReachable = true
         manualOfflineMode = false
         updateState()
         AppLogger.network.info("[NetworkMonitor] Reset completed")
     }
     
     func recheckConnection() async {
-        // Perform quick connectivity check without blocking
-        await Task.detached(priority: .userInitiated) {
-            // Network path is already monitored, just verify current state
-            let currentPath = self.monitor.currentPath
-            let isConnected = currentPath.status == .satisfied
+        // Force new checks
+        lastInternetCheck = nil
+        lastServerCheck = nil
+        
+        await Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
             
-            await MainActor.run {
-                if isConnected != self.isConnected {
-                    self.isConnected = isConnected
-                    self.updateState()
-                    AppLogger.network.info("[NetworkMonitor] Connection rechecked: \(isConnected ? "Connected" : "Disconnected")")
+            let currentPath = self.monitor.currentPath
+            var pathSatisfied = currentPath.status == .satisfied
+            
+            // If path not satisfied, try direct internet check anyway
+            if !pathSatisfied {
+                AppLogger.network.debug("[NetworkMonitor] Path not satisfied - trying direct check...")
+                
+                let directCheck = await self.checkInternetReachable(force: true)
+                
+                if directCheck {
+                    AppLogger.network.info("[NetworkMonitor] Internet available despite path status")
+                    pathSatisfied = true
                 }
             }
+            
+            // Check internet availability
+            let internetAvailable = pathSatisfied ? await self.checkInternetReachable(force: true) : false
+            
+            // Check server availability (only if internet is available)
+            // FIX: Capture service reference on MainActor, then ping it outside
+            let service = await MainActor.run { self.subsonicService }
+            
+            let serverAvailable: Bool
+            if internetAvailable, let service = service {
+                serverAvailable = await service.ping()
+                AppLogger.network.debug("[NetworkMonitor] Server ping: \(serverAvailable)")
+            } else {
+                // No internet or no service configured (setup mode) - treat as available
+                serverAvailable = service == nil
+            }
+            
+            await MainActor.run {
+                let wasInternetAvailable = self.hasInternet
+                let wasServerReachable = self.isServerReachable
+                
+                // Update both states independently
+                self.hasInternet = internetAvailable
+                self.isServerReachable = serverAvailable
+                
+                self.connectionType = self.getConnectionType(currentPath)
+                
+                // Log state changes
+                if internetAvailable && !wasInternetAvailable {
+                    AppLogger.network.info("[NetworkMonitor] Internet restored: \(self.connectionType.displayName)")
+                } else if !internetAvailable && wasInternetAvailable {
+                    AppLogger.network.warn("[NetworkMonitor] Internet lost")
+                }
+                
+                if internetAvailable && serverAvailable && !wasServerReachable {
+                    AppLogger.network.info("[NetworkMonitor] Server became reachable")
+                } else if internetAvailable && !serverAvailable && wasServerReachable {
+                    AppLogger.network.warn("[NetworkMonitor] Server became unreachable")
+                }
+                
+                self.updateState()
+            }
         }.value
-        
-        await MainActor.run {
-            self.objectWillChange.send()
-        }
     }
     
     // MARK: - State Update
     
     private func updateState(isConfigured: Bool? = nil) {
         let newState = NetworkState(
-            isConnected: isConnected,
+            hasInternet: hasInternet,
+            isServerReachable: isServerReachable,
             isConfigured: isConfigured ?? state.isConfigured,
-            hasServerErrors: hasRecentServerErrors,
             manualOfflineMode: manualOfflineMode
         )
         
@@ -226,23 +281,112 @@ class NetworkMonitor: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 
-                let wasConnected = self.isConnected
-                let isNowConnected = path.status == .satisfied
-                
-                self.isConnected = isNowConnected
+                let pathSatisfied = path.status == .satisfied
                 self.connectionType = self.getConnectionType(path)
                 
-                if isNowConnected && !wasConnected {
-                    AppLogger.network.info("[NetworkMonitor] Network restored: \(self.connectionType.displayName)")
-                    self.hasRecentServerErrors = false
-                } else if !isNowConnected && wasConnected {
-                    AppLogger.network.info("[NetworkMonitor] Network lost")
+                if pathSatisfied {
+                    let internetAvailable = await self.checkInternetReachable()
+                    let wasInternetAvailable = self.hasInternet
+                    
+                    // Also check server if we have a service configured
+                    let serverAvailable: Bool
+                    if internetAvailable, let service = self.subsonicService {
+                        serverAvailable = await service.ping()
+                    } else {
+                        serverAvailable = self.subsonicService == nil
+                    }
+                    
+                    self.hasInternet = internetAvailable
+                    self.isServerReachable = serverAvailable
+                    
+                    if internetAvailable && !wasInternetAvailable {
+                        AppLogger.network.info("[NetworkMonitor] Internet restored: \(self.connectionType.displayName)")
+                    }
+                } else {
+                    if self.hasInternet {
+                        AppLogger.network.info("[NetworkMonitor] Network interface lost")
+                    }
+                    self.hasInternet = false
+                    self.isServerReachable = false
                 }
                 
                 self.updateState()
             }
         }
+
+        
         monitor.start(queue: queue)
+        
+        // Initial check without race condition
+        Task { @MainActor in
+            await Task.yield() // Let monitor start
+            
+            let initialPath = monitor.currentPath
+            self.connectionType = self.getConnectionType(initialPath)
+            
+            if initialPath.status == .satisfied {
+                self.hasInternet = await self.checkInternetReachable()
+            } else {
+                self.hasInternet = false
+            }
+            
+            self.updateState()
+            AppLogger.network.info("[NetworkMonitor] Initial state: \(self.hasInternet ? "Has Internet" : "No Internet") (\(self.connectionType.displayName))")
+        }
+    }
+    
+    // MARK: - Internet Reachability Check
+    
+    private func checkInternetReachable(force: Bool = false) async -> Bool {
+        // Rate limiting
+        if !force, let lastCheck = lastInternetCheck,
+           Date().timeIntervalSince(lastCheck) < minimumCheckInterval {
+            return hasInternet
+        }
+        
+        lastInternetCheck = Date()
+        
+        // Try multiple endpoints for robustness
+        if await checkURL("https://www.google.com/generate_204", expecting: 204) {
+            return true
+        }
+        
+        if await checkURL("http://captive.apple.com/hotspot-detect.html", expecting: 200) {
+            return true
+        }
+        
+        if await checkURL("https://1.1.1.1/", expecting: nil) {
+            return true
+        }
+        
+        return false
+    }
+    
+    private func checkURL(_ urlString: String, expecting statusCode: Int?) async -> Bool {
+        guard let url = URL(string: urlString) else { return false }
+        
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                if let expectedCode = statusCode {
+                    return httpResponse.statusCode == expectedCode
+                } else {
+                    // Any HTTP response means connection
+                    return (200...299).contains(httpResponse.statusCode) ||
+                           httpResponse.statusCode == 301 ||
+                           httpResponse.statusCode == 302
+                }
+            }
+            
+            return false
+        } catch {
+            return false
+        }
     }
     
     private func getConnectionType(_ path: NWPath) -> NetworkConnectionType {
@@ -263,30 +407,36 @@ class NetworkMonitor: ObservableObject {
         NetworkDiagnostics(
             state: state,
             connectionType: connectionType,
-            hasRecentServerErrors: hasRecentServerErrors,
-            manualOfflineMode: manualOfflineMode
+            hasInternet: hasInternet,
+            isServerReachable: isServerReachable,
+            manualOfflineMode: manualOfflineMode,
+            lastInternetCheck: lastInternetCheck
         )
     }
     
     struct NetworkDiagnostics {
         let state: NetworkState
         let connectionType: NetworkConnectionType
-        let hasRecentServerErrors: Bool
+        let hasInternet: Bool
+        let isServerReachable: Bool
         let manualOfflineMode: Bool
+        let lastInternetCheck: Date?
         
         var summary: String {
             var status: [String] = []
             
-            status.append("Network: \(state.isConnected ? "Connected" : "Disconnected")")
+            status.append("Internet: \(hasInternet ? "Available" : "Unavailable")")
+            status.append("Server: \(isServerReachable ? "Reachable" : "Unreachable")")
             status.append("Type: \(connectionType.displayName)")
             status.append("Configured: \(state.isConfigured ? "Yes" : "No")")
             status.append("Strategy: \(state.contentLoadingStrategy.displayName)")
             
-            if hasRecentServerErrors {
-                status.append("Errors: Yes")
-            }
             if manualOfflineMode {
                 status.append("Manual Offline: Yes")
+            }
+            if let lastCheck = lastInternetCheck {
+                let ago = Date().timeIntervalSince(lastCheck)
+                status.append("Last Check: \(String(format: "%.1fs ago", ago))")
             }
             
             return status.joined(separator: " | ")
@@ -309,7 +459,8 @@ class NetworkMonitor: ObservableObject {
         
         Hardware:
         - Connection Type: \(connectionType.displayName)
-        - Recent Errors: \(hasRecentServerErrors)
+        - Has Internet: \(hasInternet)
+        - Server Reachable: \(isServerReachable)
         - Manual Offline: \(manualOfflineMode)
         """)
     }
@@ -326,26 +477,4 @@ class NetworkMonitor: ObservableObject {
 extension Notification.Name {
     static let contentLoadingStrategyChanged = Notification.Name("contentLoadingStrategyChanged")
     static let networkStateChanged = Notification.Name("networkStateChanged")
-}
-
-// MARK: - Legacy Compatibility
-
-enum EffectiveConnectionState {
-    case online
-    case userOffline
-    case serverUnreachable
-    case disconnected
-    
-    var shouldLoadOnlineContent: Bool {
-        return self == .online
-    }
-    
-    var displayName: String {
-        switch self {
-        case .online: return "Online"
-        case .userOffline: return "User Offline"
-        case .serverUnreachable: return "Server Unreachable"
-        case .disconnected: return "Disconnected"
-        }
-    }
 }

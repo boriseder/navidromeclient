@@ -3,8 +3,8 @@
 //  NavidromeClient
 //
 //   UNIFIED: Single ContentLoadingStrategy for consistent state
-//   CLEAN: Proper offline content handling
-//   FIXED: Consistent state management pattern
+//   CLEAN: Network checks handled by manager, not view
+//   SEPARATION: View displays state, Manager handles business logic
 //
 
 import SwiftUI
@@ -22,7 +22,8 @@ struct ExploreViewContent: View {
     @State private var hasAttemptedInitialLoad = false
     @State private var loadingCompleted = false
 
-    private var hasContent: Bool {
+/*
+ private var hasContent: Bool {
         let result: Bool
         
         switch networkMonitor.contentLoadingStrategy {
@@ -36,38 +37,15 @@ struct ExploreViewContent: View {
 
         return result
     }
+ */
     
     private var hasOnlineContent: Bool {
-        let result = exploreManager.hasHomeScreenData
+        let result = exploreManager.hasExploreViewData
         return result
     }
 
     private var hasOfflineContent: Bool {
         !offlineManager.offlineAlbums.isEmpty
-    }
-
-    private var currentState: ViewState? {
-        // CHECK FOR SETUP REQUIRED FIRST (same pattern as other views)
-        if !appConfig.isConfigured {
-            return .setupRequired
-        }
-        
-        // CHECK FOR SERVICE INITIALIZATION (consistent with other views)
-        if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        }
-        
-        // CHECK FOR ACTIVE LOADING (uses ExploreManager's property)
-        if exploreManager.isLoadingExploreData && !hasContent {
-            return .loading("Loading your music")
-        }
-        
-        // CHECK FOR EMPTY STATE (adapted to ExploreView's logic)
-        if !hasContent && hasAttemptedInitialLoad {
-            return .empty(type: .albums)
-        }
-        
-        return nil
     }
 
     var body: some View {
@@ -78,20 +56,7 @@ struct ExploreViewContent: View {
                     DynamicMusicBackground()
                 }
                 
-                if let state = currentState {
-                    UnifiedStateView(
-                        state: state,
-                        primaryAction: StateAction("Refresh") {
-                            Task {
-                                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
-                                // await exploreManager.loadExploreData()
-                            }
-                        }
-                    )
-                } else {
-                    contentView
-                }
-                
+                contentView
             }
             .task {
                 guard !hasAttemptedInitialLoad else { return }
@@ -109,7 +74,7 @@ struct ExploreViewContent: View {
                     coverArtManager.preloadWhenIdle(Array(allAlbums.prefix(20)), context: .card)
                 }
             }
-            .navigationTitle("Your Favorites")
+            .navigationTitle("Explore & listen")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
@@ -123,13 +88,16 @@ struct ExploreViewContent: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Menu {
-                        Button {
-                            Task { await refreshRandomAlbums }
-                        } label: {
-                            Label("Refrssh random albums", systemImage: "arrow.clockwise")
+                        // show refresh-button only when online
+                        if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
+                            Button {
+                                Task { await refreshRandomAlbums() }
+                            } label: {
+                                Label("Refresh random albums", systemImage: "arrow.clockwise")
+                            }
+                            Divider()
                         }
-                        
-                        Divider()
+
                         // NavigationLink -> öffnet Settings
                         NavigationLink(destination: SettingsView()) {
                             Label("Settings", systemImage: "person.crop.circle.fill")
@@ -141,7 +109,7 @@ struct ExploreViewContent: View {
                 }
             }
             .refreshable {
-                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
+                // Manager internally checks if online before loading
                 await exploreManager.loadExploreData()
             }
         }
@@ -158,18 +126,23 @@ struct ExploreViewContent: View {
                 case .offlineOnly:
                     offlineContent
                 case .setupRequired:
-                    EmptyView()  // This case shouldn't happen in contentView but we need it for exhaustiveness
+                    onlineContent
+                        .overlay {
+                            Text("Empty State: Setup required")
+                        }
                 }
             }
-            .padding(.bottom, DSLayout.miniPlayerHeight)   // ← Für beide cases
-
+            .padding(.bottom, DSLayout.miniPlayerHeight)
         }
         .scrollIndicators(.hidden)
-        .padding(.horizontal, DSLayout.screenPadding)  // ← Verschiebe hier rein
+        .padding(.horizontal, DSLayout.screenPadding)
     }
 
     private var onlineContent: some View {
         LazyVStack(spacing: DSLayout.elementGap) {
+            
+            NetworkDebugBanner()
+            
             WelcomeHeader(
                 username: appConfig.getCredentials()?.username ?? "User",
                 nowPlaying: playerVM.currentSong
@@ -217,6 +190,7 @@ struct ExploreViewContent: View {
     
     private var offlineContent: some View {
         LazyVStack(alignment: .leading, spacing: DSLayout.screenGap) {
+            
             OfflineWelcomeHeader(
                 downloadedAlbums: downloadManager.downloadedAlbums.count,
                 isConnected: networkMonitor.canLoadOnlineContent
@@ -230,18 +204,17 @@ struct ExploreViewContent: View {
                     accentColor: .green
                 )
             }
-            
         }
     }
     
-    // MARK: - Business Logic (unchanged)
+    // MARK: - Business Logic
     
+    /// No network check needed - manager handles it internally
     private func setupHomeScreenData() async {
-        if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
-         //   await exploreManager.loadExploreData()
-        }
+        await exploreManager.loadExploreData()
     }
-        
+    
+    /// Manager checks network state internally
     private func refreshRandomAlbums() async {
         await exploreManager.refreshRandomAlbums()
         // Use background idle preloading instead of immediate
@@ -249,7 +222,7 @@ struct ExploreViewContent: View {
     }
 }
 
-// MARK: - ExploreSection (unchanged)
+// MARK: - ExploreSection
 
 struct ExploreSection: View {
     @EnvironmentObject var theme: ThemeManager
@@ -301,7 +274,6 @@ struct ExploreSection: View {
                         .font(DSText.emphasized)
                         .foregroundColor(theme.textColor)
                         .padding(.trailing, DSLayout.elementPadding)
-
                 }
             }
             

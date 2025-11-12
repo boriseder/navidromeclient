@@ -52,12 +52,12 @@ class OfflineManager: ObservableObject {
     
     func switchToOnlineMode() {
         networkMonitor.setManualOfflineMode(false)
-        AppLogger.general.info("🌐 Requested switch to online mode")
+        AppLogger.general.info("Requested switch to online mode")
     }
 
     func switchToOfflineMode() {
         networkMonitor.setManualOfflineMode(true)
-        AppLogger.general.info("📱 Requested switch to offline mode")
+        AppLogger.general.info("Requested switch to offline mode")
     }
     
     func toggleOfflineMode() {

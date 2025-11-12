@@ -5,14 +5,6 @@
 //  Created by Boris Eder on 16.09.25.
 //
 
-
-//
-//  ConnectionService.swift - Core Connection & Authentication
-//  NavidromeClient
-//
-//   FOCUSED: Connection, auth, ping, health checks only
-//
-
 import Foundation
 import CryptoKit
 

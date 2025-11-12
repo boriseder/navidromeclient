@@ -38,19 +38,6 @@ struct GenreViewContent: View {
         return genres
     }
     
-    private var currentState: ViewState? {
-        if !appConfig.isConfigured {
-            return .setupRequired
-        } else if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        } else if musicLibraryManager.isLoading && displayedGenres.isEmpty {  // ✅ displayedGenres
-            return .loading("Loading genres")
-        } else if displayedGenres.isEmpty && musicLibraryManager.hasLoadedInitialData {  // ✅ displayedGenres
-            return .empty(type: .genres)
-        }
-        return nil
-    }
-
     
     var body: some View {
         NavigationStack {
@@ -60,17 +47,7 @@ struct GenreViewContent: View {
                     DynamicMusicBackground()
                 }
                 
-                // UNIFIED: Single component handles all states
-                if let state = currentState {
-                    UnifiedStateView(
-                        state: state,
-                        primaryAction: StateAction("Refresh") {
-                            Task { await refreshAllData() }
-                        }
-                    )
-                } else {
-                    contentView
-                }
+                contentView
             }
             .navigationTitle("Genres")
             .navigationBarTitleDisplayMode(.large)

@@ -49,32 +49,7 @@ struct FavoritesViewContent: View {
             }
         }
     }
-    
-    private var currentState: ViewState? {
-        // CHECK FOR SETUP REQUIRED FIRST
-        if !appConfig.isConfigured {
-            return .setupRequired
-        }
         
-        // CHECK FOR SERVICE INITIALIZATION
-        if appConfig.isInitializingServices {
-            return .loading("Setting up your music library")
-        }
-        
-        // CHECK FOR ACTIVE LOADING (adapted to FavoritesManager)
-        if favoritesManager.isLoading && favoritesManager.favoriteSongs.isEmpty {
-            return .loading("Loading favorites")
-        }
-        
-        // CHECK FOR EMPTY STATE (adapted to FavoritesManager)
-        if displayedSongs.isEmpty && !favoritesManager.isLoading && favoritesManager.lastRefresh != nil {
-            return .empty(type: .favorites)
-        }
-        
-        return nil
-    }
-
-    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -83,20 +58,7 @@ struct FavoritesViewContent: View {
                     DynamicMusicBackground()
                 }
                 
-                // Single component handles all states
-                if let state = currentState {
-                    UnifiedStateView(
-                        state: state,
-                        primaryAction: StateAction("Refresh") {
-                            Task {
-                                guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
-                                await favoritesManager.loadFavoriteSongs(forceRefresh: true)
-                            }
-                        }
-                    )
-                } else {
                     contentView
-                }
             }
             .navigationTitle("Your Favorites")
             .navigationBarTitleDisplayMode(.large)
@@ -172,7 +134,8 @@ struct FavoritesViewContent: View {
         ScrollView {
             LazyVStack(spacing: 1) {
                 if !favoritesManager.favoriteSongs.isEmpty {
-                    FavoritesStatsHeader()
+                    Text("No favorites available")
+                        .font(DSText.sectionTitle)
                         .padding(.top, DSLayout.tightGap)
                         .padding(.bottom, DSLayout.sectionGap)
                 }

@@ -117,15 +117,24 @@ class NavidromeViewModel: ObservableObject {
     }
     
     func performConnectionHealthCheck() async {
-        await connectionManager.performQuickHealthCheck()
-        
-        if let health = await getConnectionHealth() {
-            AppLogger.general.info("NavidromeViewModel: Health check completed - \(health.statusDescription)")
+        do {
+            // Prüfe zuerst, ob die Methode throwable ist
+            try await connectionManager.performQuickHealthCheck()
+            
+            if let health = await getConnectionHealth() {
+                AppLogger.general.info("NavidromeViewModel: Health check completed - \(health.statusDescription)")
+            } else {
+                AppLogger.general.warn("NavidromeViewModel: Health check returned nil")
+            }
+            
+        } catch {
+            // Fehlerfall abfangen
+            AppLogger.general.error("NavidromeViewModel: Health check failed - \(error.localizedDescription)")
         }
         
+        // View aktualisieren
         objectWillChange.send()
     }
-    
     
     // MARK: - Reset & Cleanup
     
@@ -201,14 +210,19 @@ struct ServiceArchitectureDiagnostics {
     let managersConfigured: Bool
     
     var overallHealth: String {
-        let connection = connectionDiagnostics.isConnected
-        let network = networkDiagnostics.state.isConnected
-        let server = connectionDiagnostics.hasService
+        let hasService = connectionDiagnostics.hasService
+        let hasInternet = networkDiagnostics.hasInternet
+        let isServerReachable = networkDiagnostics.isServerReachable
+        let isFullyConnected = networkDiagnostics.state.isFullyConnected
 
-        if connection && network && server {
+        if hasService && isFullyConnected {
             return "All systems operational"
-        } else if network {
-            return "Network issues detected"
+        } else if hasInternet && !isServerReachable {
+            return "Server unreachable - check server status"
+        } else if !hasInternet {
+            return "No internet connection"
+        } else if !hasService {
+            return "Service not configured"
         } else {
             return "System issues detected"
         }
@@ -231,24 +245,24 @@ struct ServiceArchitectureDiagnostics {
 }
 
 struct ConnectionDiagnostics {
-    let isConnected: Bool
+    let isConnected: Bool               // Service connection established
     let connectionHealth: ConnectionHealth?
     let errorMessage: String?
-    let hasService: Bool
+    let hasService: Bool                // Service is configured
     
     var summary: String {
         if hasService, let health = connectionHealth {
             return """
             FACADE ARCHITECTURE:
             - Service: Available
-            - Connection: \(isConnected ? "Connected" : "Not Connected")
+            - Connection: \(isConnected ? "Established" : "Not Established")
             - Health: \(health.statusDescription)
             """
         } else {
             return """
             FACADE ARCHITECTURE:
-            - Service: Not Available
-            - Connection: \(isConnected ? "Connected" : "Not Connected")
+            - Service: \(hasService ? "Available" : "Not Available")
+            - Connection: \(isConnected ? "Established" : "Not Established")
             - Error: \(errorMessage ?? "Unknown")
             """
         }

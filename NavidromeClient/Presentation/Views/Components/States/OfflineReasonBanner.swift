@@ -18,7 +18,7 @@ struct OfflineReasonBanner: View {
         } label: {
             HStack(spacing: DSLayout.elementGap) {
                 Image(systemName: reason.icon)
-                Text("Offline mode")
+                Text("Offline")
             }
             .foregroundColor(.white)
             .padding(DSLayout.elementPadding)

@@ -30,6 +30,7 @@ struct SettingsView: View {
             List {
                 GeneralSettingsSection
                 NavidromeSection
+                NetworkDebugSection
                 if appConfig.isConfigured {
                     CacheSection
                     ServerDetailsSection
@@ -92,9 +93,6 @@ struct SettingsView: View {
                     Label("Cover Art Debug", systemImage: "photo.artframe")
                 }
                 
-                NavigationLink(destination: NetworkTestView()) {
-                    Label("Network Test", systemImage: "network")
-                }
             }
             Section(header: Text("Appearance")) {
                 Picker("Select Theme", selection: $theme.backgroundStyle) {
@@ -161,6 +159,14 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var NetworkDebugSection: some View {
+        Section {
+            NetworkDebugBanner()
+        } header: {
+            Text("Network Debug")
+        } footer: { }
     }
 
     // MARK: - Actions

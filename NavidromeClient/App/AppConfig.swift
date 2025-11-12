@@ -2,8 +2,8 @@
 //  AppConfig.swift
 //  NavidromeClient
 //
-//  REFACTORED: Uses CredentialStore for all credential operations
-//  CLEAN: Single responsibility - app configuration state only
+//  Uses CredentialStore for all credential operations
+//  Single responsibility - app configuration state only
 //
 
 import Foundation
