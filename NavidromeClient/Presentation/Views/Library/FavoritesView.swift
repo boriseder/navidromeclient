@@ -133,13 +133,15 @@ struct FavoritesViewContent: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(spacing: 1) {
-                if !favoritesManager.favoriteSongs.isEmpty {
+
+                if favoritesManager.favoriteSongs.isEmpty {
                     Text("No favorites available")
                         .font(DSText.sectionTitle)
                         .padding(.top, DSLayout.tightGap)
                         .padding(.bottom, DSLayout.sectionGap)
                 }
                 
+
                 ForEach(displayedSongs.indices, id: \.self) { index in
                     let song = displayedSongs[index]
                     
@@ -161,7 +163,8 @@ struct FavoritesViewContent: View {
                             Task {
                                 await favoritesManager.toggleFavorite(song)
                             }
-                        }
+                        },
+                        context: .favorites
                     )
                 }
             }

@@ -91,21 +91,19 @@ struct ArtistsViewContent: View {
     
     @ViewBuilder
     private var contentView: some View {
+ 
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
-                
-                LazyVStack(spacing: 2) {
-                    ForEach(displayedArtists.indices, id: \.self) { index in
-                        let artist = displayedArtists[index]
-                        
-                        NavigationLink(value: artist) {
-                            ArtistRowView(artist: artist, index: index)
-                        }
-                        .buttonStyle(.plain)
+            LazyVStack(spacing: 2) {
+                ForEach(displayedArtists.indices, id: \.self) { index in
+                    let artist = displayedArtists[index]
+                    
+                    NavigationLink(value: artist) {
+                        ArtistRowView(artist: artist, index: index)
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.bottom, DSLayout.miniPlayerHeight)
             }
+            .padding(.bottom, DSLayout.miniPlayerHeight)
         }
         .scrollIndicators(.hidden)
         .padding(.horizontal, DSLayout.screenPadding)

@@ -141,8 +141,6 @@ struct ExploreViewContent: View {
     private var onlineContent: some View {
         LazyVStack(spacing: DSLayout.elementGap) {
             
-            NetworkDebugBanner()
-            
             WelcomeHeader(
                 username: appConfig.getCredentials()?.username ?? "User",
                 nowPlaying: playerVM.currentSong
