@@ -24,35 +24,35 @@ struct ContentView: View {
                 }
             case .online, .offlineOnly:
                 TabView {
-                    ExploreViewContent()
+                    ExploreView()
                         .tabItem {
                             Image(systemName: "music.note.house")
                             Text("Explore")
                         }
                         .tag(0)
                     
-                    AlbumsViewContent()
+                    AlbumsView()
                         .tabItem {
                             Image(systemName: "record.circle")
                             Text("Albums")
                         }
                         .tag(1)
                     
-                    ArtistsViewContent()
+                    ArtistsView()
                         .tabItem {
                             Image(systemName: "person.2")
                             Text("Artists")
                         }
                         .tag(2)
                     
-                    GenreViewContent()
+                    GenreView()
                         .tabItem {
                             Image(systemName: "music.note.list")
                             Text("Genres")
                         }
                         .tag(3)
                     
-                    FavoritesViewContent()
+                    FavoritesView()
                         .tabItem {
                             Image(systemName: "heart")
                             Text("Favorites")

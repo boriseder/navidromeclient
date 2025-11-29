@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct ExploreViewContent: View {
+struct ExploreView: View {
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var theme: ThemeManager
     @EnvironmentObject var playerVM: PlayerViewModel

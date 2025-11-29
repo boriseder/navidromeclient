@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct FavoritesViewContent: View {
+struct FavoritesView: View {
     @EnvironmentObject var offlineManager: OfflineManager
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var playerVM: PlayerViewModel

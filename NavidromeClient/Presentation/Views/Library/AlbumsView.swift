@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct AlbumsViewContent: View {
+struct AlbumsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig

@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct GenreViewContent: View {
+struct GenreView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
