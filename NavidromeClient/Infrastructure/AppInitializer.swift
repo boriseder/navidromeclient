@@ -5,7 +5,7 @@
 //  Centralized initialization orchestrator with guaranteed order.
 //  Eliminates race conditions and provides clear initialization state to UI.
 //
-
+ 
 import Foundation
 
 @MainActor
@@ -112,6 +112,10 @@ final class AppInitializer: ObservableObject {
         playerVM.configure(service: service)
         
         AppLogger.general.info("[AppInitializer] Managers configured successfully")
+        
+        // Ini complete
+        AppConfig.shared.setInitializingServices(false)
+
     }
     
     // MARK: - Initial Data Loading

@@ -76,9 +76,9 @@ struct CardItemContainer: View {
     private var imageView: some View {
         switch content {
         case .album(let album):
-            AlbumImageView(album: album, index: index, context: .card)
+            AlbumImageView(album: album, context: .card)
         case .artist(let artist):
-            ArtistImageView(artist: artist, index: index, context: .artistCard)
+            ArtistImageView(artist: artist, context: .artistCard)
         case .genre:
             staticGenreIcon
         }

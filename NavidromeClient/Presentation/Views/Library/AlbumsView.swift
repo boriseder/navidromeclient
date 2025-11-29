@@ -165,7 +165,7 @@ struct AlbumsViewContent: View {
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: DSLayout.elementGap) {
+            LazyVStack(alignment: .leading, spacing: DSLayout.contentGap) {
                 
                 LazyVGrid(columns: GridColumns.two, spacing: DSLayout.contentGap) {
                     ForEach(displayedAlbums.indices, id: \.self) { index in

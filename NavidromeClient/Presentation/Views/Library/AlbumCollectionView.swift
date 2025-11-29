@@ -212,7 +212,7 @@ struct AlbumCollectionView: View {
     private var artistBlurredBackground: some View {
         GeometryReader { geo in
             if let artist {
-                ArtistImageView(artist: artist, index: 0, context: .fullscreen)
+                ArtistImageView(artist: artist, context: .fullscreen)
                     .contentShape(Rectangle())
                     .blur(radius: 20)
                     .offset(
@@ -246,7 +246,7 @@ struct AlbumCollectionView: View {
     private var artistHeroHeader: some View {
         VStack(spacing: DSLayout.elementPadding) {
             if let artist {
-                ArtistImageView(artist: artist, index: 0, context: .detail)
+                ArtistImageView(artist: artist, context: .detail)
                     .clipShape(
                         RoundedRectangle(cornerRadius: DSCorners.tight)
                     )

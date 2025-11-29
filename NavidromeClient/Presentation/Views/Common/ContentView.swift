@@ -81,12 +81,7 @@ struct ContentView: View {
                 .navigationBarTitleDisplayMode(.inline)
             }
         }
-        .onAppear {
-            if !appConfig.isConfigured {
-                isInitialSetup = true
-                showingSettings = true
-            }
-        }
+
     }
 
     

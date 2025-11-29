@@ -54,13 +54,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         AppLogger.general.info("App will enter foreground")
     }
     
-    func applicationDidBecomeActive(_ application: UIApplication) async {
-
-        AppLogger.general.info("App became active")
-        
-        // Delegate audio session management to AudioSessionManager
-        await AudioSessionManager.shared.handleAppBecameActive()
-
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        Task {
+            AppLogger.general.info("App became active")
+            await AudioSessionManager.shared.handleAppBecameActive()
+        }
     }
     
     func applicationWillTerminate(_ application: UIApplication) {

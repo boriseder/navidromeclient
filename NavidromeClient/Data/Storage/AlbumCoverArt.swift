@@ -2,9 +2,8 @@
 //  AlbumCoverArt.swift
 //  NavidromeClient
 //
-//  Multi-size image container with intelligent scaling
-//  Strategy: Downscale from larger images (good quality)
-//           Never upscale (triggers network request instead)
+//  Multi-size image container with HIGH-QUALITY scaling
+//  Optimized for Retina displays with proper interpolation
 //
 
 import UIKit
@@ -54,15 +53,15 @@ class AlbumCoverArt {
                 sourceImage = baseImage
             }
             
-            // Downscale synchronously for immediate display
-            let scaled = scaleImageSync(sourceImage, to: requestedSize)
+            // HIGH-QUALITY downscale synchronously for immediate display
+            let scaled = scaleImageHighQuality(sourceImage, to: requestedSize)
             
             // Cache the downscaled variant
             Task {
                 await cacheVariant(scaled, size: requestedSize)
             }
             
-            AppLogger.general.debug("AlbumCoverArt: Downscaled \(largerSize)px -> \(requestedSize)px")
+            AppLogger.general.debug("AlbumCoverArt: Downscaled \(largerSize)px -> \(requestedSize)px (HQ)")
             return scaled
         }
         
@@ -103,20 +102,41 @@ class AlbumCoverArt {
         }
     }
     
-    private func scaleImageSync(_ image: UIImage, to size: Int) -> UIImage {
+    // IMPROVED: High-quality image scaling for Retina displays
+    private func scaleImageHighQuality(_ image: UIImage, to size: Int) -> UIImage {
         let targetSize = CGSize(width: size, height: size)
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        return renderer.image { _ in
+        
+        // Configure high-quality rendering
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1.0  // Important: 1x scale for pixel-perfect rendering
+        format.preferredRange = .standard
+        format.opaque = false
+        
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        
+        return renderer.image { context in
+            // Enable high-quality interpolation
+            context.cgContext.interpolationQuality = .high
+            
+            // Optional: Anti-aliasing for smoother edges
+            context.cgContext.setShouldAntialias(true)
+            context.cgContext.setAllowsAntialiasing(true)
+            
+            // Draw with high quality
             image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
     }
     
+    // Synchronous version for immediate display (backwards compatibility)
+    private func scaleImageSync(_ image: UIImage, to size: Int) -> UIImage {
+        return scaleImageHighQuality(image, to: size)
+    }
+    
+    // Async version for background processing
     private func scaleImageAsync(_ image: UIImage, to size: Int) async -> UIImage {
         await Task.detached(priority: .userInitiated) {
-            let targetSize = CGSize(width: size, height: size)
-            let renderer = UIGraphicsImageRenderer(size: targetSize)
-            return renderer.image { _ in
-                image.draw(in: CGRect(origin: .zero, size: targetSize))
+            await MainActor.run {
+                self.scaleImageHighQuality(image, to: size)
             }
         }.value
     }
@@ -149,6 +169,11 @@ class AlbumCoverArt {
     // Get diagnostic info
     func getInfo() -> String {
         let sizes = getSizes().map { "\($0)px" }.joined(separator: ", ")
-        return "Base: \(baseSize)px, Variants: \(scaledVariants.count), Available: [\(sizes)]"
+        let quality = baseImage.cgImage?.bitsPerPixel ?? 0
+        return """
+        Base: \(baseSize)px, Variants: \(scaledVariants.count)
+        Available: [\(sizes)]
+        Quality: \(quality) bits/pixel
+        """
     }
 }

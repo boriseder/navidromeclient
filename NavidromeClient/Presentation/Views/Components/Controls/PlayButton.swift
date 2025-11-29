@@ -24,7 +24,7 @@ struct PlayButton: View {
             .foregroundColor(.white)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(.green)
+            .background(.orange)
             .clipShape(Capsule())
             .shadow(radius: 4)
         }

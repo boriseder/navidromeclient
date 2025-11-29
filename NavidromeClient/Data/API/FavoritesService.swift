@@ -5,14 +5,6 @@
 //  Created by Boris Eder on 21.09.25.
 //
 
-
-//
-//  FavoritesService.swift - Navidrome Star/Unstar API Integration
-//  NavidromeClient
-//
-//  FOCUSED: Lieblingsongs-Verwaltung über Navidrome /star und /unstar endpoints
-//
-
 import Foundation
 
 @MainActor

@@ -11,9 +11,13 @@ struct WelcomeView: View {
     let onGetStarted: () -> Void
     
     var body: some View {
-        VStack(spacing: DSLayout.screenGap) {
+        ZStack {
+            
+            DynamicMusicBackground()
+
+            VStack(spacing: DSLayout.screenGap) {
             Image(systemName: "music.note.house")
-                .font(.system(size: 80)) // Approx. DS applied
+                .font(.system(size: 80))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [DSColor.accent, DSColor.secondary],
@@ -38,6 +42,9 @@ struct WelcomeView: View {
             }
             .font(DSText.largeButton)
         }
-        .padding(DSLayout.screenPadding)
+            .padding(DSLayout.screenPadding)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
     }
 }

@@ -16,7 +16,7 @@ enum DSLayout {
     static let elementPadding: CGFloat = 8  // Button-Inhalt, kleine Elemente
     static let contentPadding: CGFloat = 16 // Standard Card/Container-Inhalt
     static let comfortPadding: CGFloat = 24 // Große Container
-    static let screenPadding: CGFloat = 20  // Screen-Ränder (16 war zu eng)
+    static let screenPadding: CGFloat = 16  // Screen-Ränder (16 war zu eng)
     
     // MARK: Feste UI Größen
     static let buttonHeight: CGFloat = 44

@@ -74,7 +74,7 @@ class PersistentImageCache: ObservableObject {
     }
     
     // Store image with key and size
-    func store(_ image: UIImage, for key: String, size: Int, quality: CGFloat = 0.85) {
+    func store(_ image: UIImage, for key: String, size: Int, quality: CGFloat = 0.92) {  // WAR: 0.85
         let cacheKey = key as NSString
         memoryCache.setObject(image, forKey: cacheKey)
         
@@ -82,7 +82,7 @@ class PersistentImageCache: ObservableObject {
             await saveImageToDisk(image, key: key, quality: quality)
         }
     }
-    
+
     // Remove image for specific key
     func removeImage(for key: String) {
         let cacheKey = key as NSString
@@ -184,10 +184,12 @@ class PersistentImageCache: ObservableObject {
         let filename = generateFilename(for: key)
         let fileURL = cacheDirectory.appendingPathComponent(filename)
         
+        // HIGH-QUALITY JPEG encoding
         guard let data = image.jpegData(compressionQuality: quality) else { return }
         
         do {
-            try data.write(to: fileURL)
+            // Atomic write for data integrity
+            try data.write(to: fileURL, options: .atomic)
             
             let meta = CacheMetadata(
                 key: key,
@@ -202,12 +204,55 @@ class PersistentImageCache: ObservableObject {
                 saveMetadata()
             }
             
-            AppLogger.general.debug("Saved to disk: \(key) (\(data.count) bytes)")
+            let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+            AppLogger.general.debug("Saved to disk: \(key) (\(sizeStr), quality: \(Int(quality * 100))%)")
             
             await checkCacheSizeAndCleanup()
             
         } catch {
             AppLogger.general.error("Cache save error: \(error)")
+        }
+    }
+
+    func storeLossless(_ image: UIImage, for key: String, size: Int) {
+        let cacheKey = key as NSString
+        memoryCache.setObject(image, forKey: cacheKey)
+        
+        Task {
+            await saveImageToDiskPNG(image, key: key)
+        }
+    }
+
+    private func saveImageToDiskPNG(_ image: UIImage, key: String) async {
+        let filename = generateFilename(for: key).replacingOccurrences(of: ".jpg", with: ".png")
+        let fileURL = cacheDirectory.appendingPathComponent(filename)
+        
+        // Lossless PNG encoding
+        guard let data = image.pngData() else { return }
+        
+        do {
+            try data.write(to: fileURL, options: .atomic)
+            
+            let meta = CacheMetadata(
+                key: key,
+                filename: filename,
+                createdAt: Date(),
+                size: Int64(data.count),
+                lastAccessed: Date()
+            )
+            
+            await MainActor.run {
+                metadata[key] = meta
+                saveMetadata()
+            }
+            
+            let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+            AppLogger.general.debug("Saved to disk (PNG): \(key) (\(sizeStr))")
+            
+            await checkCacheSizeAndCleanup()
+            
+        } catch {
+            AppLogger.general.error("PNG cache save error: \(error)")
         }
     }
     

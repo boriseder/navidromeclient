@@ -24,6 +24,7 @@ struct InitializationView: View {
                     .foregroundColor(.white)
                 
                 if case .inProgress = initializer.state {
+                    Text("############### case .inProgress \(initializer.state)")
                     Text("Loading your music library")
                         .font(.subheadline)
                         .foregroundColor(.gray)

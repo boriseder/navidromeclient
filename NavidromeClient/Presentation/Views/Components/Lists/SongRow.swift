@@ -104,8 +104,7 @@ struct SongRow: View {
                 
                     if context == .album {
 
-                        Text("\(song.track).")
-                            .font(DSText.emphasized)
+                        Text("\(song.track ?? 0).")                            .font(DSText.emphasized)
                             .foregroundStyle(DSColor.onDark)
                             .frame(width: DSLayout.largeIcon, height: DSLayout.largeIcon)
                             .transition(.asymmetric(

@@ -83,7 +83,7 @@ struct GenreViewContent: View {
     @ViewBuilder
     private var contentView: some View {
         ScrollView {
-            LazyVStack(spacing: 2) {
+            LazyVStack(spacing: DSLayout.contentGap) {
                 ForEach(displayedGenres.indices, id: \.self) { index in
                     let genre = displayedGenres[index]
                     

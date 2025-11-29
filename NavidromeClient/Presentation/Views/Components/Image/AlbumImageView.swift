@@ -2,7 +2,8 @@
 //  AlbumImageView.swift
 //  NavidromeClient
 //
-//  REFACTORED: Context-aware image loading with smooth transitions
+//  Context-aware image loading with automatic Retina support
+//  Images now request proper pixel sizes based on display scale
 //
 
 import SwiftUI
@@ -11,7 +12,6 @@ struct AlbumImageView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
 
     let album: Album
-    let index: Int
     let context: ImageContext
     
     private var displaySize: CGFloat {
@@ -22,9 +22,8 @@ struct AlbumImageView: View {
         coverArtManager.getAlbumImage(for: album.id, context: context) != nil
     }
     
-    init(album: Album, index: Int, context: ImageContext) {
+    init(album: Album, context: ImageContext) {
         self.album = album
-        self.index = index
         self.context = context
     }
         
@@ -45,11 +44,12 @@ struct AlbumImageView: View {
         }
         .frame(width: displaySize, height: displaySize)
         .animation(.easeInOut(duration: 0.3), value: hasImage)
-        .task(id: "\(album.id)_\(context.size)_\(coverArtManager.cacheGeneration)") {            // FIXED: Use .task instead of .onAppear for proper cancellation and idempotency
+        .task(id: "\(album.id)_\(context.size)_\(coverArtManager.cacheGeneration)") {
+            // context.size berücksichtigt jetzt automatisch die Retina-Scale!
+            // z.B. .grid auf 3x Display: 200pt × 3 = 600px vom Server
             await coverArtManager.loadAlbumImage(
                 for: album.id,
-                context: context,
-                staggerIndex: index
+                context: context
             )
         }
     }
@@ -85,3 +85,24 @@ struct AlbumImageView: View {
         }
     }
 }
+
+// MARK: - Usage Examples
+/*
+ Verwendung in deinen Views - KEINE Änderungen nötig!
+ 
+ ```swift
+ // List View - lädt jetzt automatisch ~240px auf 3x Display
+ AlbumImageView(album: album, context: .list)
+ 
+ // Grid View - lädt jetzt automatisch ~600px auf 3x Display
+ AlbumImageView(album: album, context: .grid)
+ 
+ // Detail View - lädt jetzt automatisch ~1200px auf 3x Display
+ AlbumImageView(album: album, context: .detail)
+ 
+ // Fullscreen - lädt jetzt automatisch 1500px (Navidrome Max)
+ AlbumImageView(album: album, context: .fullscreen)
+ ```
+ 
+ Die Retina-Unterstützung funktioniert jetzt automatisch! 🎉
+ */

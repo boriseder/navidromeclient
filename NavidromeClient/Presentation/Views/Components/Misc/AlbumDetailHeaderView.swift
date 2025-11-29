@@ -57,7 +57,7 @@ struct AlbumHeaderView: View {
     @ViewBuilder
     private var albumHeroContent: some View {
         VStack(alignment: .leading, spacing: DSLayout.sectionGap) {
-            AlbumImageView(album: album, index: 0, context: .detail)
+            AlbumImageView(album: album, context: .detail)
                 .clipShape(
                     RoundedRectangle(cornerRadius: DSCorners.element)
                 )
@@ -110,29 +110,27 @@ struct AlbumHeaderView: View {
     private var actionButtonsFloating: some View {
         HStack(spacing: 12) {
             Button {
-                Task { await playAlbum() }
-            } label: {
+                Task {
+                    if playerVM.isPlaying {
+                        playerVM.togglePlayPause()
+                    } else {
+                        await playAlbum()
+                    }
+                }
+            }
+             label: {
                 HStack(spacing: DSLayout.contentGap) {
-                    Image(systemName: "play.fill")
+                    Image(systemName: playerVM.isPlaying ? "pause.fill" : "play.fill" )
                         .font(DSText.emphasized)
                     Text("Play")
                         .font(DSText.emphasized)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(playerVM.isPlaying ? .white : .green)
                 .padding(.horizontal, DSLayout.contentPadding)
                 .padding(.vertical, DSLayout.elementPadding)
                 .background(
                     Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.2, green: 0.8, blue: 0.2),
-                                    Color(red: 0.15, green: 0.7, blue: 0.15),
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .fill(playerVM.isPlaying ? .green : .black)
                         .shadow(
                             color: .black.opacity(0.6),
                             radius: 8,
@@ -148,28 +146,34 @@ struct AlbumHeaderView: View {
                 )
                 .overlay(
                     Capsule()
-                        .stroke(.white.opacity(0.2), lineWidth: 1)
+                        .stroke(.green, lineWidth: 1.5)
                 )
             }
 
             Button {
-                Task { await shuffleAlbum() }
+                Task {
+                    if playerVM.isShuffling {
+                        playerVM.toggleShuffle()
+                    } else {
+                        await shuffleAlbum()
+                    }
+                }
             } label: {
                 HStack(spacing: DSLayout.contentGap) {
-                    Image(systemName: "shuffle")
+                    Image(systemName: playerVM.isShuffling ? "repeat" : "shuffle" )
                         .font(DSText.emphasized)
-                    Text("Shuffle")
+                    Text(playerVM.isShuffling ? "Sequential" : "Shuffle")
                         .font(DSText.emphasized)
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(playerVM.isShuffling ? .white : .orange)
                 .padding(.horizontal, DSLayout.contentPadding)
                 .padding(.vertical, DSLayout.elementPadding)
                 .background(
                     Capsule()
-                        .fill(.black.opacity(0.4))
+                        .fill(playerVM.isShuffling ? .orange : .black.opacity(0.4))
                         .overlay(
                             Capsule()
-                                .stroke(.white.opacity(0.4), lineWidth: 1.5)
+                                .stroke(.orange, lineWidth: 1.5)
                         )
                         .shadow(
                             color: .black.opacity(0.6),
@@ -185,17 +189,17 @@ struct AlbumHeaderView: View {
             } label: {
                 downloadButtonIcon
                     .font(DSText.emphasized)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(isDownloaded ? .white : .blue)
                     .frame(
                         width: DSLayout.largeIcon,
                         height: DSLayout.largeIcon
                     )
                     .background(
                         Circle()
-                            .fill(.black.opacity(0.4))
+                            .fill(isDownloaded ? .blue : .black)
                             .overlay(
                                 Circle()
-                                    .stroke(.white.opacity(0.4), lineWidth: 1.5)
+                                    .stroke(.blue, lineWidth: 1.5)
                             )
                             .shadow(
                                 color: .black.opacity(0.6),
@@ -216,9 +220,12 @@ struct AlbumHeaderView: View {
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 .scaleEffect(0.8)
         } else if isDownloaded {
-            Image(systemName: "checkmark.circle.fill")
+            Image(systemName: "arrow.down")
+                .font(DSText.largeButton)
         } else {
-            Image(systemName: "arrow.down.circle")
+            Image(systemName: "arrow.down")
+                .font(DSText.largeButton)
+
         }
     }
 

@@ -94,11 +94,10 @@ struct ArtistsViewContent: View {
  
         ScrollView {
             LazyVStack(spacing: 2) {
-                ForEach(displayedArtists.indices, id: \.self) { index in
-                    let artist = displayedArtists[index]
+                ForEach(displayedArtists, id: \.id) { artist in
                     
                     NavigationLink(value: artist) {
-                        ArtistRowView(artist: artist, index: index)
+                        ArtistRowView(artist: artist)
                     }
                     .buttonStyle(.plain)
                 }
@@ -140,15 +139,14 @@ struct ArtistsViewContent: View {
 
 struct ArtistRowView: View {
     let artist: Artist
-    let index: Int
     
     @EnvironmentObject var coverArtManager: CoverArtManager
     @EnvironmentObject var theme: ThemeManager
 
     var body: some View {
-        HStack(spacing: DSLayout.elementGap) {
+        HStack(spacing: DSLayout.contentGap) {
             // Artist Image
-            ArtistImageView(artist: artist, index: index, context: .artistList)
+            ArtistImageView(artist: artist, context: .artistList)
                 .clipShape(Circle())
                 .overlay(
                     Circle()

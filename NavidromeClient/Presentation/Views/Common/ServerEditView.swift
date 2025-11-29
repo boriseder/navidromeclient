@@ -6,13 +6,6 @@
 //
 
 
-//
-//  ServerEditView.swift - FIXED: Direct ConnectionManager Binding
-//  NavidromeClient
-//
-//  Removed circular dependency with NavidromeViewModel
-//  Direct ConnectionManager usage for proper SwiftUI binding
-//
 
 import SwiftUI
 
@@ -83,14 +76,10 @@ struct ServerEditView: View {
                 }
                 .disabled(!connectionManager.isConnected || isWaitingForServices)
             }
-            
-            if connectionManager.isConnected {
-                ServerHealthSection(connectionManager: connectionManager)
-            }
         }
         .navigationTitle(appConfig.isConfigured ? "Edit Server" : "Initial Setup")
         .onAppear {
-            loadExistingCredentials()
+            //loadExistingCredentials()
             if connectionManager.canTestConnection {
                 Task { await testConnectionWithOfflineCheck() }
             }
@@ -132,12 +121,15 @@ struct ServerEditView: View {
     private func saveCredentialsAndConfigure() async {
         let success = await connectionManager.saveCredentials()
         if success {
+
             await MainActor.run {
                 isWaitingForServices = true
+
             }
-            
+
             // Wait for services to initialize (max 5 seconds)
             for attempt in 0..<10 {
+                
                 if AppConfig.shared.areServicesReady {
                     await MainActor.run {
                         isWaitingForServices = false
@@ -187,27 +179,6 @@ struct ConnectionStatusView: View {
                     .foregroundColor(connectionManager.isConnected ? .green : .red)
                 Text(connectionManager.connectionStatusText)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
-
-struct ServerHealthSection: View {
-    @ObservedObject var connectionManager: ConnectionViewModel
-    
-    var body: some View {
-        Section("Connection Details") {
-            HStack {
-                Text("Response Time:")
-                Spacer()
-                Text("< 1000ms") // Placeholder since we don't have detailed metrics
-                    .foregroundStyle(.secondary)
-            }
-            HStack {
-                Text("Connection Quality:")
-                Spacer()
-                Text(connectionManager.connectionStatusText)
                     .foregroundStyle(.secondary)
             }
         }

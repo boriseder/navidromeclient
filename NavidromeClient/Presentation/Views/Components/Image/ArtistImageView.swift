@@ -12,16 +12,14 @@ struct ArtistImageView: View {
     @State private var showImage = false
     
     let artist: Artist
-    let index: Int
     let context: ImageContext
     
     private var displaySize: CGFloat {
         return context.displaySize
     }
     
-    init(artist: Artist, index: Int, context: ImageContext) {
+    init(artist: Artist, context: ImageContext) {
         self.artist = artist
-        self.index = index
         self.context = context
     }
     
@@ -57,8 +55,7 @@ struct ArtistImageView: View {
         .task(id: artist.id) {
             await coverArtManager.loadArtistImage(
                 for: artist.id,
-                context: context,
-                staggerIndex: index
+                context: context
             )
         }
     }

@@ -37,10 +37,10 @@ struct NavidromeClientApp: App {
         WindowGroup {
             Group {
                 switch appInitializer.state {
-                case .notStarted, .inProgress:
+                case .inProgress:
                     InitializationView(initializer: appInitializer)
                     
-                case .completed:
+                case .notStarted, .completed:
                     ContentView()
                         .environmentObject(appConfig)
                         .environmentObject(navidromeVM)
@@ -60,6 +60,7 @@ struct NavidromeClientApp: App {
                 case .failed(let error):
                     InitializationErrorView(error: error) {
                         Task {
+                            AppLogger.general.debug("############### InitializationErrorView \(error)")
                             try? await appInitializer.initialize()
                         }
                     }
@@ -212,8 +213,10 @@ class ServiceContainer: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.clearServices()
-            AppLogger.general.info("ServiceContainer: Cleared services on factory reset")
+            Task { @MainActor in
+                self?.clearServices()
+                AppLogger.general.info("ServiceContainer: Cleared services on factory reset")
+            }
         }
     }
     

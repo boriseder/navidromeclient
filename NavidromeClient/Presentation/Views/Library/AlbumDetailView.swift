@@ -86,7 +86,7 @@ struct AlbumDetailViewContent: View {
     @ViewBuilder
     private var blurredAlbumBackground: some View {
         GeometryReader { geo in
-            AlbumImageView(album: album, index: 0, context: .fullscreen)
+            AlbumImageView(album: album, context: .fullscreen)
                 .scaledToFill()
                 .contentShape(Rectangle())
                 .blur(radius: 20)

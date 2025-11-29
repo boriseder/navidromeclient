@@ -19,8 +19,6 @@ struct ShuffleButton: View {
             HStack(spacing: 4) {
                 Image(systemName: "shuffle")
                     .font(.system(size: DSLayout.smallIcon, weight: .semibold))
-                //Text("Shuffle")
-                //    .font(DSText.metadata.weight(.semibold))
             }
             .foregroundColor(.white)
             .padding(.horizontal, 20)

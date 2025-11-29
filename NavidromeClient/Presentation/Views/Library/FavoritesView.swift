@@ -22,6 +22,8 @@ struct FavoritesViewContent: View {
     @State private var searchText = ""
     @State private var showingClearConfirmation = false
 
+    @State private var selection = 0
+
     // Single state logic following the pattern
     private var displayedSongs: [Song] {
         let songs: [Song]
@@ -52,13 +54,32 @@ struct FavoritesViewContent: View {
         
     var body: some View {
         NavigationStack {
+            /*
             ZStack {
-
+                
                 if theme.backgroundStyle == .dynamic {
                     DynamicMusicBackground()
                 }
-                
+            }
+             */
+            HStack (alignment: .top, spacing: 0) {
+                VStack (spacing:0 )  {
+                Picker("Kategorie", selection: $selection) {
+                    Text("Songs").tag(0)
+                    Text("Playlists").tag(1)
+                }
+                .pickerStyle(.segmented)
+
+                if selection == 0 {
                     contentView
+                } else {
+                    Text("Playlists ausgewählt")
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+
+
+                
             }
             .navigationTitle("Your Favorites")
             .navigationBarTitleDisplayMode(.large)
@@ -68,7 +89,7 @@ struct FavoritesViewContent: View {
                 theme.colorScheme,
                 for: .navigationBar
             )
-            .searchable(text: $searchText, prompt: "Search favorites...")
+           // .searchable(text: $searchText, prompt: "Search favorites...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
                 await refreshFavorites()
@@ -129,8 +150,10 @@ struct FavoritesViewContent: View {
         }
     }
 
+    // MARK: Favorites
     @ViewBuilder
     private var contentView: some View {
+
         ScrollView {
             LazyVStack(spacing: 1) {
 
@@ -141,7 +164,6 @@ struct FavoritesViewContent: View {
                         .padding(.bottom, DSLayout.sectionGap)
                 }
                 
-
                 ForEach(displayedSongs.indices, id: \.self) { index in
                     let song = displayedSongs[index]
                     
@@ -167,12 +189,33 @@ struct FavoritesViewContent: View {
                         context: .favorites
                     )
                 }
+
             }
             .padding(.bottom, DSLayout.miniPlayerHeight)
             .padding(.horizontal, DSLayout.screenPadding)
         }
     }
 
+    // MARK: Playlist
+    @ViewBuilder
+    private var playlistView: some View {
+
+        ScrollView {
+            LazyVStack(spacing: 1) {
+
+                    Text("No favorites available")
+                        .font(DSText.sectionTitle)
+                        .padding(.top, DSLayout.tightGap)
+                        .padding(.bottom, DSLayout.sectionGap)
+                
+
+            }
+            .padding(.bottom, DSLayout.miniPlayerHeight)
+            .padding(.horizontal, DSLayout.screenPadding)
+        }
+    }
+
+    
     // MARK: - Business Logic (unchanged)
     
     private func refreshFavorites() async {
