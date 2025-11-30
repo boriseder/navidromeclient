@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct ArtistsView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var coverArtManager: CoverArtManager

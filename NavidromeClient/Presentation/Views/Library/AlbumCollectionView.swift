@@ -1,10 +1,8 @@
 //
-//  AlbumCollectionView.swift - FIXED: Action buttons and simplified logic
+//  AlbumCollectionView.swift - FIXED: Background displays correctly
 //  NavidromeClient
 //
-//   FIXED: Play All and Shuffle buttons now functional
-//   CLEANED: Removed unused properties and redundant logic
-//   SIMPLIFIED: Direct manager usage without view state duplication
+//   FIXED: Background uses proper layer structure without GeometryReader collapse
 //
 
 import SwiftUI
@@ -26,6 +24,7 @@ struct AlbumCollectionView: View {
     @EnvironmentObject var theme: ThemeManager
 
     @State private var albums: [Album] = []
+    @State private var backgroundImageLoaded = false
 
     private var displayedAlbums: [Album] {
         return networkMonitor.shouldLoadOnlineContent ? albums : availableOfflineAlbums
@@ -54,38 +53,46 @@ struct AlbumCollectionView: View {
     
     var body: some View {
         ZStack {
-            // Background Layer
-            if case .byArtist = context {
-                artistBlurredBackground
+            // Background Layer - FIXED: Proper positioning
+            if case .byArtist(let artist) = context, backgroundImageLoaded {
+                artistBlurredBackground(for: artist)
+                    .transition(.opacity)
             }
             
-            theme.backgroundColor.opacity(0.3).ignoresSafeArea()
+            theme.backgroundColor.opacity(0.3)
+                .ignoresSafeArea()
 
-            
+            // Content Layer
             ScrollView {
-                LazyVStack(spacing: DSLayout.screenGap) {
-                    // Header Section
-                    ZStack {
-                        VStack(spacing: DSLayout.screenGap) {
-                            if case .byArtist = context {
-                                artistHeroHeader
-                            } else if case .byGenre = context {
-                                genreHeroHeader
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 0) {
+                    if case .byArtist = context {
+                        artistHeroHeader
+                    } else if case .byGenre = context {
+                        genreHeroHeader
                     }
-                    .ignoresSafeArea(edges: .top)
 
                     contentView
+                        .padding(.top, DSLayout.contentPadding)
+
                 }
+                .padding(.horizontal, DSLayout.screenPadding)
+                .padding(.bottom, DSLayout.miniPlayerHeight)
+                .padding(.top, -40)
+
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: Album.self) { album in
                 AlbumDetailViewContent(album: album)
             }
+            .scrollIndicators(.hidden)
             .task {
+                // Load background image FIRST
+                if case .byArtist(let artist) = context {
+                    await loadBackgroundImage(for: artist)
+                }
+                
+                // Then load content
                 await loadContent()
             }
             .refreshable {
@@ -93,30 +100,49 @@ struct AlbumCollectionView: View {
                 await loadContent()
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: backgroundImageLoaded)
+    }
+    
+    // MARK: - Background Loading
+    
+    @MainActor
+    private func loadBackgroundImage(for artist: Artist) async {
+        // Check if already loaded
+        if coverArtManager.getArtistImage(for: artist.id, context: .fullscreen) != nil {
+            backgroundImageLoaded = true
+            AppLogger.ui.info("✅ Background image already cached for \(artist.name)")
+            return
+        }
+        
+        // Load with high priority
+        let image = await coverArtManager.loadArtistImage(
+            for: artist.id,
+            context: .fullscreen
+        )
+        
+        if image != nil {
+            backgroundImageLoaded = true
+            AppLogger.ui.info("✅ Background image loaded for \(artist.name)")
+        } else {
+            AppLogger.ui.warn("❌ Failed to load background image for \(artist.name)")
+        }
     }
     
     // MARK: - Content View
     
     @ViewBuilder
     private var contentView: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
+        LazyVGrid(
+            columns: GridColumns.two,
+            alignment: .leading,
+            spacing: DSLayout.elementGap
+        ) {
+            ForEach(displayedAlbums.indices, id: \.self) { index in
+                let album = displayedAlbums[index]
                 
-                LazyVGrid(
-                    columns: GridColumns.two,
-                    alignment: .leading,
-                    spacing: DSLayout.elementGap
-                ) {
-                    ForEach(displayedAlbums.indices, id: \.self) { index in
-                        let album = displayedAlbums[index]
-                        
-                        NavigationLink(value: album) {
-                            CardItemContainer(content: .album(album), index: index)
-                        }
-                    }
+                NavigationLink(value: album) {
+                    CardItemContainer(content: .album(album), index: index)
                 }
-                .padding(.horizontal, DSLayout.screenPadding)
-                .padding(.bottom, DSLayout.miniPlayerHeight)
             }
         }
     }
@@ -208,55 +234,45 @@ struct AlbumCollectionView: View {
         }
     }
     
+    // MARK: - Background View - FIXED
+    
     @ViewBuilder
-    private var artistBlurredBackground: some View {
-        GeometryReader { geo in
-            if let artist {
+    private func artistBlurredBackground(for artist: Artist) -> some View {
+        // Use Color as base layer to ensure proper sizing
+        Color.clear
+            .overlay(
                 ArtistImageView(artist: artist, context: .fullscreen)
-                    .contentShape(Rectangle())
+                    .frame(
+                        width: CGFloat(ImageContext.fullscreen.size),
+                        height: CGFloat(ImageContext.fullscreen.size)
+                    )
                     .blur(radius: 20)
-                    .offset(
-                        x: -1 * (CGFloat(ImageContext.fullscreen.size) - geo.size.width) / 2,
-                        y: -geo.size.height * 0.15
-                    )
-                    .overlay(
-                        LinearGradient(
-                            colors: [
-                                .black.opacity(0.7),
-                                .black.opacity(0.35),
-                                .black.opacity(0.2),
-                                .black.opacity(0.3),
-                                .black.opacity(0.7),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .offset(
-                            x: -1 * (CGFloat(ImageContext.fullscreen.size) - geo.size.width) / 2,
-                            y: -geo.size.height * 0.15)
-                    )
-                    .ignoresSafeArea(edges: .top)
-            }
-        }
+                    .scaleEffect(1.5) // Scale up to cover edges after blur
+                    .offset(y: -100) // Shift up to center on top portion
+            )
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        .black.opacity(0.7),
+                        .black.opacity(0.35),
+                        .black.opacity(0.2),
+                        .black.opacity(0.3),
+                        .black.opacity(0.7),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .ignoresSafeArea()
     }
     
     // MARK: - Artist Hero Content
     
     @ViewBuilder
     private var artistHeroHeader: some View {
-        VStack(spacing: DSLayout.elementPadding) {
+        VStack {
             if let artist {
                 ArtistImageView(artist: artist, context: .detail)
-                    .clipShape(
-                        RoundedRectangle(cornerRadius: DSCorners.tight)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DSCorners.tight)
-                            .stroke(
-                                .white.opacity(0.25),
-                                lineWidth: 1
-                            )
-                    )
                     .shadow(
                         color: .black.opacity(0.6),
                         radius: 20,
@@ -271,7 +287,7 @@ struct AlbumCollectionView: View {
                     )
             }
                 
-            VStack(spacing: DSLayout.tightGap) {
+            VStack(spacing: DSLayout.elementGap) {
                 Text(contextTitle)
                     .font(DSText.pageTitle)
                     .foregroundStyle(.white)
@@ -286,7 +302,6 @@ struct AlbumCollectionView: View {
                     .shadow(color: .black.opacity(0.6), radius: 2, x: 0, y: 1)
                     .lineLimit(1)
             }
-            .padding(.horizontal, DSLayout.screenPadding)
 
             actionButtonsFloating
             
@@ -298,7 +313,7 @@ struct AlbumCollectionView: View {
     
     @ViewBuilder
     private var genreHeroHeader: some View {
-        VStack(spacing: DSLayout.elementGap) {
+        VStack {
             Text(contextTitle)
                 .font(DSText.pageTitle)
                 .foregroundStyle(DSColor.onDark)
@@ -310,8 +325,6 @@ struct AlbumCollectionView: View {
                 .foregroundStyle(DSColor.onDark)
                 .lineLimit(1)
         }
-        .padding(.horizontal, DSLayout.screenPadding)
-        .padding(.top, DSLayout.screenPadding)
     }
     
     // MARK: - Floating Action Buttons

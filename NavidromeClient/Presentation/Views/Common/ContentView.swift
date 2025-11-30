@@ -4,7 +4,6 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var appInitializer: AppInitializer  // ✅ Added
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager

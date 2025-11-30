@@ -1,8 +1,9 @@
 //
-//  AlbumDetailView.swift
+//  AlbumDetailView.swift - FIXED: Background displays correctly
 //  NavidromeClient
 //
-//  FIXED: Preload fullscreen images for better quality on detail view
+//  FIXED: Background uses proper layer structure
+//  FIXED: Fullscreen image loading tracked with @State
 //
 
 import SwiftUI
@@ -11,7 +12,6 @@ struct AlbumDetailViewContent: View {
     let album: Album
     
     @EnvironmentObject var appConfig: AppConfig
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var songManager: SongManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var downloadManager: DownloadManager
@@ -22,26 +22,32 @@ struct AlbumDetailViewContent: View {
 
     @State private var songs: [Song] = []
     @State private var isOfflineAlbum = false
-    
+    @State private var backgroundImageLoaded = false // 🆕 Track background loading
     
     var body: some View {
         ZStack {
-            blurredAlbumBackground
-            theme.backgroundColor.opacity(0.3).ignoresSafeArea()
+            // Background Layer - FIXED
+            if backgroundImageLoaded {
+                blurredAlbumBackground
+                    .transition(.opacity)
+            }
+            
+            theme.backgroundColor.opacity(0.3)
+                .ignoresSafeArea()
 
+            // Content Layer
             ScrollView {
                 VStack(spacing: 1) {
-                     
                      AlbumHeaderView(
                         album: album,
                         songs: songs,
                         isOfflineAlbum: isOfflineAlbum
                      )
                      
-                        AlbumSongsListView(
-                            songs: songs,
-                            album: album
-                        )
+                     AlbumSongsListView(
+                        songs: songs,
+                        album: album
+                     )
                 }
                 .padding(.horizontal, DSLayout.screenPadding)
                 .padding(.bottom, DSLayout.miniPlayerHeight)
@@ -49,11 +55,11 @@ struct AlbumDetailViewContent: View {
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .task {
+                // 🆕 Load background image FIRST
+                await loadBackgroundImage()
+                
+                // Then load content
                 await loadAlbumData()
-                // Preload fullscreen image in background for better quality
-                Task.detached(priority: .background) {
-                    await coverArtManager.preloadForFullscreen(albumId: album.id)
-                }
             }
             .scrollIndicators(.hidden)
             .onReceive(NotificationCenter.default.publisher(for: .downloadCompleted)) { notification in
@@ -71,6 +77,32 @@ struct AlbumDetailViewContent: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: backgroundImageLoaded)
+    }
+    
+    // MARK: - Background Loading
+    
+    @MainActor
+    private func loadBackgroundImage() async {
+        // Check if already loaded
+        if coverArtManager.getAlbumImage(for: album.id, context: .fullscreen) != nil {
+            backgroundImageLoaded = true
+            AppLogger.ui.info("✅ Album background image already cached: \(album.name)")
+            return
+        }
+        
+        // Load with high priority
+        let image = await coverArtManager.loadAlbumImage(
+            for: album.id,
+            context: .fullscreen
+        )
+        
+        if image != nil {
+            backgroundImageLoaded = true
+            AppLogger.ui.info("✅ Album background image loaded: \(album.name)")
+        } else {
+            AppLogger.ui.warn("❌ Failed to load album background image: \(album.name)")
+        }
     }
     
     @MainActor
@@ -83,34 +115,35 @@ struct AlbumDetailViewContent: View {
         songs = await songManager.loadSongs(for: album.id)
     }
     
+    // MARK: - Background View - FIXED
+    
     @ViewBuilder
     private var blurredAlbumBackground: some View {
-        GeometryReader { geo in
-            AlbumImageView(album: album, context: .fullscreen)
-                .scaledToFill()
-                .contentShape(Rectangle())
-                .blur(radius: 20)
-                .offset(
-                    x: -1 * (CGFloat(ImageContext.fullscreen.size) - geo.size.width) / 2,
-                    y: -geo.size.height * 0.15
-                )
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            .black.opacity(0.7),
-                            .black.opacity(0.35),
-                            .black.opacity(0.3),
-                            .black.opacity(0.2),
-                            .black.opacity(0.7),
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
+        // Use Color as base layer to ensure proper sizing
+        Color.clear
+            .overlay(
+                AlbumImageView(album: album, context: .fullscreen)
+                    .frame(
+                        width: CGFloat(ImageContext.fullscreen.size),
+                        height: CGFloat(ImageContext.fullscreen.size)
                     )
-                    .offset(
-                        x: -1 * (CGFloat(ImageContext.fullscreen.size) - geo.size.width) / 2,
-                        y: -geo.size.height * 0.15)
+                    .blur(radius: 20)
+                    .scaleEffect(1.5) // Scale up to cover edges after blur
+                    .offset(y: -100) // Shift up to center on top portion
+            )
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        .black.opacity(0.7),
+                        .black.opacity(0.35),
+                        .black.opacity(0.3),
+                        .black.opacity(0.2),
+                        .black.opacity(0.7),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
-                .ignoresSafeArea(edges: .top)
-        }
+            )
+            .ignoresSafeArea()
     }
 }

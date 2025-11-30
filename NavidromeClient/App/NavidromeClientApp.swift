@@ -9,7 +9,6 @@ struct NavidromeClientApp: App {
     @StateObject private var networkMonitor = NetworkMonitor.shared
     
     @StateObject private var musicLibraryManager = MusicLibraryManager()
-    @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     @StateObject private var coverArtManager = CoverArtManager()
     @StateObject private var songManager = SongManager()
@@ -18,6 +17,7 @@ struct NavidromeClientApp: App {
     @StateObject private var downloadManager = DownloadManager.shared
     @StateObject private var audioSessionManager = AudioSessionManager.shared
     @StateObject private var offlineManager = OfflineManager.shared
+    @StateObject private var connectionManager: ConnectionViewModel
     @StateObject private var theme = ThemeManager()
     
     // MARK: - Local State
@@ -30,15 +30,15 @@ struct NavidromeClientApp: App {
     init() {
         // Initialize dependencies
         let musicLib = MusicLibraryManager()
-        let navidromeViewModel = NavidromeViewModel(musicLibraryManager: musicLib)
         let coverArt = CoverArtManager()
         let player = PlayerViewModel(coverArtManager: coverArt)
-        
+        let connection = ConnectionViewModel()
+
         _musicLibraryManager = StateObject(wrappedValue: musicLib)
-        _navidromeVM = StateObject(wrappedValue: navidromeViewModel)
         _coverArtManager = StateObject(wrappedValue: coverArt)
         _playerVM = StateObject(wrappedValue: player)
-        
+        _connectionManager = StateObject(wrappedValue: connection)
+
         AppLogger.general.info("[App] Initialized with SwiftUI lifecycle")
     }
 
@@ -76,12 +76,8 @@ struct NavidromeClientApp: App {
         switch appInitializer.state {
         
         case .notStarted:
-            VStack {
-                Text("notStarted...")
-                    .font(.largeTitle)
-                    .bold()
-            }
-            .background(.red)
+            InitializationView(initializer: appInitializer)
+
         case .inProgress:
             InitializationView(initializer: appInitializer)
             
@@ -89,7 +85,6 @@ struct NavidromeClientApp: App {
             ContentView()
                 .environmentObject(appConfig)
                 .environmentObject(appInitializer)
-                .environmentObject(navidromeVM)
                 .environmentObject(playerVM)
                 .environmentObject(musicLibraryManager)
                 .environmentObject(coverArtManager)
@@ -100,6 +95,7 @@ struct NavidromeClientApp: App {
                 .environmentObject(audioSessionManager)
                 .environmentObject(networkMonitor)
                 .environmentObject(offlineManager)
+                .environmentObject(connectionManager)
                 .environmentObject(theme)
                 .preferredColorScheme(theme.colorScheme)
             
@@ -171,7 +167,6 @@ struct NavidromeClientApp: App {
             favoritesManager: favoritesManager,
             exploreManager: exploreManager,
             musicLibraryManager: musicLibraryManager,
-            navidromeVM: navidromeVM,
             playerVM: playerVM
         )
         
@@ -268,8 +263,8 @@ struct NavidromeClientApp: App {
             }
             
             group.addTask {
-                if await !self.navidromeVM.isDataFresh {
-                    await self.navidromeVM.handleNetworkChange(
+                if await !self.musicLibraryManager.isDataFresh {
+                    await self.musicLibraryManager.handleNetworkChange(
                         isOnline: self.networkMonitor.canLoadOnlineContent
                     )
                 }
@@ -317,7 +312,7 @@ struct NavidromeClientApp: App {
         }
 
         
-        await navidromeVM.handleNetworkChange(isOnline: isConnected)
+        await musicLibraryManager.handleNetworkChange(isOnline: isConnected)
         AppLogger.general.info("[App] Network state changed: \(isConnected ? "Connected" : "Disconnected")")
     }
     

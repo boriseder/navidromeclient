@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct AlbumsView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var theme: ThemeManager

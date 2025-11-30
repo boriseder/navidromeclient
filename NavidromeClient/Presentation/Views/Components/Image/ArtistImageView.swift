@@ -36,7 +36,7 @@ struct ArtistImageView: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: displaySize, height: displaySize)
-                    .clipShape(Circle())  // ✅ Artists sind normalerweise rund
+                    .clipShape(Circle())
                     .opacity(hasImage ? 1 : 0)
                     .transition(.opacity)
                     .overlay(
@@ -49,17 +49,19 @@ struct ArtistImageView: View {
         .frame(width: displaySize, height: displaySize)
         .animation(.easeInOut(duration: 0.3), value: hasImage)
         .task(id: "\(artist.id)_\(context.size)_\(coverArtManager.cacheGeneration)") {
-            // ✅ OPTIMIERUNG 1: Früher Return bei Cache-Hit
+            // Früher Return bei Cache-Hit
             if coverArtManager.getArtistImage(for: artist.id, context: context) != nil {
                 return  // Bild bereits im Cache
             }
             
-            // ✅ OPTIMIERUNG 2: Kleine Verzögerung, damit Preload Vorrang hat
-            try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
-            
-            // ✅ OPTIMIERUNG 3: Nochmal prüfen nach Verzögerung
-            if coverArtManager.getArtistImage(for: artist.id, context: context) != nil {
-                return  // Preload war erfolgreich
+            // NUR bei kleinen Bildern verzögern, Fullscreen sofort laden
+            if context.size < ImageContext.fullscreen.size {
+                try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+                
+                // Nochmal prÃ¼fen nach VerzÃ¶gerung
+                if coverArtManager.getArtistImage(for: artist.id, context: context) != nil {
+                    return
+                }
             }
             
             await coverArtManager.loadArtistImage(

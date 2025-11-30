@@ -107,7 +107,6 @@ final class AppInitializer: ObservableObject {
         favoritesManager: FavoritesManager,
         exploreManager: ExploreManager,
         musicLibraryManager: MusicLibraryManager,
-        navidromeVM: NavidromeViewModel,
         playerVM: PlayerViewModel
     ) {
         guard state == .completed else {
@@ -130,7 +129,6 @@ final class AppInitializer: ObservableObject {
         exploreManager.configure(service: service)
         musicLibraryManager.configure(service: service)
         
-        navidromeVM.updateService(service)
         playerVM.configure(service: service)
 
         AppLogger.general.info("[AppInitializer] ✅ All managers configured successfully")

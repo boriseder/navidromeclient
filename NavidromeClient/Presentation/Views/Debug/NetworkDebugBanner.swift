@@ -3,7 +3,7 @@ import SwiftUI
 struct NetworkDebugBanner: View {
     @EnvironmentObject private var networkMonitor: NetworkMonitor
     @EnvironmentObject private var offlineManager: OfflineManager
-    @EnvironmentObject private var viewModel: NavidromeViewModel
+    @EnvironmentObject private var connectionManager: ConnectionViewModel
 
     @State private var health: ConnectionHealth?
     
@@ -55,7 +55,7 @@ struct NetworkDebugBanner: View {
                     
                     Button {
                         Task {
-                            await viewModel.performConnectionHealthCheck()
+                            await connectionManager.performQuickHealthCheck()
                         }
                     } label: {
                         Text("Call performConnectionHealthCheck()")
@@ -64,11 +64,6 @@ struct NetworkDebugBanner: View {
                     }
                     .padding(.leading, DSLayout.elementPadding)
                 }
-                .task {
-                    health = await viewModel.getConnectionHealth()
-                    AppLogger.network.debug("health: \(String(describing: health))")
-                }
-                
             }
             .background(networkMonitor.state.contentLoadingStrategy.isEffectivelyOffline ? Color.red.opacity(0.8) : Color.green.opacity(0.8))
         }

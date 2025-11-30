@@ -14,7 +14,6 @@ struct AlbumHeaderView: View {
 
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var downloadManager: DownloadManager
 
     @State private var isDownloaded = false

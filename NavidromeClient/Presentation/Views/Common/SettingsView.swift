@@ -11,7 +11,7 @@ import SwiftUI
 
 // MARK: - SettingsView
 struct SettingsView: View {
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
+    @EnvironmentObject var connectionVM: ConnectionViewModel
     @EnvironmentObject var appConfig: AppConfig
     @EnvironmentObject var appInitializer: AppInitializer
     @EnvironmentObject var theme: ThemeManager
@@ -74,7 +74,7 @@ struct SettingsView: View {
         } footer: {
             Text("Your (self-)hosted Navidrome server. Don't forget to add port (usually 4533).")
         }
-        .task { await navidromeVM.testConnection() }
+        .task { await connectionVM.testConnection() }
     }
 
     private var CacheSection: some View {
@@ -135,14 +135,14 @@ struct SettingsView: View {
         Section {
             SettingsRow(
                 title: "Connection:",
-                value: navidromeVM.connectionStatus ? 
-                    "Connected via \(networkMonitor.currentConnectionType.displayName)" : 
+                value: connectionVM.isConnected ?
+                    "Connected via \(networkMonitor.currentConnectionType.displayName)" :
                     networkMonitor.connectionStatusDescription
             )
         } header: {
             Text("Server Info")
         }
-        .task { await navidromeVM.testConnection() }
+        .task { await connectionVM.testConnection() }
     }
 
     private var DangerZoneSection: some View {
@@ -178,7 +178,6 @@ struct SettingsView: View {
         await appInitializer.performFactoryReset()
         
         await MainActor.run {
-            navidromeVM.reset()
             songManager.reset()
         }
         
