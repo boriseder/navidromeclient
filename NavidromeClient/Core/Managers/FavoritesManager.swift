@@ -62,7 +62,7 @@ class FavoritesManager: ObservableObject {
     func toggleFavorite(_ song: Song) async {
         guard let service = service else {
             errorMessage = "Service not available"
-            AppLogger.general.info("UnifiedSubsonicService not configured")
+            AppLogger.general.info("[FavoritesManager] UnifiedSubsonicService not configured")
             return
         }
         

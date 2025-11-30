@@ -2,7 +2,7 @@
 //  ConnectionService.swift
 //  NavidromeClient
 //
-//  Created by Boris Eder on 16.09.25.
+//  Optimized: Single request, proper error handling, accurate timing
 //
 
 import Foundation
@@ -27,7 +27,7 @@ class ConnectionService: ObservableObject {
             switch self {
             case .unknown: return "Unknown"
             case .excellent: return "Excellent"
-            case .good: return "Good" 
+            case .good: return "Good"
             case .poor: return "Poor"
             case .timeout: return "Timeout"
             }
@@ -54,17 +54,15 @@ class ConnectionService: ObservableObject {
         self.session = URLSession(configuration: config)
     }
     
-    // MARK: -  CONNECTION TESTING
+    // MARK: - CONNECTION TESTING (OPTIMIZED)
+    
     func testConnection() async -> ConnectionTestResult {
         let startTime = Date()
         
         do {
-            // Step 1: Basic ping
-            let pingInfo = try await pingWithInfo()
-            
-            // Step 2: Verify with actual API call AND parse response
-            let testURL = buildURL(endpoint: "getAlbumList2", params: ["type": "recent", "size": "1"])!
-            let (data, response) = try await session.data(from: testURL)
+            // Single request - ping provides all needed info
+            let url = buildURL(endpoint: "ping")!
+            let (data, response) = try await session.data(from: url)
             
             guard let httpResponse = response as? HTTPURLResponse else {
                 return .failure(.serverUnreachable)
@@ -72,71 +70,68 @@ class ConnectionService: ObservableObject {
             
             // Check HTTP status
             guard httpResponse.statusCode == 200 else {
-                if httpResponse.statusCode == 401 {
+                if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
                     return .failure(.invalidCredentials)
                 }
                 return .failure(.serverUnreachable)
             }
             
-            // Parse and check for Subsonic errors
-            do {
-                let decodedResponse = try JSONDecoder().decode(
-                    SubsonicResponse<SubsonicResponseContent>.self,
-                    from: data
-                )
-                
-                // Check if response contains error
-                if decodedResponse.subsonicResponse.status == "failed" {
-                    if let error = decodedResponse.subsonicResponse.error {
-                        AppLogger.ui.error("❌ Subsonic error: code=\(error.code), message=\(error.message)")
-                        
-                        // Error code 40 = Wrong username/password
-                        if error.code == 40 || error.code == 41 {
-                            return .failure(.invalidCredentials)
-                        }
-                        
-                        return .failure(.networkError(error.message))
+            // Parse PingInfo
+            let pingResponse = try JSONDecoder().decode(
+                SubsonicResponse<PingInfo>.self,
+                from: data
+            )
+            let pingInfo = pingResponse.subsonicResponse
+            
+            // Additionally check for Subsonic-level errors
+            if let errorCheck = try? JSONDecoder().decode(
+                SubsonicResponse<SubsonicResponseContent>.self,
+                from: data
+            ), errorCheck.subsonicResponse.status == "failed" {
+                if let error = errorCheck.subsonicResponse.error {
+                    AppLogger.ui.error("❌ Subsonic error: code=\(error.code), message=\(error.message)")
+                    
+                    if error.code == 40 || error.code == 41 {
+                        return .failure(.invalidCredentials)
                     }
-                    return .failure(.invalidCredentials)
+                    return .failure(.networkError(error.message))
                 }
-                
-                // Success!
-                let responseTime = Date().timeIntervalSince(startTime)
-                updateConnectionState(responseTime: responseTime, success: true)
-                
-                let connectionInfo = ConnectionInfo(
-                    version: pingInfo.version,
-                    type: pingInfo.type,
-                    serverVersion: pingInfo.serverVersion,
-                    openSubsonic: pingInfo.openSubsonic
-                )
-                
-                return .success(connectionInfo)
-                
-            } catch {
-                AppLogger.ui.error("❌ Failed to parse response: \(error)")
-                return .failure(.invalidServerType)
             }
             
+            // Success!
+            let responseTime = Date().timeIntervalSince(startTime)
+            updateConnectionState(responseTime: responseTime, success: true)
+            
+            let connectionInfo = ConnectionInfo(
+                version: pingInfo.version,
+                type: pingInfo.type,
+                serverVersion: pingInfo.serverVersion,
+                openSubsonic: pingInfo.openSubsonic
+            )
+            
+            return .success(connectionInfo)
+            
         } catch {
-            updateConnectionState(responseTime: 0, success: false)
-            return .failure(mapError(error))
+            let failureTime = Date().timeIntervalSince(startTime)
+            updateConnectionState(responseTime: failureTime, success: false)
+            
+            // Convert error using new consolidated system
+            let subsonicError = SubsonicError.from(error)
+            return .failure(subsonicError.asConnectionError)
         }
     }
 
     func ping() async -> Bool {
+        let startTime = Date()
+        
         do {
-            let url = buildURL(endpoint: "ping")!
-            let (_, response) = try await session.data(from: url)
-            
-            if let httpResponse = response as? HTTPURLResponse {
-                let success = httpResponse.statusCode == 200
-                updateConnectionState(responseTime: 1.0, success: success)
-                return success
-            }
-            return false
+            _ = try await pingWithInfo()
+            let responseTime = Date().timeIntervalSince(startTime)
+            updateConnectionState(responseTime: responseTime, success: true)
+            return true
         } catch {
-            updateConnectionState(responseTime: 0, success: false)
+            let failureTime = Date().timeIntervalSince(startTime)
+            updateConnectionState(responseTime: failureTime, success: false)
             return false
         }
     }
@@ -154,7 +149,7 @@ class ConnectionService: ObservableObject {
         return decoded.subsonicResponse
     }
     
-    // MARK: -  URL BUILDING & SECURITY
+    // MARK: - URL BUILDING & SECURITY
     
     func buildURL(endpoint: String, params: [String: String] = [:]) -> URL? {
         guard validateEndpoint(endpoint) else {
@@ -196,7 +191,7 @@ class ConnectionService: ObservableObject {
         return components.url
     }
 
-    // MARK: -  HEALTH MONITORING
+    // MARK: - HEALTH MONITORING
     
     func performHealthCheck() async -> ConnectionHealth {
         let startTime = Date()
@@ -205,29 +200,32 @@ class ConnectionService: ObservableObject {
         
         return ConnectionHealth(
             isConnected: isReachable,
-            quality: determineConnectionQuality(responseTime: responseTime),
+            quality: determineConnectionQuality(responseTime: responseTime, success: isReachable),
             responseTime: responseTime,
             lastSuccessfulConnection: lastSuccessfulConnection
         )
     }
     
-    // MARK: -  PRIVATE HELPERS
+    // MARK: - PRIVATE HELPERS (OPTIMIZED)
     
     private func updateConnectionState(responseTime: TimeInterval, success: Bool) {
         isConnected = success
-        connectionQuality = determineConnectionQuality(responseTime: responseTime)
+        connectionQuality = determineConnectionQuality(responseTime: responseTime, success: success)
         
         if success {
             lastSuccessfulConnection = Date()
         }
     }
     
-    private func determineConnectionQuality(responseTime: TimeInterval) -> ConnectionQuality {
+    private func determineConnectionQuality(responseTime: TimeInterval, success: Bool) -> ConnectionQuality {
+        guard success else { return .timeout }
+        guard responseTime > 0 else { return .unknown }
+        
         switch responseTime {
         case 0..<0.5: return .excellent
         case 0.5..<1.5: return .good
-        case 1.5..<3.0: return .poor
-        default: return .timeout
+        case 1.5..<5.0: return .poor
+        default: return .poor  // Slow but connected
         }
     }
     
@@ -244,7 +242,7 @@ class ConnectionService: ObservableObject {
     private func validateParameter(key: String, value: String) -> Bool {
         guard key.count <= 50, value.count <= 1000 else { return false }
         
-        // Nur echte Security-Risiken blocken, nicht Genre-Zeichen
+        // Only block real security risks, not genre characters
         let dangerousChars = CharacterSet(charactersIn: "<>\"'")
         return key.rangeOfCharacter(from: dangerousChars) == nil &&
                value.rangeOfCharacter(from: dangerousChars) == nil
@@ -254,26 +252,6 @@ class ConnectionService: ObservableObject {
         let saltLength = 12
         let characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         return String((0..<saltLength).compactMap { _ in characters.randomElement() })
-    }
-    
-    private func mapError(_ error: Error) -> ConnectionError {
-        if let subsonicError = error as? SubsonicError {
-            switch subsonicError {
-            case .unauthorized: return .invalidCredentials
-            case .timeout: return .timeout
-            case .network: return .serverUnreachable
-            default: return .networkError(subsonicError.localizedDescription)
-            }
-        } else if let urlError = error as? URLError {
-            switch urlError.code {
-            case .timedOut: return .timeout
-            case .cannotConnectToHost, .cannotFindHost: return .serverUnreachable
-            case .notConnectedToInternet: return .networkError("No internet connection")
-            default: return .networkError(urlError.localizedDescription)
-            }
-        } else {
-            return .networkError(error.localizedDescription)
-        }
     }
 }
 
@@ -327,11 +305,11 @@ struct ConnectionHealth {
         guard isConnected else { return 0.0 }
         
         switch quality {
-        case .unknown: return 0.5
+        case .unknown: return 0.0
         case .excellent: return 1.0
-        case .good: return 0.8
+        case .good: return 0.75
         case .poor: return 0.4
-        case .timeout: return 0.1
+        case .timeout: return 0.0
         }
     }
     

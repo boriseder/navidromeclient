@@ -11,7 +11,6 @@ import SwiftUI
 struct DownloadButton: View {
     let album: Album
     let songs: [Song]
-    let navidromeVM: NavidromeViewModel
     
     @EnvironmentObject var downloadManager: DownloadManager
     @State private var showingDeleteConfirmation = false

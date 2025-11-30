@@ -72,7 +72,7 @@ class CoverArtManager: ObservableObject {
     
     private var lastPreloadHash: Int = 0
     private var currentPreloadTask: Task<Void, Never>?
-    private let preloadSemaphore = AsyncSemaphore(value: 5)
+    private let preloadSemaphore = AsyncSemaphore(value: 18)
     
     @Published private(set) var loadingStates: [String: Bool] = [:]
     @Published private(set) var errorStates: [String: String] = [:]
@@ -496,13 +496,14 @@ class CoverArtManager: ObservableObject {
         priority: PreloadPriority = .immediate,
         getId: @escaping (T) -> String
     ) async {
-        let itemIds = items.map(getId)
+        let itemIds = Set(items.map(getId))
         let currentHash = itemIds.hashValue
         
         guard currentHash != lastPreloadHash else {
             AppLogger.cache.debug("[CoverArtManager] Skipping preload - same content")
             return
         }
+
         
         currentPreloadTask?.cancel()
         lastPreloadHash = currentHash

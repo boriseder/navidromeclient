@@ -1,20 +1,19 @@
 //
-//  MusicLibraryManager.swift - FIXED: Pure Facade Pattern
+//  MusicLibraryManager.swift - CLEANED UP
 //  NavidromeClient
 //
-//  FIXED: Removed contentService extraction
-//  CLEAN: Direct facade delegation only
+//  CHANGES:
+//  - Removed debug code
+//  - Fixed canLoadMore logic
+//  - Simplified network strategy handling
+//  - Better guard clauses
 //
-//  MusicLibraryManager.swift
-//  Manages progressive loading of complete music library
-//  Responsibilities: Load albums/artists/genres in batches, handle pagination
 
 import Foundation
 import SwiftUI
 
 @MainActor
 class MusicLibraryManager: ObservableObject {
-    // REMOVED: static let shared = MusicLibraryManager()
     
     // MARK: - Progressive Library Data
     @Published private(set) var loadedAlbums: [Album] = []
@@ -72,13 +71,12 @@ class MusicLibraryManager: ObservableObject {
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        AppLogger.general.info("MusicLibraryManager configured with UnifiedSubsonicService facade")
+        AppLogger.general.info("MusicLibraryManager configured with UnifiedSubsonicService")
     }
     
     // MARK: - Coordinated Loading
 
     func loadInitialDataIfNeeded() async {
-        // Better guard with specific reasons
         guard !hasLoadedInitialData else {
             AppLogger.general.info("📚 Initial data already loaded - skipping")
             return
@@ -89,7 +87,7 @@ class MusicLibraryManager: ObservableObject {
             return
         }
         
-        guard let service = service else {
+        guard service != nil else {
             AppLogger.general.info("📚 No service configured - skipping initial load")
             return
         }
@@ -122,17 +120,22 @@ class MusicLibraryManager: ObservableObject {
         
         AppLogger.general.info("📚 Initial data load completed")
     }
+    
     func refreshAllData() async {
-        guard !isCurrentlyLoading,
-              NetworkMonitor.shared.shouldLoadOnlineContent else {
-            AppLogger.general.info("Skipping refresh")
+        guard !isCurrentlyLoading else {
+            AppLogger.general.info("Skipping refresh - already loading")
+            return
+        }
+        
+        guard NetworkMonitor.shared.shouldLoadOnlineContent else {
+            AppLogger.general.info("Skipping refresh - offline")
             return
         }
         
         isCurrentlyLoading = true
         defer { isCurrentlyLoading = false }
         
-        AppLogger.general.info("Starting coordinated data refresh...")
+        AppLogger.general.info("[MusicLibraryManager] Starting coordinated data refresh...")
         
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -182,31 +185,32 @@ class MusicLibraryManager: ObservableObject {
     }
     
     private func handleNetworkStrategyChange(_ newStrategy: ContentLoadingStrategy) async {
+        // ✅ Queue if currently loading
         if isCurrentlyLoading {
             pendingNetworkStrategyChange = newStrategy
-            AppLogger.general.info("Network strategy change queued during loading: \(newStrategy.displayName)")
+            AppLogger.general.info("Network strategy change queued: \(newStrategy.displayName)")
             return
         }
         
         pendingNetworkStrategyChange = nil
         
+        // ✅ CLEANED UP: Simple, clear logic
         switch newStrategy {
         case .online:
-            if !isDataFresh && service != nil {
+            if !isDataFresh, service != nil {
                 AppLogger.general.info("Network online - refreshing stale data")
                 await refreshAllData()
-                // objectWillChange fired by refreshAllData when data actually changes
+            } else if isDataFresh {
+                AppLogger.general.info("Network online - data is fresh, skipping refresh")
             } else {
-                AppLogger.general.info("Network online - data is fresh, no UI update needed")
-                // No objectWillChange: data hasn't changed, views will react to NetworkMonitor
+                AppLogger.general.info("Network online - waiting for service configuration")
             }
             
         case .offlineOnly, .setupRequired:
-            AppLogger.general.info("Network effectively offline - no UI update needed")
-            // No objectWillChange: views will react to NetworkMonitor's state change
-            // Only views displaying different data (offline vs online) will re-render
+            AppLogger.general.info("Network offline - using cached data")
         }
         
+        // ✅ Process queued changes
         if let pendingStrategy = pendingNetworkStrategyChange {
             await handleNetworkStrategyChange(pendingStrategy)
         }
@@ -218,7 +222,6 @@ class MusicLibraryManager: ObservableObject {
         sortBy: ContentService.AlbumSortType = .alphabetical,
         reset: Bool = false
     ) async {
-        
         if reset {
             loadedAlbums = []
             totalAlbumCount = 0
@@ -229,13 +232,11 @@ class MusicLibraryManager: ObservableObject {
         
         guard let service = service else {
             albumLoadingState = .error("Service not available")
-            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
             albumLoadingState = .completed
-            AppLogger.general.info("Not loading albums - should not load online content")
             return
         }
         
@@ -264,7 +265,6 @@ class MusicLibraryManager: ObservableObject {
             }
             
             AlbumMetadataCache.shared.cacheAlbums(newAlbums)
-            
             loadedAlbums.append(contentsOf: newAlbums)
             
             if newAlbums.count < batchSize {
@@ -289,7 +289,6 @@ class MusicLibraryManager: ObservableObject {
     // MARK: - ARTISTS LOADING
     
     func loadArtistsProgressively(reset: Bool = false) async {
-        
         if reset {
             loadedArtists = []
             totalArtistCount = 0
@@ -300,13 +299,11 @@ class MusicLibraryManager: ObservableObject {
         
         guard let service = service else {
             artistLoadingState = .error("Service not available")
-            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
             artistLoadingState = .completed
-            AppLogger.general.info("Not loading artists - should not load online content")
             return
         }
         
@@ -329,7 +326,6 @@ class MusicLibraryManager: ObservableObject {
     // MARK: - GENRES LOADING
     
     func loadGenresProgressively(reset: Bool = false) async {
-        
         if reset {
             loadedGenres = []
             genreLoadingState = .idle
@@ -339,13 +335,11 @@ class MusicLibraryManager: ObservableObject {
         
         guard let service = service else {
             genreLoadingState = .error("Service not available")
-            AppLogger.general.info("UnifiedSubsonicService not configured")
             return
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
             genreLoadingState = .completed
-            AppLogger.general.info("Not loading genres - should not load online content")
             return
         }
         
@@ -374,12 +368,10 @@ class MusicLibraryManager: ObservableObject {
     
     func loadAlbums(context: AlbumCollectionContext) async throws -> [Album] {
         guard let service = service else {
-            AppLogger.general.info("UnifiedSubsonicService not available for context loading")
             throw URLError(.networkConnectionLost)
         }
         
         guard NetworkMonitor.shared.shouldLoadOnlineContent else {
-            AppLogger.general.info("Cannot load albums for context - should not load online content")
             throw URLError(.notConnectedToInternet)
         }
         
@@ -394,7 +386,7 @@ class MusicLibraryManager: ObservableObject {
     // MARK: - Private Implementation
     
     private func handleLoadingError(_ error: Error, for dataType: String) async {
-        AppLogger.general.info("Failed to load \(dataType): \(error)")
+        AppLogger.general.error("Failed to load \(dataType): \(error)")
         
         let errorMessage: String
         if let subsonicError = error as? SubsonicError {
@@ -474,10 +466,11 @@ enum DataLoadingState: Equatable {
         }
     }
     
+    // ✅ FIXED: Allow retry on error
     var canLoadMore: Bool {
         switch self {
-        case .idle: return true
-        case .loading,.completed, .loadingMore, .error: return false
+        case .idle, .error: return true
+        case .loading, .loadingMore, .completed: return false
         }
     }
 }

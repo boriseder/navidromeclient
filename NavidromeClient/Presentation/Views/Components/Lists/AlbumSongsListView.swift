@@ -13,7 +13,6 @@ struct AlbumSongsListView: View {
     let album: Album
     
     @EnvironmentObject var playerVM: PlayerViewModel
-    @EnvironmentObject var navidromeVM: NavidromeViewModel
     
     var body: some View {
         ForEach(songs.indices, id: \.self) { index in

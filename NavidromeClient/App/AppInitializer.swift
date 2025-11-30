@@ -128,7 +128,7 @@ final class AppInitializer: ObservableObject {
         downloadManager.configure(coverArtManager: coverArtManager)
         favoritesManager.configure(service: service)
         exploreManager.configure(service: service)
-        musicLibraryManager.configure(service: service)  // ✅ Only once
+        musicLibraryManager.configure(service: service)
         
         navidromeVM.updateService(service)
         playerVM.configure(service: service)
@@ -166,25 +166,29 @@ final class AppInitializer: ObservableObject {
 
     // MARK: - Factory Reset
 
+    // AppInitializer.swift
     func performFactoryReset() async {
         AppLogger.general.info("[AppInitializer] === Factory Reset Start ===")
         
         // 1. Clear credentials via AppConfig
         AppConfig.shared.clearCredentials()
         
-        // 2. Reset local state
-        reset()
-        
-        // 3. Reset network monitor
+        // 2. Reset network monitor FIRST (before state change)
         NetworkMonitor.shared.updateConfiguration(isConfigured: false)
         NetworkMonitor.shared.reset()
         
-        // 4. Notify all managers to reset
+        // 3. Notify all managers to reset
         NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
+        
+        // 4. Reset local state but keep .completed (triggers WelcomeView)
+        unifiedService = nil
+        isConfigured = false
+        state = .completed  // ✅ Bleibt .completed, aber unconfigured
+        NetworkMonitor.shared.configureService(nil)
         
         AppLogger.general.info("[AppInitializer] === Factory Reset Complete ===")
     }
-
+    
     // MARK: - Reset
 
     func reset() {

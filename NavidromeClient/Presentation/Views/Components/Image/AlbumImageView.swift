@@ -45,8 +45,19 @@ struct AlbumImageView: View {
         .frame(width: displaySize, height: displaySize)
         .animation(.easeInOut(duration: 0.3), value: hasImage)
         .task(id: "\(album.id)_\(context.size)_\(coverArtManager.cacheGeneration)") {
-            // context.size berücksichtigt jetzt automatisch die Retina-Scale!
-            // z.B. .grid auf 3x Display: 200pt × 3 = 600px vom Server
+            // Früher Return bei Cache-Hit
+            if coverArtManager.getAlbumImage(for: album.id, context: context) != nil {
+                return  // Bild bereits da
+            }
+            
+            // Kleine Verzögerung, damit Preload Vorrang hat
+            try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+            
+            // Nochmal prüfen nach Verzögerung
+            if coverArtManager.getAlbumImage(for: album.id, context: context) != nil {
+                return
+            }
+            
             await coverArtManager.loadAlbumImage(
                 for: album.id,
                 context: context

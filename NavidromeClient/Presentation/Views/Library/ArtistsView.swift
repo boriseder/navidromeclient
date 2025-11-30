@@ -1,12 +1,3 @@
-//
-//  ArtistsViewContent.swift - UPDATED: Unified State System
-//  NavidromeClient
-//
-//   UNIFIED: Single ContentLoadingStrategy for consistent state
-//   CLEAN: Simplified toolbar and state management
-//   FIXED: Proper refresh method names and error handling
-//
-
 import SwiftUI
 
 struct ArtistsView: View {
@@ -23,7 +14,9 @@ struct ArtistsView: View {
     @State private var searchText = ""
     @StateObject private var debouncer = Debouncer()
     
-    // MARK: - UNIFIED: Single State Logic
+    @State private var lastPreloadedCount = 0
+    
+    // MARK: - Unified State Logic
     
     private var displayedArtists: [Artist] {
         let artists: [Artist]
@@ -39,12 +32,10 @@ struct ArtistsView: View {
         
         return artists
     }
-    
 
     var body: some View {
         NavigationStack {
             ZStack {
-                
                 if theme.backgroundStyle == .dynamic {
                     DynamicMusicBackground()
                 }
@@ -58,10 +49,7 @@ struct ArtistsView: View {
             }
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarBackground(.clear, for: .navigationBar)
-            .toolbarColorScheme(
-                theme.colorScheme,
-                for: .navigationBar
-            )
+            .toolbarColorScheme(theme.colorScheme, for: .navigationBar)
             .searchable(text: $searchText, prompt: "Search artists...")
             .refreshable {
                 guard networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent else { return }
@@ -70,11 +58,16 @@ struct ArtistsView: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            // Background idle preloading instead of immediate
-            .onAppear {
-                if !displayedArtists.isEmpty {
-                    coverArtManager.preloadArtistsWhenIdle(Array(displayedArtists.prefix(20)), context: .artistList)
-                }
+            // Proper lifecycle-aware preloading
+            .task(id: displayedArtists.count) {
+                // Only preload if we have MORE artists than last time
+                guard displayedArtists.count > lastPreloadedCount else { return }
+                guard displayedArtists.count > 0 else { return }
+                
+                // Small delay to let list render first
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                
+                await preloadVisibleArtists()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -85,21 +78,28 @@ struct ArtistsView: View {
                     }
                 }
             }
-
         }
     }
     
     @ViewBuilder
     private var contentView: some View {
- 
         ScrollView {
             LazyVStack(spacing: 2) {
-                ForEach(displayedArtists, id: \.id) { artist in
+                ForEach(displayedArtists.indices, id: \.self) { index in
+                    let artist = displayedArtists[index]
                     
                     NavigationLink(value: artist) {
                         ArtistRowView(artist: artist)
                     }
                     .buttonStyle(.plain)
+                    .onAppear {
+                        // Progressive preload as user scrolls
+                        if index > lastPreloadedCount - 10 && index < displayedArtists.count - 1 {
+                            Task {
+                                await preloadNextBatch(from: index)
+                            }
+                        }
+                    }
                 }
             }
             .padding(.bottom, DSLayout.miniPlayerHeight)
@@ -126,12 +126,49 @@ struct ArtistsView: View {
 
     private func refreshAllData() async {
         await musicLibraryManager.refreshAllData()
+        lastPreloadedCount = 0  // Reset to trigger new preload
     }
     
     private func handleSearchTextChange() {
         debouncer.debounce {
             // Search filtering happens automatically via computed property
         }
+    }
+    
+    // MARK: - Intelligent Preloading
+    
+    private func preloadVisibleArtists() async {
+        let artistsToPreload = Array(displayedArtists.prefix(40))  // ✅ Increased from 20
+        guard !artistsToPreload.isEmpty else { return }
+        
+        AppLogger.general.info("🎨 Preloading \(artistsToPreload.count) artist images")
+        
+        // Use controlled preload with higher priority
+        await coverArtManager.preloadArtists(
+            artistsToPreload,
+            context: .artistList
+        )
+        
+        lastPreloadedCount = displayedArtists.count
+        AppLogger.general.info("Artist preload completed - cached \(artistsToPreload.count) images")
+    }
+    
+    private func preloadNextBatch(from index: Int) async {
+        let batchStart = index + 1
+        let batchEnd = min(batchStart + 20, displayedArtists.count)
+        
+        guard batchStart < displayedArtists.count else { return }
+        
+        let batch = Array(displayedArtists[batchStart..<batchEnd])
+        
+        AppLogger.general.debug("🎨 Preloading scroll batch: \(batch.count) artists from index \(batchStart)")
+        
+        await coverArtManager.preloadArtists(
+            batch,
+            context: .artistList
+        )
+        
+        lastPreloadedCount = max(lastPreloadedCount, batchEnd)
     }
 }
 
@@ -164,7 +201,6 @@ struct ArtistRowView: View {
             Spacer()
             
             if let count = artist.albumCount {
-                
                 // Show offline indicator if available offline
                 if isAvailableOffline {
                     Image(systemName: "arrow.down.circle.fill")
@@ -182,8 +218,7 @@ struct ArtistRowView: View {
                     .padding(.trailing, DSLayout.contentPadding)
             }
         }
-        .background(theme.backgroundContrastColor.opacity(0.12)
-)
+        .background(theme.backgroundContrastColor.opacity(0.12))
     }
     
     private var isAvailableOffline: Bool {

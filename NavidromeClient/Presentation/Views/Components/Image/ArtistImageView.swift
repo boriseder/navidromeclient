@@ -2,20 +2,23 @@
 //  ArtistImageView.swift
 //  NavidromeClient
 //
-//  REFACTORED: Context-aware image loading with smooth transitions
+//  OPTIMIZED: Context-aware image loading with caching and preload support
 //
 
 import SwiftUI
 
 struct ArtistImageView: View {
     @EnvironmentObject var coverArtManager: CoverArtManager
-    @State private var showImage = false
     
     let artist: Artist
     let context: ImageContext
     
     private var displaySize: CGFloat {
         return context.displaySize
+    }
+    
+    private var hasImage: Bool {
+        coverArtManager.getArtistImage(for: artist.id, context: context) != nil
     }
     
     init(artist: Artist, context: ImageContext) {
@@ -25,34 +28,40 @@ struct ArtistImageView: View {
     
     var body: some View {
         ZStack {
-            // Always show placeholder
             placeholderView
-                .opacity(showImage ? 0 : 1)
+                .opacity(hasImage ? 0 : 1)
             
-            // Fade in actual image
             if let image = coverArtManager.getArtistImage(for: artist.id, context: context) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFill()
                     .frame(width: displaySize, height: displaySize)
-                    .clipped() // verhindert Überlauf
-                    .aspectRatio(1, contentMode: .fill)
-                    .opacity(showImage ? 1 : 0)
-                    .onAppear {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showImage = true
-                        }
-                    }
+                    .clipShape(Circle())  // ✅ Artists sind normalerweise rund
+                    .opacity(hasImage ? 1 : 0)
+                    .transition(.opacity)
                     .overlay(
-                        Rectangle()
+                        Circle()
                             .stroke(DSColor.onLight.opacity(0.1), lineWidth: 1)
                     )
                     .shadow(color: DSColor.onLight.opacity(0.1), radius: 4, x: 0, y: 2)
-
             }
         }
         .frame(width: displaySize, height: displaySize)
-        .task(id: artist.id) {
+        .animation(.easeInOut(duration: 0.3), value: hasImage)
+        .task(id: "\(artist.id)_\(context.size)_\(coverArtManager.cacheGeneration)") {
+            // ✅ OPTIMIERUNG 1: Früher Return bei Cache-Hit
+            if coverArtManager.getArtistImage(for: artist.id, context: context) != nil {
+                return  // Bild bereits im Cache
+            }
+            
+            // ✅ OPTIMIERUNG 2: Kleine Verzögerung, damit Preload Vorrang hat
+            try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms
+            
+            // ✅ OPTIMIERUNG 3: Nochmal prüfen nach Verzögerung
+            if coverArtManager.getArtistImage(for: artist.id, context: context) != nil {
+                return  // Preload war erfolgreich
+            }
+            
             await coverArtManager.loadArtistImage(
                 for: artist.id,
                 context: context
@@ -62,7 +71,7 @@ struct ArtistImageView: View {
     
     @ViewBuilder
     private var placeholderView: some View {
-        Rectangle()
+        Circle()  // ✅ Runder Placeholder für Artists
             .fill(
                 LinearGradient(
                     colors: [.blue, .purple.opacity(0.7)],

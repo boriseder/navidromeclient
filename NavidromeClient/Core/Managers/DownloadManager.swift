@@ -94,7 +94,7 @@ class DownloadManager: ObservableObject {
             let errorMessage = "Service not available for downloads"
             downloadErrors[album.id] = errorMessage
             setDownloadState(.error(errorMessage), for: album.id)
-            AppLogger.general.error("UnifiedSubsonicService not configured for DownloadManager")
+            AppLogger.general.error("[DownloadManager] UnifiedSubsonicService not configured for DownloadManager")
             return
         }
         

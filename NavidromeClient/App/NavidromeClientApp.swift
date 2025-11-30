@@ -74,7 +74,15 @@ struct NavidromeClientApp: App {
     @ViewBuilder
     private var contentRoot: some View {
         switch appInitializer.state {
-        case .notStarted, .inProgress:
+        
+        case .notStarted:
+            VStack {
+                Text("notStarted...")
+                    .font(.largeTitle)
+                    .bold()
+            }
+            .background(.red)
+        case .inProgress:
             InitializationView(initializer: appInitializer)
             
         case .completed:
@@ -106,29 +114,29 @@ struct NavidromeClientApp: App {
 
     private func handleConfigurationChange(_ isConfigured: Bool) {
         guard isConfigured else { return }
-        
-        // Skip if this is the initial configuration (already handled in performInitialization)
-        guard hasPerformedInitialConfiguration else {
-            hasPerformedInitialConfiguration = true
-            AppLogger.general.info("[App] Initial configuration detected - skipping (handled by init)")
+
+        guard !hasConfiguredManagers else {
+            AppLogger.general.info("[App] Managers already configured - skipping")
             return
         }
         
-        // Only trigger if we're transitioning from unconfigured to configured
-        // (not on every scene activation)
-        guard appInitializer.state != .completed else {
-            AppLogger.general.info("[App] Already configured - skipping reinitialization")
+        guard appInitializer.state == .completed else {
+            AppLogger.general.info("[App] Waiting for initialization to complete")
             return
         }
-        
+
         AppLogger.general.info("[App] Configuration changed - reinitializing...")
         
-        Task { @MainActor in
-            // AppInitializer handles reinitialization automatically via notification
-            // This path should rarely be hit (only on reconfiguration)
-            if appInitializer.state == .completed {
-                configureManagersAndLoadData()
-            }
+        if !hasPerformedInitialConfiguration {
+            // Initial setup nach erstem Login
+            hasPerformedInitialConfiguration = true
+            AppLogger.general.info("[App] Initial configuration completed - configuring managers")
+            configureManagersAndLoadData()
+        } else {
+            // Reconfiguration (z.B. nach Factory Reset + neuem Login)
+            AppLogger.general.info("[App] Reconfiguration detected - reinitializing managers")
+            hasConfiguredManagers = false  // Reset flag für Reconfiguration
+            configureManagersAndLoadData()
         }
     }
 
@@ -302,6 +310,13 @@ struct NavidromeClientApp: App {
             return
         }
         
+        // ✅ NUR wenn Manager bereits konfiguriert sind
+        guard hasConfiguredManagers else {
+            AppLogger.general.info("[App] Network change ignored - managers not configured yet")
+            return
+        }
+
+        
         await navidromeVM.handleNetworkChange(isOnline: isConnected)
         AppLogger.general.info("[App] Network state changed: \(isConnected ? "Connected" : "Disconnected")")
     }
@@ -309,10 +324,8 @@ struct NavidromeClientApp: App {
     // MARK: - Factory Reset
     
     private func handleFactoryReset() async {
-        await appInitializer.performFactoryReset()
-        AppLogger.general.info("[App] Factory reset completed")
+        hasPerformedInitialConfiguration = false
+        hasConfiguredManagers = false
+        AppLogger.general.info("[App] Factory reset completed - ready for new setup")
     }
 }
-
-// MARK: - Service Container removed
-// All functionality moved to AppInitializer
