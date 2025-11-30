@@ -1,10 +1,8 @@
 //
-//  AlbumsViewContent.swift - FIXED: Filter & Download Button & Preloading Context
+//  AlbumsViewContent.swift - REAL FIX: Preloading for actual AlbumsView
 //  NavidromeClient
 //
-//   FIXED: Filter logic now works correctly with all albums
-//   FIXED: Download button state reactivity restored
-//   FIXED: Preloading uses correct context matching displayed images
+//   FIXED: Replace .onAppear + preloadWhenIdle with proper lifecycle
 //
 
 import SwiftUI
@@ -25,10 +23,12 @@ struct AlbumsView: View {
     @State private var showOnlyDownloaded = false
     @StateObject private var debouncer = Debouncer()
     
+    // NEW: Track what we've preloaded
+    @State private var lastPreloadedCount = 0
+    
     // MARK: - Filter Logic
     
     private var displayedAlbums: [Album] {
-        // Step 1: Get base albums based on strategy
         let baseAlbums: [Album]
         
         switch networkMonitor.contentLoadingStrategy {
@@ -40,7 +40,6 @@ struct AlbumsView: View {
             baseAlbums = []
         }
         
-        // Step 2: Apply download filter if enabled (only in online mode)
         let filteredAlbums: [Album]
         if showOnlyDownloaded && networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent {
             let downloadedIds = Set(downloadManager.downloadedAlbums.map { $0.albumId })
@@ -49,7 +48,6 @@ struct AlbumsView: View {
             filteredAlbums = baseAlbums
         }
         
-        // Step 3: Apply search filter if needed
         if searchText.isEmpty {
             return filteredAlbums
         } else {
@@ -68,7 +66,7 @@ struct AlbumsView: View {
                     DynamicMusicBackground()
                 }
                 
-                    contentView
+                contentView
             }
             .navigationTitle("Albums")
             .navigationBarTitleDisplayMode(.large)
@@ -89,11 +87,16 @@ struct AlbumsView: View {
             .onChange(of: searchText) { _, _ in
                 handleSearchTextChange()
             }
-            .onAppear {
-                if !displayedAlbums.isEmpty {
-                    // FIXED: Use .card context to match CardItemContainer display
-                    coverArtManager.preloadWhenIdle(Array(displayedAlbums.prefix(20)), context: .card)
-                }
+            // NEW: Proper lifecycle-aware preloading
+            .task(id: displayedAlbums.count) {
+                // Only preload if we have MORE albums than last time
+                guard displayedAlbums.count > lastPreloadedCount else { return }
+                guard displayedAlbums.count > 0 else { return }
+                
+                // Small delay to let grid render first
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                
+                await preloadVisibleAlbums()
             }
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -175,10 +178,18 @@ struct AlbumsView: View {
                             CardItemContainer(content: .album(album), index: index)
                         }
                         .onAppear {
+                            // Existing: Load more when nearing end
                             if networkMonitor.contentLoadingStrategy.shouldLoadOnlineContent &&
                                index >= displayedAlbums.count - 5 {
                                 Task {
                                     await musicLibraryManager.loadMoreAlbumsIfNeeded()
+                                }
+                            }
+                            
+                            // NEW: Progressive preload as user scrolls
+                            if index > lastPreloadedCount - 10 && index < displayedAlbums.count - 1 {
+                                Task {
+                                    await preloadNextBatch(from: index)
                                 }
                             }
                         }
@@ -195,16 +206,54 @@ struct AlbumsView: View {
     
     private func refreshAllData() async {
         await musicLibraryManager.refreshAllData()
+        lastPreloadedCount = 0  // Reset to trigger new preload
     }
     
     private func loadAlbums(sortBy: ContentService.AlbumSortType) async {
         selectedAlbumSort = sortBy
         await musicLibraryManager.loadAlbumsProgressively(sortBy: sortBy, reset: true)
+        lastPreloadedCount = 0  // Reset to trigger new preload
     }
     
     private func handleSearchTextChange() {
         debouncer.debounce {
             // Search filtering happens automatically via computed property
         }
+    }
+    
+    // MARK: - NEW: Intelligent Preloading
+    
+    private func preloadVisibleAlbums() async {
+        let albumsToPreload = Array(displayedAlbums.prefix(40))  // Increased from 20
+        guard !albumsToPreload.isEmpty else { return }
+        
+        AppLogger.general.info("🎨 Preloading \(albumsToPreload.count) album covers")
+        
+        // Use controlled preload with higher priority
+        await coverArtManager.preloadAlbumsControlled(
+            albumsToPreload,
+            context: .card
+        )
+        
+        lastPreloadedCount = displayedAlbums.count
+        AppLogger.general.info("✅ Preload completed - cached \(albumsToPreload.count) covers")
+    }
+    
+    private func preloadNextBatch(from index: Int) async {
+        let batchStart = index + 1
+        let batchEnd = min(batchStart + 20, displayedAlbums.count)
+        
+        guard batchStart < displayedAlbums.count else { return }
+        
+        let batch = Array(displayedAlbums[batchStart..<batchEnd])
+        
+        AppLogger.general.debug("🎨 Preloading scroll batch: \(batch.count) albums from index \(batchStart)")
+        
+        await coverArtManager.preloadAlbumsControlled(
+            batch,
+            context: .card
+        )
+        
+        lastPreloadedCount = max(lastPreloadedCount, batchEnd)
     }
 }

@@ -88,7 +88,6 @@ class FavoritesService {
             case 200:
                 // Parse response to verify success
                 let decoded = try JSONDecoder().decode(SubsonicResponse<EmptyResponse>.self, from: data)
-                
             case 401:
                 throw SubsonicError.unauthorized
             case 404:

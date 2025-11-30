@@ -12,7 +12,7 @@
 //
 //  Warms image cache on app activation from disk cache
 //
-
+/*
 import SwiftUI
 
 @MainActor
@@ -57,3 +57,4 @@ class CoverArtCacheWarmer: ObservableObject {
         NotificationCenter.default.removeObserver(self)
     }
 }
+*/

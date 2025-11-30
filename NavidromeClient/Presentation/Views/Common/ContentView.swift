@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var appInitializer: AppInitializer  // ✅ Added
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var networkMonitor: NetworkMonitor
@@ -81,7 +82,6 @@ struct ContentView: View {
                 .navigationBarTitleDisplayMode(.inline)
             }
         }
-
     }
 
     
@@ -93,16 +93,14 @@ struct ContentView: View {
         
         serviceInitError = nil
         
-        // Trigger re-initialization
-        NotificationCenter.default.post(
-            name: .servicesNeedInitialization,
-            object: credentials
-        )
+        // ✅ Updated: No longer posts notification - AppInitializer handles this automatically
+        // Just trigger reinit directly
+        try? await appInitializer.reinitializeAfterConfiguration()
         
         // Wait for initialization with timeout
         for attempt in 0..<10 {
             try? await Task.sleep(nanoseconds: 500_000_000)
-            if appConfig.areServicesReady {
+            if appInitializer.areServicesReady {  // ✅ Changed from appConfig to appInitializer
                 AppLogger.ui.info("Service initialization retry succeeded")
                 return
             }
@@ -126,5 +124,4 @@ struct ContentView: View {
                 EmptyView()
         }
     }
-
 }

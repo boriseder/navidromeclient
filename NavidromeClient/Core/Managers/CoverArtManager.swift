@@ -1,10 +1,11 @@
 //
-//  CoverArtManager.swift
+//  CoverArtManager.swift - CLEANED UP
 //  NavidromeClient
 //
-//  Context-aware multi-size caching with hybrid approach
-//  Memory cache is size-specific to prevent wrong-size usage
-//  AlbumCoverArt handles intelligent downscaling
+//  CHANGES:
+//  - Added sceneObservers property for proper cleanup
+//  - Consistent use of AppLogger.cache
+//  - Added deinit for observer cleanup
 //
 
 import Foundation
@@ -16,10 +17,10 @@ class CoverArtManager: ObservableObject {
     // MARK: - Cache Configuration
     
     private struct CacheLimits {
-        static let albumCount: Int = 300 // Increased for multi-size storage
+        static let albumCount: Int = 300
         static let artistCount: Int = 200
-        static let albumMemory: Int = 120 * 1024 * 1024  // 120MB
-        static let artistMemory: Int = 60 * 1024 * 1024  // 60MB
+        static let albumMemory: Int = 120 * 1024 * 1024
+        static let artistMemory: Int = 60 * 1024 * 1024
     }
     
     private enum CoverArtType {
@@ -44,8 +45,8 @@ class CoverArtManager: ObservableObject {
 
     private enum PreloadPriority {
         case immediate
+        case userInitiated
         case background
-        case controlled
     }
     
     private let cacheQueue = DispatchQueue(label: "coverart.cache", attributes: .concurrent)
@@ -71,18 +72,19 @@ class CoverArtManager: ObservableObject {
     
     private var lastPreloadHash: Int = 0
     private var currentPreloadTask: Task<Void, Never>?
-    private let preloadSemaphore = AsyncSemaphore(value: 3)
+    private let preloadSemaphore = AsyncSemaphore(value: 5)
     
     @Published private(set) var loadingStates: [String: Bool] = [:]
     @Published private(set) var errorStates: [String: String] = [:]
     @Published private(set) var cacheGeneration: Int = 0
+    
+    // NEW: Observer tracking for proper cleanup
+    var sceneObservers: [NSObjectProtocol] = []
 
-    // Public method to increment cache generation
     func incrementCacheGeneration() {
         cacheGeneration += 1
-        AppLogger.general.info("Cache generation incremented to: \(cacheGeneration)")
+        AppLogger.cache.info("[CoverArtManager] Cache generation: \(cacheGeneration)")
     }
-
 
     // MARK: - Initialization
     
@@ -90,12 +92,21 @@ class CoverArtManager: ObservableObject {
         setupMemoryCache()
         setupFactoryResetObserver()
         setupScenePhaseObserver()
-        AppLogger.general.info("CoverArtManager initialized with hybrid multi-size strategy")
+        AppLogger.cache.info("[CoverArtManager] Initialized with hybrid multi-size strategy")
+    }
+    
+    // NEW: Proper cleanup
+    deinit {
+        Task { @MainActor in
+            cleanupObservers()
+            sceneObservers.forEach { NotificationCenter.default.removeObserver($0) }
+            AppLogger.cache.debug("[CoverArtManager] Deinitialized")
+        }
     }
     
     func configure(service: UnifiedSubsonicService) {
         self.service = service
-        AppLogger.general.info("CoverArtManager configured with UnifiedSubsonicService")
+        AppLogger.cache.info("[CoverArtManager] Configured with UnifiedSubsonicService")
     }
 
     private func setupMemoryCache() {
@@ -107,19 +118,18 @@ class CoverArtManager: ObservableObject {
         artistCache.totalCostLimit = CacheLimits.artistMemory
         artistCache.evictsObjectsWithDiscardedContent = false
         
-        // Monitor for memory warnings
         NotificationCenter.default.addObserver(
             forName: UIApplication.didReceiveMemoryWarningNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                AppLogger.general.warn("Memory warning received - incrementing cache generation")
+                AppLogger.cache.warn("[CoverArtManager] Memory warning - incrementing cache generation")
                 self?.incrementCacheGeneration()
             }
         }
         
-        AppLogger.general.debug("Memory cache limits: Albums=\(CacheLimits.albumCount), Artists=\(CacheLimits.artistCount)")
+        AppLogger.cache.debug("[CoverArtManager] Memory limits: Albums=\(CacheLimits.albumCount), Artists=\(CacheLimits.artistCount)")
     }
     
     private func setupFactoryResetObserver() {
@@ -130,7 +140,7 @@ class CoverArtManager: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.clearMemoryCache()
-                AppLogger.general.info("CoverArtManager: Memory cache cleared on factory reset")
+                AppLogger.cache.info("[CoverArtManager] Cache cleared on factory reset")
             }
         }
     }
@@ -155,7 +165,6 @@ class CoverArtManager: ObservableObject {
         }
     }
     
-    
     // MARK: - Context-Aware Image Retrieval
     
     func getAlbumImage(for albumId: String, context: ImageContext) -> UIImage? {
@@ -171,8 +180,6 @@ class CoverArtManager: ObservableObject {
         return getAlbumImage(for: albumId, context: context)
     }
     
-    // Size-specific cache retrieval
-    // Cache key includes both ID and size to prevent wrong-size usage
     private func getCachedImage(
         for id: String,
         cache: NSCache<NSString, AlbumCoverArt>,
@@ -186,7 +193,6 @@ class CoverArtManager: ObservableObject {
             }
         }
         
-        // Check if we have a larger size that can be downscaled
         let commonSizes = [80, 100, 150, 200, 240, 300, 400, 800, 1000]
         let largerSizes = commonSizes.filter { $0 > size }.sorted()
         
@@ -194,10 +200,9 @@ class CoverArtManager: ObservableObject {
             let largerKey = "\(id)_\(largerSize)" as NSString
             if let coverArt = cache.object(forKey: largerKey),
                let image = coverArt.getImage(for: size) {
-                // Cache the downscaled version for future use
                 let downscaled = AlbumCoverArt(image: image, size: size)
                 cache.setObject(downscaled, forKey: cacheKey, cost: downscaled.memoryFootprint)
-                AppLogger.general.debug("Downscaled \(largerSize)px -> \(size)px for ID: \(id)")
+                AppLogger.cache.debug("[CoverArtManager] Downscaled \(largerSize)px → \(size)px (ID: \(id))")
                 return image
             }
         }
@@ -268,38 +273,38 @@ class CoverArtManager: ObservableObject {
         let cacheKey = "\(id)_\(size)" as NSString
         let cache = type.getCache(from: self)
         
-        // Check size-specific memory cache
+        // Check memory cache
         if let coverArt = cache.object(forKey: cacheKey),
            let image = coverArt.getImage(for: size) {
-            AppLogger.general.debug("Memory cache HIT: \(type.name)_\(id)_\(size)px")
+            AppLogger.cache.debug("[CoverArtManager] Memory HIT: \(type.name)_\(id)_\(size)px")
             return image
         }
         
-        // Check if we can downscale from a larger cached version
+        // Check disk cache
+        let diskCacheKey = "\(type.name)_\(id)_\(size)"
+        if let cached = persistentCache.image(for: diskCacheKey, size: size) {
+            AppLogger.cache.debug("[CoverArtManager] Disk HIT: \(diskCacheKey)")
+            storeImage(cached, forId: id, type: type, size: size)
+            return cached
+        }
+        
+        // Check for downscalable version
         if let downscaled = await checkForDownscalableVersion(id: id, requestedSize: size, type: type) {
-            AppLogger.general.debug("Downscaled from larger cache entry: \(type.name)_\(id)_\(size)px")
+            AppLogger.cache.debug("[CoverArtManager] Downscaled: \(type.name)_\(id)_\(size)px")
             return downscaled
         }
         
-        // Prevent duplicate requests for same ID+size
+        // Prevent duplicate requests
         if isRequestActive(id, type: type.name, size: size) {
-            AppLogger.general.debug("Request already active: \(type.name)_\(id)_\(size)px")
+            AppLogger.cache.debug("[CoverArtManager] Request active: \(type.name)_\(id)_\(size)px")
             return nil
         }
         
         addActiveRequest(id, type: type.name, size: size)
         defer { removeActiveRequest(id, type: type.name, size: size) }
         
-        // Check disk cache
-        let diskCacheKey = "\(type.name)_\(id)_\(size)"
-        if let cached = persistentCache.image(for: diskCacheKey, size: size) {
-            AppLogger.general.debug("Disk cache HIT: \(diskCacheKey)")
-            storeImage(cached, forId: id, type: type, size: size)
-            return cached
-        }
-        
         // Load from network
-        AppLogger.general.debug("Loading from network: \(type.name)_\(id)_\(size)px")
+        AppLogger.cache.debug("[CoverArtManager] Network load: \(type.name)_\(id)_\(size)px")
         return await loadImageFromNetwork(
             id: id,
             size: size,
@@ -309,7 +314,6 @@ class CoverArtManager: ObservableObject {
         )
     }
     
-    // Check if we have a larger version in cache that can be downscaled
     private func checkForDownscalableVersion(
         id: String,
         requestedSize: Int,
@@ -323,7 +327,6 @@ class CoverArtManager: ObservableObject {
             let largerKey = "\(id)_\(largerSize)" as NSString
             if let coverArt = cache.object(forKey: largerKey),
                let image = coverArt.getImage(for: requestedSize) {
-                // Store downscaled version in its own cache entry
                 storeImage(image, forId: id, type: type, size: requestedSize)
                 return image
             }
@@ -343,9 +346,9 @@ class CoverArtManager: ObservableObject {
     ) async -> UIImage? {
         guard let service = service else {
             await MainActor.run {
-                errorStates[requestKey] = "Media service not available"
+                errorStates[requestKey] = "Service unavailable"
             }
-            AppLogger.general.error("Network load failed: Service not available")
+            AppLogger.cache.error("[CoverArtManager] Network failed: No service")
             return nil
         }
         
@@ -359,7 +362,6 @@ class CoverArtManager: ObservableObject {
             }
         }
         
-        // Stagger requests to avoid overwhelming the server
         if staggerIndex > 0 {
             try? await Task.sleep(nanoseconds: UInt64(staggerIndex * 100_000_000))
         }
@@ -371,21 +373,19 @@ class CoverArtManager: ObservableObject {
                 _ = errorStates.removeValue(forKey: requestKey)
             }
             
-            // Store in disk cache
             let diskCacheKey = "\(type.name)_\(id)_\(size)"
             persistentCache.store(image, for: diskCacheKey, size: size)
             
-            AppLogger.general.info("Network load SUCCESS: \(requestKey)")
+            AppLogger.cache.info("[CoverArtManager] Network SUCCESS: \(requestKey)")
             return image
         } else {
             await MainActor.run {
-                errorStates[requestKey] = "Failed to load image"
+                errorStates[requestKey] = "Failed to load"
             }
-            AppLogger.general.error("Network load FAILED: \(requestKey)")
+            AppLogger.cache.error("[CoverArtManager] Network FAILED: \(requestKey)")
             return nil
         }
     }
-    
     
     // MARK: - Image Storage
 
@@ -402,7 +402,7 @@ class CoverArtManager: ObservableObject {
         let cost = coverArt.memoryFootprint
         cache.setObject(coverArt, forKey: cacheKey, cost: cost)
         
-        AppLogger.general.debug("Stored in memory cache: \(type.name)_\(id)_\(size)px (cost: \(cost) bytes)")
+        AppLogger.cache.debug("[CoverArtManager] Stored: \(type.name)_\(id)_\(size)px (\(cost) bytes)")
         notifyChange()
     }
     
@@ -430,7 +430,7 @@ class CoverArtManager: ObservableObject {
     func preloadForFullscreen(albumId: String) {
         Task(priority: .userInitiated) {
             _ = await loadAlbumImage(for: albumId, context: .fullscreen)
-            AppLogger.general.debug("Preloaded fullscreen image for album: \(albumId)")
+            AppLogger.cache.debug("[CoverArtManager] Preloaded fullscreen: \(albumId)")
         }
     }
     
@@ -454,6 +454,7 @@ class CoverArtManager: ObservableObject {
         )
     }
 
+    @available(*, deprecated, message: "Use preloadAlbumsControlled instead")
     func preloadWhenIdle(_ albums: [Album], context: ImageContext) {
         Task(priority: .background) {
             await preloadCoverArt(
@@ -477,12 +478,13 @@ class CoverArtManager: ObservableObject {
             )
         }
     }
+    
     func preloadAlbumsControlled(_ albums: [Album], context: ImageContext) async {
         await preloadCoverArt(
             items: albums,
             type: .album,
             context: context,
-            priority: .controlled,
+            priority: .userInitiated,
             getId: { $0.id }
         )
     }
@@ -497,9 +499,9 @@ class CoverArtManager: ObservableObject {
         let itemIds = items.map(getId)
         let currentHash = itemIds.hashValue
         
-        guard currentHash != lastPreloadHash else { 
-            AppLogger.general.debug("Skipping preload - same content hash")
-            return 
+        guard currentHash != lastPreloadHash else {
+            AppLogger.cache.debug("[CoverArtManager] Skipping preload - same content")
+            return
         }
         
         currentPreloadTask?.cancel()
@@ -507,7 +509,7 @@ class CoverArtManager: ObservableObject {
         
         let size = context.size
         
-        AppLogger.general.info("Starting preload: \(items.count) items, size: \(size)px, priority: \(priority)")
+        AppLogger.cache.info("[CoverArtManager] Preload start: \(items.count) items, \(size)px, \(priority)")
         
         currentPreloadTask = Task {
             guard service != nil else { return }
@@ -525,21 +527,11 @@ class CoverArtManager: ObservableObject {
                     }
                 }
                 
-            case .background:
-                for (index, item) in items.enumerated() {
-                    guard !Task.isCancelled else { break }
-                    let id = getId(item)
-                    if getCachedImage(for: id, cache: type.getCache(from: self), size: size) == nil {
-                        _ = await self.loadCoverArt(id: id, type: type, size: size)
-                        if index < items.count - 1 {
-                            try? await Task.sleep(nanoseconds: 200_000_000)
-                        }
-                    }
-                }
-                
-            case .controlled:
+            case .userInitiated:
                 await withTaskGroup(of: Void.self) { group in
-                    for item in items.prefix(10) {
+                    for item in items {
+                        guard !Task.isCancelled else { break }
+                        
                         let id = getId(item)
                         if getCachedImage(for: id, cache: type.getCache(from: self), size: size) == nil {
                             group.addTask {
@@ -550,11 +542,23 @@ class CoverArtManager: ObservableObject {
                         }
                     }
                 }
+                
+            case .background:
+                for (index, item) in items.enumerated() {
+                    guard !Task.isCancelled else { break }
+                    let id = getId(item)
+                    if getCachedImage(for: id, cache: type.getCache(from: self), size: size) == nil {
+                        _ = await self.loadCoverArt(id: id, type: type, size: size)
+                        if index < items.count - 1 {
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                        }
+                    }
+                }
             }
         }
         
         await currentPreloadTask?.value
-        AppLogger.general.info("Preload completed")
+        AppLogger.cache.info("[CoverArtManager] Preload complete: \(items.count) items")
     }
         
     // MARK: - Cache Management
@@ -567,9 +571,8 @@ class CoverArtManager: ObservableObject {
         incrementCacheGeneration()
         persistentCache.clearCache()
  
-        AppLogger.general.info("All caches cleared")
+        AppLogger.cache.info("[CoverArtManager] All caches cleared")
     }
-
 
     // MARK: - Diagnostics
     
@@ -606,25 +609,20 @@ class CoverArtManager: ObservableObject {
     func resetPerformanceStats() {
         loadingStates.removeAll()
         errorStates.removeAll()
-        AppLogger.general.info("Performance stats reset")
+        AppLogger.cache.info("[CoverArtManager] Performance stats reset")
     }
     
     func printDiagnostics() {
         let stats = getCacheStats()
         let health = getHealthStatus()
         
-        AppLogger.general.info("""
-        COVERARTMANAGER DIAGNOSTICS:
+        AppLogger.cache.info("""
+        [CoverArtManager] DIAGNOSTICS:
         Health: \(health.statusDescription)
         \(stats.summary)
-        
-        Multi-Size Cache Architecture (Hybrid):
-        - Size-specific memory cache (no upscaling)
-        - Intelligent downscaling from larger versions
-        - Album Cache: \(CacheLimits.albumCount) entries, \(CacheLimits.albumMemory / 1024 / 1024)MB
-        - Artist Cache: \(CacheLimits.artistCount) entries, \(CacheLimits.artistMemory / 1024 / 1024)MB
-        - Cache Version: \(cacheVersion)
-        
+        Albums: \(CacheLimits.albumCount) entries, \(CacheLimits.albumMemory / 1024 / 1024)MB
+        Artists: \(CacheLimits.artistCount) entries, \(CacheLimits.artistMemory / 1024 / 1024)MB
+        Generation: \(cacheGeneration)
         Service: \(service != nil ? "Available" : "Not Available")
         """)
     }

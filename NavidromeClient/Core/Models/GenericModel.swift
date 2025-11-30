@@ -17,8 +17,6 @@ struct PingInfo: Codable {
     let openSubsonic: Bool
 }
 
-// Füge am Ende von GenericModel.swift hinzu:
-
 // MARK: - Error Response
 struct SubsonicErrorDetail: Codable {
     let code: Int

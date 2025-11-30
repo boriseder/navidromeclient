@@ -65,7 +65,7 @@ class PersistentImageCache: ObservableObject {
         if let diskImage = loadImageFromDisk(key: key) {
             memoryCache.setObject(diskImage, forKey: cacheKey)
             updateLastAccessed(for: key)
-            AppLogger.general.debug("Disk cache HIT: \(key)")
+            AppLogger.cache.debug("[PersistentImageCache] Disk cache HIT: \(key)")
             return diskImage
         }
         

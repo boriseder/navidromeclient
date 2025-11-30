@@ -22,8 +22,9 @@ enum AppLogger {
         }
 
         func write(_ level: String, message: String, osLevel: OSLogType) {
-            let timestamp = ISO8601DateFormatter().string(from: Date())
-            let line = "[\(timestamp)] \(level) [\(category)] \(message)"
+           // let timestamp = ISO8601DateFormatter().string(from: Date())
+            // let line = "[\(timestamp)] \(level) [\(category)] \(message)"
+            let line = "\(message)"
 
             AppLogger.writeToFile(line)
            // logger.log(level: osLevel, "\(message, privacy: .public)")

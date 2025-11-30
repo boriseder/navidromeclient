@@ -13,6 +13,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var navidromeVM: NavidromeViewModel
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var appInitializer: AppInitializer
     @EnvironmentObject var theme: ThemeManager
     @EnvironmentObject var playerVM: PlayerViewModel
     @EnvironmentObject var songManager: SongManager
@@ -31,14 +32,14 @@ struct SettingsView: View {
                 GeneralSettingsSection
                 NavidromeSection
                 NetworkDebugSection
-                if appConfig.isConfigured {
+                if appInitializer.isConfigured {
                     CacheSection
                     ServerDetailsSection
                     DangerZoneSection
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle(appConfig.isConfigured ? "Settings" : "Initial Setup")
+            .navigationTitle(appInitializer.isConfigured ? "Settings" : "Initial Setup")
             .toolbarColorScheme(.light, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .disabled(isPerformingReset)
@@ -174,7 +175,7 @@ struct SettingsView: View {
         isPerformingReset = true
         defer { isPerformingReset = false }
         
-        await appConfig.performFactoryReset()
+        await appInitializer.performFactoryReset()
         
         await MainActor.run {
             navidromeVM.reset()

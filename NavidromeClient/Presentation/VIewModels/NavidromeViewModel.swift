@@ -19,7 +19,6 @@ class NavidromeViewModel: ObservableObject {
     
     func updateService(_ newService: UnifiedSubsonicService) {
         self.unifiedService = newService
-        musicLibraryManager.configure(service: newService)
         objectWillChange.send()
         AppLogger.general.info("NavidromeViewModel configured with UnifiedSubsonicService facade")
     }

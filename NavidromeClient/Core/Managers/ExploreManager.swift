@@ -1,19 +1,14 @@
 //
-//  ExploreManager.swift - FIXED: Pure Facade Pattern
+//  ExploreManager.swift - STEP 1: Add initial load tracking
 //  NavidromeClient
 //
+//  CHANGE: Added hasCompletedInitialLoad to prevent empty states during startup
 //
-//  ExploreManager.swift
-//  Manages home screen discovery content
-//  Responsibilities: Load and cache recent/newest/frequent/random albums
-//  Provides business logic layer between views and service
-
 
 import Foundation
 
 @MainActor
 class ExploreManager: ObservableObject {
-    // REMOVED: static let shared = ExploreManager()
     
     // MARK: - Home Screen Data
     @Published private(set) var recentAlbums: [Album] = []
@@ -25,6 +20,7 @@ class ExploreManager: ObservableObject {
     @Published private(set) var isLoadingExploreData = false
     @Published private(set) var exploreError: String?
     @Published private(set) var lastHomeRefresh: Date?
+    @Published var hasCompletedInitialLoad = false  // NEW: Track first load
     
     private weak var service: UnifiedSubsonicService?
     
@@ -65,9 +61,17 @@ class ExploreManager: ObservableObject {
             return
         }
         
-        isLoadingExploreData = true
+        // Only show loading indicator on subsequent loads, not first load
+        let isFirstLoad = !hasCompletedInitialLoad
+        if !isFirstLoad {
+            isLoadingExploreData = true
+        }
+        
         exploreError = nil
-        defer { isLoadingExploreData = false }
+        defer {
+            isLoadingExploreData = false
+            hasCompletedInitialLoad = true  // Mark as loaded
+        }
         
         do {
             let discoveryMix = try await service.getDiscoveryMix(size: exploreDataBatchSize * 4)
@@ -191,15 +195,6 @@ class ExploreManager: ObservableObject {
                !frequentAlbums.isEmpty ||
                !randomAlbums.isEmpty
     }
-   /*
-    func handleNetworkChange(isOnline: Bool) async {
-        guard isOnline, service != nil else { return }
-        
-        if !isHomeDataFresh {
-            await loadExploreData()
-        }
-    }
-    */
     
     func reset() {
         recentAlbums = []
@@ -210,6 +205,7 @@ class ExploreManager: ObservableObject {
         isLoadingExploreData = false
         exploreError = nil
         lastHomeRefresh = nil
+        hasCompletedInitialLoad = false  // Reset tracking
         
         AppLogger.general.info("ExploreManager reset completed")
     }

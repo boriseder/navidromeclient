@@ -11,6 +11,7 @@ import SwiftUI
 
 struct ServerEditView: View {
     @EnvironmentObject var appConfig: AppConfig
+    @EnvironmentObject var appInitializer: AppInitializer
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var offlineManager: OfflineManager
     @Environment(\.dismiss) private var dismiss
@@ -77,7 +78,7 @@ struct ServerEditView: View {
                 .disabled(!connectionManager.isConnected || isWaitingForServices)
             }
         }
-        .navigationTitle(appConfig.isConfigured ? "Edit Server" : "Initial Setup")
+        .navigationTitle(appInitializer.isConfigured ? "Edit Server" : "Initial Setup")
         .onAppear {
             //loadExistingCredentials()
             if connectionManager.canTestConnection {
@@ -130,7 +131,7 @@ struct ServerEditView: View {
             // Wait for services to initialize (max 5 seconds)
             for attempt in 0..<10 {
                 
-                if AppConfig.shared.areServicesReady {
+                if appInitializer.areServicesReady {
                     await MainActor.run {
                         isWaitingForServices = false
                         dismiss()

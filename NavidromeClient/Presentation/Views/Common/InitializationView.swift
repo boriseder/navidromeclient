@@ -14,7 +14,7 @@ struct InitializationView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            VStack(spacing: 20) {
+            VStack(spacing: DSLayout.elementGap) {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(1.5)
@@ -24,7 +24,6 @@ struct InitializationView: View {
                     .foregroundColor(.white)
                 
                 if case .inProgress = initializer.state {
-                    Text("############### case .inProgress \(initializer.state)")
                     Text("Loading your music library")
                         .font(.subheadline)
                         .foregroundColor(.gray)
@@ -39,7 +38,7 @@ struct InitializationErrorView: View {
     let retry: () -> Void
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: DSLayout.elementGap) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 60))
                 .foregroundColor(.red)

@@ -241,9 +241,3 @@ struct OfflineStats {
     }
 }
 
-// MARK: - Notification Names
-extension Notification.Name {
-    static let offlineModeChanged = Notification.Name("offlineModeChanged") // Legacy - not used anymore
-    static let servicesNeedInitialization = Notification.Name("servicesNeedInitialization")
-    static let factoryResetRequested = Notification.Name("factoryResetRequested")
-}

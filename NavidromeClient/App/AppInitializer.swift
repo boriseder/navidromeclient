@@ -2,15 +2,15 @@
 //  AppInitializer.swift
 //  NavidromeClient
 //
-//  Centralized initialization orchestrator with guaranteed order.
-//  Eliminates race conditions and provides clear initialization state to UI.
+//  Master coordinator for app lifecycle
+//  Owns initialization state and service management
 //
- 
+
 import Foundation
 
 @MainActor
 final class AppInitializer: ObservableObject {
-    
+
     // MARK: - Initialization State
     
     enum InitializationState: Equatable {
@@ -18,62 +18,88 @@ final class AppInitializer: ObservableObject {
         case inProgress
         case completed
         case failed(String)
-        
-        var isFailed: Bool {
-            if case .failed = self { return true }
-            return false
-        }
     }
-    
+
     @Published private(set) var state: InitializationState = .notStarted
-    
-    // MARK: - Dependencies
-    
-    private let credentialStore = CredentialStore()
-    private var credentials: ServerCredentials?
-    
-    // MARK: - Service Container
-    
+    @Published private(set) var isConfigured: Bool = false
+
     private(set) var unifiedService: UnifiedSubsonicService?
     
-    // MARK: - Initialization
+    // MARK: - Computed Properties
     
-    func initialize() async throws {
-        guard state == .notStarted || state.isFailed else {
-            AppLogger.general.info("[AppInitializer] Already initialized or in progress")
-            return
-        }
-        
-        state = .inProgress
-        AppLogger.general.info("[AppInitializer] === Starting initialization ===")
-        
-        do {
-            // Phase 1: Load credentials
-            try await loadCredentials()
-            
-            // Phase 2: Initialize NetworkMonitor
-            initializeNetworkMonitor()
-            
-            // Phase 3: Create UnifiedSubsonicService if configured
-            if let creds = credentials {
-                try createUnifiedService(with: creds)
-            } else {
-                AppLogger.general.info("[AppInitializer] No credentials - skipping service creation")
-            }
-            
-            state = .completed
-            AppLogger.general.info("[AppInitializer] === Initialization completed ===")
-            
-        } catch {
-            let errorMessage = error.localizedDescription
-            state = .failed(errorMessage)
-            AppLogger.general.error("[AppInitializer] Initialization failed: \(errorMessage)")
-            throw error
-        }
+    var areServicesReady: Bool {
+        return isConfigured && state == .completed
+    }
+
+    // MARK: - Initialization
+
+    init() {
+        setupNotificationObservers()
     }
     
-    // MARK: - Configuration of Managers
+    private func setupNotificationObservers() {
+        // Listen for credential updates
+        NotificationCenter.default.addObserver(
+            forName: .credentialsUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                guard let credentials = notification.object as? ServerCredentials else { return }
+                try? await self?.reinitializeAfterConfiguration()
+            }
+        }
+    }
+
+    func initialize() async throws {
+        guard state == .notStarted || state == .failed("") else { return }
+
+        state = .inProgress
+        AppLogger.general.info("[AppInitializer] === Initialization start ===")
+        
+        let credentials = AppConfig.shared.getCredentials()
+        isConfigured = credentials != nil
+
+        if let creds = credentials {
+            try createUnifiedService(with: creds)
+        }
+
+        state = .completed
+        AppLogger.general.info("[AppInitializer] === Initialization completed (configured: \(isConfigured)) ===")
+    }
+
+    // MARK: - Reinitialization
+
+    func reinitializeAfterConfiguration() async throws {
+        AppLogger.general.info("[AppInitializer] Reinitializing after configuration...")
+        
+        // Reset current state
+        reset()
+        
+        // Reinitialize with new credentials
+        try await initialize()
+        
+        AppLogger.general.info("[AppInitializer] Reinitialization completed")
+    }
+
+    // MARK: - Service Management
     
+    private func createUnifiedService(with creds: ServerCredentials) throws {
+        unifiedService = UnifiedSubsonicService(
+            baseURL: creds.baseURL,
+            username: creds.username,
+            password: creds.password
+        )
+
+        // Configure network monitor with service
+        NetworkMonitor.shared.configureService(unifiedService)
+        NetworkMonitor.shared.updateConfiguration(isConfigured: true)
+        
+        AppLogger.general.info("[AppInitializer] UnifiedSubsonicService created and configured")
+    }
+
+    // MARK: - Manager Configuration
+
     func configureManagers(
         coverArtManager: CoverArtManager,
         songManager: SongManager,
@@ -85,144 +111,88 @@ final class AppInitializer: ObservableObject {
         playerVM: PlayerViewModel
     ) {
         guard state == .completed else {
-            AppLogger.general.error("[AppInitializer] Cannot configure managers - initialization not complete")
+            AppLogger.general.warn("[AppInitializer] Cannot configure managers - not initialized")
             return
         }
         
         guard let service = unifiedService else {
-            AppLogger.general.info("[AppInitializer] No service available - skipping manager configuration")
+            AppLogger.general.warn("[AppInitializer] Cannot configure managers - no service")
             return
         }
-        
-        AppLogger.general.info("[AppInitializer] Configuring managers...")
-        
-        // Phase 1: Independent services
+
+        AppLogger.general.info("[AppInitializer] Configuring all managers...")
+
         coverArtManager.configure(service: service)
         songManager.configure(service: service)
-        
-        // Phase 2: Services with dependencies
         downloadManager.configure(service: service)
         downloadManager.configure(coverArtManager: coverArtManager)
         favoritesManager.configure(service: service)
         exploreManager.configure(service: service)
-        musicLibraryManager.configure(service: service)
+        musicLibraryManager.configure(service: service)  // ✅ Only once
         
-        // Phase 3: ViewModels
         navidromeVM.updateService(service)
         playerVM.configure(service: service)
-        
-        AppLogger.general.info("[AppInitializer] Managers configured successfully")
-        
-        // Ini complete
-        AppConfig.shared.setInitializingServices(false)
 
+        AppLogger.general.info("[AppInitializer] ✅ All managers configured successfully")
     }
-    
-    // MARK: - Initial Data Loading
-    
+
+    // MARK: - Data Load
+
     func loadInitialData(
         exploreManager: ExploreManager,
         favoritesManager: FavoritesManager,
         musicLibraryManager: MusicLibraryManager
     ) async {
         guard state == .completed else {
-            AppLogger.general.error("[AppInitializer] Cannot load data - initialization not complete")
+            AppLogger.general.warn("[AppInitializer] Cannot load data - not initialized")
             return
         }
         
         guard unifiedService != nil else {
-            AppLogger.general.info("[AppInitializer] No service available - skipping data load")
+            AppLogger.general.warn("[AppInitializer] Cannot load data - no service")
             return
         }
-        
+
         AppLogger.general.info("[AppInitializer] Loading initial data...")
-        
+
         await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                await exploreManager.loadExploreData()
-            }
-            
-            group.addTask {
-                await favoritesManager.loadFavoriteSongs()
-            }
-            
-            group.addTask {
-                await musicLibraryManager.loadInitialDataIfNeeded()
-            }
+            group.addTask { await exploreManager.loadExploreData() }
+            group.addTask { await favoritesManager.loadFavoriteSongs() }
+            group.addTask { await musicLibraryManager.loadInitialDataIfNeeded() }
         }
         
-        AppLogger.general.info("[AppInitializer] Initial data loaded")
+        AppLogger.general.info("[AppInitializer] ✅ Initial data loaded")
     }
-    
-    // MARK: - Reset
-    
-    func reset() {
-        AppLogger.general.info("[AppInitializer] Resetting...")
+
+    // MARK: - Factory Reset
+
+    func performFactoryReset() async {
+        AppLogger.general.info("[AppInitializer] === Factory Reset Start ===")
         
-        credentials = nil
+        // 1. Clear credentials via AppConfig
+        AppConfig.shared.clearCredentials()
+        
+        // 2. Reset local state
+        reset()
+        
+        // 3. Reset network monitor
+        NetworkMonitor.shared.updateConfiguration(isConfigured: false)
+        NetworkMonitor.shared.reset()
+        
+        // 4. Notify all managers to reset
+        NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
+        
+        AppLogger.general.info("[AppInitializer] === Factory Reset Complete ===")
+    }
+
+    // MARK: - Reset
+
+    func reset() {
         unifiedService = nil
         state = .notStarted
-        
-        // Clear NetworkMonitor service reference
+        isConfigured = false
         NetworkMonitor.shared.configureService(nil)
-
-        AppLogger.general.info("[AppInitializer] Reset complete")
-    }
-    
-    // MARK: - Re-initialization after configuration
-    
-    func reinitializeAfterConfiguration() async throws {
-        AppLogger.general.info("[AppInitializer] Re-initializing after configuration...")
         
-        state = .notStarted
-        try await initialize()
-    }
-    
-    // MARK: - Private Helpers
-    
-    private func loadCredentials() async throws {
-        AppLogger.general.info("[AppInitializer] Phase 1: Loading credentials...")
-        
-        credentials = credentialStore.loadCredentials()
-        
-        if let creds = credentials {
-            AppLogger.general.info("[AppInitializer] Credentials loaded for: \(creds.username)")
-        } else {
-            AppLogger.general.info("[AppInitializer] No stored credentials")
-        }
-    }
-    
-    private func initializeNetworkMonitor() {
-        AppLogger.general.info("[AppInitializer] Phase 2: Initializing NetworkMonitor...")
-        
-        let isConfigured = credentials != nil
-        NetworkMonitor.shared.initialize(isConfigured: isConfigured)
-        
-        AppLogger.general.info("[AppInitializer] NetworkMonitor initialized (configured: \(isConfigured))")
-    }
-    
-    private func createUnifiedService(with credentials: ServerCredentials) throws {
-        AppLogger.general.info("[AppInitializer] Phase 3: Creating UnifiedSubsonicService...")
-        
-        unifiedService = UnifiedSubsonicService(
-            baseURL: credentials.baseURL,
-            username: credentials.username,
-            password: credentials.password
-        )
-        
-        // Configure NetworkMonitor with service reference
-        NetworkMonitor.shared.configureService(unifiedService)
-        
-        AppLogger.general.info("[AppInitializer] UnifiedSubsonicService created successfully")
-    }
-    
-    // MARK: - Query Methods
-    
-    func hasCredentials() -> Bool {
-        return credentials != nil
-    }
-    
-    func getCredentials() -> ServerCredentials? {
-        return credentials
+        AppLogger.general.info("[AppInitializer] State reset")
     }
 }

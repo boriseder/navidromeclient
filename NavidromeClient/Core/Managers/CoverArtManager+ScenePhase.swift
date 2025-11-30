@@ -8,18 +8,22 @@
 import SwiftUI
 
 extension CoverArtManager {
+    
     func setupScenePhaseObserver() {
-        NotificationCenter.default.addObserver(
+        // Will resign active (backgrounding)
+        let resignObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.willResignActiveNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                AppLogger.general.debug("App will resign active")
+                AppLogger.cache.debug("[CoverArtManager] App will resign active")
+                // Could save state here if needed
             }
         }
         
-        NotificationCenter.default.addObserver(
+        // Did become active (foregrounding)
+        let activeObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
@@ -28,14 +32,27 @@ extension CoverArtManager {
                 await self?.handleAppActivation()
             }
         }
+        
+        // CRITICAL: Store observers for cleanup
+        sceneObservers.append(resignObserver)
+        sceneObservers.append(activeObserver)
     }
     
     func handleAppActivation() async {
-        AppLogger.general.info("App became active - triggering cache refresh")
+        AppLogger.cache.info("[CoverArtManager] App became active - refreshing cache state")
         
-        // Increment cache generation to force views to reload
+        // Single action: Increment generation to trigger view reloads
+        // Views will check disk cache automatically via loadCoverArt()
         incrementCacheGeneration()
         
-        AppLogger.general.info("Cache generation incremented - views will reload")
+        AppLogger.cache.info("[CoverArtManager] Cache generation incremented - views will reload")
+    }
+    
+    func cleanupObservers() {
+        sceneObservers.forEach { observer in
+            NotificationCenter.default.removeObserver(observer)
+        }
+        sceneObservers.removeAll()
+        AppLogger.cache.debug("[CoverArtManager] Scene observers cleaned up")
     }
 }

@@ -19,7 +19,7 @@ class ConnectionService: ObservableObject {
     @Published private(set) var isConnected = false
     @Published private(set) var connectionQuality: ConnectionQuality = .unknown
     @Published private(set) var lastSuccessfulConnection: Date?
-    
+
     enum ConnectionQuality {
         case unknown, excellent, good, poor, timeout
         
@@ -33,7 +33,7 @@ class ConnectionService: ObservableObject {
             }
         }
     }
-    
+
     // MARK: - Initialization
     init(baseURL: URL, username: String, password: String) {
         self.baseURL = baseURL
@@ -78,7 +78,7 @@ class ConnectionService: ObservableObject {
                 return .failure(.serverUnreachable)
             }
             
-            // ✨ NEW: Parse and check for Subsonic errors
+            // Parse and check for Subsonic errors
             do {
                 let decodedResponse = try JSONDecoder().decode(
                     SubsonicResponse<SubsonicResponseContent>.self,

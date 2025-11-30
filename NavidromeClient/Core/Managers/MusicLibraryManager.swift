@@ -76,20 +76,33 @@ class MusicLibraryManager: ObservableObject {
     }
     
     // MARK: - Coordinated Loading
-    
+
     func loadInitialDataIfNeeded() async {
-        guard !hasLoadedInitialData,
-              !isCurrentlyLoading,
-              let service = service,
-              NetworkMonitor.shared.shouldLoadOnlineContent else {
-            AppLogger.general.info("Skipping initial data load")
+        // Better guard with specific reasons
+        guard !hasLoadedInitialData else {
+            AppLogger.general.info("📚 Initial data already loaded - skipping")
+            return
+        }
+        
+        guard !isCurrentlyLoading else {
+            AppLogger.general.info("📚 Already loading data - skipping")
+            return
+        }
+        
+        guard let service = service else {
+            AppLogger.general.info("📚 No service configured - skipping initial load")
+            return
+        }
+        
+        guard NetworkMonitor.shared.shouldLoadOnlineContent else {
+            AppLogger.general.info("📚 Network offline - skipping initial load")
             return
         }
         
         isCurrentlyLoading = true
         defer { isCurrentlyLoading = false }
         
-        AppLogger.general.info("Starting coordinated initial data load...")
+        AppLogger.general.info("📚 Starting coordinated initial data load...")
         
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
@@ -106,8 +119,9 @@ class MusicLibraryManager: ObservableObject {
                 await self.loadGenresProgressively(reset: true)
             }
         }
+        
+        AppLogger.general.info("📚 Initial data load completed")
     }
-    
     func refreshAllData() async {
         guard !isCurrentlyLoading,
               NetworkMonitor.shared.shouldLoadOnlineContent else {

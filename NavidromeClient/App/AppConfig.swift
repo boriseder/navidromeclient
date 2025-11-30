@@ -2,8 +2,8 @@
 //  AppConfig.swift
 //  NavidromeClient
 //
-//  Uses CredentialStore for all credential operations
-//  Single responsibility - app configuration state only
+//  Pure credential storage and retrieval
+//  No state management, no manager coordination
 //
 
 import Foundation
@@ -12,32 +12,14 @@ import Foundation
 final class AppConfig: ObservableObject {
     static let shared = AppConfig()
     
-    @Published var isConfigured = false
-    @Published var isInitializingServices = false
-    
-    private var hasInitializedServices = false
     private let credentialStore = CredentialStore()
-
-    var areServicesReady: Bool {
-        return isConfigured && !isInitializingServices && hasInitializedServices
-    }
-
-    func setInitializingServices(_ isInitializing: Bool) {
-        isInitializingServices = isInitializing
-        if !isInitializing {
-            hasInitializedServices = true
-        }
-    }
-    
     private var credentials: ServerCredentials?
 
     // MARK: - Initialization
     
     private init() {
-                
         loadCredentials()
-        AppLogger.general.info("[AppConfig] Credentials loaded")
-
+        AppLogger.general.info("[AppConfig] Initialized")
     }
         
     // MARK: - Configuration
@@ -53,89 +35,60 @@ final class AppConfig: ObservableObject {
         
         do {
             try credentialStore.saveCredentials(newCredentials)
+            self.credentials = newCredentials
             AppLogger.general.info("[AppConfig] Credentials saved successfully")
+            
+            // Notify that new credentials are available
+            NotificationCenter.default.post(
+                name: .credentialsUpdated,
+                object: newCredentials
+            )
         } catch {
             AppLogger.general.error("[AppConfig] Failed to save credentials: \(error)")
-            return
         }
-        
-        self.credentials = newCredentials
-        isConfigured = true
-        
-        AppLogger.general.info("[AppConfig] Setting isConfigured = true")
-        NetworkMonitor.shared.updateConfiguration(isConfigured: true)
-
-        AppLogger.general.info("[AppConfig] Posting servicesNeedInitialization notification")
-        NotificationCenter.default.post(name: .servicesNeedInitialization, object: newCredentials)
     }
     
-    // MARK: - Factory Reset (Complete App Reset)
+    // MARK: - Factory Reset (Credential Clearing Only)
 
-    func performFactoryReset() async {
-        AppLogger.general.info("[AppConfig] Starting factory reset")
+    func clearCredentials() {
+        AppLogger.general.info("[AppConfig] Clearing credentials")
         
-        // 1. Clear credentials
         credentialStore.clearCredentials()
-        
-        // 2. Reset local state
         credentials = nil
-        isConfigured = false
-        hasInitializedServices = false
         
-        // 3. Notify NetworkMonitor
-        NetworkMonitor.shared.updateConfiguration(isConfigured: false)
-        NetworkMonitor.shared.reset()
-                
-        // 4. Clear caches
+        // Clear caches
         PersistentImageCache.shared.clearCache()
         AlbumMetadataCache.shared.clearCache()
-
-        // 5. Notify managers to reset
-        NotificationCenter.default.post(name: .factoryResetRequested, object: nil)
         
-        objectWillChange.send()
-        
-        AppLogger.general.info("[AppConfig] Factory reset completed")
+        AppLogger.general.info("[AppConfig] Credentials cleared")
     }
             
-    // MARK: - Credentials
+    // MARK: - Credentials Access
     
     func getCredentials() -> ServerCredentials? {
-        if let creds = credentials {
-            AppLogger.general.info("[AppConfig] Returning credentials: \(creds.username), password length: \(creds.password.count)")
-        } else {
-            AppLogger.general.info("[AppConfig] No credentials available")
-        }
         return credentials
     }
-
-    func getCredentialsForInitialization() -> ServerCredentials? {
-        return credentials
+    
+    func hasCredentials() -> Bool {
+        return credentials != nil
     }
     
     private func loadCredentials() {
         AppLogger.general.info("[AppConfig] Loading credentials from CredentialStore...")
         
         guard let creds = credentialStore.loadCredentials() else {
-            AppLogger.general.info("[AppConfig] No credentials found, setting isConfigured = false")
-            isConfigured = false
-            NetworkMonitor.shared.updateConfiguration(isConfigured: false)
+            AppLogger.general.info("[AppConfig] No credentials found")
             return
         }
         
-        AppLogger.general.info("[AppConfig] Credentials loaded: \(creds.username), password length: \(creds.password.count)")
-        
         self.credentials = creds
-        isConfigured = true
-        
-        AppLogger.general.info("[AppConfig] Setting isConfigured = true")
-        NetworkMonitor.shared.updateConfiguration(isConfigured: true)
+        AppLogger.general.info("[AppConfig] Credentials loaded: \(creds.username)")
     }
     
+    // MARK: - Password Management
+    
     func needsPassword() -> Bool {
-        let needs = isConfigured && (credentials?.password.isEmpty ?? true)
-        AppLogger.general.info("[AppConfig] needsPassword: \(needs)")
-        return needs
+        return credentials != nil && (credentials?.password.isEmpty ?? true)
     }
     
     func restorePassword(_ password: String) -> Bool {

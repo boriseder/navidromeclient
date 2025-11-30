@@ -1,7 +1,9 @@
 import SwiftUI
+import BackgroundTasks
 
 @main
 struct NavidromeClientApp: App {
+    // MARK: - State Objects
     @StateObject private var appInitializer = AppInitializer()
     @StateObject private var appConfig = AppConfig.shared
     @StateObject private var networkMonitor = NetworkMonitor.shared
@@ -10,7 +12,6 @@ struct NavidromeClientApp: App {
     @StateObject private var navidromeVM: NavidromeViewModel
     @StateObject private var playerVM: PlayerViewModel
     @StateObject private var coverArtManager = CoverArtManager()
-    @StateObject private var cacheWarmer: CoverArtCacheWarmer
     @StateObject private var songManager = SongManager()
     @StateObject private var exploreManager = ExploreManager()
     @StateObject private var favoritesManager = FavoritesManager()
@@ -19,7 +20,15 @@ struct NavidromeClientApp: App {
     @StateObject private var offlineManager = OfflineManager.shared
     @StateObject private var theme = ThemeManager()
     
+    // MARK: - Local State
+    @State private var hasPerformedInitialConfiguration = false  // ✅ Use @State
+    @State private var hasConfiguredManagers = false  // ✅ Use @State
+    
+    // MARK: - Scene Phase
+    @Environment(\.scenePhase) private var scenePhase
+    
     init() {
+        // Initialize dependencies
         let musicLib = MusicLibraryManager()
         let navidromeViewModel = NavidromeViewModel(musicLibraryManager: musicLib)
         let coverArt = CoverArtManager()
@@ -28,83 +37,111 @@ struct NavidromeClientApp: App {
         _musicLibraryManager = StateObject(wrappedValue: musicLib)
         _navidromeVM = StateObject(wrappedValue: navidromeViewModel)
         _coverArtManager = StateObject(wrappedValue: coverArt)
-        _cacheWarmer = StateObject(wrappedValue: CoverArtCacheWarmer(coverArtManager: coverArt))
-
         _playerVM = StateObject(wrappedValue: player)
+        
+        AppLogger.general.info("[App] Initialized with SwiftUI lifecycle")
     }
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                switch appInitializer.state {
-                case .inProgress:
-                    InitializationView(initializer: appInitializer)
-                    
-                case .notStarted, .completed:
-                    ContentView()
-                        .environmentObject(appConfig)
-                        .environmentObject(navidromeVM)
-                        .environmentObject(playerVM)
-                        .environmentObject(musicLibraryManager)
-                        .environmentObject(coverArtManager)
-                        .environmentObject(songManager)
-                        .environmentObject(exploreManager)
-                        .environmentObject(favoritesManager)
-                        .environmentObject(downloadManager)
-                        .environmentObject(audioSessionManager)
-                        .environmentObject(networkMonitor)
-                        .environmentObject(offlineManager)
-                        .environmentObject(theme)
-                        .preferredColorScheme(theme.colorScheme)
-                    
-                case .failed(let error):
-                    InitializationErrorView(error: error) {
-                        Task {
-                            AppLogger.general.debug("############### InitializationErrorView \(error)")
-                            try? await appInitializer.initialize()
-                        }
-                    }
+            contentRoot
+                .task {
+                    await performInitialization()
+                    configureInitialDependencies()
                 }
-            }
-            .task {
-                await performInitialization()
-            }
-            .onAppear {
-                configureInitialDependencies()
-            }
-            .onChange(of: appConfig.isConfigured) { _, isConfigured in
-                if isConfigured {
+                .onChange(of: appInitializer.isConfigured) { _, isConfigured in
+                    handleConfigurationChange(isConfigured)
+                }
+                .onChange(of: networkMonitor.canLoadOnlineContent) { _, isConnected in
                     Task {
-                        try? await appInitializer.reinitializeAfterConfiguration()
-                        if appInitializer.state == .completed {
-                            configureManagersAndLoadData()
-                        }
+                        await handleNetworkChange(isConnected: isConnected)
                     }
                 }
-            }
-            .onChange(of: networkMonitor.canLoadOnlineContent) { _, isConnected in
-                Task {
-                    await handleNetworkChange(isConnected: isConnected)
+                .onReceive(NotificationCenter.default.publisher(for: .factoryResetRequested)) { _ in
+                    Task {
+                        await handleFactoryReset()
+                    }
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                handleAppBecameActive()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .factoryResetRequested)) { _ in
+        }
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            handleScenePhaseChange(from: oldPhase, to: newPhase)
+        }
+        .backgroundTask(.appRefresh("com.navidrome.client.refresh")) {
+            await handleBackgroundRefresh()
+        }
+    }
+
+    @ViewBuilder
+    private var contentRoot: some View {
+        switch appInitializer.state {
+        case .notStarted, .inProgress:
+            InitializationView(initializer: appInitializer)
+            
+        case .completed:
+            ContentView()
+                .environmentObject(appConfig)
+                .environmentObject(appInitializer)
+                .environmentObject(navidromeVM)
+                .environmentObject(playerVM)
+                .environmentObject(musicLibraryManager)
+                .environmentObject(coverArtManager)
+                .environmentObject(songManager)
+                .environmentObject(exploreManager)
+                .environmentObject(favoritesManager)
+                .environmentObject(downloadManager)
+                .environmentObject(audioSessionManager)
+                .environmentObject(networkMonitor)
+                .environmentObject(offlineManager)
+                .environmentObject(theme)
+                .preferredColorScheme(theme.colorScheme)
+            
+        case .failed(let error):
+            InitializationErrorView(error: error) {
                 Task {
-                    await handleFactoryReset()
+                    try? await appInitializer.initialize()
                 }
             }
         }
     }
-    
+
+    private func handleConfigurationChange(_ isConfigured: Bool) {
+        guard isConfigured else { return }
+        
+        // Skip if this is the initial configuration (already handled in performInitialization)
+        guard hasPerformedInitialConfiguration else {
+            hasPerformedInitialConfiguration = true
+            AppLogger.general.info("[App] Initial configuration detected - skipping (handled by init)")
+            return
+        }
+        
+        // Only trigger if we're transitioning from unconfigured to configured
+        // (not on every scene activation)
+        guard appInitializer.state != .completed else {
+            AppLogger.general.info("[App] Already configured - skipping reinitialization")
+            return
+        }
+        
+        AppLogger.general.info("[App] Configuration changed - reinitializing...")
+        
+        Task { @MainActor in
+            // AppInitializer handles reinitialization automatically via notification
+            // This path should rarely be hit (only on reconfiguration)
+            if appInitializer.state == .completed {
+                configureManagersAndLoadData()
+            }
+        }
+    }
+
     // MARK: - Initialization
     
     private func performInitialization() async {
         do {
             try await appInitializer.initialize()
-            if appInitializer.state == .completed && appInitializer.hasCredentials() {
+            if appInitializer.state == .completed && appInitializer.isConfigured {
+                AppLogger.general.info("[App] Initialization completed - configuring managers")
                 configureManagersAndLoadData()
+            } else {
+                AppLogger.general.info("[App] Initialization completed - no configuration available")
             }
         } catch {
             AppLogger.general.error("[App] Initialization failed: \(error)")
@@ -112,6 +149,13 @@ struct NavidromeClientApp: App {
     }
     
     private func configureManagersAndLoadData() {
+        guard !hasConfiguredManagers else {
+            AppLogger.general.info("[App] Managers already configured - skipping")
+            return
+        }
+        
+        hasConfiguredManagers = true
+        
         appInitializer.configureManagers(
             coverArtManager: coverArtManager,
             songManager: songManager,
@@ -133,7 +177,121 @@ struct NavidromeClientApp: App {
     }
     
     private func configureInitialDependencies() {
+        // Setup audio session
         audioSessionManager.playerViewModel = playerVM
+        audioSessionManager.setupRemoteCommandCenter()
+        
+        // Setup termination handler
+        setupTerminationHandler()
+        
+        AppLogger.general.info("[App] ✅ Initial dependencies configured")
+    }
+    
+    // MARK: - Termination Handler
+    
+    private func setupTerminationHandler() {
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak audioSessionManager] _ in
+            AppLogger.general.info("[App] Will terminate - performing cleanup")
+            audioSessionManager?.handleAppWillTerminate()
+        }
+        
+        signal(SIGTERM) { _ in
+            Task { @MainActor in
+                AudioSessionManager.shared.handleEmergencyShutdown()
+            }
+        }
+    }
+    
+    // MARK: - Scene Phase Handling
+    
+    private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            handleSceneBecameActive()
+        case .inactive:
+            handleSceneWillResignActive()
+        case .background:
+            handleSceneDidEnterBackground()
+        @unknown default:
+            break
+        }
+    }
+    
+    private func handleSceneBecameActive() {
+        guard appInitializer.state == .completed else {
+            AppLogger.general.info("[App] Scene activation ignored - not initialized")
+            return
+        }
+        
+        AppLogger.general.info("[App] Scene became active")
+        
+        Task { @MainActor in
+            await handleAppActivation()
+        }
+    }
+    
+    private func handleSceneWillResignActive() {
+        AppLogger.general.info("[App] Scene will resign active")
+        audioSessionManager.handleAppWillResignActive()
+    }
+    
+    private func handleSceneDidEnterBackground() {
+        AppLogger.general.info("[App] Scene entered background - audio should continue")
+        audioSessionManager.handleAppEnteredBackground()
+        scheduleBackgroundRefresh()
+    }
+    
+    private func handleAppActivation() async {
+        AppLogger.general.info("[App] Starting parallel activation")
+        
+        let startTime = Date()
+        
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                await self.audioSessionManager.handleAppBecameActive()
+            }
+            
+            group.addTask {
+                await self.networkMonitor.recheckConnection()
+            }
+            
+            group.addTask {
+                if await !self.navidromeVM.isDataFresh {
+                    await self.navidromeVM.handleNetworkChange(
+                        isOnline: self.networkMonitor.canLoadOnlineContent
+                    )
+                }
+            }
+        }
+        
+        let duration = Date().timeIntervalSince(startTime)
+        AppLogger.general.info("[App] Activation completed in \(String(format: "%.2f", duration))s")
+    }
+    
+    // MARK: - Background Tasks
+    
+    private func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.navidrome.client.refresh")
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
+        
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            AppLogger.general.info("[App] Background refresh scheduled")
+        } catch {
+            AppLogger.general.error("[App] Failed to schedule background refresh: \(error)")
+        }
+    }
+    
+    private func handleBackgroundRefresh() async {
+        AppLogger.general.info("[App] Background refresh triggered")
+        
+        if networkMonitor.canLoadOnlineContent {
+            await favoritesManager.loadFavoriteSongs()
+        }
     }
     
     // MARK: - Network Handling
@@ -148,98 +306,13 @@ struct NavidromeClientApp: App {
         AppLogger.general.info("[App] Network state changed: \(isConnected ? "Connected" : "Disconnected")")
     }
     
-    private func handleAppBecameActive() {
-        guard appInitializer.state == .completed else {
-            AppLogger.general.info("[App] App activation ignored - not initialized")
-            return
-        }
-        
-        Task { @MainActor in
-            await handleAppActivation()
-        }
-    }
-
-    private func handleAppActivation() async {
-        AppLogger.general.info("[App] App becoming active - starting parallel activation")
-        
-        let startTime = Date()
-        
-        // Run all activation tasks in parallel
-        await withTaskGroup(of: Void.self) { group in
-            // Audio session reactivation
-            group.addTask {
-                await self.audioSessionManager.handleAppBecameActive()
-            }
-            
-            // Network state recheck
-            group.addTask {
-                await self.networkMonitor.recheckConnection()
-            }
-            
-            // Connection health check (only if data is not fresh)
-            group.addTask {
-                if await !self.navidromeVM.isDataFresh {
-                    await self.navidromeVM.handleNetworkChange(
-                        isOnline: self.networkMonitor.canLoadOnlineContent
-                    )
-                }
-            }
-        }
-        
-        let duration = Date().timeIntervalSince(startTime)
-        AppLogger.general.info("[App] App activation completed in \(String(format: "%.2f", duration))s")
-    }
+    // MARK: - Factory Reset
+    
     private func handleFactoryReset() async {
-        appInitializer.reset()
-        AppLogger.general.info("[App] Reset AppInitializer state")
+        await appInitializer.performFactoryReset()
+        AppLogger.general.info("[App] Factory reset completed")
     }
 }
 
-// MARK: - Service Container
-
-@MainActor
-class ServiceContainer: ObservableObject {
-    @Published private(set) var unifiedService: UnifiedSubsonicService?
-    @Published private(set) var isInitialized = false
-    @Published private(set) var initializationError: String?
-    
-    init() {
-        setupFactoryResetObserver()
-    }
-    
-    private func setupFactoryResetObserver() {
-        NotificationCenter.default.addObserver(
-            forName: .factoryResetRequested,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.clearServices()
-                AppLogger.general.info("ServiceContainer: Cleared services on factory reset")
-            }
-        }
-    }
-    
-    func initializeServices(with credentials: ServerCredentials?) {
-        guard let credentials = credentials else {
-            unifiedService = nil
-            isInitialized = false
-            initializationError = "No credentials provided"
-            return
-        }
-        
-        unifiedService = UnifiedSubsonicService(
-            baseURL: credentials.baseURL,
-            username: credentials.username,
-            password: credentials.password
-        )
-        isInitialized = true
-        initializationError = nil
-    }
-    
-    func clearServices() {
-        unifiedService = nil
-        isInitialized = false
-        initializationError = nil
-    }
-}
+// MARK: - Service Container removed
+// All functionality moved to AppInitializer
