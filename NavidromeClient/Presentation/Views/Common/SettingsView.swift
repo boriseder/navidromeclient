@@ -169,7 +169,7 @@ struct SettingsView: View {
             Text("Network Debug")
         } footer: { }
     }
-
+    
     // MARK: - Actions
     private func performFactoryReset() async {
         isPerformingReset = true

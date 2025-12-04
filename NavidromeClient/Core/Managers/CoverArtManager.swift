@@ -454,6 +454,7 @@ class CoverArtManager: ObservableObject {
         )
     }
 
+    /*
     @available(*, deprecated, message: "Use preloadAlbumsControlled instead")
     func preloadWhenIdle(_ albums: [Album], context: ImageContext) {
         Task(priority: .background) {
@@ -466,7 +467,8 @@ class CoverArtManager: ObservableObject {
             )
         }
     }
-
+*/
+    
     func preloadArtistsWhenIdle(_ artists: [Artist], context: ImageContext) {
         Task(priority: .background) {
             await preloadCoverArt(

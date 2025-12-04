@@ -14,7 +14,6 @@ import CryptoKit
 class PersistentImageCache: ObservableObject {
     static let shared = PersistentImageCache()
     
-    // ENTFERNT: private let memoryCache = NSCache<NSString, UIImage>()
     private let fileManager = FileManager.default
     private let cacheDirectory: URL
     private let metadataFile: URL
@@ -38,7 +37,6 @@ class PersistentImageCache: ObservableObject {
         
         createCacheDirectoryIfNeeded()
         loadMetadata()
-        // ENTFERNT: configureMemoryCache()
         
         AppLogger.general.info("PersistentImageCache initialized (disk-only)")
         
@@ -64,7 +62,6 @@ class PersistentImageCache: ObservableObject {
     /// Store image to DISK only
     /// Caller handles memory caching
     func store(_ image: UIImage, for key: String, size: Int, quality: CGFloat = 0.92) {
-        // ENTFERNT: memoryCache.setObject(image, forKey: cacheKey)
         
         Task {
             await saveImageToDisk(image, key: key, quality: quality)
@@ -135,7 +132,6 @@ class PersistentImageCache: ObservableObject {
     // MARK: - PNG Support (Lossless)
     
     func storeLossless(_ image: UIImage, for key: String, size: Int) {
-        // ENTFERNT: memoryCache.setObject(image, forKey: cacheKey)
         
         Task {
             await saveImageToDiskPNG(image, key: key)
@@ -150,8 +146,6 @@ class PersistentImageCache: ObservableObject {
             AppLogger.general.debug("Created cache directory at: \(cacheDirectory.path)")
         }
     }
-    
-    // ENTFERNT: private func configureMemoryCache() { ... }
     
     private func generateFilename(for key: String) -> String {
         let hash = key.sha256()
